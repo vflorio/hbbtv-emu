@@ -9,7 +9,9 @@
     "storage",
     "webNavigation",
     "webRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "http://*/*",

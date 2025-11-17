@@ -16,7 +16,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         background: resolve(__dirname, "src/background.ts"),
-        "content-script": resolve(__dirname, "src/content-script.ts"),
+        inject: resolve(__dirname, "src/inject.ts"),
       },
       output: {
         entryFileNames: "[name].js",
