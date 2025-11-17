@@ -3,6 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "scripts": {
+    "build": "pnpm run build:ui && pnpm run build:app",
+    "build:app": "pnpm --filter @hbb-emu/app build",
+    "build:ui": "pnpm --filter @hbb-emu/ui build",
+    "build:extension": "pnpm --filter @hbb-emu/chrome-extension build",
+    "dev": "pnpm --filter @hbb-emu/app dev",
+    "clean": "pnpm run clean:ui && pnpm run clean:app && pnpm run clean:extension",
+    "clean:app": "pnpm --filter @hbb-emu/app clean",
+    "clean:ui": "pnpm --filter @hbb-emu/ui clean",
+    "clean:extension": "pnpm --filter @hbb-emu/chrome-extension clean"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.3.6"
   }
