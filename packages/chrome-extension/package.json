@@ -1,0 +1,17 @@
+{
+  "name": "@hbb-emu/chrome-extension",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hbb-emu/hbbtv-api": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.29",
+    "typescript": "~5.9.3"
+  }
+}
