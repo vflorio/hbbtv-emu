@@ -1,4 +1,6 @@
-import { hbbtvApi } from "@hbb-emu/hbbtv-api";
+import hbbtvApi from "@hbb-emu/hbbtv-api";
 
-(window as any).hbbtvApi = hbbtvApi;
-console.log("HbbTV APIs injected successfully");
+Object.entries(hbbtvApi).forEach(([key, value]) => {
+  // biome-ignore lint/suspicious/noExplicitAny: augmenting window object
+  (window as any)[key] = value;
+});
