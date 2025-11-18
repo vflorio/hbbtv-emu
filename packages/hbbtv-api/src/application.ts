@@ -1,5 +1,6 @@
 import type { Channel } from "./channels";
 import { createKeyset, type Keyset } from "./keyset";
+import { createOipf } from "./oipf";
 import { log } from "./utils";
 
 export interface Application {
@@ -21,22 +22,24 @@ interface PerformanceMemory {
   usedJSHeapSize: number;
 }
 
-const getFreeMem = (): number => {
-  const perf = performance as Performance & { memory?: PerformanceMemory };
-  if (typeof performance !== "undefined" && perf.memory) {
-    return perf.memory.usedJSHeapSize || 0;
-  }
-  return 0;
-};
-
-const getCurrentChannel = (): Channel => {
-  const currentCcid = window.oipf?.getCurrentTVChannel().ccid || "ccid:dvbt.0";
-  return window.oipf?.channelList.getChannel(currentCcid) || ({} as Channel);
-};
-
 export const createApplication = (doc: Document): Application => {
   const documentRef = doc;
   let visible: boolean | undefined;
+
+  const oipf = createOipf();
+
+  const getFreeMem = (): number => {
+    const perf = performance as Performance & { memory?: PerformanceMemory };
+    if (typeof performance !== "undefined" && perf.memory) {
+      return perf.memory.usedJSHeapSize || 0;
+    }
+    return 0;
+  };
+
+  const getCurrentChannel = (): Channel => {
+    const currentCcid = oipf.getCurrentTVChannel().ccid || "ccid:dvbt.0";
+    return oipf.channelList.getChannel(currentCcid) || ({} as Channel);
+  };
 
   const privateData: ApplicationPrivateData = {
     keyset: createKeyset(),
