@@ -10,11 +10,11 @@ export enum PlayState {
 export interface WithPlayback {
   playState: PlayState;
   onPlayStateChange?: (state: PlayState, error?: number) => void;
+  dispatchPlayStateChange(newState: PlayState, error?: number): void;
 
   isPlayStateValid(validStates: PlayState[]): boolean;
   stop(): void;
   release(): void;
-  dispatchPlayStateChange(newState: PlayState, error?: number): void;
 }
 
 export const WithPlayback = <T extends Constructor>(Base: T) =>

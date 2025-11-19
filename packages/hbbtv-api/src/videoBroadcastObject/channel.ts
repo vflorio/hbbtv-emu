@@ -3,6 +3,7 @@ import { ChannelIdType } from "../channels";
 import { type Constructor, log } from "../utils";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
+import type { WithVideoElement } from "./videoElement";
 
 export enum ChannelChangeError {
   CHANNEL_NOT_SUPPORTED = 0,
@@ -44,12 +45,29 @@ interface WithChannel {
   ): Channel | null;
 }
 
-export const WithChannel = <T extends Constructor<WithPlayback>>(Base: T) =>
+export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElement>>(Base: T) =>
   class extends Base implements WithChannel {
     currentChannel: Channel | null = null;
 
     onChannelChangeSucceeded?: (channel: Channel) => void;
     onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
+
+    getChannelStreamUrl(channel: Channel): string {
+      log(`Getting stream URL for channel: ${channel.name || channel.ccid}`);
+      return "";
+    }
+
+    loadChannelStream(channel: Channel): void {
+      const streamUrl = this.getChannelStreamUrl(channel);
+
+      log(`Loading stream: ${streamUrl}`);
+
+      // Set the video source
+      this.videoElement.src = streamUrl;
+
+      // The video element will trigger events that WithPlayback will handle
+      // This will eventually transition to PRESENTING state when playing
+    }
 
     dispatchChannelError(channel: Channel, errorState: ChannelChangeError): void {
       this.onChannelChangeError?.(channel, errorState);
@@ -61,21 +79,10 @@ export const WithChannel = <T extends Constructor<WithPlayback>>(Base: T) =>
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
     }
 
-    createMockChannel(): Channel {
-      return {
-        idType: ChannelIdType.ID_DVB_T,
-        name: "Current Channel",
-        ccid: "ccid:dvbt.0",
-        onid: 1,
-        tsid: 1,
-        sid: 1,
-      };
-    }
-
     scheduleChannelSuccess(channel: Channel): void {
       setTimeout(() => {
         this.dispatchChannelSuccess(channel);
-        this.dispatchPlayStateChange(PlayState.PRESENTING);
+        // this.dispatchPlayStateChange(PlayState.PRESENTING);
       }, CHANNEL_CHANGE_DELAY);
     }
 
@@ -93,12 +100,16 @@ export const WithChannel = <T extends Constructor<WithPlayback>>(Base: T) =>
         return null;
       }
 
-      const channel = this.createMockChannel();
-      this.currentChannel = channel;
-      this.dispatchPlayStateChange(PlayState.CONNECTING);
-      this.scheduleChannelSuccess(channel);
+      if (!this.currentChannel) {
+        this.dispatchPlayStateChange(PlayState.UNREALIZED);
+        return null;
+      }
 
-      return channel;
+      this.dispatchPlayStateChange(PlayState.CONNECTING);
+
+      this.scheduleChannelSuccess(this.currentChannel);
+
+      return this.currentChannel;
     }
 
     setChannel(
@@ -123,6 +134,10 @@ export const WithChannel = <T extends Constructor<WithPlayback>>(Base: T) =>
 
       this.currentChannel = channel;
       this.dispatchPlayStateChange(PlayState.CONNECTING);
+
+      // Load the channel stream
+      this.loadChannelStream(channel);
+
       this.scheduleChannelSuccess(channel);
     }
 
@@ -181,13 +196,5 @@ export const WithChannel = <T extends Constructor<WithPlayback>>(Base: T) =>
       ];
 
       return { idType, onid, tsid, sid, sourceID, ipBroadcastID };
-    }
-
-    dispatchEvent(_event: Event): boolean {
-      return false;
-    }
-
-    dispatchPlayStateChange(_newState: PlayState, _error?: number): void {
-      // Override point for WithPlayback mixin
     }
   };

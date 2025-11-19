@@ -1,6 +1,6 @@
 import type { Constructor } from "../utils";
 
-interface WithVideoElement {
+export interface WithVideoElement {
   readonly videoElement: HTMLVideoElement;
 
   dispatchEvent(event: Event): boolean;
