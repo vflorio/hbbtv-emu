@@ -3,7 +3,7 @@ import { VideoBroadcastObject } from "./videoBroadcastObject";
 
 export interface OipfObjectFactory {
   isObjectSupported: (mimeType: string) => boolean;
-  createVideoBroadcastObject: () => VideoBroadcastObject;
+  createVideoBroadcastObject: () => InstanceType<typeof VideoBroadcastObject>;
   createVideoMpegObject: () => null;
   onLowMemory: () => void;
 }
