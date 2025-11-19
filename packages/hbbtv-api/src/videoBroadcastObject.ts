@@ -43,11 +43,25 @@ export interface AVComponent {
   language?: string;
 }
 
+export interface StreamEvent extends Event {
+  readonly name: string;
+  readonly data: string;
+  readonly text: string;
+  readonly status: string;
+}
+
+interface StreamEventListener {
+  targetURL: string;
+  eventName: string;
+  listener: EventListener;
+}
+
 interface VideoBroadcastState {
   playState: PlayState;
   currentChannel: Channel | null;
   volume: number;
   fullScreen: boolean;
+  streamEventListeners: StreamEventListener[];
 }
 
 const INITIAL_STATE: Readonly<VideoBroadcastState> = {
@@ -55,6 +69,7 @@ const INITIAL_STATE: Readonly<VideoBroadcastState> = {
   currentChannel: null,
   volume: 100,
   fullScreen: false,
+  streamEventListeners: [],
 } as const;
 
 const CHANNEL_CHANGE_DELAY = 500;
@@ -166,6 +181,10 @@ export class VideoBroadcastObject {
 
     log(`VideoBroadcast state: ${oldState} -> ${newState}`);
 
+    if (newState === PlayState.UNREALIZED) {
+      this.unregisterAllStreamEventListeners();
+    }
+
     this.onPlayStateChange?.(newState, error);
     this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
   }
@@ -213,6 +232,23 @@ export class VideoBroadcastObject {
     }
   }
 
+  private unregisterAllStreamEventListeners(): void {
+    this.state.streamEventListeners = [];
+  }
+
+  private createStreamEvent(name: string, data: string, text: string, status: string): StreamEvent {
+    const event = new CustomEvent("StreamEvent", {
+      detail: { name, data, text, status },
+    });
+
+    Object.defineProperty(event, "name", { value: name, enumerable: true });
+    Object.defineProperty(event, "data", { value: data, enumerable: true });
+    Object.defineProperty(event, "text", { value: text, enumerable: true });
+    Object.defineProperty(event, "status", { value: status, enumerable: true });
+
+    return event as unknown as StreamEvent;
+  }
+
   // Public API methods
   bindToCurrentChannel(): Channel | null {
     log("bindToCurrentChannel");
@@ -236,6 +272,9 @@ export class VideoBroadcastObject {
     _quiet?: number,
   ): void {
     log(`setChannel: ${channel?.name || "null"}`);
+
+    // Unregister stream event listeners on channel change as per HbbTV spec
+    this.unregisterAllStreamEventListeners();
 
     if (channel === null) {
       this.state.currentChannel = null;
@@ -382,5 +421,41 @@ export class VideoBroadcastObject {
     log(`unselectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
 
     this.dispatchComponentChange(componentType);
+  }
+
+  addStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void {
+    log(`addStreamEventListener(${targetURL}, ${eventName})`);
+
+    // Listeners can only be added in Presenting or Stopped states
+    if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
+      log("addStreamEventListener: ignored - invalid state");
+      return;
+    }
+
+    // Check if listener already exists
+    const exists = this.state.streamEventListeners.some(
+      (l) => l.targetURL === targetURL && l.eventName === eventName && l.listener === listener,
+    );
+
+    if (!exists) {
+      this.state.streamEventListeners = [...this.state.streamEventListeners, { targetURL, eventName, listener }];
+    }
+
+    // Simulate error case: event not found
+    setTimeout(() => {
+      const errorEvent = this.createStreamEvent(eventName, "", "", "error");
+      listener(errorEvent);
+
+      // Auto-unregister on error as per spec
+      this.removeStreamEventListener(targetURL, eventName, listener);
+    }, 1000);
+  }
+
+  removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void {
+    log(`removeStreamEventListener(${targetURL}, ${eventName})`);
+
+    this.state.streamEventListeners = this.state.streamEventListeners.filter(
+      (l) => !(l.targetURL === targetURL && l.eventName === eventName && l.listener === listener),
+    );
   }
 }
