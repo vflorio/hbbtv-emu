@@ -1,51 +1,52 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: ack */
-import type { VideoBroadcastObject } from "@hbb-emu/hbbtv-api";
+import { VideoBroadcastObject } from "@hbb-emu/hbbtv-api";
 
-export const createVideoBroadcastProxy = (objectElement: HTMLObjectElement): VideoBroadcastObject => {
-  const videoElement = document.createElement("video", { is: "video-broadcast" }) as VideoBroadcastObject;
+export const createVideoBroadcastProxy = (objectElement: HTMLObjectElement) => {
+  if (!objectElement.parentNode) return;
 
-  objectElement.parentNode?.insertBefore(videoElement, objectElement.nextSibling);
-  syncStyles(objectElement, videoElement);
-  objectElement.style.display = "none";
+  const videoBroadcastObject = new VideoBroadcastObject();
+  objectElement.parentNode.insertBefore(videoBroadcastObject.videoElement, objectElement.nextSibling);
 
-  proxyProperties(objectElement, videoElement);
-  return videoElement;
+  createStyleSynchronizer(objectElement, videoBroadcastObject.videoElement);
+  proxyProperties(objectElement, videoBroadcastObject);
 };
 
-const proxyProperties = (objectElement: HTMLObjectElement, videoElement: VideoBroadcastObject) => {
+const proxyProperties = (objectElement: HTMLObjectElement, videoBroadcastObject: VideoBroadcastObject) => {
   const propertyNames = new Set<string>([
-    ...Object.keys(videoElement),
-    ...Object.getOwnPropertyNames(Object.getPrototypeOf(videoElement)),
+    ...Object.keys(videoBroadcastObject),
+    ...Object.getOwnPropertyNames(Object.getPrototypeOf(videoBroadcastObject)),
   ]);
 
-  for (const key of propertyNames) {
-    if (key === "constructor" || key in objectElement) continue;
+  const proxyProperty = (key: string) => {
+    if (key === "constructor" || key in objectElement) return;
 
     const descriptor =
-      Object.getOwnPropertyDescriptor(videoElement, key) ||
-      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(videoElement), key);
+      Object.getOwnPropertyDescriptor(videoBroadcastObject, key) ||
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(videoBroadcastObject), key);
 
-    if (!descriptor) continue;
+    if (!descriptor) return;
 
     if (typeof descriptor.value === "function") {
       Object.defineProperty(objectElement, key, {
-        value: (...args: unknown[]) => (videoElement as any)[key](...args),
+        value: (...args: unknown[]) => (videoBroadcastObject as any)[key](...args),
         writable: true,
         configurable: true,
       });
     } else {
       Object.defineProperty(objectElement, key, {
-        get: () => (videoElement as any)[key],
+        get: () => (videoBroadcastObject as any)[key],
         set: (value: unknown) => {
-          (videoElement as any)[key] = value;
+          (videoBroadcastObject as any)[key] = value;
         },
         configurable: true,
       });
     }
-  }
+  };
+
+  propertyNames.forEach(proxyProperty);
 };
 
-const syncStyles = (source: HTMLElement, target: HTMLElement) => {
+const createStyleSynchronizer = (source: HTMLElement, target: HTMLElement) => {
   const copyStyle = () => {
     const styleAttr = source.getAttribute("style");
     if (styleAttr) target.setAttribute("style", styleAttr);

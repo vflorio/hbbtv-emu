@@ -59,7 +59,7 @@ const INITIAL_STATE: Readonly<VideoBroadcastState> = {
 
 const CHANNEL_CHANGE_DELAY = 500;
 
-export class VideoBroadcastObject extends HTMLVideoElement {
+export class VideoBroadcastObject {
   // Component type constants
   readonly COMPONENT_TYPE_VIDEO = ComponentType.VIDEO;
   readonly COMPONENT_TYPE_AUDIO = ComponentType.AUDIO;
@@ -67,7 +67,7 @@ export class VideoBroadcastObject extends HTMLVideoElement {
 
   // Internal state
   private state: VideoBroadcastState = { ...INITIAL_STATE };
-  private readonly videoElement: HTMLVideoElement;
+  readonly videoElement: HTMLVideoElement;
 
   // Event handlers (VideoBroadcastObject interface)
   onPlayStateChange?: (state: PlayState, error?: number) => void;
@@ -92,25 +92,9 @@ export class VideoBroadcastObject extends HTMLVideoElement {
   ) => void;
 
   constructor() {
-    super();
-
     log("createVideoBroadcastObject");
 
     this.videoElement = document.createElement("video");
-    (this.videoElement as unknown as { type: string }).type = "video/broadcast";
-
-    // Setup focus/blur event handlers with logging
-    const originalOnFocus = this.videoElement.onfocus;
-    this.videoElement.onfocus = (evt: FocusEvent) => {
-      log("VideoBroadcast.onfocus");
-      originalOnFocus?.call(this.videoElement, evt);
-    };
-
-    const originalOnBlur = this.videoElement.onblur;
-    this.videoElement.onblur = (evt: FocusEvent) => {
-      log("VideoBroadcast.onblur");
-      originalOnBlur?.call(this.videoElement, evt);
-    };
   }
 
   // Getters
@@ -400,5 +384,3 @@ export class VideoBroadcastObject extends HTMLVideoElement {
     this.dispatchComponentChange(componentType);
   }
 }
-
-export const createVideoBroadcastObject = () => new VideoBroadcastObject();

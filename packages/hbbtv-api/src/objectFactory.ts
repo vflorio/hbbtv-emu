@@ -1,6 +1,5 @@
 import { log } from "./utils";
-import type { VideoBroadcastObject } from "./videoBroadcastObject";
-import { createVideoBroadcastObject } from "./videoBroadcastObject";
+import { VideoBroadcastObject } from "./videoBroadcastObject";
 
 export interface OipfObjectFactory {
   isObjectSupported: (mimeType: string) => boolean;
@@ -26,7 +25,7 @@ export const createObjectFactory = (): OipfObjectFactory => ({
     return SUPPORTED_MIME_TYPES.has(mimeType);
   },
 
-  createVideoBroadcastObject,
+  createVideoBroadcastObject: () => new VideoBroadcastObject(),
 
   createVideoMpegObject: () => {
     log("createVideoMpegObject");

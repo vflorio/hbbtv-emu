@@ -4,5 +4,4 @@ export { createOipfConfiguration, type OipfConfiguration } from "./configuration
 export { createObjectFactory, type OipfObjectFactory } from "./objectFactory";
 export { createOipf, type Oipf } from "./oipf";
 
-export { createVideoBroadcastObject, VideoBroadcastObject } from "./videoBroadcastObject";
-
+export { VideoBroadcastObject } from "./videoBroadcastObject";
