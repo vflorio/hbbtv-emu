@@ -1,4 +1,4 @@
-import { log } from "./utils";
+import { logger } from "./utils";
 import { VideoBroadcastObject } from "./videoBroadcastObject";
 
 export interface OipfObjectFactory {
@@ -18,6 +18,8 @@ const SUPPORTED_MIME_TYPES = new Set([
   "application/oipfParentalControlManager",
   "application/oipfSearchManager",
 ]);
+
+const log = logger("OipfObjectFactory");
 
 export const createObjectFactory = (): OipfObjectFactory => ({
   isObjectSupported: (mimeType: string) => {

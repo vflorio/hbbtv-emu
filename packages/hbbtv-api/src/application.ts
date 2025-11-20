@@ -1,7 +1,7 @@
 import type { Channel } from "./channels";
 import { createKeyset, type Keyset } from "./keyset";
 import { createOipf } from "./oipf";
-import { log } from "./utils";
+import { logger } from "./utils";
 
 export interface Application {
   visible: boolean | undefined;
@@ -21,6 +21,8 @@ export interface ApplicationPrivateData {
 interface PerformanceMemory {
   usedJSHeapSize: number;
 }
+
+const log = logger("Application");
 
 export const createApplication = (doc: Document): Application => {
   const documentRef = doc;
@@ -44,7 +46,7 @@ export const createApplication = (doc: Document): Application => {
   const privateData: ApplicationPrivateData = {
     keyset: createKeyset(),
     get currentChannel() {
-      log("Application.currentChannel");
+      log("currentChannel");
       return getCurrentChannel();
     },
     getFreeMem,
@@ -58,7 +60,7 @@ export const createApplication = (doc: Document): Application => {
     privateData,
 
     show() {
-      log("Application.show");
+      log("show");
       if (documentRef?.body) {
         documentRef.body.style.visibility = "visible";
         visible = true;
@@ -68,7 +70,7 @@ export const createApplication = (doc: Document): Application => {
     },
 
     hide() {
-      log("Application.hide");
+      log("hide");
       if (documentRef?.body) {
         documentRef.body.style.visibility = "hidden";
         visible = false;
@@ -78,11 +80,11 @@ export const createApplication = (doc: Document): Application => {
     },
 
     createApplication(_uri: string, _createChild?: boolean) {
-      log("Application.createApplication");
+      log("createApplication");
     },
 
     destroyApplication() {
-      log("Application.destroyApplication");
+      log("destroyApplication");
     },
   };
 };

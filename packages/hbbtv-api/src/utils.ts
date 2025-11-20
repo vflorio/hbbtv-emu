@@ -1,6 +1,6 @@
 // Utilities
-export const log = (message: string): void => {
-  console.timeStamp(message);
+export const logger = (section: string) => (message: string): void => {
+  console.log(`[hbbtv-emu] ${section}: ${message}`);
 };
 
 export interface Collection<T> {
@@ -16,7 +16,6 @@ export const createEmptyCollection = <T>(): Collection<T> => ({
 
 // https://www.typescriptlang.org/docs/handbook/mixins.html
 
-// biome-ignore lint/suspicious/noExplicitAny: <any is required>
 export type Constructor<T = object> = new (...args: any[]) => T;
 
 // TODO: trovare un modo migliore per il type inference

@@ -8,6 +8,8 @@ interface WithDisplay {
   setFullScreen(fullScreen: boolean): void;
 }
 
+const log = logger("Display");
+
 export const WithDisplay = <T extends Constructor>(Base: T) =>
   class extends Base implements WithDisplay {
     width = 0;
@@ -17,7 +19,7 @@ export const WithDisplay = <T extends Constructor>(Base: T) =>
     onFullScreenChange?: () => void;
 
     setFullScreen(fullScreen: boolean): void {
-      logger(`setFullScreen(${fullScreen})`);
+      log(`setFullScreen(${fullScreen})`);
 
       const changed = this.fullScreen !== fullScreen;
       this.fullScreen = fullScreen;

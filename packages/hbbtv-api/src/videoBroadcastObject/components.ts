@@ -1,4 +1,4 @@
-import { type Collection, type Constructor, createEmptyCollection, log } from "../utils";
+import { type Collection, type Constructor, createEmptyCollection, logger } from "../utils";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
 
@@ -32,6 +32,8 @@ interface WithComponents {
   selectComponent(component: AVComponent | ComponentType): void;
   unselectComponent(component: AVComponent | ComponentType): void;
 }
+
+const log = logger("Components");
 
 export const WithComponents = <T extends Constructor<WithPlayback>>(Base: T) =>
   class extends Base implements WithComponents {

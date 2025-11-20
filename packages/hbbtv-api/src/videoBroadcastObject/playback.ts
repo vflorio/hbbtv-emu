@@ -1,4 +1,5 @@
-import { type Constructor, log } from "../utils";
+import { type Constructor, logger } from "../utils";
+import type { WithVideoElement } from "./videoElement";
 
 export enum PlayState {
   UNREALIZED = 0,
@@ -17,7 +18,9 @@ export interface WithPlayback {
   release(): void;
 }
 
-export const WithPlayback = <T extends Constructor>(Base: T) =>
+const log = logger("Playback");
+
+export const WithPlayback = <T extends Constructor<WithVideoElement>>(Base: T) =>
   class extends Base implements WithPlayback {
     playState: PlayState = PlayState.UNREALIZED;
     onPlayStateChange?: (state: PlayState, error?: number) => void;
@@ -36,17 +39,18 @@ export const WithPlayback = <T extends Constructor>(Base: T) =>
       this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
     }
 
-    stop(): void {
+    stop() {
       log("stop");
-
-      if (this.playState !== PlayState.UNREALIZED) {
-        this.dispatchPlayStateChange(PlayState.STOPPED);
+      if (this.playState === PlayState.UNREALIZED) {
+        return;
       }
+
+      this.videoChannel.stop();
     }
 
     release(): void {
       log("release");
-      this.dispatchPlayStateChange(PlayState.UNREALIZED);
+      this.videoChannel.release();
     }
 
     dispatchEvent(_event: Event): boolean {

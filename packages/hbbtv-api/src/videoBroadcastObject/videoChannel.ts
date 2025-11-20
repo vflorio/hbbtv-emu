@@ -58,7 +58,7 @@ export class VideoChannel {
   };
 
   getChannelStreamUrl = (channel: Channel): string => {
-    logger(`VideoBackend: Getting stream URL for channel: ${channel.name || channel.ccid}`);
+    log(`VideoBackend: Getting stream URL for channel: ${channel.name || channel.ccid}`);
 
     // TODO: integra la Triplet del pannello di controllo per determinare l'URL del flusso
 
@@ -69,7 +69,7 @@ export class VideoChannel {
     this.currentChannel = channel;
     const streamUrl = this.getChannelStreamUrl(channel);
 
-    logger(`VideoBackend: Loading channel stream: ${streamUrl}`);
+    log(`VideoBackend: Loading channel stream: ${streamUrl}`);
 
     if (!streamUrl) {
       log("No stream URL available");

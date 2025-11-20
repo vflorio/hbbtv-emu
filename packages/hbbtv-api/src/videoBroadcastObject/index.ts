@@ -31,3 +31,5 @@ export { type AVComponent, ComponentType } from "./components";
 // Re-export types and enums for convenience
 export { PlayState } from "./playback";
 export type { StreamEvent, StreamEventDetail, StreamEventListener } from "./streamEvents";
+export type { VideoChannelBackendCallbacks as VideoBackendCallbacks } from "./videoChannel";
+export { VideoChannelBackend as VideoBackend } from "./videoChannel";

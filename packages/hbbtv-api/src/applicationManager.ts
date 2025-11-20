@@ -1,6 +1,6 @@
 import type { Application } from "./application";
 import { createApplication } from "./application";
-import { log } from "./utils";
+import { logger } from "./utils";
 
 export interface OipfApplicationManager {
   onLowMemory: () => void;
@@ -10,13 +10,15 @@ export interface OipfApplicationManager {
 // Store application instances per document
 const applicationCache = new WeakMap<Document, Application>();
 
+const log = logger("OipfApplicationManager");
+
 export const createApplicationManager = (): OipfApplicationManager => ({
   onLowMemory: () => {
-    log("oipfApplicationManager.onLowMemory");
+    log("onLowMemory");
   },
 
   getOwnerApplication: (document: Document) => {
-    log("oipfApplicationManager.getOwnerApplication");
+    log("getOwnerApplication");
 
     let app = applicationCache.get(document);
     if (!app) {

@@ -1,6 +1,6 @@
 import type { Channel, ChannelConfig } from "../channels";
 import { ChannelIdType } from "../channels";
-import { type Constructor, log } from "../utils";
+import { type Constructor, logger } from "../utils";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
 import type { WithVideoElement } from "./videoElement";
@@ -21,8 +21,6 @@ export enum ChannelChangeError {
   CHANNEL_NOT_IN_TS = 12,
   UNIDENTIFIED_ERROR = 100,
 }
-
-const CHANNEL_CHANGE_DELAY = 500;
 
 interface WithChannel {
   currentChannel: Channel | null;
@@ -45,6 +43,8 @@ interface WithChannel {
   ): Channel | null;
 }
 
+const log = logger("Channel");
+
 export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElement>>(Base: T) =>
   class extends Base implements WithChannel {
     currentChannel: Channel | null = null;
@@ -52,21 +52,20 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
     onChannelChangeSucceeded?: (channel: Channel) => void;
     onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
 
-    getChannelStreamUrl(channel: Channel): string {
-      log(`Getting stream URL for channel: ${channel.name || channel.ccid}`);
-      return "";
-    }
+    constructor(...args: any[]) {
+      super(...args);
 
-    loadChannelStream(channel: Channel): void {
-      const streamUrl = this.getChannelStreamUrl(channel);
-
-      log(`Loading stream: ${streamUrl}`);
-
-      // Set the video source
-      this.videoElement.src = streamUrl;
-
-      // The video element will trigger events that WithPlayback will handle
-      // This will eventually transition to PRESENTING state when playing
+      this.videoChannel.setCallbacks({
+        onPlayStateChange: (state) => {
+          this.dispatchPlayStateChange(state);
+        },
+        onChannelLoadSuccess: (channel) => {
+          this.dispatchChannelSuccess(channel);
+        },
+        onChannelLoadError: (channel, error) => {
+          this.handleChannelError(channel, error);
+        },
+      });
     }
 
     dispatchChannelError(channel: Channel, errorState: ChannelChangeError): void {
@@ -79,18 +78,8 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
     }
 
-    scheduleChannelSuccess(channel: Channel): void {
-      setTimeout(() => {
-        this.dispatchChannelSuccess(channel);
-        // this.dispatchPlayStateChange(PlayState.PRESENTING);
-      }, CHANNEL_CHANGE_DELAY);
-    }
-
     handleChannelError(channel: Channel, errorState: ChannelChangeError): void {
       this.dispatchChannelError(channel, errorState);
-      if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.CONNECTING])) {
-        this.dispatchPlayStateChange(PlayState.UNREALIZED);
-      }
     }
 
     bindToCurrentChannel(): Channel | null {
@@ -101,13 +90,10 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       }
 
       if (!this.currentChannel) {
-        this.dispatchPlayStateChange(PlayState.UNREALIZED);
         return null;
       }
 
-      this.dispatchPlayStateChange(PlayState.CONNECTING);
-
-      this.scheduleChannelSuccess(this.currentChannel);
+      this.videoChannel.loadChannel(this.currentChannel);
 
       return this.currentChannel;
     }
@@ -122,8 +108,7 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
 
       if (channel === null) {
         this.currentChannel = null;
-        this.dispatchPlayStateChange(PlayState.UNREALIZED);
-        this.dispatchChannelSuccess(channel as unknown as Channel);
+        this.videoChannel.release();
         return;
       }
 
@@ -133,12 +118,8 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       }
 
       this.currentChannel = channel;
-      this.dispatchPlayStateChange(PlayState.CONNECTING);
 
-      // Load the channel stream
-      this.loadChannelStream(channel);
-
-      this.scheduleChannelSuccess(channel);
+      this.videoChannel.loadChannel(channel);
     }
 
     nextChannel(): void {
