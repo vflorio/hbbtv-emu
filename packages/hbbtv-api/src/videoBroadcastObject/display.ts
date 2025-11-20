@@ -1,4 +1,5 @@
 import { type Constructor, logger } from "../utils";
+import type { WithEventTarget } from "./eventTarget";
 
 interface WithDisplay {
   width: number;
@@ -10,7 +11,7 @@ interface WithDisplay {
 
 const log = logger("Display");
 
-export const WithDisplay = <T extends Constructor>(Base: T) =>
+export const WithDisplay = <T extends Constructor<WithEventTarget>>(Base: T) =>
   class extends Base implements WithDisplay {
     width = 0;
     height = 0;
@@ -28,9 +29,5 @@ export const WithDisplay = <T extends Constructor>(Base: T) =>
         this.onFullScreenChange?.();
         this.dispatchEvent(new CustomEvent("FullScreenChange", { detail: { fullScreen } }));
       }
-    };
-
-    dispatchEvent = (_event: Event): boolean => {
-      return false;
     };
   };

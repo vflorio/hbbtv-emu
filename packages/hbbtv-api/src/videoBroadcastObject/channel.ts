@@ -1,6 +1,7 @@
 import type { Channel, ChannelConfig } from "../channels";
 import { ChannelIdType } from "../channels";
 import { type Constructor, logger } from "../utils";
+import type { WithEventTarget } from "./eventTarget";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
 import type { WithVideoElement } from "./videoElement";
@@ -45,7 +46,7 @@ interface WithChannel {
 
 const log = logger("Channel");
 
-export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElement>>(Base: T) =>
+export const WithChannel = <T extends Constructor<WithVideoElement & WithEventTarget & WithPlayback>>(Base: T) =>
   class extends Base implements WithChannel {
     currentChannel: Channel | null = null;
 
@@ -56,9 +57,6 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       super(...args);
 
       this.videoChannel.setCallbacks({
-        onPlayStateChange: (state) => {
-          this.dispatchPlayStateChange(state);
-        },
         onChannelLoadSuccess: (channel) => {
           this.dispatchChannelSuccess(channel);
         },
