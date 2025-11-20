@@ -1,7 +1,9 @@
 import type { Constructor } from "../utils";
+import { VideoChannel } from "./videoChannel";
 
 export interface WithVideoElement {
   readonly videoElement: HTMLVideoElement;
+  readonly videoChannel: VideoChannel;
 
   dispatchEvent(event: Event): boolean;
   addEventListener(
@@ -19,11 +21,12 @@ export interface WithVideoElement {
 export const WithVideoElement = <T extends Constructor>(Base: T) =>
   class extends Base implements WithVideoElement {
     readonly videoElement: HTMLVideoElement;
+    readonly videoChannel: VideoChannel;
 
-    // biome-ignore lint/suspicious/noExplicitAny: required for mixin pattern
     constructor(...args: any[]) {
       super(...args);
       this.videoElement = document.createElement("video");
+      this.videoChannel = new VideoChannel(this.videoElement);
     }
 
     dispatchEvent(event: Event): boolean {

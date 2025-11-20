@@ -1,7 +1,8 @@
-import { type Constructor, log } from "../utils";
-
+import { type Constructor, logger } from "../utils";
 
 interface WithDisplay {
+  width: number;
+  height: number;
   fullScreen: boolean;
   onFullScreenChange?: () => void;
   setFullScreen(fullScreen: boolean): void;
@@ -9,12 +10,14 @@ interface WithDisplay {
 
 export const WithDisplay = <T extends Constructor>(Base: T) =>
   class extends Base implements WithDisplay {
+    width = 0;
+    height = 0;
     fullScreen = false;
 
     onFullScreenChange?: () => void;
 
     setFullScreen(fullScreen: boolean): void {
-      log(`setFullScreen(${fullScreen})`);
+      logger(`setFullScreen(${fullScreen})`);
 
       const changed = this.fullScreen !== fullScreen;
       this.fullScreen = fullScreen;
