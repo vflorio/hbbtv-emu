@@ -1,4 +1,4 @@
-import type { Constructor } from "../utils";
+import type { ClassType } from "../utils";
 import type { WithVideoElement } from "./videoElement";
 
 export interface EventDispatcher {
@@ -19,7 +19,7 @@ export interface WithEventTarget extends EventDispatcher {
   readonly eventTarget: EventDispatcher;
 }
 
-export const WithEventTarget = <T extends Constructor<WithVideoElement>>(Base: T) =>
+export const WithEventTarget = <T extends ClassType<WithVideoElement>>(Base: T) =>
   class extends Base implements WithEventTarget {
     get eventTarget(): EventDispatcher {
       return this.videoElement;

@@ -1,4 +1,4 @@
-import { type Constructor, logger } from "../utils";
+import { type ClassType, logger } from "../utils";
 
 interface WithAudio {
   setVolume(volume: number): boolean;
@@ -7,7 +7,7 @@ interface WithAudio {
 
 const log = logger("Audio");
 
-export const WithAudio = <T extends Constructor>(Base: T) =>
+export const WithAudio = <T extends ClassType>(Base: T) =>
   class extends Base implements WithAudio {
     volume = 100;
 

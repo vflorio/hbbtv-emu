@@ -1,6 +1,6 @@
 import type { Channel, ChannelConfig } from "../channels";
 import { ChannelIdType } from "../channels";
-import { type Constructor, logger } from "../utils";
+import { type ClassType, logger } from "../utils";
 import type { WithEventTarget } from "./eventTarget";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
@@ -46,7 +46,7 @@ interface WithChannel {
 
 const log = logger("Channel");
 
-export const WithChannel = <T extends Constructor<WithVideoElement & WithEventTarget & WithPlayback>>(Base: T) =>
+export const WithChannel = <T extends ClassType<WithVideoElement & WithEventTarget & WithPlayback>>(Base: T) =>
   class extends Base implements WithChannel {
     currentChannel: Channel | null = null;
 

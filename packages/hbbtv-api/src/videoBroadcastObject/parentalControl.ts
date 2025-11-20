@@ -1,4 +1,4 @@
-import type { Constructor } from "../utils";
+import type { ClassType } from "../utils";
 
 interface WithParentalControl {
   onParentalRatingChange?: (
@@ -16,7 +16,7 @@ interface WithParentalControl {
   ) => void;
 }
 
-export const WithParentalControl = <T extends Constructor>(Base: T) =>
+export const WithParentalControl = <T extends ClassType>(Base: T) =>
   class extends Base implements WithParentalControl {
     onParentalRatingChange?: (
       contentID: string | null,

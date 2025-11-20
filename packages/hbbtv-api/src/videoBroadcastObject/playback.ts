@@ -1,4 +1,4 @@
-import { type Constructor, logger } from "../utils";
+import { type ClassType, logger } from "../utils";
 import type { WithEventTarget } from "./eventTarget";
 import type { WithVideoElement } from "./videoElement";
 
@@ -21,7 +21,7 @@ export interface WithPlayback {
 
 const log = logger("Playback");
 
-export const WithPlayback = <T extends Constructor<WithVideoElement & WithEventTarget>>(Base: T) =>
+export const WithPlayback = <T extends ClassType<WithVideoElement & WithEventTarget>>(Base: T) =>
   class extends Base implements WithPlayback {
     playState: PlayState = PlayState.UNREALIZED;
 

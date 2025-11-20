@@ -1,4 +1,4 @@
-import { type Constructor, logger } from "../utils";
+import { type ClassType, logger } from "../utils";
 import type { WithEventTarget } from "./eventTarget";
 
 interface WithDisplay {
@@ -11,7 +11,7 @@ interface WithDisplay {
 
 const log = logger("Display");
 
-export const WithDisplay = <T extends Constructor<WithEventTarget>>(Base: T) =>
+export const WithDisplay = <T extends ClassType<WithEventTarget>>(Base: T) =>
   class extends Base implements WithDisplay {
     width = 0;
     height = 0;

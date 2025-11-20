@@ -1,4 +1,4 @@
-import { logger, type Constructor } from "../utils";
+import { logger, type ClassType } from "../utils";
 import type { WithEventTarget } from "./eventTarget";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
@@ -12,14 +12,14 @@ export interface StreamEventDetail {
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}
 
-interface WithStreamEvents {
+export interface WithStreamEvents {
   addStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
   removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
 }
 
 const log = logger("StreamEvents");
 
-export const WithStreamEvents = <T extends Constructor<WithPlayback & WithEventTarget>>(Base: T) =>
+export const WithStreamEvents = <T extends ClassType<WithPlayback & WithEventTarget>>(Base: T) =>
   class extends Base implements WithStreamEvents {
     // Map to track targetURL+eventName combinations
     // Stores metadata about registered stream event listeners
