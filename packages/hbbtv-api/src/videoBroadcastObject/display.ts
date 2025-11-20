@@ -28,9 +28,9 @@ export const WithDisplay = <T extends Constructor>(Base: T) =>
         this.onFullScreenChange?.();
         this.dispatchEvent(new CustomEvent("FullScreenChange", { detail: { fullScreen } }));
       }
-    }
+    };
 
     dispatchEvent = (_event: Event): boolean => {
       return false;
-    }
+    };
   };

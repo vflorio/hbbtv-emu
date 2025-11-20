@@ -21,10 +21,10 @@ export const WithAudio = <T extends Constructor>(Base: T) =>
       const changed = this.volume !== volume;
       this.volume = volume;
       return changed;
-    }
+    };
 
     getVolume = (): number => {
       log("getVolume");
       return this.volume;
-    }
+    };
   };

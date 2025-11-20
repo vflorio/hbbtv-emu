@@ -14,7 +14,7 @@ export class WebRequestManager {
         urls: ["http://*/*", "https://*/*"],
         types: ["main_frame"],
       },
-      ["responseHeaders"]
+      ["responseHeaders"],
     );
 
     chrome.tabs.onRemoved.addListener((tabId) => {
@@ -24,10 +24,9 @@ export class WebRequestManager {
 }
 
 const onHeadersReceivedListener =
-  (onReceived: (tabId: number) => void) =>
-  (details: chrome.webRequest.OnHeadersReceivedDetails) => {
+  (onReceived: (tabId: number) => void) => (details: chrome.webRequest.OnHeadersReceivedDetails) => {
     const contentTypeHeader = (details.responseHeaders || []).find(
-      (header) => header.name.toLowerCase() === "content-type"
+      (header) => header.name.toLowerCase() === "content-type",
     );
 
     if (!contentTypeHeader) return;

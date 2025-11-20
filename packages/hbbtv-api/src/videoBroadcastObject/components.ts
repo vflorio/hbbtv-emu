@@ -64,7 +64,7 @@ export const WithComponents = <T extends Constructor<WithPlayback>>(Base: T) =>
       log(`selectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
 
       this.dispatchComponentChange(componentType);
-    }
+    };
 
     unselectComponent = (component: AVComponent | ComponentType): void => {
       const componentType = typeof component === "number" ? component : component.type;
@@ -72,5 +72,5 @@ export const WithComponents = <T extends Constructor<WithPlayback>>(Base: T) =>
       log(`unselectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
 
       this.dispatchComponentChange(componentType);
-    }
+    };
   };

@@ -31,7 +31,7 @@ export const WithVideoElement = <T extends Constructor>(Base: T) =>
 
     dispatchEvent = (event: Event): boolean => {
       return this.videoElement.dispatchEvent(event);
-    }
+    };
 
     addEventListener(
       type: string,

@@ -23,11 +23,12 @@ const log = logger("Playback");
 export const WithPlayback = <T extends Constructor<WithVideoElement>>(Base: T) =>
   class extends Base implements WithPlayback {
     playState: PlayState = PlayState.UNREALIZED;
+
     onPlayStateChange?: (state: PlayState, error?: number) => void;
 
     isPlayStateValid = (validStates: PlayState[]): boolean => {
       return validStates.includes(this.playState);
-    }
+    };
 
     dispatchPlayStateChange = (newState: PlayState, error?: number): void => {
       const oldState = this.playState;
@@ -37,7 +38,7 @@ export const WithPlayback = <T extends Constructor<WithVideoElement>>(Base: T) =
 
       this.onPlayStateChange?.(newState, error);
       this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
-    }
+    };
 
     stop() {
       log("stop");
@@ -51,9 +52,9 @@ export const WithPlayback = <T extends Constructor<WithVideoElement>>(Base: T) =
     release = (): void => {
       log("release");
       this.videoChannel.release();
-    }
+    };
 
     dispatchEvent = (_event: Event): boolean => {
       return false;
-    }
+    };
   };

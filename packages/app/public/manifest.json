@@ -13,10 +13,7 @@
     "scripting",
     "tabs"
   ],
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
+  "host_permissions": ["http://*/*", "https://*/*"],
   "action": {
     "default_title": "Open HbbTV Emulator"
   },
