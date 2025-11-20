@@ -65,7 +65,7 @@ export class VideoChannel {
     return "";
   };
 
-  loadChannel = (channel: Channel): void => {
+  loadChannel = (channel: Channel) => {
     this.currentChannel = channel;
     const streamUrl = this.getChannelStreamUrl(channel);
 

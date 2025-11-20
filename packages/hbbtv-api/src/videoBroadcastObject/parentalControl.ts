@@ -1,6 +1,6 @@
 import type { ClassType } from "../utils";
 
-interface WithParentalControl {
+export interface ParentalControl {
   onParentalRatingChange?: (
     contentID: string | null,
     ratings: unknown,
@@ -17,7 +17,7 @@ interface WithParentalControl {
 }
 
 export const WithParentalControl = <T extends ClassType>(Base: T) =>
-  class extends Base implements WithParentalControl {
+  class extends Base implements ParentalControl {
     onParentalRatingChange?: (
       contentID: string | null,
       ratings: unknown,

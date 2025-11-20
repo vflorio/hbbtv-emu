@@ -1,6 +1,6 @@
 import { logger, type ClassType } from "../utils";
-import type { WithEventTarget } from "./eventTarget";
-import type { WithPlayback } from "./playback";
+import type { EventTarget } from "./eventTarget";
+import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 
 export interface StreamEventDetail {
@@ -12,15 +12,15 @@ export interface StreamEventDetail {
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}
 
-export interface WithStreamEvents {
+export interface StreamEvents {
   addStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
   removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
 }
 
 const log = logger("StreamEvents");
 
-export const WithStreamEvents = <T extends ClassType<WithPlayback & WithEventTarget>>(Base: T) =>
-  class extends Base implements WithStreamEvents {
+export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Base: T) =>
+  class extends Base implements StreamEvents {
     // Map to track targetURL+eventName combinations
     // Stores metadata about registered stream event listeners
     streamEventMetadata = new Map<string, Set<EventListener>>();
@@ -31,7 +31,10 @@ export const WithStreamEvents = <T extends ClassType<WithPlayback & WithEventTar
 
     constructor(...args: any[]) {
       super(...args);
+      this.augmentDispatchPlayStateChange();
+    }
 
+    augmentDispatchPlayStateChange = () => {
       const originalDispatchPlayStateChange = this.dispatchPlayStateChange.bind(this);
 
       this.dispatchPlayStateChange = (newState: PlayState, error?: number) => {

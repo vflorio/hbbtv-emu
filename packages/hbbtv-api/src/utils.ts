@@ -1,7 +1,7 @@
 // Utilities
 export const logger =
   (section: string) =>
-  (message: string): void => {
+  (message: string) => {
     console.log(`[hbbtv-emu] ${section}: ${message}`);
   };
 

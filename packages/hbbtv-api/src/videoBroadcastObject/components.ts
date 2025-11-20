@@ -1,5 +1,5 @@
 import { type Collection, type ClassType, createEmptyCollection, logger } from "../utils";
-import type { WithPlayback } from "./playback";
+import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 
 export enum ComponentType {
@@ -19,7 +19,7 @@ export interface AVComponent {
   language?: string;
 }
 
-interface WithComponents {
+export interface Components {
   readonly COMPONENT_TYPE_VIDEO: ComponentType;
   readonly COMPONENT_TYPE_AUDIO: ComponentType;
   readonly COMPONENT_TYPE_SUBTITLE: ComponentType;
@@ -35,8 +35,8 @@ interface WithComponents {
 
 const log = logger("Components");
 
-export const WithComponents = <T extends ClassType<WithPlayback>>(Base: T) =>
-  class extends Base implements WithComponents {
+export const WithComponents = <T extends ClassType<Playback>>(Base: T) =>
+  class extends Base implements Components {
     readonly COMPONENT_TYPE_VIDEO = ComponentType.VIDEO;
     readonly COMPONENT_TYPE_AUDIO = ComponentType.AUDIO;
     readonly COMPONENT_TYPE_SUBTITLE = ComponentType.SUBTITLE;
@@ -44,7 +44,7 @@ export const WithComponents = <T extends ClassType<WithPlayback>>(Base: T) =>
     onSelectedComponentChanged?: (componentType?: ComponentType) => void;
     onComponentChanged?: (componentType?: ComponentType) => void;
 
-    dispatchComponentChange = (componentType?: ComponentType): void => {
+    dispatchComponentChange = (componentType?: ComponentType) => {
       this.onSelectedComponentChanged?.(componentType);
     };
 
@@ -58,7 +58,7 @@ export const WithComponents = <T extends ClassType<WithPlayback>>(Base: T) =>
       return this.playState === PlayState.PRESENTING ? createEmptyCollection() : null;
     };
 
-    selectComponent = (component: AVComponent | ComponentType): void => {
+    selectComponent = (component: AVComponent | ComponentType) => {
       const componentType = typeof component === "number" ? component : component.type;
 
       log(`selectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
@@ -66,7 +66,7 @@ export const WithComponents = <T extends ClassType<WithPlayback>>(Base: T) =>
       this.dispatchComponentChange(componentType);
     };
 
-    unselectComponent = (component: AVComponent | ComponentType): void => {
+    unselectComponent = (component: AVComponent | ComponentType) => {
       const componentType = typeof component === "number" ? component : component.type;
 
       log(`unselectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);

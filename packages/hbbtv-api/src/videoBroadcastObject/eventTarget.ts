@@ -1,5 +1,5 @@
 import type { ClassType } from "../utils";
-import type { WithVideoElement } from "./videoElement";
+import type { VideoElement } from "./videoElement";
 
 export interface EventDispatcher {
   dispatchEvent(event: Event): boolean;
@@ -15,12 +15,12 @@ export interface EventDispatcher {
   ): void;
 }
 
-export interface WithEventTarget extends EventDispatcher {
+export interface EventTarget extends EventDispatcher {
   readonly eventTarget: EventDispatcher;
 }
 
-export const WithEventTarget = <T extends ClassType<WithVideoElement>>(Base: T) =>
-  class extends Base implements WithEventTarget {
+export const WithEventTarget = <T extends ClassType<VideoElement>>(Base: T) =>
+  class extends Base implements EventTarget {
     get eventTarget(): EventDispatcher {
       return this.videoElement;
     }
@@ -31,7 +31,7 @@ export const WithEventTarget = <T extends ClassType<WithVideoElement>>(Base: T) 
       type: string,
       listener: EventListenerOrEventListenerObject,
       options?: boolean | AddEventListenerOptions,
-    ): void => {
+    ) => {
       this.eventTarget.addEventListener(type, listener, options);
     };
 
@@ -39,7 +39,7 @@ export const WithEventTarget = <T extends ClassType<WithVideoElement>>(Base: T) 
       type: string,
       listener: EventListenerOrEventListenerObject,
       options?: boolean | EventListenerOptions,
-    ): void => {
+    ) => {
       this.eventTarget.removeEventListener(type, listener, options);
     };
   };

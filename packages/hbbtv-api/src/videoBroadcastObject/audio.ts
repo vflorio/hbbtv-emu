@@ -1,6 +1,6 @@
 import { type ClassType, logger } from "../utils";
 
-interface WithAudio {
+export interface Audio {
   setVolume(volume: number): boolean;
   getVolume(): number;
 }
@@ -8,7 +8,7 @@ interface WithAudio {
 const log = logger("Audio");
 
 export const WithAudio = <T extends ClassType>(Base: T) =>
-  class extends Base implements WithAudio {
+  class extends Base implements Audio {
     volume = 100;
 
     setVolume = (volume: number): boolean => {

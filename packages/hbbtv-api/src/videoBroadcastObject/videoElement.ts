@@ -1,13 +1,13 @@
 import type { ClassType } from "../utils";
 import { VideoChannel } from "./videoChannel";
 
-export interface WithVideoElement {
+export interface VideoElement {
   readonly videoElement: HTMLVideoElement;
   readonly videoChannel: VideoChannel;
 }
 
 export const WithVideoElement = <T extends ClassType>(Base: T) =>
-  class extends Base implements WithVideoElement {
+  class extends Base implements VideoElement {
     readonly videoElement: HTMLVideoElement;
     readonly videoChannel: VideoChannel;
 

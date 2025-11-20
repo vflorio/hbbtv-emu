@@ -1,7 +1,7 @@
 import { type ClassType, logger } from "../utils";
-import type { WithEventTarget } from "./eventTarget";
+import type { EventTarget } from "./eventTarget";
 
-interface WithDisplay {
+interface Display {
   width: number;
   height: number;
   fullScreen: boolean;
@@ -11,15 +11,15 @@ interface WithDisplay {
 
 const log = logger("Display");
 
-export const WithDisplay = <T extends ClassType<WithEventTarget>>(Base: T) =>
-  class extends Base implements WithDisplay {
+export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
+  class extends Base implements Display {
     width = 0;
     height = 0;
     fullScreen = false;
 
     onFullScreenChange?: () => void;
 
-    setFullScreen = (fullScreen: boolean): void => {
+    setFullScreen = (fullScreen: boolean) => {
       log(`setFullScreen(${fullScreen})`);
 
       const changed = this.fullScreen !== fullScreen;

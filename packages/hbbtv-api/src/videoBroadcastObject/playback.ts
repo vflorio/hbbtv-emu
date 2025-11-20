@@ -1,6 +1,6 @@
 import { type ClassType, logger } from "../utils";
-import type { WithEventTarget } from "./eventTarget";
-import type { WithVideoElement } from "./videoElement";
+import type { EventTarget } from "./eventTarget";
+import type { VideoElement } from "./videoElement";
 
 export enum PlayState {
   UNREALIZED = 0,
@@ -9,7 +9,7 @@ export enum PlayState {
   STOPPED = 3,
 }
 
-export interface WithPlayback {
+export interface Playback {
   playState: PlayState;
   onPlayStateChange?: (state: PlayState, error?: number) => void;
   dispatchPlayStateChange(newState: PlayState, error?: number): void;
@@ -21,8 +21,8 @@ export interface WithPlayback {
 
 const log = logger("Playback");
 
-export const WithPlayback = <T extends ClassType<WithVideoElement & WithEventTarget>>(Base: T) =>
-  class extends Base implements WithPlayback {
+export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Base: T) =>
+  class extends Base implements Playback {
     playState: PlayState = PlayState.UNREALIZED;
 
     onPlayStateChange?: (state: PlayState, error?: number) => void;
@@ -39,7 +39,7 @@ export const WithPlayback = <T extends ClassType<WithVideoElement & WithEventTar
 
     isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playState);
 
-    dispatchPlayStateChange = (newState: PlayState, error?: number): void => {
+    dispatchPlayStateChange = (newState: PlayState, error?: number) => {
       const oldState = this.playState;
       this.playState = newState;
 
@@ -56,7 +56,7 @@ export const WithPlayback = <T extends ClassType<WithVideoElement & WithEventTar
       this.videoChannel.stop();
     };
 
-    release = (): void => {
+    release = () => {
       log("release");
       this.videoChannel.release();
     };

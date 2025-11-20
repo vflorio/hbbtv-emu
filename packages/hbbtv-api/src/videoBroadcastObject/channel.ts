@@ -1,10 +1,10 @@
 import type { Channel, ChannelConfig } from "../channels";
 import { ChannelIdType } from "../channels";
 import { type ClassType, logger } from "../utils";
-import type { WithEventTarget } from "./eventTarget";
-import type { WithPlayback } from "./playback";
+import type { EventTarget } from "./eventTarget";
+import type { Playback } from "./playback";
 import { PlayState } from "./playback";
-import type { WithVideoElement } from "./videoElement";
+import type { VideoElement } from "./videoElement";
 
 export enum ChannelChangeError {
   CHANNEL_NOT_SUPPORTED = 0,
@@ -23,7 +23,7 @@ export enum ChannelChangeError {
   UNIDENTIFIED_ERROR = 100,
 }
 
-interface WithChannel {
+export interface ChannelManager {
   currentChannel: Channel | null;
   onChannelChangeSucceeded?: (channel: Channel) => void;
   onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
@@ -46,8 +46,8 @@ interface WithChannel {
 
 const log = logger("Channel");
 
-export const WithChannel = <T extends ClassType<WithVideoElement & WithEventTarget & WithPlayback>>(Base: T) =>
-  class extends Base implements WithChannel {
+export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback>>(Base: T) =>
+  class extends Base implements ChannelManager {
     currentChannel: Channel | null = null;
 
     onChannelChangeSucceeded?: (channel: Channel) => void;
@@ -66,17 +66,17 @@ export const WithChannel = <T extends ClassType<WithVideoElement & WithEventTarg
       });
     }
 
-    dispatchChannelError = (channel: Channel, errorState: ChannelChangeError): void => {
+    dispatchChannelError = (channel: Channel, errorState: ChannelChangeError) => {
       this.onChannelChangeError?.(channel, errorState);
       this.dispatchEvent(new CustomEvent("ChannelChangeError", { detail: { channel, errorState } }));
     };
 
-    dispatchChannelSuccess = (channel: Channel): void => {
+    dispatchChannelSuccess = (channel: Channel) => {
       this.onChannelChangeSucceeded?.(channel);
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
     };
 
-    handleChannelError = (channel: Channel, errorState: ChannelChangeError): void => {
+    handleChannelError = (channel: Channel, errorState: ChannelChangeError) => {
       this.dispatchChannelError(channel, errorState);
     };
 
@@ -101,7 +101,7 @@ export const WithChannel = <T extends ClassType<WithVideoElement & WithEventTarg
       _trickplay?: boolean,
       _contentAccessDescriptorURL?: string,
       _quiet?: number,
-    ): void {
+    ) {
       log(`setChannel: ${channel?.name || "null"}`);
 
       if (channel === null) {
@@ -120,7 +120,7 @@ export const WithChannel = <T extends ClassType<WithVideoElement & WithEventTarg
       this.videoChannel.loadChannel(channel);
     }
 
-    nextChannel = (): void => {
+    nextChannel = () => {
       log("nextChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
@@ -132,7 +132,7 @@ export const WithChannel = <T extends ClassType<WithVideoElement & WithEventTarg
       this.handleChannelError(this.currentChannel || ({} as Channel), ChannelChangeError.NO_CHANNEL_LIST);
     };
 
-    prevChannel = (): void => {
+    prevChannel = () => {
       log("prevChannel");
 
       if (this.playState === PlayState.UNREALIZED) {

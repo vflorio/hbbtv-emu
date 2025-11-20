@@ -5,7 +5,7 @@ export const getStorageValue = (key: string, defaultValue: string): string => {
   return window.localStorage.getItem(key) ?? defaultValue;
 };
 
-export const setStorageValue = (key: string, value: string): void => {
+export const setStorageValue = (key: string, value: string) => {
   if (typeof window !== "undefined" && window.localStorage) {
     window.localStorage.setItem(key, value);
   }
