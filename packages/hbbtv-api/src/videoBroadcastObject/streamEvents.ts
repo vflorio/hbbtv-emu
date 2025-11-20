@@ -1,4 +1,5 @@
-import type { Constructor } from "../utils";
+import { logger, type Constructor } from "../utils";
+import type { WithEventTarget } from "./eventTarget";
 import type { WithPlayback } from "./playback";
 import { PlayState } from "./playback";
 
@@ -11,20 +12,78 @@ export interface StreamEventDetail {
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}
 
-export interface StreamEventListener {
-  targetURL: string;
-  eventName: string;
-  listener: EventListener;
-}
-
 interface WithStreamEvents {
   addStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
   removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
 }
 
-export const WithStreamEvents = <T extends Constructor<WithPlayback>>(Base: T) =>
+const log = logger("StreamEvents");
+
+export const WithStreamEvents = <T extends Constructor<WithPlayback & WithEventTarget>>(Base: T) =>
   class extends Base implements WithStreamEvents {
-    streamEventListeners: StreamEventListener[] = [];
+    // Map to track targetURL+eventName combinations
+    // Stores metadata about registered stream event listeners
+    streamEventMetadata = new Map<string, Set<EventListener>>();
+
+    // Track last received stream event versions to avoid duplicate dispatches
+    // Key: targetURL:eventName, Value: Set of version numbers
+    streamEventVersions = new Map<string, Set<number>>();
+
+    constructor(...args: any[]) {
+      super(...args);
+
+      const originalDispatchPlayStateChange = this.dispatchPlayStateChange.bind(this);
+
+      this.dispatchPlayStateChange = (newState: PlayState, error?: number) => {
+        const oldState = this.playState;
+
+        if (newState === PlayState.UNREALIZED) {
+          this.clearAllStreamEventListeners();
+        }
+
+        if (newState === PlayState.CONNECTING && oldState === PlayState.PRESENTING) {
+          this.clearAllStreamEventListeners();
+        }
+
+        originalDispatchPlayStateChange(newState, error);
+      };
+    }
+
+    getStreamEventKey = (targetURL: string, eventName: string) => `${targetURL}:${eventName}`;
+
+    registerListener = (key: string, listener: EventListener) => {
+      if (!this.streamEventMetadata.has(key)) {
+        this.streamEventMetadata.set(key, new Set());
+      }
+      this.streamEventMetadata.get(key)!.add(listener);
+    }
+
+    unregisterListener = (key: string, listener: EventListener) => {
+      if (this.streamEventMetadata.has(key)) {
+        this.streamEventMetadata.get(key)!.delete(listener);
+        if (this.streamEventMetadata.get(key)!.size === 0) {
+          this.streamEventMetadata.delete(key);
+          this.streamEventVersions.delete(key);
+        }
+      }
+    }
+
+    initializeVersionTracking = (key: string) => {
+      if (!this.streamEventVersions.has(key)) {
+        this.streamEventVersions.set(key, new Set());
+      }
+    }
+
+    hasListener = (key: string) => this.streamEventMetadata.has(key);
+
+    trackVersion = (key: string, version: number): boolean => {
+      const versions = this.streamEventVersions.get(key);
+      if (versions?.has(version)) {
+        return false; // Version already tracked
+      }
+      versions?.add(version);
+      return true; // New version tracked
+    }
 
     createStreamEvent = (detail: StreamEventDetail): StreamEvent =>
       new CustomEvent<StreamEventDetail>("StreamEvent", {
@@ -32,38 +91,96 @@ export const WithStreamEvents = <T extends Constructor<WithPlayback>>(Base: T) =
       });
 
     addStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => {
-      console.log(`addStreamEventListener(${targetURL}, ${eventName})`);
+      log(`addStreamEventListener(${targetURL}, ${eventName})`);
 
-      // Listeners can only be added in Presenting or Stopped states
       if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
-        console.log("addStreamEventListener: ignored - invalid state");
+        log("addStreamEventListener: ignored - invalid state");
         return;
       }
 
-      // Check if listener already exists
-      const exists = this.streamEventListeners.some(
-        (l) => l.targetURL === targetURL && l.eventName === eventName && l.listener === listener,
-      );
+      const key = this.getStreamEventKey(targetURL, eventName);
 
-      if (!exists) {
-        this.streamEventListeners = [...this.streamEventListeners, { targetURL, eventName, listener }];
-      }
+      this.registerListener(key, listener);
+      this.initializeVersionTracking(key);
 
-      // Simulate error case: event not found
-      setTimeout(() => {
-        const errorEvent = this.createStreamEvent({ name: eventName, data: "", text: "", status: "error" });
-        listener(errorEvent);
-
-        // Auto-unregister on error as per spec
-        this.removeStreamEventListener(targetURL, eventName, listener);
-      }, 1000);
+      this.addEventListener(eventName, listener);
     };
 
     removeStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => {
-      console.log(`removeStreamEventListener(${targetURL}, ${eventName})`);
+      log(`removeStreamEventListener(${targetURL}, ${eventName})`);
 
-      this.streamEventListeners = this.streamEventListeners.filter(
-        (entry) => !(entry.targetURL === targetURL && entry.eventName === eventName && entry.listener === listener),
-      );
+      const key = this.getStreamEventKey(targetURL, eventName);
+
+      this.unregisterListener(key, listener);
+
+      this.removeEventListener(eventName, listener);
+    };
+
+
+    clearAllStreamEventListeners = () => {
+      log("clearAllStreamEventListeners");
+
+      for (const [key, listeners] of this.streamEventMetadata.entries()) {
+        const [_targetURL, eventName] = key.split(":", 2);
+        for (const listener of listeners) {
+          this.removeEventListener(eventName, listener);
+        }
+      }
+
+      this.streamEventMetadata.clear();
+      this.streamEventVersions.clear();
+    };
+
+    dispatchStreamEvent = (
+      targetURL: string,
+      eventName: string,
+      data: string,
+      text: string = "",
+      version?: number,
+    ) => {
+      const key = this.getStreamEventKey(targetURL, eventName);
+
+      if (!this.hasListener(key)) {
+        return;
+      }
+
+      if (version !== undefined) {
+        if (!this.trackVersion(key, version)) {
+          log(`Stream event ${eventName} version ${version} already received, skipping`);
+          return;
+        }
+      }
+
+      const event = this.createStreamEvent({
+        name: eventName,
+        data,
+        text,
+        status: "trigger",
+      });
+
+      this.dispatchEvent(event);
+    };
+
+
+    dispatchStreamEventError = (targetURL: string, eventName: string, errorMessage: string = "") => {
+      const key = this.getStreamEventKey(targetURL, eventName);
+
+      if (!this.hasListener(key)) {
+        return;
+      }
+
+      const errorEvent = this.createStreamEvent({
+        name: eventName,
+        data: "",
+        text: errorMessage,
+        status: "error",
+      });
+
+      this.dispatchEvent(errorEvent);
+
+      const listeners = Array.from(this.streamEventMetadata.get(key) || []);
+      for (const listener of listeners) {
+        this.removeStreamEventListener(targetURL, eventName, listener);
+      }
     };
   };
