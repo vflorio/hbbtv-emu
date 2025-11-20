@@ -18,7 +18,7 @@ export const WithDisplay = <T extends Constructor>(Base: T) =>
 
     onFullScreenChange?: () => void;
 
-    setFullScreen(fullScreen: boolean): void {
+    setFullScreen = (fullScreen: boolean): void => {
       log(`setFullScreen(${fullScreen})`);
 
       const changed = this.fullScreen !== fullScreen;
@@ -30,7 +30,7 @@ export const WithDisplay = <T extends Constructor>(Base: T) =>
       }
     }
 
-    dispatchEvent(_event: Event): boolean {
+    dispatchEvent = (_event: Event): boolean => {
       return false;
     }
   };

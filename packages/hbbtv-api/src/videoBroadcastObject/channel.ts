@@ -68,21 +68,21 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       });
     }
 
-    dispatchChannelError(channel: Channel, errorState: ChannelChangeError): void {
+    dispatchChannelError = (channel: Channel, errorState: ChannelChangeError): void => {
       this.onChannelChangeError?.(channel, errorState);
       this.dispatchEvent(new CustomEvent("ChannelChangeError", { detail: { channel, errorState } }));
-    }
+    };
 
-    dispatchChannelSuccess(channel: Channel): void {
+    dispatchChannelSuccess = (channel: Channel): void => {
       this.onChannelChangeSucceeded?.(channel);
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
-    }
+    };
 
-    handleChannelError(channel: Channel, errorState: ChannelChangeError): void {
+    handleChannelError = (channel: Channel, errorState: ChannelChangeError): void => {
       this.dispatchChannelError(channel, errorState);
-    }
+    };
 
-    bindToCurrentChannel(): Channel | null {
+    bindToCurrentChannel = (): Channel | null => {
       log("bindToCurrentChannel");
 
       if (!this.isPlayStateValid([PlayState.UNREALIZED, PlayState.STOPPED])) {
@@ -96,7 +96,7 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       this.videoChannel.loadChannel(this.currentChannel);
 
       return this.currentChannel;
-    }
+    };
 
     setChannel(
       channel: Channel | null,
@@ -122,7 +122,7 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       this.videoChannel.loadChannel(channel);
     }
 
-    nextChannel(): void {
+    nextChannel = (): void => {
       log("nextChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
@@ -132,9 +132,9 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       }
 
       this.handleChannelError(this.currentChannel || ({} as Channel), ChannelChangeError.NO_CHANNEL_LIST);
-    }
+    };
 
-    prevChannel(): void {
+    prevChannel = (): void => {
       log("prevChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
@@ -144,23 +144,14 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       }
 
       this.handleChannelError(this.currentChannel || ({} as Channel), ChannelChangeError.NO_CHANNEL_LIST);
-    }
+    };
 
-    getChannelConfig(): ChannelConfig | null {
+    getChannelConfig = (): ChannelConfig | null => {
       log("getChannelConfig");
       return null;
-    }
+    };
 
-    createChannelObject(idType: ChannelIdType, dsd: string, sid: number): Channel | null;
-    createChannelObject(
-      idType: ChannelIdType,
-      onid?: number,
-      tsid?: number,
-      sid?: number,
-      sourceID?: number,
-      ipBroadcastID?: string,
-    ): Channel | null;
-    createChannelObject(idType: ChannelIdType, ...args: unknown[]): Channel | null {
+    createChannelObject = (idType: ChannelIdType, ...args: unknown[]): Channel | null => {
       log(`createChannelObject(${idType})`);
 
       if (idType === ChannelIdType.ID_DVB_SI_DIRECT && args.length >= 2) {
@@ -177,5 +168,5 @@ export const WithChannel = <T extends Constructor<WithPlayback & WithVideoElemen
       ];
 
       return { idType, onid, tsid, sid, sourceID, ipBroadcastID };
-    }
+    };
   };

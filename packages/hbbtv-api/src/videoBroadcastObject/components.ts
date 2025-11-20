@@ -44,23 +44,21 @@ export const WithComponents = <T extends Constructor<WithPlayback>>(Base: T) =>
     onSelectedComponentChanged?: (componentType?: ComponentType) => void;
     onComponentChanged?: (componentType?: ComponentType) => void;
 
-    dispatchComponentChange(componentType?: ComponentType): void {
+    dispatchComponentChange = (componentType?: ComponentType): void => {
       this.onSelectedComponentChanged?.(componentType);
-    }
+    };
 
-    getComponents(_componentType?: ComponentType): Collection<AVComponent> | null {
+    getComponents = (_componentType?: ComponentType): Collection<AVComponent> | null => {
       log("getComponents");
       return this.playState === PlayState.PRESENTING ? createEmptyCollection() : null;
-    }
+    };
 
-    getCurrentActiveComponents(_componentType?: ComponentType): Collection<AVComponent> | null {
+    getCurrentActiveComponents = (_componentType?: ComponentType): Collection<AVComponent> | null => {
       log("getCurrentActiveComponents");
       return this.playState === PlayState.PRESENTING ? createEmptyCollection() : null;
-    }
+    };
 
-    selectComponent(component: AVComponent): void;
-    selectComponent(componentType: ComponentType): void;
-    selectComponent(component: AVComponent | ComponentType): void {
+    selectComponent = (component: AVComponent | ComponentType): void => {
       const componentType = typeof component === "number" ? component : component.type;
 
       log(`selectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
@@ -68,9 +66,7 @@ export const WithComponents = <T extends Constructor<WithPlayback>>(Base: T) =>
       this.dispatchComponentChange(componentType);
     }
 
-    unselectComponent(component: AVComponent): void;
-    unselectComponent(componentType: ComponentType): void;
-    unselectComponent(component: AVComponent | ComponentType): void {
+    unselectComponent = (component: AVComponent | ComponentType): void => {
       const componentType = typeof component === "number" ? component : component.type;
 
       log(`unselectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);

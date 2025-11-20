@@ -29,7 +29,7 @@ export const WithVideoElement = <T extends Constructor>(Base: T) =>
       this.videoChannel = new VideoChannel(this.videoElement);
     }
 
-    dispatchEvent(event: Event): boolean {
+    dispatchEvent = (event: Event): boolean => {
       return this.videoElement.dispatchEvent(event);
     }
 

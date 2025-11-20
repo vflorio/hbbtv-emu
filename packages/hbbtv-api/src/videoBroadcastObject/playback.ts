@@ -25,11 +25,11 @@ export const WithPlayback = <T extends Constructor<WithVideoElement>>(Base: T) =
     playState: PlayState = PlayState.UNREALIZED;
     onPlayStateChange?: (state: PlayState, error?: number) => void;
 
-    isPlayStateValid(validStates: PlayState[]): boolean {
+    isPlayStateValid = (validStates: PlayState[]): boolean => {
       return validStates.includes(this.playState);
     }
 
-    dispatchPlayStateChange(newState: PlayState, error?: number): void {
+    dispatchPlayStateChange = (newState: PlayState, error?: number): void => {
       const oldState = this.playState;
       this.playState = newState;
 
@@ -48,12 +48,12 @@ export const WithPlayback = <T extends Constructor<WithVideoElement>>(Base: T) =
       this.videoChannel.stop();
     }
 
-    release(): void {
+    release = (): void => {
       log("release");
       this.videoChannel.release();
     }
 
-    dispatchEvent(_event: Event): boolean {
+    dispatchEvent = (_event: Event): boolean => {
       return false;
     }
   };
