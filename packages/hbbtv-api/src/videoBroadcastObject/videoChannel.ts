@@ -27,34 +27,40 @@ export class VideoChannel {
   };
 
   setupVideoEventListeners = () => {
-    this.videoElement.addEventListener("loadstart", () => {
+    const loadstart = () => {
       log("loadstart");
       this.callbacks.onPlayStateChange?.(PlayState.CONNECTING);
-    });
+    };
 
-    this.videoElement.addEventListener("canplay", () => {
+    const canplay = () => {
       log("canplay");
       if (!this.currentChannel) return;
       this.callbacks.onChannelLoadSuccess?.(this.currentChannel);
-    });
+    };
 
-    this.videoElement.addEventListener("playing", () => {
+    const playing = () => {
       log("playing");
       this.callbacks.onPlayStateChange?.(PlayState.PRESENTING);
-    });
+    };
 
-    this.videoElement.addEventListener("error", () => {
+    const error = () => {
       log("error");
       if (!this.currentChannel) return;
 
       this.callbacks.onChannelLoadError?.(this.currentChannel, 100); // UNIDENTIFIED_ERROR
       this.callbacks.onPlayStateChange?.(PlayState.UNREALIZED);
-    });
+    };
 
-    this.videoElement.addEventListener("ended", () => {
+    const ended = () => {
       log("ended");
       this.callbacks.onPlayStateChange?.(PlayState.STOPPED);
-    });
+    };
+
+    this.videoElement.addEventListener("loadstart", loadstart);
+    this.videoElement.addEventListener("canplay", canplay);
+    this.videoElement.addEventListener("playing", playing);
+    this.videoElement.addEventListener("error", error);
+    this.videoElement.addEventListener("ended", ended);
   };
 
   getChannelStreamUrl = (channel: Channel): string => {

@@ -1,4 +1,4 @@
-import { logger, type ClassType } from "../utils";
+import { type ClassType, logger } from "../utils";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -50,7 +50,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
 
         originalDispatchPlayStateChange(newState, error);
       };
-    }
+    };
 
     getStreamEventKey = (targetURL: string, eventName: string) => `${targetURL}:${eventName}`;
 
@@ -59,34 +59,31 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
         this.streamEventMetadata.set(key, new Set());
       }
       this.streamEventMetadata.get(key)!.add(listener);
-    }
+    };
 
     unregisterListener = (key: string, listener: EventListener) => {
-      if (this.streamEventMetadata.has(key)) {
-        this.streamEventMetadata.get(key)!.delete(listener);
-        if (this.streamEventMetadata.get(key)!.size === 0) {
-          this.streamEventMetadata.delete(key);
-          this.streamEventVersions.delete(key);
-        }
-      }
-    }
+      if (!this.streamEventMetadata.has(key)) return;
+      this.streamEventMetadata.get(key)!.delete(listener);
 
-    initializeVersionTracking = (key: string) => {
-      if (!this.streamEventVersions.has(key)) {
-        this.streamEventVersions.set(key, new Set());
-      }
-    }
+      if (this.streamEventMetadata.get(key)!.size !== 0) return;
+      this.streamEventMetadata.delete(key);
+      this.streamEventVersions.delete(key);
+    };
 
     hasListener = (key: string) => this.streamEventMetadata.has(key);
 
     trackVersion = (key: string, version: number): boolean => {
+      if (!this.streamEventVersions.has(key)) {
+        this.streamEventVersions.set(key, new Set());
+      }
+
       const versions = this.streamEventVersions.get(key);
       if (versions?.has(version)) {
         return false; // Version already tracked
       }
       versions?.add(version);
       return true; // New version tracked
-    }
+    };
 
     createStreamEvent = (detail: StreamEventDetail): StreamEvent =>
       new CustomEvent<StreamEventDetail>("StreamEvent", {
@@ -104,7 +101,6 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       const key = this.getStreamEventKey(targetURL, eventName);
 
       this.registerListener(key, listener);
-      this.initializeVersionTracking(key);
 
       this.addEventListener(eventName, listener);
     };
@@ -118,7 +114,6 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
 
       this.removeEventListener(eventName, listener);
     };
-
 
     clearAllStreamEventListeners = () => {
       log("clearAllStreamEventListeners");
@@ -134,24 +129,14 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.streamEventVersions.clear();
     };
 
-    dispatchStreamEvent = (
-      targetURL: string,
-      eventName: string,
-      data: string,
-      text: string = "",
-      version?: number,
-    ) => {
+    dispatchStreamEvent = (targetURL: string, eventName: string, data: string, text: string = "", version?: number) => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
-      if (!this.hasListener(key)) {
-        return;
-      }
+      if (!this.hasListener(key)) return;
 
-      if (version !== undefined) {
-        if (!this.trackVersion(key, version)) {
-          log(`Stream event ${eventName} version ${version} already received, skipping`);
-          return;
-        }
+      if (version && !this.trackVersion(key, version)) {
+        log(`Stream event ${eventName} version ${version} already received, skipping`);
+        return;
       }
 
       const event = this.createStreamEvent({
@@ -164,13 +149,10 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.dispatchEvent(event);
     };
 
-
     dispatchStreamEventError = (targetURL: string, eventName: string, errorMessage: string = "") => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
-      if (!this.hasListener(key)) {
-        return;
-      }
+      if (!this.hasListener(key)) return;
 
       const errorEvent = this.createStreamEvent({
         name: eventName,
