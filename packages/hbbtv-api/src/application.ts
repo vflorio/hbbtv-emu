@@ -1,7 +1,13 @@
 import type { Channel } from "./channels";
 import { createKeyset, type Keyset } from "./keyset";
 import { createOipf } from "./oipf";
-import { logger } from "./utils";
+import { type ClassType, compose, logger } from "./utils";
+
+export interface ApplicationPrivateData {
+  keyset: Keyset;
+  currentChannel: Channel;
+  getFreeMem: () => number;
+}
 
 export interface Application {
   visible: boolean | undefined;
@@ -12,79 +18,93 @@ export interface Application {
   destroyApplication: () => void;
 }
 
-export interface ApplicationPrivateData {
-  keyset: Keyset;
-  currentChannel: Channel;
-  getFreeMem: () => number;
-}
-
 interface PerformanceMemory {
   usedJSHeapSize: number;
 }
 
 const log = logger("Application");
 
-export const createApplication = (doc: Document): Application => {
-  const documentRef = doc;
-  let visible: boolean | undefined;
+class ApplicationBase {
+  constructor(protected documentRef: Document) {}
+}
 
-  const oipf = createOipf();
+const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
+  class extends Base {
+    private oipf = createOipf();
 
-  const getFreeMem = (): number => {
-    const perf = performance as Performance & { memory?: PerformanceMemory };
-    if (typeof performance !== "undefined" && perf.memory) {
-      return perf.memory.usedJSHeapSize || 0;
+    private getFreeMem = (): number => {
+      const perf = performance as Performance & { memory?: PerformanceMemory };
+      if (typeof performance !== "undefined" && perf.memory) {
+        return perf.memory.usedJSHeapSize || 0;
+      }
+      return 0;
+    };
+
+    get privateData(): ApplicationPrivateData {
+      const oipf = this.oipf;
+      return {
+        keyset: createKeyset(),
+        get currentChannel() {
+          log("currentChannel");
+          const currentCcid = oipf.getCurrentTVChannel().ccid || "ccid:dvbt.0";
+          return oipf.channelList.getChannel(currentCcid) || ({} as Channel);
+        },
+        getFreeMem: this.getFreeMem,
+      };
     }
-    return 0;
   };
 
-  const getCurrentChannel = (): Channel => {
-    const currentCcid = oipf.getCurrentTVChannel().ccid || "ccid:dvbt.0";
-    return oipf.channelList.getChannel(currentCcid) || ({} as Channel);
-  };
+interface Visibility {
+  visible: boolean | undefined;
+  show: () => boolean;
+  hide: () => boolean;
+}
 
-  const privateData: ApplicationPrivateData = {
-    keyset: createKeyset(),
-    get currentChannel() {
-      log("currentChannel");
-      return getCurrentChannel();
-    },
-    getFreeMem,
-  };
+const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
+  class extends Base implements Visibility {
+    private _visible: boolean | undefined;
 
-  return {
     get visible() {
-      return visible;
-    },
+      return this._visible;
+    }
 
-    privateData,
-
-    show() {
+    show = (): boolean => {
       log("show");
-      if (documentRef?.body) {
-        documentRef.body.style.visibility = "visible";
-        visible = true;
+      if (this.documentRef?.body) {
+        this.documentRef.body.style.visibility = "visible";
+        this._visible = true;
         return true;
       }
       return false;
-    },
+    };
 
-    hide() {
+    hide = (): boolean => {
       log("hide");
-      if (documentRef?.body) {
-        documentRef.body.style.visibility = "hidden";
-        visible = false;
+      if (this.documentRef?.body) {
+        this.documentRef.body.style.visibility = "hidden";
+        this._visible = false;
         return true;
       }
       return false;
-    },
-
-    createApplication(_uri: string, _createChild?: boolean) {
-      log("createApplication");
-    },
-
-    destroyApplication() {
-      log("destroyApplication");
-    },
+    };
   };
-};
+
+interface Lifecycle {
+  createApplication: (uri: string, createChild?: boolean) => void;
+  destroyApplication: () => void;
+}
+
+const WithLifecycle = <T extends ClassType<ApplicationBase>>(Base: T) =>
+  class extends Base implements Lifecycle {
+    createApplication = (_uri: string, _createChild?: boolean): void => {
+      log("createApplication");
+    };
+
+    destroyApplication = (): void => {
+      log("destroyApplication");
+    };
+  };
+
+const ApplicationClass = compose(ApplicationBase, WithPrivateData, WithVisibility, WithLifecycle);
+
+export const createApplication = (document: Document): Application => new ApplicationClass(document);

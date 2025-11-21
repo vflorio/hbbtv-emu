@@ -1,31 +1,41 @@
 import type { Application } from "./application";
 import { createApplication } from "./application";
-import { logger } from "./utils";
+import { type ClassType, compose, logger } from "./utils";
 
 export interface OipfApplicationManager {
   onLowMemory: () => void;
   getOwnerApplication: (document: Document) => Application;
 }
 
+const log = logger("OipfApplicationManager");
+
 // Store application instances per document
 const applicationCache = new WeakMap<Document, Application>();
 
-const log = logger("OipfApplicationManager");
+class ApplicationManagerBase {}
 
-export const createApplicationManager = (): OipfApplicationManager => ({
-  onLowMemory: () => {
-    log("onLowMemory");
-  },
+const WithMemoryManagement = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
+  class extends Base {
+    onLowMemory = (): void => {
+      log("onLowMemory");
+    };
+  };
 
-  getOwnerApplication: (document: Document) => {
-    log("getOwnerApplication");
+const WithApplicationCache = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
+  class extends Base {
+    getOwnerApplication = (document: Document): Application => {
+      log("getOwnerApplication");
 
-    let app = applicationCache.get(document);
-    if (!app) {
-      app = createApplication(document);
-      applicationCache.set(document, app);
-    }
+      let app = applicationCache.get(document);
+      if (!app) {
+        app = createApplication(document);
+        applicationCache.set(document, app);
+      }
 
-    return app;
-  },
-});
+      return app;
+    };
+  };
+
+const ApplicationManagerClass = compose(ApplicationManagerBase, WithMemoryManagement, WithApplicationCache);
+
+export const createApplicationManager = (): OipfApplicationManager => new ApplicationManagerClass();

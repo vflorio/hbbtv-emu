@@ -1,3 +1,6 @@
+import type { ClassType } from "./utils";
+import { compose } from "./utils";
+
 export interface Keyset {
   RED: number;
   GREEN: number;
@@ -28,16 +31,36 @@ const KEYSET_VALUES = {
   OTHER: 0x400,
 } as const;
 
-export const createKeyset = (): Keyset => {
-  let currentValue: number | null = null;
+class KeysetBase {}
 
-  return {
-    ...KEYSET_VALUES,
-    get value() {
-      return currentValue;
-    },
-    setValue(value: number) {
-      currentValue = value;
-    },
+const WithKeysetConstants = <T extends ClassType<KeysetBase>>(Base: T) =>
+  class extends Base {
+    readonly RED = KEYSET_VALUES.RED;
+    readonly GREEN = KEYSET_VALUES.GREEN;
+    readonly YELLOW = KEYSET_VALUES.YELLOW;
+    readonly BLUE = KEYSET_VALUES.BLUE;
+    readonly NAVIGATION = KEYSET_VALUES.NAVIGATION;
+    readonly VCR = KEYSET_VALUES.VCR;
+    readonly SCROLL = KEYSET_VALUES.SCROLL;
+    readonly INFO = KEYSET_VALUES.INFO;
+    readonly NUMERIC = KEYSET_VALUES.NUMERIC;
+    readonly ALPHA = KEYSET_VALUES.ALPHA;
+    readonly OTHER = KEYSET_VALUES.OTHER;
   };
-};
+
+const WithKeysetValue = <T extends ClassType<KeysetBase>>(Base: T) =>
+  class extends Base {
+    private currentValue: number | null = null;
+
+    get value(): number | null {
+      return this.currentValue;
+    }
+
+    setValue = (value: number): void => {
+      this.currentValue = value;
+    };
+  };
+
+const KeysetClass = compose(KeysetBase, WithKeysetConstants, WithKeysetValue);
+
+export const createKeyset = (): Keyset => new KeysetClass();
