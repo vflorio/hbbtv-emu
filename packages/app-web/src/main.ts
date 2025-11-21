@@ -29,7 +29,7 @@ const createObjectElement = (type: string, apiObject: object): HTMLObjectElement
   return element;
 };
 
-const createAndInjectHbbTVObjects = () => {
+const inject = () => {
   const objects = [
     {
       type: "application/oipfApplicationManager",
@@ -56,14 +56,8 @@ const createAndInjectHbbTVObjects = () => {
   });
 };
 
-const onDOMContentLoaded = () => {
-  createAndInjectHbbTVObjects();
-};
-
-export const initializeHbbTVAPI = () => {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", onDOMContentLoaded);
-  } else {
-    onDOMContentLoaded();
-  }
-};
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", inject);
+} else {
+  inject();
+}
