@@ -4,16 +4,20 @@ import {
   AccordionDetails,
   AccordionSummary,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControlLabel,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import type { ChannelConfig } from "../context/config";
+import type { ChannelConfig, StreamEventConfig } from "../context/config";
+import StreamEventsManager from "./StreamEventsManager";
 
 interface ChannelFormProps {
   open: boolean;
@@ -37,10 +41,13 @@ export default function ChannelForm({
   onClose,
   onSave,
 }: ChannelFormProps) {
+  const [streamEventsOpen, setStreamEventsOpen] = useState(false);
   const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
     ...generateRandomIds(),
     name: "",
     mp4Source: "",
+    streamEvents: [],
+    enableStreamEvents: false,
   });
 
   useEffect(() => {
@@ -52,12 +59,16 @@ export default function ChannelForm({
         tsid: channel.tsid,
         sid: channel.sid,
         mp4Source: channel.mp4Source,
+        streamEvents: channel.streamEvents || [],
+        enableStreamEvents: channel.enableStreamEvents || false,
       });
     } else {
       setFormData({
         ...generateRandomIds(),
         name: "",
         mp4Source: "",
+        streamEvents: [],
+        enableStreamEvents: false,
       });
     }
   }, [channel]);
@@ -78,26 +89,60 @@ export default function ChannelForm({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{channel ? "Edit Channel" : "New Channel"}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="Channel Name"
-            value={formData.name}
-            onChange={handleChange("name")}
-            fullWidth
-            required
-          />
-          <TextField
-            label="MP4 Source"
-            value={formData.mp4Source}
-            onChange={handleChange("mp4Source")}
-            fullWidth
-            required
+    <>
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <DialogTitle>{channel ? "Edit Channel" : "New Channel"}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Channel Name"
+              value={formData.name}
+              onChange={handleChange("name")}
+              fullWidth
+              required
+            />
+            <TextField
+              label="MP4 Source"
+              value={formData.mp4Source}
+              onChange={handleChange("mp4Source")}
+              fullWidth
+              required
             helperText="MP4 file URL"
             type="url"
           />
+
+          <Divider />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formData.enableStreamEvents || false}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    enableStreamEvents: e.target.checked,
+                  }))
+                }
+              />
+            }
+            label="Enable Stream Events (DSM-CC)"
+          />
+
+          {formData.enableStreamEvents && (
+            <Stack spacing={1}>
+              <Typography variant="body2" color="text.secondary">
+                Stream events: {formData.streamEvents?.length || 0} configured
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setStreamEventsOpen(true)}
+              >
+                Manage Stream Events
+              </Button>
+            </Stack>
+          )}
+
           <Accordion>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography>Advanced Configuration</Typography>
@@ -144,5 +189,16 @@ export default function ChannelForm({
         </Button>
       </DialogActions>
     </Dialog>
+
+    <StreamEventsManager
+      open={streamEventsOpen}
+      events={formData.streamEvents || []}
+      onClose={() => setStreamEventsOpen(false)}
+      onSave={(events: StreamEventConfig[]) => {
+        setFormData((prev) => ({ ...prev, streamEvents: events }));
+        setStreamEventsOpen(false);
+      }}
+    />
+    </>
   );
 }

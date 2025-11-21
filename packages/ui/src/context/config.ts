@@ -1,5 +1,16 @@
 import { createContext, useContext } from "react";
 
+export interface StreamEventConfig {
+  id: string;
+  name: string;
+  eventName: string;
+  data: string;
+  text?: string;
+  targetURL?: string;
+  cronSchedule?: string;
+  enabled?: boolean;
+}
+
 export interface ChannelConfig {
   id: string;
   name: string;
@@ -8,6 +19,8 @@ export interface ChannelConfig {
   tsid: string;
   sid: string;
   mp4Source: string;
+  streamEvents?: StreamEventConfig[];
+  enableStreamEvents?: boolean;
 }
 
 export interface Config {
@@ -17,6 +30,12 @@ export interface Config {
       deleteChannel: (id: string) => Promise<void>;
       loadChannels: () => Promise<ChannelConfig[]>;
     };
+    streamEvent: {
+      loadStreamEvents: () => Promise<StreamEventConfig[]>;
+      saveStreamEvent: (event: StreamEventConfig) => Promise<void>;
+      deleteStreamEvent: (id: string) => Promise<void>;
+      dispatchStreamEvent: (event: StreamEventConfig) => Promise<void>;
+    }
   };
 }
 
