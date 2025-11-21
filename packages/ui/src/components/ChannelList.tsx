@@ -14,43 +14,26 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { type ChannelConfig, useConfig } from "../context/config";
-import ChannelForm from "./ChannelForm";
 
 export default function ChannelList() {
   const { api } = useConfig();
+  const navigate = useNavigate();
   const [channels, setChannels] = useState<ChannelConfig[]>([]);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingChannel, setEditingChannel] = useState<ChannelConfig | null>(null);
 
   const handleAddChannel = () => {
-    setEditingChannel(null);
-    setFormOpen(true);
+    navigate("/channel/new");
   };
 
-  const handleEditChannel = (channel: ChannelConfig) => {
-    setEditingChannel(channel);
-    setFormOpen(true);
+  const handleEditChannel = (id: string) => {
+    navigate(`/channel/${id}`);
   };
 
   const handleDeleteChannel = async (id: string) => {
     await api.channel.deleteChannel(id);
-
-    setChannels((prev) => prev.filter((ch) => ch.id !== id));
-  };
-
-  const handleSaveChannel = async (channel: ChannelConfig) => {
-    await api.channel.saveChannel(channel);
-
-    setChannels((current) => {
-      const index = current.findIndex((ch) => ch.id === channel.id);
-      if (index >= 0) {
-        const updated = [...current];
-        updated[index] = channel;
-        return updated;
-      }
-      return [...current, channel];
-    });
+    const updated = await api.channel.loadChannels();
+    setChannels(updated);
   };
 
   useEffect(() => {
@@ -58,7 +41,7 @@ export default function ChannelList() {
   }, [api.channel]);
 
   return (
-    <Box>
+    <Box p={2}>
       <Box
         sx={{
           display: "flex",
@@ -121,7 +104,7 @@ export default function ChannelList() {
                   <TableCell>{channel.sid}</TableCell>
                   <TableCell align="right">
                     <Tooltip title="Edit">
-                      <IconButton size="small" color="primary" onClick={() => handleEditChannel(channel)}>
+                      <IconButton size="small" color="primary" onClick={() => handleEditChannel(channel.id)}>
                         <EditIcon />
                       </IconButton>
                     </Tooltip>
@@ -137,12 +120,6 @@ export default function ChannelList() {
           </TableBody>
         </Table>
       </TableContainer>
-      <ChannelForm
-        open={formOpen}
-        channel={editingChannel}
-        onClose={() => setFormOpen(false)}
-        onSave={handleSaveChannel}
-      />
     </Box>
   );
 }

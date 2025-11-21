@@ -1,5 +1,8 @@
-import { Box, Container, CssBaseline, createTheme, ThemeProvider } from "@mui/material";
+import { CssBaseline, createTheme, ThemeProvider } from "@mui/material";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import ChannelEdit from "./components/ChannelEdit";
 import ChannelList from "./components/ChannelList";
+import StreamEventsEdit from "./components/StreamEventsEdit";
 import { type Config, ConfigProvider } from "./context/config";
 
 const theme = createTheme({
@@ -13,11 +16,14 @@ export default function App({ config }: { config: Config }) {
     <ConfigProvider value={config}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Container maxWidth="xl">
-          <Box sx={{ py: 4 }}>
-            <ChannelList />
-          </Box>
-        </Container>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<ChannelList />} />
+            <Route path="/channel/new" element={<ChannelEdit />} />
+            <Route path="/channel/:id" element={<ChannelEdit />} />
+            <Route path="/channel/:id/events" element={<StreamEventsEdit />} />
+          </Routes>
+        </BrowserRouter>
       </ThemeProvider>
     </ConfigProvider>
   );
