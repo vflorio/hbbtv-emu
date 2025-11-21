@@ -1,4 +1,3 @@
-// Utilities
 export const logger =
   (section: string) =>
   (message: string) => {
@@ -19,6 +18,10 @@ export const createEmptyCollection = <T>(): Collection<T> => ({
 // https://www.typescriptlang.org/docs/handbook/mixins.html
 
 export type ClassType<T = object> = new (...args: any[]) => T;
+
+// Questa serie di overloads permette di inferire il tipo dinamicamente in base ai mixin passati
+//   WithEventTarget dipende da WithVideoElement, se componiamo una classe con l'ordine sbagliato
+//   o una dipendenza mancante, verrà generato un errore in compile time
 
 // TODO: trovare un modo migliore per il type inference
 

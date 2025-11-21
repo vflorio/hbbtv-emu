@@ -1,5 +1,5 @@
 import type { Programme } from "../channels";
-import { type Collection, type ClassType, createEmptyCollection } from "../utils";
+import { type ClassType, type Collection, createEmptyCollection } from "../utils";
 
 export interface Programmes {
   programmes: Collection<Programme>;

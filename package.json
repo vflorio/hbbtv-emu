@@ -9,6 +9,7 @@
     "build:hbbtv-api": "pnpm --filter @hbb-emu/hbbtv-api build",
     "build:ui": "pnpm --filter @hbb-emu/ui build",
     "dev": "pnpm --filter @hbb-emu/app dev",
+    "dev:api": "pnpm --filter @hbb-emu/dev-server dev",
     "clean": "pnpm run clean:ui && pnpm run clean:app && pnpm run clean:hbbtv-api",
     "clean:app": "pnpm --filter @hbb-emu/app clean",
     "clean:ui": "pnpm --filter @hbb-emu/ui clean",

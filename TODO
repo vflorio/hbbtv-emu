@@ -1,0 +1,11 @@
+storage refactor:
+    - postMessage data exchange 
+    - localStorage hydratation
+ui 
+    - capabilities picker
+    - api version picker
+    - broadcast settings
+        * streamevents emu config
+    - channels config
+    - hbbtv-api status visualizer
+    - virtual tv-remote

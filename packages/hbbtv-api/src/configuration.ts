@@ -35,8 +35,8 @@ const createConfiguration = (): Configuration => {
 
   const baseConfig: Configuration = {
     preferredAudioLanguage: countryId,
-    preferredSubtitleLanguage: `${countryId},FRA`,
-    preferredUILanguage: `${countryId},FRA`,
+    preferredSubtitleLanguage: `${countryId},ENG`,
+    preferredUILanguage: `${countryId},ENG`,
     countryId,
   };
 
