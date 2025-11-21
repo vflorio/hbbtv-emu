@@ -1,7 +1,6 @@
 {
-  "name": "@hbb-emu/app",
+  "name": "@hbb-emu/app-extension",
   "version": "1.0.0",
-  "description": "React App for HbbTV emulator side panel",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
