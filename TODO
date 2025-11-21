@@ -7,5 +7,6 @@ ui
     - broadcast settings
         * streamevents emu config
     - channels config
+        (lista crud) per associare sorgente mp4 con ccid e onid tsid sid
     - hbbtv-api status visualizer
     - virtual tv-remote

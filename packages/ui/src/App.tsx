@@ -1,20 +1,24 @@
-import { useState } from "react";
+import { Box, Container, CssBaseline, createTheme, ThemeProvider } from "@mui/material";
+import ChannelList from "./components/ChannelList";
+import { type Config, ConfigProvider } from "./context/config";
 
-export default function App() {
-  const [count, setCount] = useState(0);
+const theme = createTheme({
+  palette: {
+    mode: "dark",
+  },
+});
 
+export default function App({ config }: { config: Config }) {
   return (
-    <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button type="button" onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">Click on the Vite and React logos to learn more</p>
-    </>
+    <ConfigProvider value={config}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Container maxWidth="xl">
+          <Box sx={{ py: 4 }}>
+            <ChannelList />
+          </Box>
+        </Container>
+      </ThemeProvider>
+    </ConfigProvider>
   );
 }
