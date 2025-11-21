@@ -1,6 +1,7 @@
 import { getCountryCode, getHbbTVVersion } from "./storage";
 import type { ClassType } from "./utils";
 import { compose } from "./utils";
+import { version } from "./version";
 
 export interface Configuration {
   preferredAudioLanguage: string;
@@ -47,39 +48,35 @@ const WithConfiguration = <T extends ClassType<ConfigurationBase>>(Base: T) =>
         countryId,
       };
 
-      // HbbTV 2.0+ features
-      if (this.hbbtvVersion === "2.0.1" || this.hbbtvVersion === "2.0.2") {
-        return {
-          ...baseConfig,
-          subtitlesEnabled: true,
-          audioDescriptionEnabled: true,
-          timeShiftSynchronized: true,
-          dtt_network_ids: [],
-          deviceId: "abcdef12345",
-          requestAccessToDistinctiveIdentifier: (cb) => {
-            cb?.(true);
-          },
-        };
-      }
+      if (version(this.hbbtvVersion).isLessThan("2.0.0")) return baseConfig;
 
-      return baseConfig;
+      return {
+        ...baseConfig,
+        subtitlesEnabled: true,
+        audioDescriptionEnabled: true,
+        timeShiftSynchronized: true,
+        dtt_network_ids: [],
+        deviceId: "abcdef12345",
+        requestAccessToDistinctiveIdentifier: (cb) => {
+          cb?.(true);
+        },
+      };
     }
   };
 
 const WithLocalSystem = <T extends ClassType<ConfigurationBase>>(Base: T) =>
   class extends Base {
     get localSystem(): LocalSystem | undefined {
-      if (this.hbbtvVersion === "2.0.1" || this.hbbtvVersion === "2.0.2") {
-        return {
-          deviceID: "no name",
-          modelName: "tv",
-          vendorName: "unknown",
-          softwareVersion: "1.0.0",
-          hardwareVersion: "1.0",
-          serialNumber: "12345",
-        };
-      }
-      return undefined;
+      if (version(this.hbbtvVersion).isLessThan("2.0.0")) return undefined;
+      
+      return {
+        deviceID: "no name",
+        modelName: "tv",
+        vendorName: "unknown",
+        softwareVersion: "1.0.0",
+        hardwareVersion: "1.0",
+        serialNumber: "12345",
+      };
     }
   };
 
