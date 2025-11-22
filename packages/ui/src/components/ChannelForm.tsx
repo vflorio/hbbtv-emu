@@ -137,7 +137,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
                     value={formData.ccid}
                     onChange={handleChange("ccid")}
                     fullWidth
-                    helperText="Country Code Identifier"
+                    helperText="Common Channel Identifier"
                   />
                   <TextField
                     label="ONID"

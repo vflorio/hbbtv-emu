@@ -14,16 +14,24 @@ export enum ChannelIdType {
   ID_ATSC_T = 40,
 }
 
-export interface Channel {
+export interface ChannelTriplet {
+  onid: number;
+  tsid: number;
+  sid: number;
+}
+
+export const serializeTriplet = (triplet: ChannelTriplet) => `${triplet.onid}-${triplet.tsid}-${triplet.sid}`;
+
+export const hasTriplet = (channel: Channel): channel is Channel & ChannelTriplet =>
+  typeof channel.onid === "number" && typeof channel.tsid === "number" && typeof channel.sid === "number";
+
+export interface Channel extends Partial<ChannelTriplet> {
   ccid?: string;
   name?: string;
   majorChannel?: number;
   minorChannel?: number;
   ipBroadcastID?: string;
   idType: ChannelIdType;
-  onid?: number;
-  tsid?: number;
-  sid?: number;
   sourceID?: number;
   dsd?: string;
   channelType?: number;
@@ -52,6 +60,7 @@ export interface Programme {
   programmeIDType?: number;
   parentalRatings?: Collection<ParentalRating>;
 }
+
 export interface ChannelList {
   readonly length: number;
   item(index: number): Channel | null;

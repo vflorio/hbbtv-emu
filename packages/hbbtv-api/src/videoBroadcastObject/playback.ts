@@ -30,11 +30,9 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
     constructor(...args: any[]) {
       super(...args);
 
-      this.videoChannel.setCallbacks({
-        onPlayStateChange: (state) => {
-          this.dispatchPlayStateChange(state);
-        },
-      });
+      this.videoElement.addEventListener("PlayStateChange", (event: Event) =>
+        this.dispatchPlayStateChange((event as CustomEvent<PlayState>).detail),
+      );
     }
 
     isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playState);
@@ -53,11 +51,11 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
       log("stop");
       if (this.playState === PlayState.UNREALIZED) return;
 
-      this.videoChannel.stop();
+      this.stopVideo();
     };
 
     release = () => {
       log("release");
-      this.videoChannel.release();
+      this.stopVideo();
     };
   };

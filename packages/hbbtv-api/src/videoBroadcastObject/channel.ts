@@ -27,7 +27,6 @@ export interface ChannelManager {
   currentChannel: Channel | null;
   onChannelChangeSucceeded?: (channel: Channel) => void;
   onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
-
   bindToCurrentChannel(): Channel | null;
   setChannel(channel: Channel | null, trickplay?: boolean, contentAccessDescriptorURL?: string, quiet?: number): void;
   nextChannel(): void;
@@ -56,28 +55,23 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     constructor(...args: any[]) {
       super(...args);
 
-      this.videoChannel.setCallbacks({
-        onChannelLoadSuccess: (channel) => {
-          this.dispatchChannelSuccess(channel);
-        },
-        onChannelLoadError: (channel, error) => {
-          this.handleChannelError(channel, error);
-        },
+      this.videoElement.addEventListener("ChannelLoadSuccess", (event: Event) => {
+        this.dispatchChannelSuccess((event as CustomEvent<Channel>).detail);
+      });
+
+      this.videoElement.addEventListener("ChannelLoadError", (event: Event) => {
+        this.dispatchChannelError((event as CustomEvent<Channel>).detail, ChannelChangeError.UNIDENTIFIED_ERROR);
       });
     }
 
-    dispatchChannelError = (channel: Channel, errorState: ChannelChangeError) => {
-      this.onChannelChangeError?.(channel, errorState);
+    dispatchChannelError = (channel: Channel | null, errorState: ChannelChangeError) => {
+      this.onChannelChangeError?.(channel || ({} as Channel), errorState);
       this.dispatchEvent(new CustomEvent("ChannelChangeError", { detail: { channel, errorState } }));
     };
 
     dispatchChannelSuccess = (channel: Channel) => {
       this.onChannelChangeSucceeded?.(channel);
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
-    };
-
-    handleChannelError = (channel: Channel, errorState: ChannelChangeError) => {
-      this.dispatchChannelError(channel, errorState);
     };
 
     bindToCurrentChannel = (): Channel | null => {
@@ -91,52 +85,58 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         return null;
       }
 
-      this.videoChannel.loadChannel(this.currentChannel);
+      this.loadVideo(this.currentChannel);
 
       return this.currentChannel;
     };
 
-    setChannel(channel: Channel | null, _trickplay?: boolean, _contentAccessDescriptorURL?: string, _quiet?: number) {
+    setChannel = (
+      channel: Channel | null,
+      _trickplay?: boolean,
+      _contentAccessDescriptorURL?: string,
+      _quiet?: number,
+    ) => {
       log(`setChannel: ${channel?.name || "null"}`);
 
       if (channel === null) {
         this.currentChannel = null;
-        this.videoChannel.release();
+        this.stopVideo();
+        // TODO assicurarsi che scatta la transizione a unrealized
         return;
       }
 
       if (!channel.idType) {
-        this.handleChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
+        this.dispatchChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
         return;
       }
 
       this.currentChannel = channel;
-
-      this.videoChannel.loadChannel(channel);
-    }
+      this.loadVideo(channel);
+    };
 
     nextChannel = () => {
       log("nextChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
-        const channel = this.currentChannel || ({} as Channel);
-        this.handleChannelError(channel, ChannelChangeError.NO_CHANNEL_LIST);
+        const channel = this.currentChannel;
+        this.dispatchChannelError(channel, ChannelChangeError.NO_CHANNEL_LIST);
         return;
       }
 
-      this.handleChannelError(this.currentChannel || ({} as Channel), ChannelChangeError.NO_CHANNEL_LIST);
+      // TODO
+      this.dispatchChannelError(this.currentChannel, ChannelChangeError.INSUFFICIENT_RESOURCES);
     };
 
     prevChannel = () => {
       log("prevChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
-        const channel = this.currentChannel || ({} as Channel);
-        this.handleChannelError(channel, ChannelChangeError.NO_CHANNEL_LIST);
+        this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
         return;
       }
 
-      this.handleChannelError(this.currentChannel || ({} as Channel), ChannelChangeError.NO_CHANNEL_LIST);
+      // TODO
+      this.dispatchChannelError(this.currentChannel, ChannelChangeError.INSUFFICIENT_RESOURCES);
     };
 
     getChannelConfig = (): ChannelConfig | null => {
