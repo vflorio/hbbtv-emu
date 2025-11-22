@@ -1,5 +1,4 @@
 import type { Message, MessageEnvelope, MessageResponse, MessageSource } from "./types";
-import { isMessageEnvelope } from "./types";
 
 export type MessageHandler<T extends Message = Message> = (
   message: T,
@@ -43,12 +42,4 @@ export class MessageBus {
     source: this.source,
     tabId,
   });
-
-  validateMessageEnvelope = <T extends Message = Message>(data: unknown): data is MessageEnvelope<T> => {
-    if (!isMessageEnvelope(data)) {
-      console.error("Invalid message envelope:", data);
-      return false;
-    }
-    return true;
-  };
 }

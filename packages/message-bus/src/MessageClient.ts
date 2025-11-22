@@ -1,5 +1,11 @@
 import { MessageBus } from "./MessageBus";
-import type { Message, MessageEnvelope, MessageResponse, MessageSource } from "./types";
+import {
+  isMessageEnvelope,
+  type Message,
+  type MessageEnvelope,
+  type MessageResponse,
+  type MessageSource,
+} from "./types";
 import { compose, type ClassType } from "@hbb-emu/lib";
 
 export interface WithMessageBus {
@@ -29,14 +35,12 @@ export const WithChromeListener = <T extends ClassType<WithMessageBus>>(Base: T)
       sender: chrome.runtime.MessageSender,
       sendResponse: (response: MessageResponse) => void,
     ) => {
-      if (!this.bus.validateMessageEnvelope(data)) {
+      if (!isMessageEnvelope(data)) {
         sendResponse({ success: false, error: "Invalid message format" });
         return false;
       }
 
-      if (!this.shouldHandleMessage(data)) {
-        return false;
-      }
+      if (!this.shouldHandleMessage(data)) return false;
 
       this.enrichEnvelope(data, sender);
 
@@ -62,7 +66,7 @@ export interface MessageSender {
   handleSendError(error: unknown): MessageResponse;
 }
 
-export const WithMessageSending = <T extends ClassType<WithMessageBus>>(Base: T) =>
+export const WithMessageSending = <T extends ClassType>(Base: T) =>
   class extends Base implements MessageSender {
     sendMessage = async <T extends Message>(envelope: MessageEnvelope<T>): Promise<MessageResponse> => {
       try {
