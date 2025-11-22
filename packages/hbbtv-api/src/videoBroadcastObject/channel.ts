@@ -96,12 +96,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       return this.currentChannel;
     };
 
-    setChannel(
-      channel: Channel | null,
-      _trickplay?: boolean,
-      _contentAccessDescriptorURL?: string,
-      _quiet?: number,
-    ) {
+    setChannel(channel: Channel | null, _trickplay?: boolean, _contentAccessDescriptorURL?: string, _quiet?: number) {
       log(`setChannel: ${channel?.name || "null"}`);
 
       if (channel === null) {

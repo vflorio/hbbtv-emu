@@ -35,7 +35,7 @@ export interface Config {
       saveStreamEvent: (event: StreamEventConfig) => Promise<void>;
       deleteStreamEvent: (id: string) => Promise<void>;
       dispatchStreamEvent: (event: StreamEventConfig) => Promise<void>;
-    }
+    };
   };
 }
 

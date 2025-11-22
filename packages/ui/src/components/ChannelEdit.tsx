@@ -61,11 +61,8 @@ export default function ChannelEdit() {
     }
   }, [id, api.channel]);
 
-  const handleChange =
-    (field: keyof Omit<ChannelConfig, "id">) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-    };
+  const handleChange = (field: keyof Omit<ChannelConfig, "id">) => (event: React.ChangeEvent<HTMLInputElement>) =>
+    setFormData((prev) => ({ ...prev, [field]: event.target.value }));
 
   const handleSubmit = async () => {
     const channelData: ChannelConfig = {
@@ -94,13 +91,7 @@ export default function ChannelEdit() {
 
       <Box sx={{ p: 2 }}>
         <Stack spacing={2}>
-          <TextField
-            label="Channel Name"
-            value={formData.name}
-            onChange={handleChange("name")}
-            fullWidth
-            required
-          />
+          <TextField label="Channel Name" value={formData.name} onChange={handleChange("name")} fullWidth required />
           <TextField
             label="MP4 Source"
             value={formData.mp4Source}

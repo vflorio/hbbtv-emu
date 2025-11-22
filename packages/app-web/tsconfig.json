@@ -1,8 +1,5 @@
 {
-  "extends": [
-    "../../tsconfig.base.json",
-    "@tsconfig/vite-react/tsconfig.json"
-  ],
+  "extends": ["../../tsconfig.base.json", "@tsconfig/vite-react/tsconfig.json"],
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
     "noEmit": true

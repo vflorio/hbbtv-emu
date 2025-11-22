@@ -35,12 +35,7 @@ const generateRandomIds = () => ({
   sid: Math.floor(Math.random() * 65535).toString(),
 });
 
-export default function ChannelForm({
-  open,
-  channel,
-  onClose,
-  onSave,
-}: ChannelFormProps) {
+export default function ChannelForm({ open, channel, onClose, onSave }: ChannelFormProps) {
   const [streamEventsOpen, setStreamEventsOpen] = useState(false);
   const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
     ...generateRandomIds(),
@@ -73,11 +68,9 @@ export default function ChannelForm({
     }
   }, [channel]);
 
-  const handleChange =
-    (field: keyof Omit<ChannelConfig, "id">) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-    };
+  const handleChange = (field: keyof Omit<ChannelConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const handleSubmit = () => {
     const channelData: ChannelConfig = {
@@ -94,111 +87,101 @@ export default function ChannelForm({
         <DialogTitle>{channel ? "Edit Channel" : "New Channel"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Channel Name"
-              value={formData.name}
-              onChange={handleChange("name")}
-              fullWidth
-              required
-            />
+            <TextField label="Channel Name" value={formData.name} onChange={handleChange("name")} fullWidth required />
             <TextField
               label="MP4 Source"
               value={formData.mp4Source}
               onChange={handleChange("mp4Source")}
               fullWidth
               required
-            helperText="MP4 file URL"
-            type="url"
-          />
+              helperText="MP4 file URL"
+              type="url"
+            />
 
-          <Divider />
+            <Divider />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.enableStreamEvents || false}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    enableStreamEvents: e.target.checked,
-                  }))
-                }
-              />
-            }
-            label="Enable Stream Events (DSM-CC)"
-          />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formData.enableStreamEvents || false}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      enableStreamEvents: e.target.checked,
+                    }))
+                  }
+                />
+              }
+              label="Enable Stream Events (DSM-CC)"
+            />
 
-          {formData.enableStreamEvents && (
-            <Stack spacing={1}>
-              <Typography variant="body2" color="text.secondary">
-                Stream events: {formData.streamEvents?.length || 0} configured
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => setStreamEventsOpen(true)}
-              >
-                Manage Stream Events
-              </Button>
-            </Stack>
-          )}
-
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>Advanced Configuration</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Stack spacing={2}>
-                <TextField
-                  label="CCID"
-                  value={formData.ccid}
-                  onChange={handleChange("ccid")}
-                  fullWidth
-                  helperText="Country Code Identifier"
-                />
-                <TextField
-                  label="ONID"
-                  value={formData.onid}
-                  onChange={handleChange("onid")}
-                  fullWidth
-                  helperText="Original Network ID"
-                />
-                <TextField
-                  label="TSID"
-                  value={formData.tsid}
-                  onChange={handleChange("tsid")}
-                  fullWidth
-                  helperText="Transport Stream ID"
-                />
-                <TextField
-                  label="SID"
-                  value={formData.sid}
-                  onChange={handleChange("sid")}
-                  fullWidth
-                  helperText="Service ID"
-                />
+            {formData.enableStreamEvents && (
+              <Stack spacing={1}>
+                <Typography variant="body2" color="text.secondary">
+                  Stream events: {formData.streamEvents?.length || 0} configured
+                </Typography>
+                <Button variant="outlined" size="small" onClick={() => setStreamEventsOpen(true)}>
+                  Manage Stream Events
+                </Button>
               </Stack>
-            </AccordionDetails>
-          </Accordion>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained" color="primary">
-          Save
-        </Button>
-      </DialogActions>
-    </Dialog>
+            )}
 
-    <StreamEventsManager
-      open={streamEventsOpen}
-      events={formData.streamEvents || []}
-      onClose={() => setStreamEventsOpen(false)}
-      onSave={(events: StreamEventConfig[]) => {
-        setFormData((prev) => ({ ...prev, streamEvents: events }));
-        setStreamEventsOpen(false);
-      }}
-    />
+            <Accordion>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography>Advanced Configuration</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={2}>
+                  <TextField
+                    label="CCID"
+                    value={formData.ccid}
+                    onChange={handleChange("ccid")}
+                    fullWidth
+                    helperText="Country Code Identifier"
+                  />
+                  <TextField
+                    label="ONID"
+                    value={formData.onid}
+                    onChange={handleChange("onid")}
+                    fullWidth
+                    helperText="Original Network ID"
+                  />
+                  <TextField
+                    label="TSID"
+                    value={formData.tsid}
+                    onChange={handleChange("tsid")}
+                    fullWidth
+                    helperText="Transport Stream ID"
+                  />
+                  <TextField
+                    label="SID"
+                    value={formData.sid}
+                    onChange={handleChange("sid")}
+                    fullWidth
+                    helperText="Service ID"
+                  />
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <StreamEventsManager
+        open={streamEventsOpen}
+        events={formData.streamEvents || []}
+        onClose={() => setStreamEventsOpen(false)}
+        onSave={(events: StreamEventConfig[]) => {
+          setFormData((prev) => ({ ...prev, streamEvents: events }));
+          setStreamEventsOpen(false);
+        }}
+      />
     </>
   );
 }

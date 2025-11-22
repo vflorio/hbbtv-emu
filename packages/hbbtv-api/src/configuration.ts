@@ -68,7 +68,7 @@ const WithLocalSystem = <T extends ClassType<ConfigurationBase>>(Base: T) =>
   class extends Base {
     get localSystem(): LocalSystem | undefined {
       if (version(this.hbbtvVersion).isLessThan("2.0.0")) return undefined;
-      
+
       return {
         deviceID: "no name",
         modelName: "tv",

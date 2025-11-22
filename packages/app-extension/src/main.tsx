@@ -1,4 +1,4 @@
-import App, { type ChannelConfig, type Config } from "@hbb-emu/ui";
+import App, { type ChannelConfig, type Config, type StreamEventConfig } from "@hbb-emu/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createStorage } from "./storage";
@@ -19,6 +19,12 @@ const onLoad = () =>
         loadChannels,
         saveChannel,
         deleteChannel,
+      },
+      streamEvent: {
+        loadStreamEvents: async () => [],
+        saveStreamEvent: async (_event) => {},
+        deleteStreamEvent: async (_id: string) => {},
+        dispatchStreamEvent: async (_event: StreamEventConfig) => {},
       },
     },
   });

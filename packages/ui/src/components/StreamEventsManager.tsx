@@ -1,8 +1,4 @@
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-} from "@mui/icons-material";
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -29,18 +25,11 @@ interface StreamEventsManagerProps {
   onSave: (events: StreamEventConfig[]) => void;
 }
 
-interface EventFormData extends Omit<StreamEventConfig, "id"> {}
+interface EventFormData extends Omit<StreamEventConfig, "id"> { }
 
-export default function StreamEventsManager({
-  open,
-  events,
-  onClose,
-  onSave,
-}: StreamEventsManagerProps) {
+export default function StreamEventsManager({ open, events, onClose, onSave }: StreamEventsManagerProps) {
   const [localEvents, setLocalEvents] = useState<StreamEventConfig[]>(events);
-  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(
-    null,
-  );
+  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [formData, setFormData] = useState<EventFormData>({
     name: "",
@@ -81,7 +70,7 @@ export default function StreamEventsManager({
   };
 
   const handleDeleteEvent = (id: string) => {
-    setLocalEvents((prev) => prev.filter((ev) => ev.id !== id));
+    setLocalEvents((current) => current.filter((ev) => ev.id !== id));
   };
 
   const handleSaveEvent = () => {
@@ -90,14 +79,14 @@ export default function StreamEventsManager({
       ...formData,
     };
 
-    setLocalEvents((prev) => {
-      const index = prev.findIndex((ev) => ev.id === eventData.id);
+    setLocalEvents((current) => {
+      const index = current.findIndex((ev) => ev.id === eventData.id);
       if (index >= 0) {
-        const updated = [...prev];
+        const updated = [...current];
         updated[index] = eventData;
         return updated;
       }
-      return [...prev, eventData];
+      return [...current, eventData];
     });
 
     setFormOpen(false);
@@ -124,12 +113,7 @@ export default function StreamEventsManager({
               <Typography variant="body2" color="text.secondary">
                 Configure DSM-CC stream events for this channel
               </Typography>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={handleAddEvent}
-              >
+              <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleAddEvent}>
                 Add Event
               </Button>
             </Box>
@@ -146,18 +130,12 @@ export default function StreamEventsManager({
                     secondaryAction={
                       <Box>
                         <Tooltip title="Edit">
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleEditEvent(event)}
-                          >
+                          <IconButton edge="end" onClick={() => handleEditEvent(event)}>
                             <EditIcon />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleDeleteEvent(event.id)}
-                          >
+                          <IconButton edge="end" onClick={() => handleDeleteEvent(event.id)}>
                             <DeleteIcon />
                           </IconButton>
                         </Tooltip>
@@ -184,26 +162,20 @@ export default function StreamEventsManager({
 
       {/* Event Form Dialog */}
       <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingEvent ? "Edit Stream Event" : "New Stream Event"}
-        </DialogTitle>
+        <DialogTitle>{editingEvent ? "Edit Stream Event" : "New Stream Event"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               label="Event Name (Display)"
               value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
+              onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
               fullWidth
               required
             />
             <TextField
               label="DSM-CC Event Name"
               value={formData.eventName}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, eventName: e.target.value }))
-              }
+              onChange={(event) => setFormData((current) => ({ ...current, eventName: event.target.value }))}
               fullWidth
               required
               helperText="e.g., 'now', 'next', custom event name"
@@ -211,9 +183,7 @@ export default function StreamEventsManager({
             <TextField
               label="Data Payload"
               value={formData.data}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, data: e.target.value }))
-              }
+              onChange={(event) => setFormData((current) => ({ ...current, data: event.target.value }))}
               fullWidth
               required
               multiline
@@ -222,10 +192,10 @@ export default function StreamEventsManager({
             <TextField
               label="Cron Schedule"
               value={formData.cronSchedule}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  cronSchedule: e.target.value,
+              onChange={(event) =>
+                setFormData((current) => ({
+                  ...current,
+                  cronSchedule: event.target.value,
                 }))
               }
               fullWidth
@@ -234,17 +204,13 @@ export default function StreamEventsManager({
             <TextField
               label="Target URL"
               value={formData.targetURL}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, targetURL: e.target.value }))
-              }
+              onChange={(event) => setFormData((current) => ({ ...current, targetURL: event.target.value }))}
               fullWidth
             />
             <TextField
               label="Text (optional)"
               value={formData.text}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, text: e.target.value }))
-              }
+              onChange={(event) => setFormData((current) => ({ ...current, text: event.target.value }))}
               fullWidth
               multiline
               rows={2}

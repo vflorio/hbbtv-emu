@@ -1,8 +1,6 @@
-export const logger =
-  (section: string) =>
-  (message: string) => {
-    console.log(`[hbbtv-emu] ${section}: ${message}`);
-  };
+export const logger = (section: string) => (message: string) => {
+  console.log(`[hbbtv-emu] ${section}: ${message}`);
+};
 
 export interface Collection<T> {
   readonly length: number;

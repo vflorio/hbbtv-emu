@@ -1,4 +1,4 @@
-import { type Collection, type ClassType, createEmptyCollection, logger } from "../utils";
+import { type ClassType, type Collection, createEmptyCollection, logger } from "../utils";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 
