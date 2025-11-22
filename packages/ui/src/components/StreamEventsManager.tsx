@@ -25,7 +25,7 @@ interface StreamEventsManagerProps {
   onSave: (events: StreamEventConfig[]) => void;
 }
 
-interface EventFormData extends Omit<StreamEventConfig, "id"> { }
+interface EventFormData extends Omit<StreamEventConfig, "id"> {}
 
 export default function StreamEventsManager({ open, events, onClose, onSave }: StreamEventsManagerProps) {
   const [localEvents, setLocalEvents] = useState<StreamEventConfig[]>(events);

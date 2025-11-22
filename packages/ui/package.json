@@ -28,6 +28,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.5",
     "@mui/material": "^7.3.5",
+    "@hbb-emu/lib": "workspace:*",
     "react-router-dom": "^7.9.6"
   }
 }

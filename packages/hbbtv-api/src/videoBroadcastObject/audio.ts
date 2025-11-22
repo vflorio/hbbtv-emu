@@ -1,4 +1,4 @@
-import { type ClassType, logger } from "../utils";
+import { type ClassType, logger } from "@hbb-emu/lib";
 
 export interface Audio {
   setVolume(volume: number): boolean;

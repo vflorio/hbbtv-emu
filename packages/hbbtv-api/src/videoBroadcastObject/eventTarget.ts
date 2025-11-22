@@ -1,4 +1,4 @@
-import type { ClassType } from "../utils";
+import type { ClassType } from "@hbb-emu/lib";
 import type { VideoElement } from "./videoElement";
 
 export interface EventDispatcher {

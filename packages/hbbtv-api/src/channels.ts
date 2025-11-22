@@ -1,4 +1,4 @@
-import type { Collection } from "./utils";
+import type { Collection } from "@hbb-emu/lib";
 
 export enum ChannelIdType {
   ID_ANALOG = 0,

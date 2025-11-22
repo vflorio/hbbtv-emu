@@ -1,6 +1,6 @@
 import { getCapabilities } from "./storage";
-import type { ClassType } from "./utils";
-import { compose } from "./utils";
+import type { ClassType } from "@hbb-emu/lib";
+import { compose } from "@hbb-emu/lib";
 
 export interface OipfCapabilities {
   xmlCapabilities: Document;

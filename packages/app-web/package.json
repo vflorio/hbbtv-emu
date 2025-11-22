@@ -9,6 +9,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@hbb-emu/lib": "workspace:*",
     "@hbb-emu/hbbtv-api": "workspace:*"
   },
   "devDependencies": {

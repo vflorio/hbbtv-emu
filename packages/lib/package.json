@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/hbbtv-api",
+  "name": "@hbb-emu/lib",
   "version": "1.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -15,10 +15,8 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@hbb-emu/lib": "workspace:*"
-  },
   "devDependencies": {
+    "@types/chrome": "^0.1.29",
     "typescript": "~5.9.3"
   },
   "files": [

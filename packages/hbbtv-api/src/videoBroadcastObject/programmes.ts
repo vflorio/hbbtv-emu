@@ -1,5 +1,5 @@
 import type { Programme } from "../channels";
-import { type ClassType, type Collection, createEmptyCollection } from "../utils";
+import { type ClassType, type Collection, createEmptyCollection } from "@hbb-emu/lib";
 
 export interface Programmes {
   programmes: Collection<Programme>;

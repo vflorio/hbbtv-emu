@@ -1,7 +1,7 @@
 import type { Channel } from "./channels";
 import { createKeyset, type Keyset } from "./keyset";
 import { createOipf } from "./oipf";
-import { type ClassType, compose, logger } from "./utils";
+import { type ClassType, compose, logger } from "@hbb-emu/lib";
 
 export interface ApplicationPrivateData {
   keyset: Keyset;

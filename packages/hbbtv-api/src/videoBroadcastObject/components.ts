@@ -1,4 +1,4 @@
-import { type ClassType, type Collection, createEmptyCollection, logger } from "../utils";
+import { type ClassType, type Collection, createEmptyCollection, logger } from "@hbb-emu/lib";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 

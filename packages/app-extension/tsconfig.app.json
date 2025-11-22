@@ -3,7 +3,7 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "types": ["vite/client", "chrome"],
-    "erasableSyntaxOnly": true,
+    "erasableSyntaxOnly": false,
     "noUncheckedSideEffectImports": true
   },
   "include": ["src", "../ui/src/App.tsx"]

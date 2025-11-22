@@ -1,4 +1,4 @@
-import { compose } from "../utils";
+import { compose } from "@hbb-emu/lib";
 import { WithAudio } from "./audio";
 import { WithChannel } from "./channel";
 import { WithComponents } from "./components";

@@ -5,22 +5,7 @@ import {
   VideoBroadcastObject,
 } from "@hbb-emu/hbbtv-api";
 
-const copyProperties = (source: object, target: HTMLObjectElement) => {
-  Object.keys(source).forEach((key) => {
-    const descriptor = Object.getOwnPropertyDescriptor(source, key);
-    if (descriptor) Object.defineProperty(target, key, descriptor);
-  });
-
-  const proto = Object.getPrototypeOf(source);
-  if (!proto) return;
-
-  Object.getOwnPropertyNames(proto).forEach((key) => {
-    if (key !== "constructor" && !(key in target)) {
-      const descriptor = Object.getOwnPropertyDescriptor(proto, key);
-      if (descriptor) Object.defineProperty(target, key, descriptor);
-    }
-  });
-};
+import { copyProperties } from "@hbb-emu/lib";
 
 const createObjectElement = (type: string, apiObject: object): HTMLObjectElement => {
   const element = document.createElement("object");

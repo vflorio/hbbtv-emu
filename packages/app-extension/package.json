@@ -13,6 +13,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "@hbb-emu/hbbtv-api": "workspace:*",
+    "@hbb-emu/lib": "workspace:*",
     "@hbb-emu/ui": "workspace:*"
   },
   "devDependencies": {

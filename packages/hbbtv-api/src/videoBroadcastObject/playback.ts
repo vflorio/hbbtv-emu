@@ -1,4 +1,4 @@
-import { type ClassType, logger } from "../utils";
+import { type ClassType, logger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { VideoElement } from "./videoElement";
 

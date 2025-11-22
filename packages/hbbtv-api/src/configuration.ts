@@ -1,7 +1,5 @@
 import { getCountryCode, getHbbTVVersion } from "./storage";
-import type { ClassType } from "./utils";
-import { compose } from "./utils";
-import { version } from "./version";
+import { version, compose, type ClassType } from "@hbb-emu/lib";
 
 export interface Configuration {
   preferredAudioLanguage: string;
@@ -84,7 +82,7 @@ const WithTextHandling = <T extends ClassType<ConfigurationBase>>(Base: T) =>
   class extends Base {
     getText = (_key: string): string | undefined => undefined;
 
-    setText = (_key: string, _value: string): void => {};
+    setText = (_key: string, _value: string): void => { };
   };
 
 const OipfConfigurationClass = compose(ConfigurationBase, WithConfiguration, WithLocalSystem, WithTextHandling);

@@ -1,17 +1,6 @@
-// biome-ignore format: <ack>
-export type HbbTVVersion =
-    | "1.0"
-    | "1.5"
-    | "2.0"
-    | "2.0.1"
-    | "2.0.2"
-    | "2.0.3"
-    | "2.0.4"
-    | "2.0.5";
+export const parseVersion = (version: string) => version.split(".").map(Number);
 
-const parseVersion = (version: string) => version.split(".").map(Number);
-
-const compareVersions = (v1: string, v2: string) => {
+export const compareVersions = (v1: string, v2: string) => {
   const parts1 = parseVersion(v1);
   const parts2 = parseVersion(v2);
 

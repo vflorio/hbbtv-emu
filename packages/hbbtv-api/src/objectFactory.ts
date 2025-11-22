@@ -1,4 +1,4 @@
-import { logger } from "./utils";
+import { logger } from "@hbb-emu/lib";
 import { VideoBroadcastObject } from "./videoBroadcastObject";
 
 export interface OipfObjectFactory {

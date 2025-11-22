@@ -1,4 +1,4 @@
-import type { ClassType } from "../utils";
+import type { ClassType } from "@hbb-emu/lib";
 
 export interface ParentalControl {
   onParentalRatingChange?: (

@@ -1,4 +1,4 @@
-import type { ClassType } from "../utils";
+import type { ClassType } from "@hbb-emu/lib";
 import { VideoChannel } from "./videoChannel";
 
 export interface VideoElement {

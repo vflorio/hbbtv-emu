@@ -1,6 +1,6 @@
 import type { Channel, ChannelConfig } from "../channels";
 import { ChannelIdType } from "../channels";
-import { type ClassType, logger } from "../utils";
+import { type ClassType, logger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
