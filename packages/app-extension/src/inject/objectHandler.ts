@@ -21,4 +21,3 @@ export const attachObjectElement = (element: HTMLObjectElement) => {
 
   copyProperties(object, element);
 };
-

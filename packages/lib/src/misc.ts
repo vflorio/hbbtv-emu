@@ -12,4 +12,3 @@ export const createEmptyCollection = <T>(): Collection<T> => ({
   length: 0,
   item: () => null,
 });
-

@@ -82,7 +82,7 @@ const WithTextHandling = <T extends ClassType<ConfigurationBase>>(Base: T) =>
   class extends Base {
     getText = (_key: string): string | undefined => undefined;
 
-    setText = (_key: string, _value: string): void => { };
+    setText = (_key: string, _value: string): void => {};
   };
 
 const OipfConfigurationClass = compose(ConfigurationBase, WithConfiguration, WithLocalSystem, WithTextHandling);

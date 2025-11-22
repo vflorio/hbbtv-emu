@@ -29,6 +29,7 @@
     "@mui/icons-material": "^7.3.5",
     "@mui/material": "^7.3.5",
     "@hbb-emu/lib": "workspace:*",
+    "@hbb-emu/message-bus": "workspace:*",
     "react-router-dom": "^7.9.6"
   }
 }

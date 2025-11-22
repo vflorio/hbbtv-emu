@@ -1,7 +1,7 @@
 import App, { type ChannelConfig, type Config, type StreamEventConfig } from "@hbb-emu/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createStorage } from "./storage";
+import { createStorage } from "@hbb-emu/lib";
 
 const render = (config: Config) =>
   createRoot(document.getElementById("root")!).render(

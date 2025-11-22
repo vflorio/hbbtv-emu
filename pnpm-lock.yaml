@@ -26,6 +26,9 @@ importers:
       '@hbb-emu/lib':
         specifier: workspace:*
         version: link:../lib
+      '@hbb-emu/message-bus':
+        specifier: workspace:*
+        version: link:../message-bus
       '@hbb-emu/ui':
         specifier: workspace:*
         version: link:../ui
@@ -126,6 +129,9 @@ importers:
       '@hbb-emu/lib':
         specifier: workspace:*
         version: link:../lib
+      '@hbb-emu/message-bus':
+        specifier: workspace:*
+        version: link:../message-bus
       '@mui/icons-material':
         specifier: ^7.3.5
         version: 7.3.5(@mui/material@7.3.5(@emotion/react@11.14.0(@types/react@19.2.5)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.5)(react@19.2.0))(@types/react@19.2.5)(react@19.2.0))(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@types/react@19.2.5)(react@19.2.0)

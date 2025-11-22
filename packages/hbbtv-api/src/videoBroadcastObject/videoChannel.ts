@@ -1,6 +1,6 @@
 import { logger } from "@hbb-emu/lib";
 import type { Channel } from "../channels";
- import { PlayState } from "./playback";
+import { PlayState } from "./playback";
 
 export interface VideoChannelCallbacks {
   onPlayStateChange?: (state: PlayState) => void;
