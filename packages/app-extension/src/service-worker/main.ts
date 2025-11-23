@@ -1,4 +1,4 @@
-import { WebRequestManager } from "./WebRequestManager";
+import { WebRequestManager } from "./webRequestManager";
 
 // Open sidepanel when extension action is clicked
 chrome.action.onClicked.addListener(async (tab) => {
@@ -14,8 +14,9 @@ const onHbbtvTabDetected = (tabId: number) => {
   chrome.scripting
     .executeScript({
       target: { tabId },
-      files: ["inject.js"],
+      files: ["content-script.js"],
       world: "MAIN",
+      injectImmediately: true,
     })
     .catch((error) => {
       console.error("Failed to inject HbbTV APIs:", error);

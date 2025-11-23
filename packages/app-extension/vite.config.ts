@@ -14,9 +14,9 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        background: resolve(__dirname, "src/background.ts"),
-        inject: resolve(__dirname, "src/inject/inject.ts"),
+        "side-panel": resolve(__dirname, "side-panel.html"),
+        "service-worker": resolve(__dirname, "src/service-worker/main.ts"),
+        "content-script": resolve(__dirname, "src/content-script/main.ts"),
       },
       output: {
         entryFileNames: "[name].js",

@@ -11,7 +11,7 @@ export const createVideoBroadcastProxy = (objectElement: HTMLObjectElement) => {
   proxyProperties(objectElement, videoBroadcastObject);
 };
 
-const proxyProperties = (objectElement: HTMLObjectElement, videoBroadcastObject: VideoBroadcastObject) => {
+const proxyProperties = (objectElement: HTMLObjectElement, videoBroadcastObject: InstanceType<typeof VideoBroadcastObject>) => {
   const propertyNames = new Set<string>([
     ...Object.keys(videoBroadcastObject),
     ...Object.getOwnPropertyNames(Object.getPrototypeOf(videoBroadcastObject)),
