@@ -1,25 +1,89 @@
-export const createStorage = <T extends { id: string }>(key: string) => {
-  const loadAll = async (): Promise<T[]> => {
+export interface StorageAdapter {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+}
+
+export class ChromeStorageAdapter implements StorageAdapter {
+  async getItem(key: string): Promise<string | null> {
     try {
-      const data = localStorage.getItem(key);
+      const result = await chrome.storage.local.get(key);
+      const value = result[key];
+      return typeof value === "string" ? value : null;
+    } catch (error) {
+      console.error("Failed to get item from chrome.storage:", error);
+      return null;
+    }
+  }
+
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      await chrome.storage.local.set({ [key]: value });
+    } catch (error) {
+      console.error("Failed to set item in chrome.storage:", error);
+    }
+  }
+}
+
+export class LocalStorageAdapter implements StorageAdapter {
+  async getItem(key: string): Promise<string | null> {
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.error("Failed to get item from localStorage:", error);
+      return null;
+    }
+  }
+
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      console.error("Failed to set item in localStorage:", error);
+    }
+  }
+}
+
+export const createStorageAdapter = (): StorageAdapter => {
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    return new ChromeStorageAdapter();
+  }
+  return new LocalStorageAdapter();
+};
+
+export interface StorageOperations<T extends { id: string }> {
+  loadAll(): Promise<T[]>;
+  saveAll(entries: T[]): Promise<void>;
+  saveEntry(entry: T): Promise<void>;
+  deleteEntry(id: string): Promise<void>;
+}
+
+export class EntryStorage<T extends { id: string }> implements StorageOperations<T> {
+  constructor(
+    private key: string,
+    private storageAdapter: StorageAdapter = createStorageAdapter(),
+  ) {}
+
+  loadAll = async (): Promise<T[]> => {
+    try {
+      const data = await this.storageAdapter.getItem(this.key);
       if (!data) return [];
       return JSON.parse(data) as T[];
     } catch (error) {
-      console.error("Failed to load entries from localStorage:", error);
+      console.error("Failed to load entries:", error);
       return [];
     }
   };
 
-  const saveAll = async (entries: T[]): Promise<void> => {
+  saveAll = async (entries: T[]): Promise<void> => {
     try {
-      localStorage.setItem(key, JSON.stringify(entries));
+      await this.storageAdapter.setItem(this.key, JSON.stringify(entries));
     } catch (error) {
-      console.error("Failed to save entries to localStorage:", error);
+      console.error("Failed to save entries:", error);
     }
   };
 
-  const saveEntry = async (entry: T): Promise<void> => {
-    const entries = await loadAll();
+  saveEntry = async (entry: T): Promise<void> => {
+    const entries = await this.loadAll();
     const index = entries.findIndex((ch) => ch.id === entry.id);
 
     if (index >= 0) {
@@ -28,14 +92,12 @@ export const createStorage = <T extends { id: string }>(key: string) => {
       entries.push(entry);
     }
 
-    saveAll(entries);
+    await this.saveAll(entries);
   };
 
-  const deleteEntry = async (id: string): Promise<void> => {
-    const entries = await loadAll();
+  deleteEntry = async (id: string): Promise<void> => {
+    const entries = await this.loadAll();
     const filtered = entries.filter((ch) => ch.id !== id);
-    await saveAll(filtered);
+    await this.saveAll(filtered);
   };
-
-  return [loadAll, saveAll, saveEntry, deleteEntry] as const;
-};
+}

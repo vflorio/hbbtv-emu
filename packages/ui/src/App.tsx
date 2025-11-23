@@ -1,5 +1,5 @@
 import { CssBaseline, createTheme, ThemeProvider } from "@mui/material";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { HashRouter, Route, Routes } from "react-router-dom";
 import ChannelEdit from "./components/ChannelEdit";
 import ChannelList from "./components/ChannelList";
 import StreamEventsEdit from "./components/StreamEventsEdit";
@@ -16,14 +16,14 @@ export default function App({ config }: { config: Config }) {
     <ConfigProvider value={config}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/" element={<ChannelList />} />
             <Route path="/channel/new" element={<ChannelEdit />} />
             <Route path="/channel/:id" element={<ChannelEdit />} />
             <Route path="/channel/:id/events" element={<StreamEventsEdit />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </ThemeProvider>
     </ConfigProvider>
   );
