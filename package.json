@@ -1,29 +1,25 @@
 {
   "name": "hbb-emu",
-  "private": true,
   "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "build": "pnpm run build:hbbtv-api && pnpm run build:ui && pnpm run build:message-bus && pnpm run build:app-extension && pnpm run build:app-web",
-    "build:app-extension": "pnpm --filter @hbb-emu/app-extension build",
-    "build:app-web": "pnpm --filter @hbb-emu/app-web  build",
-    "build:hbbtv-api": "pnpm --filter @hbb-emu/hbbtv-api build",
-    "build:ui": "pnpm --filter @hbb-emu/ui build",
-    "build:message-bus": "pnpm --filter @hbb-emu/message-bus build",
-    "dev:app-extension": "pnpm --filter @hbb-emu/app-extension dev",
-    "dev:app-web": "pnpm --filter @hbb-emu/app-web dev",
-    "clean": "pnpm run clean:hbbtv-api && pnpm run clean:ui && pnpm run clean:message-bus && pnpm run clean:app-extension && pnpm run clean:app-web",
-    "clean:app-extension": "pnpm --filter @hbb-emu/app-extension clean",
-    "clean:app-web": "pnpm --filter @hbb-emu/app-web clean",
-    "clean:ui": "pnpm --filter @hbb-emu/ui clean",
-    "clean:hbbtv-api": "pnpm --filter @hbb-emu/hbbtv-api clean",
-    "clean:message-bus": "pnpm --filter @hbb-emu/message-bus clean",
-    "lint": "npx @biomejs/biome check --write",
-    "format": "npx @biomejs/biome format --write"
-  },
   "devDependencies": {
     "@biomejs/biome": "2.3.6",
     "@tsconfig/node20": "^20.1.8",
-    "@tsconfig/vite-react": "^7.0.2"
-  }
+    "@tsconfig/vite-react": "^7.0.2",
+    "syncpack": "^13.0.4",
+    "turbo": "^2.6.1"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "clean": "turbo run clean",
+    "dev": "turbo run dev",
+    "format": "turbo run format && npx @biomejs/biome format --write",
+    "lint": "turbo run lint && npx @biomejs/biome check --write",
+    "syncpack:check": "syncpack list-mismatches",
+    "syncpack:fix": "syncpack fix-mismatches",
+    "syncpack:format": "syncpack format",
+    "syncpack:list": "syncpack list"
+  },
+  "type": "module"
 }

@@ -1,28 +1,28 @@
 {
   "name": "@hbb-emu/message-bus",
   "version": "1.0.0",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "clean": "rm -rf dist"
-  },
   "dependencies": {
     "@hbb-emu/lib": "workspace:*"
   },
   "devDependencies": {
-    "@types/chrome": "^0.1.29",
-    "typescript": "~5.9.3"
+    "@types/chrome": "0.1.29",
+    "typescript": "5.9.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
     "dist"
-  ]
+  ],
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts"
 }
