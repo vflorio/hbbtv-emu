@@ -25,7 +25,7 @@ const onLoad = () =>
         loadStreamEvents: streamEventStorage.loadAll,
         saveStreamEvent: streamEventStorage.saveEntry,
         deleteStreamEvent: streamEventStorage.deleteEntry,
-        dispatchStreamEvent: async (_event: StreamEventConfig) => { },
+        dispatchStreamEvent: async (_event: StreamEventConfig) => {},
       },
     },
   });

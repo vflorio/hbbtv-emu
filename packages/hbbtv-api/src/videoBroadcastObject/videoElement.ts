@@ -63,7 +63,8 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
       this.videoElement.muted = true;
     }
 
-    dispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) => this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
+    dispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) =>
+      this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
     getChannelStreamUrl = (channel: Channel): string => {
       const key = hasTriplet(channel) ? serializeTriplet(channel) : channel?.ccid || "";
@@ -95,5 +96,5 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
       log("release");
       this.isVideoReleasing = true;
       this.stopVideo();
-    }
+    };
   };
