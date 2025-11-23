@@ -1,24 +1,24 @@
-export type MessageTyp = "UI_TO_INJECT" | "INJECT_TO_UI" | "BACKGROUND_TO_UI" | "INJECT_TO_BACKGROUND";
+export type MessageType = "UI_TO_CONTENT" | "CONTENT_TO_UI" | "SERVICE_TO_UI" | "CONTENT_TO_SERVICE";
 
 export type Message =
-  // UI -> Background -> Inject
-  | { type: "UI_TO_INJECT"; action: "TUNE_CHANNEL"; payload: { channelId: string } }
-  | { type: "UI_TO_INJECT"; action: "DISPATCH_STREAM_EVENT"; payload: StreamEventPayload }
-  | { type: "UI_TO_INJECT"; action: "SET_PLAY_STATE"; payload: { state: number } }
-  | { type: "UI_TO_INJECT"; action: "GET_CURRENT_STATE" }
+  // side-panel -> service-worker -> content-script
+  | { type: "UI_TO_CONTENT"; action: "TUNE_CHANNEL"; payload: { channelId: string } }
+  | { type: "UI_TO_CONTENT"; action: "DISPATCH_STREAM_EVENT"; payload: StreamEventPayload }
+  | { type: "UI_TO_CONTENT"; action: "SET_PLAY_STATE"; payload: { state: number } }
+  | { type: "UI_TO_CONTENT"; action: "GET_CURRENT_STATE" }
 
-  // Inject -> Background -> UI
-  | { type: "INJECT_TO_UI"; action: "STATE_UPDATE"; payload: HbbTvState }
-  | { type: "INJECT_TO_UI"; action: "CHANNEL_CHANGED"; payload: { channelId: string } }
-  | { type: "INJECT_TO_UI"; action: "STREAM_EVENT_TRIGGERED"; payload: StreamEventPayload }
+  // content-script -> service-worker -> side-panel
+  | { type: "CONTENT_TO_UI"; action: "STATE_UPDATE"; payload: HbbTvState }
+  | { type: "CONTENT_TO_UI"; action: "CHANNEL_CHANGED"; payload: { channelId: string } }
+  | { type: "CONTENT_TO_UI"; action: "STREAM_EVENT_TRIGGERED"; payload: StreamEventPayload }
 
-  // Background -> UI (internal)
-  | { type: "BACKGROUND_TO_UI"; action: "TAB_UPDATED"; payload: { tabId: number; url: string } }
-  | { type: "BACKGROUND_TO_UI"; action: "HBBTV_DETECTED"; payload: { tabId: number } }
+  // service-worker -> side-panel (internal)
+  | { type: "SERVICE_TO_UI"; action: "TAB_UPDATED"; payload: { tabId: number; url: string } }
+  | { type: "SERVICE_TO_UI"; action: "HBBTV_DETECTED"; payload: { tabId: number } }
 
-  // Inject -> Background (internal)
-  | { type: "INJECT_TO_BACKGROUND"; action: "READY"; payload: { tabId: number } }
-  | { type: "INJECT_TO_BACKGROUND"; action: "ERROR"; payload: { error: string } };
+  // content-script -> service-worker (internal)
+  | { type: "CONTENT_TO_SERVICE"; action: "READY"; payload: { tabId: number } }
+  | { type: "CONTENT_TO_SERVICE"; action: "ERROR"; payload: { error: string } };
 
 export interface StreamEventPayload {
   targetURL: string;
@@ -49,7 +49,7 @@ export interface MessageEnvelope<T extends Message = Message> {
   tabId?: number;
 }
 
-export type MessageSource = "UI" | "BACKGROUND" | "INJECT";
+export type MessageSource = "UI" | "SERVICE" | "CONTENT" | "";
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

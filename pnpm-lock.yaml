@@ -97,6 +97,9 @@ importers:
       '@hbb-emu/lib':
         specifier: workspace:*
         version: link:../lib
+      '@hbb-emu/message-bus':
+        specifier: workspace:*
+        version: link:../message-bus
     devDependencies:
       typescript:
         specifier: 5.9.3
