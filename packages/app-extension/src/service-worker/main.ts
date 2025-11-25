@@ -1,26 +1,46 @@
-import { WebRequestManager } from "./webRequestManager";
+import {
+  type ChannelConfig,
+  type ClassType,
+  compose,
+  Storage,
+  WithChromeActionHandler,
+  WithChromeScriptInject,
+  WithChromeWebRequestManager,
+} from "@hbb-emu/lib";
+import { MessageClient } from "@hbb-emu/message-bus";
 
-// Open sidepanel when extension action is clicked
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab.id || !tab.windowId) return;
+const WithApp = <T extends ClassType>(Base: T) =>
+  class extends Base {
+    messageClient: MessageClient;
+    channelStorage: Storage<ChannelConfig>;
 
-  await chrome.sidePanel.open({
-    tabId: tab.id,
-    windowId: tab.windowId,
-  });
-});
+    constructor(...args: any[]) {
+      super(...args);
 
-const onHbbtvTabDetected = (tabId: number) => {
-  chrome.scripting
-    .executeScript({
-      target: { tabId },
-      files: ["content-script.js"],
-      world: "MAIN",
-      injectImmediately: true,
-    })
-    .catch((error) => {
-      console.error("Failed to inject HbbTV APIs:", error);
-    });
-};
+      this.messageClient = new MessageClient("SERVICE_WORKER");
+      this.channelStorage = new Storage<ChannelConfig>("channelConfig");
+    }
 
-new WebRequestManager(onHbbtvTabDetected);
+    init = async () => {
+      const channelConfig = await this.channelStorage.loadAll();
+
+      const hydrateMessage = this.messageClient.bus.createEnvelope({
+        type: "INIT",
+        payload: {
+          channelConfig,
+        },
+      });
+
+      await this.messageClient.sendMessage(hydrateMessage);
+    };
+  };
+
+const ServiceWorker = compose(
+  class {},
+  WithChromeScriptInject,
+  WithChromeActionHandler,
+  WithChromeWebRequestManager,
+  WithApp,
+);
+
+new ServiceWorker();

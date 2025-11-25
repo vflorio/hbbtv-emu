@@ -1,3 +1,4 @@
+export * from "./chrome";
 export * from "./config";
 export * from "./misc";
 export * from "./mixin";

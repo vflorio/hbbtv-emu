@@ -42,7 +42,7 @@ export interface MessageEnvelope<T extends Message = Message> {
   tabId?: number;
 }
 
-export type MessageSource = "UI" | "SERVICE" | "CONTENT" | "";
+export type MessageSource = "SIDE_PANEL" | "SERVICE_WORKER" | "CONTENT_SCRIPT" | "";
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

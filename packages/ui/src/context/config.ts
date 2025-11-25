@@ -4,15 +4,14 @@ import { createContext, useContext } from "react";
 export interface UIConfig {
   api: {
     channel: {
-      saveChannel: (channel: ChannelConfig) => Promise<void>;
-      deleteChannel: (id: string) => Promise<void>;
-      loadChannels: () => Promise<ChannelConfig[]>;
-    };
-    streamEvent: {
-      loadStreamEvents: () => Promise<StreamEventConfig[]>;
-      saveStreamEvent: (event: StreamEventConfig) => Promise<void>;
-      deleteStreamEvent: (id: string) => Promise<void>;
-      dispatchStreamEvent: (event: StreamEventConfig) => Promise<void>;
+      load: () => Promise<ChannelConfig[]>;
+      save: (channel: ChannelConfig) => Promise<void>;
+      remove: (id: string) => Promise<void>;
+      streamEvent: {
+        load: () => Promise<StreamEventConfig[]>;
+        save: (event: StreamEventConfig) => Promise<void>;
+        remove: (id: string) => Promise<void>;
+      };
     };
   };
 }
