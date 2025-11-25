@@ -3,7 +3,7 @@ import type { Message, MessageEnvelope, MessageResponse, MessageSource } from ".
 export type MessageHandler<T extends Message = Message> = (
   message: T,
   envelope: MessageEnvelope<T>,
-) => Promise<MessageResponse> | MessageResponse | void;
+) => Promise<MessageResponse> | MessageResponse;
 
 export type MessageHandlerMap = {
   [K in Message["type"]]?: MessageHandler<Extract<Message, { type: K }>>;
@@ -11,7 +11,7 @@ export type MessageHandlerMap = {
 
 export class MessageBus {
   private handlers: Map<string, MessageHandler[]> = new Map();
-  private source: MessageSource;
+  readonly source: MessageSource;
 
   constructor(source: MessageSource) {
     this.source = source;
@@ -23,16 +23,15 @@ export class MessageBus {
     this.handlers.set(type, handlers);
   };
 
-  handleMessage = async (envelope: MessageEnvelope): Promise<MessageResponse | void> => {
+  handleMessage = async (envelope: MessageEnvelope): Promise<MessageResponse | null> => {
     const handlers = this.handlers.get(envelope.message.type);
     if (!handlers || handlers.length === 0) {
       console.warn(`No handler for message type: ${envelope.message.type}`);
-      return;
+      return null;
     }
 
     const results = await Promise.all(handlers.map((handler) => handler(envelope.message, envelope)));
-
-    return results.find((r) => r !== undefined);
+    return results.find((r) => r !== undefined) || null;
   };
 
   createEnvelope = <T extends Message>(message: T, tabId?: number): MessageEnvelope<T> => ({

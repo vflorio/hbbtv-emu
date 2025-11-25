@@ -1,3 +1,4 @@
+import type { ChannelConfig } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import {
   Box,
@@ -15,7 +16,7 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { type ChannelConfig, useConfig } from "../context/config";
+import { useConfig } from "../context/config";
 
 export default function ChannelList() {
   const { api } = useConfig();

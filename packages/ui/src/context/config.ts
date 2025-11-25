@@ -1,29 +1,7 @@
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/lib";
 import { createContext, useContext } from "react";
 
-export interface StreamEventConfig {
-  id: string;
-  name: string;
-  eventName: string;
-  data: string;
-  text?: string;
-  targetURL?: string;
-  cronSchedule?: string;
-  enabled?: boolean;
-}
-
-export interface ChannelConfig {
-  id: string;
-  name: string;
-  ccid: string;
-  onid: string;
-  tsid: string;
-  sid: string;
-  mp4Source: string;
-  streamEvents?: StreamEventConfig[];
-  enableStreamEvents?: boolean;
-}
-
-export interface Config {
+export interface UIConfig {
   api: {
     channel: {
       saveChannel: (channel: ChannelConfig) => Promise<void>;
@@ -39,11 +17,11 @@ export interface Config {
   };
 }
 
-const ConfigContext = createContext<Config>({} as Config);
+const ConfigContext = createContext<UIConfig>({} as UIConfig);
 
 export const ConfigProvider = ConfigContext.Provider;
 
-export const useConfig = (): Config => {
+export const useConfig = (): UIConfig => {
   const context = useContext(ConfigContext);
 
   if (!context) {

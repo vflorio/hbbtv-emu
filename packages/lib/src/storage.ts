@@ -4,7 +4,7 @@ export interface StorageAdapter {
 }
 
 export class ChromeStorageAdapter implements StorageAdapter {
-  async getItem(key: string): Promise<string | null> {
+  getItem = async (key: string): Promise<string | null> => {
     try {
       const result = await chrome.storage.local.get(key);
       const value = result[key];
@@ -13,34 +13,34 @@ export class ChromeStorageAdapter implements StorageAdapter {
       console.error("Failed to get item from chrome.storage:", error);
       return null;
     }
-  }
+  };
 
-  async setItem(key: string, value: string): Promise<void> {
+  setItem = async (key: string, value: string): Promise<void> => {
     try {
       await chrome.storage.local.set({ [key]: value });
     } catch (error) {
       console.error("Failed to set item in chrome.storage:", error);
     }
-  }
+  };
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
-  async getItem(key: string): Promise<string | null> {
+  getItem = async (key: string): Promise<string | null> => {
     try {
       return localStorage.getItem(key);
     } catch (error) {
       console.error("Failed to get item from localStorage:", error);
       return null;
     }
-  }
+  };
 
-  async setItem(key: string, value: string): Promise<void> {
+  setItem = async (key: string, value: string): Promise<void> => {
     try {
       localStorage.setItem(key, value);
     } catch (error) {
       console.error("Failed to set item in localStorage:", error);
     }
-  }
+  };
 }
 
 export const createStorageAdapter = (): StorageAdapter => {

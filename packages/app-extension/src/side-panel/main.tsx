@@ -1,9 +1,9 @@
-import App, { type ChannelConfig, type Config, type StreamEventConfig } from "@hbb-emu/ui";
+import { type ChannelConfig, EntryStorage, type StreamEventConfig } from "@hbb-emu/lib";
+import App, { type UIConfig } from "@hbb-emu/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { EntryStorage } from "@hbb-emu/lib";
 
-const render = (config: Config) =>
+const render = (config: UIConfig) =>
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App config={config} />

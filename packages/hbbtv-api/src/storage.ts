@@ -1,3 +1,5 @@
+// TODO: Rimuovere
+
 export const getStorageValue = (key: string, defaultValue: string): string => {
   if (typeof window === "undefined" || !window.localStorage) {
     return defaultValue;

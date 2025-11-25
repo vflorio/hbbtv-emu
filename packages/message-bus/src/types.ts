@@ -1,24 +1,16 @@
+import type { ChannelConfig } from "@hbb-emu/lib";
+
 export type MessageType = "UI_TO_CONTENT" | "CONTENT_TO_UI" | "SERVICE_TO_UI" | "CONTENT_TO_SERVICE";
+export type MessageType1 = "INIT" | "ERROR";
 
 export type Message =
-  // side-panel -> service-worker -> content-script
-  | { type: "UI_TO_CONTENT"; action: "TUNE_CHANNEL"; payload: { channelId: string } }
-  | { type: "UI_TO_CONTENT"; action: "DISPATCH_STREAM_EVENT"; payload: StreamEventPayload }
-  | { type: "UI_TO_CONTENT"; action: "SET_PLAY_STATE"; payload: { state: number } }
-  | { type: "UI_TO_CONTENT"; action: "GET_CURRENT_STATE" }
-
-  // content-script -> service-worker -> side-panel
-  | { type: "CONTENT_TO_UI"; action: "STATE_UPDATE"; payload: HbbTvState }
-  | { type: "CONTENT_TO_UI"; action: "CHANNEL_CHANGED"; payload: { channelId: string } }
-  | { type: "CONTENT_TO_UI"; action: "STREAM_EVENT_TRIGGERED"; payload: StreamEventPayload }
-
-  // service-worker -> side-panel (internal)
-  | { type: "SERVICE_TO_UI"; action: "TAB_UPDATED"; payload: { tabId: number; url: string } }
-  | { type: "SERVICE_TO_UI"; action: "HBBTV_DETECTED"; payload: { tabId: number } }
-
-  // content-script -> service-worker (internal)
-  | { type: "CONTENT_TO_SERVICE"; action: "READY"; payload: { tabId: number } }
-  | { type: "CONTENT_TO_SERVICE"; action: "ERROR"; payload: { error: string } };
+  | {
+      type: "INIT";
+      payload: {
+        channelConfig: ChannelConfig[];
+      };
+    }
+  | { type: "UPDATE_CHANNELS_CONFIG"; payload: ChannelConfig[] };
 
 export interface StreamEventPayload {
   targetURL: string;
@@ -31,6 +23,7 @@ export interface StreamEventPayload {
 export interface HbbTvState {
   playState: number;
   currentChannel: {
+    // FIXME Channel | Null
     name: string;
     idType: number;
     onid?: number;

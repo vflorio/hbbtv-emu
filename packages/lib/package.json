@@ -5,6 +5,9 @@
     "@types/chrome": "0.1.29",
     "typescript": "5.9.3"
   },
+  "dependencies": {
+    "@hbb-emu/hbbtv-api": "workspace:*"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

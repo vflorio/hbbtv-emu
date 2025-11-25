@@ -3,7 +3,7 @@ import { HashRouter, Route, Routes } from "react-router-dom";
 import ChannelEdit from "./components/ChannelEdit";
 import ChannelList from "./components/ChannelList";
 import StreamEventsEdit from "./components/StreamEventsEdit";
-import { type Config, ConfigProvider } from "./context/config";
+import { ConfigProvider, type UIConfig } from "./context/config";
 
 const theme = createTheme({
   palette: {
@@ -11,7 +11,7 @@ const theme = createTheme({
   },
 });
 
-export default function App({ config }: { config: Config }) {
+export default function App({ config }: { config: UIConfig }) {
   return (
     <ConfigProvider value={config}>
       <ThemeProvider theme={theme}>

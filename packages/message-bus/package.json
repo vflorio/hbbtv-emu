@@ -6,6 +6,8 @@
   },
   "devDependencies": {
     "@types/chrome": "0.1.29",
+    "@hbb-emu/ui": "workspace:*",
+    "@hbb-emu/hbbtv-api": "workspace:*",
     "typescript": "5.9.3"
   },
   "exports": {

@@ -1,6 +1,6 @@
+import { type ClassType, compose, logger } from "@hbb-emu/lib";
 import type { Application } from "./application";
 import { createApplication } from "./application";
-import { type ClassType, compose, logger } from "@hbb-emu/lib";
 
 export interface OipfApplicationManager {
   onLowMemory: () => void;

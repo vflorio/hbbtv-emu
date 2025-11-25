@@ -1,6 +1,6 @@
 import { createApplicationManager, createOipfCapabilities, createOipfConfiguration } from "@hbb-emu/hbbtv-api";
-import { createVideoBroadcastProxy } from "./videoBroadcastProxy";
 import { copyProperties } from "@hbb-emu/lib";
+import { createVideoBroadcastProxy } from "./videoBroadcastProxy";
 
 export const attachObjectElement = (element: HTMLObjectElement) => {
   const type = element.getAttribute("type");

@@ -1,3 +1,4 @@
+import { type ClassType, compose } from "@hbb-emu/lib";
 import { MessageBus } from "./MessageBus";
 import {
   isMessageEnvelope,
@@ -6,7 +7,6 @@ import {
   type MessageResponse,
   type MessageSource,
 } from "./types";
-import { compose, type ClassType } from "@hbb-emu/lib";
 
 export interface WithMessageBus {
   bus: MessageBus;
