@@ -1,22 +1,6 @@
-import { type ClassType, compose, logger } from "@hbb-emu/lib";
-import type { Channel } from "./channels";
-import { createKeyset, type Keyset } from "./keyset";
+import { type Application, type ApplicationPrivateData, type ClassType, compose, logger } from "@hbb-emu/lib";
+import { createKeyset } from "./keyset";
 import { createOipf } from "./oipf";
-
-export interface ApplicationPrivateData {
-  keyset: Keyset;
-  currentChannel: Channel;
-  getFreeMem: () => number;
-}
-
-export interface Application {
-  visible: boolean | undefined;
-  privateData: ApplicationPrivateData;
-  show: () => boolean;
-  hide: () => boolean;
-  createApplication: (uri: string, createChild?: boolean) => void;
-  destroyApplication: () => void;
-}
 
 interface PerformanceMemory {
   usedJSHeapSize: number;
@@ -47,7 +31,7 @@ const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
         get currentChannel() {
           log("currentChannel");
           const currentCcid = oipf.getCurrentTVChannel().ccid || "ccid:dvbt.0";
-          return oipf.channelList.getChannel(currentCcid) || ({} as Channel);
+          return oipf.channelList.getChannel(currentCcid);
         },
         getFreeMem: this.getFreeMem,
       };

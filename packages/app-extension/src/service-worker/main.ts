@@ -1,6 +1,6 @@
 import {
-  type ChannelConfig,
   type ClassType,
+  type Config,
   compose,
   Storage,
   WithChromeActionHandler,
@@ -12,13 +12,13 @@ import { MessageClient } from "@hbb-emu/message-bus";
 const WithApp = <T extends ClassType>(Base: T) =>
   class extends Base {
     messageClient: MessageClient;
-    channelStorage: Storage<ChannelConfig>;
+    channelStorage: Storage<Config.Channel>;
 
     constructor(...args: any[]) {
       super(...args);
 
       this.messageClient = new MessageClient("SERVICE_WORKER");
-      this.channelStorage = new Storage<ChannelConfig>("channelConfig");
+      this.channelStorage = new Storage<Config.Channel>("channelConfig");
     }
 
     init = async () => {

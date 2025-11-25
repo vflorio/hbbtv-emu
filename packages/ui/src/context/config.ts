@@ -1,15 +1,15 @@
-import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/lib";
+import type { Config } from "@hbb-emu/lib";
 import { createContext, useContext } from "react";
 
 export interface UIConfig {
   api: {
     channel: {
-      load: () => Promise<ChannelConfig[]>;
-      save: (channel: ChannelConfig) => Promise<void>;
+      load: () => Promise<Config.Channel[]>;
+      save: (channel: Config.Channel) => Promise<void>;
       remove: (id: string) => Promise<void>;
       streamEvent: {
-        load: () => Promise<StreamEventConfig[]>;
-        save: (event: StreamEventConfig) => Promise<void>;
+        load: () => Promise<Config.StreamEvent[]>;
+        save: (event: Config.StreamEvent) => Promise<void>;
         remove: (id: string) => Promise<void>;
       };
     };

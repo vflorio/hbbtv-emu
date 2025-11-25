@@ -1,6 +1,4 @@
-import { type ClassType, logger } from "@hbb-emu/lib";
-import type { Channel, ChannelConfig } from "../channels";
-import { ChannelIdType } from "../channels";
+import { type Channel, ChannelIdType, type ClassType, logger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -21,6 +19,11 @@ export enum ChannelChangeError {
   INSUFFICIENT_RESOURCES = 11,
   CHANNEL_NOT_IN_TS = 12,
   UNIDENTIFIED_ERROR = 100,
+}
+
+export interface ChannelConfig {
+  channelList: { readonly length: number; item(index: number): Channel | null };
+  readonly favouriteLists?: unknown;
 }
 
 export interface ChannelManager {

@@ -1,4 +1,4 @@
-import { ChromeStorageAdapter } from "../dist";
+import { ChromeStorageAdapter } from "./chrome";
 
 export interface StorageAdapter {
   getItem(key: string): Promise<string | null>;
@@ -38,7 +38,7 @@ export interface StorageOperations<T extends { id: string }> {
   deleteEntry(id: string): Promise<void>;
 }
 
-export class EntryStorage<T extends { id: string }> implements StorageOperations<T> {
+export class Storage<T extends { id: string }> implements StorageOperations<T> {
   constructor(
     private key: string,
     private storageAdapter: StorageAdapter = createStorageAdapter(),

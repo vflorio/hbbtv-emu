@@ -1,34 +1,12 @@
+import {
+  type ClassType,
+  type Configuration,
+  compose,
+  type LocalSystem,
+  type OipfConfiguration,
+  version,
+} from "@hbb-emu/lib";
 import { getCountryCode, getHbbTVVersion } from "./storage";
-import { version, compose, type ClassType } from "@hbb-emu/lib";
-
-export interface Configuration {
-  preferredAudioLanguage: string;
-  preferredSubtitleLanguage: string;
-  preferredUILanguage: string;
-  countryId: string;
-  subtitlesEnabled?: boolean;
-  audioDescriptionEnabled?: boolean;
-  timeShiftSynchronized?: boolean;
-  dtt_network_ids?: string[];
-  deviceId?: string;
-  requestAccessToDistinctiveIdentifier?: (cb: (granted: boolean) => void) => void;
-}
-
-export interface LocalSystem {
-  deviceID: string;
-  modelName: string;
-  vendorName: string;
-  softwareVersion: string;
-  hardwareVersion: string;
-  serialNumber: string;
-}
-
-export interface OipfConfiguration {
-  configuration: Configuration;
-  localSystem?: LocalSystem;
-  getText: (key: string) => string | undefined;
-  setText: (key: string, value: string) => void;
-}
 
 class ConfigurationBase {
   protected hbbtvVersion = getHbbTVVersion();

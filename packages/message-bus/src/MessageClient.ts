@@ -101,3 +101,4 @@ export class MessageClientBase implements WithMessageBus {
 }
 
 export const MessageClient = compose(MessageClientBase, WithChromeListener, WithMessageSending);
+export type MessageClient = InstanceType<typeof MessageClient>;

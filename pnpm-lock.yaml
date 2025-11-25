@@ -97,19 +97,12 @@ importers:
       '@hbb-emu/lib':
         specifier: workspace:*
         version: link:../lib
-      '@hbb-emu/message-bus':
-        specifier: workspace:*
-        version: link:../message-bus
     devDependencies:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
 
   packages/lib:
-    dependencies:
-      '@hbb-emu/hbbtv-api':
-        specifier: workspace:*
-        version: link:../hbbtv-api
     devDependencies:
       '@types/chrome':
         specifier: 0.1.29

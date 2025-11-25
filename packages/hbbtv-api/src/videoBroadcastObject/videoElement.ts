@@ -1,5 +1,5 @@
-import { logger, type ClassType } from "@hbb-emu/lib";
-import { hasTriplet, serializeTriplet, type Channel } from "../channels";
+import { type Channel, type ClassType, logger } from "@hbb-emu/lib";
+import { hasTriplet, serializeTriplet } from "../channels";
 import { PlayState } from "./playback";
 
 export type VideoElementEventType = "PlayStateChange" | "ChannelLoadSuccess" | "ChannelLoadError";

@@ -1,77 +1,9 @@
-import type { Collection } from "@hbb-emu/lib";
-
-export enum ChannelIdType {
-  ID_ANALOG = 0,
-  ID_DVB_C = 1,
-  ID_DVB_S = 2,
-  ID_DVB_T = 3,
-  ID_DVB_SI_DIRECT = 13,
-  ID_IPTV_SDS = 20,
-  ID_IPTV_URI = 21,
-  ID_ISDB_S = 30,
-  ID_ISDB_T = 31,
-  ID_ISDB_C = 32,
-  ID_ATSC_T = 40,
-}
-
-export interface ChannelTriplet {
-  onid: number;
-  tsid: number;
-  sid: number;
-}
+import { type Channel, ChannelIdType, type ChannelList, type ChannelTriplet, type Programme } from "@hbb-emu/lib";
 
 export const serializeTriplet = (triplet: ChannelTriplet) => `${triplet.onid}-${triplet.tsid}-${triplet.sid}`;
 
 export const hasTriplet = (channel: Channel): channel is Channel & ChannelTriplet =>
   typeof channel.onid === "number" && typeof channel.tsid === "number" && typeof channel.sid === "number";
-
-export interface Channel extends Partial<ChannelTriplet> {
-  ccid?: string;
-  name?: string;
-  majorChannel?: number;
-  minorChannel?: number;
-  ipBroadcastID?: string;
-  idType: ChannelIdType;
-  sourceID?: number;
-  dsd?: string;
-  channelType?: number;
-  nid?: number;
-  channelMaxBitRate?: number;
-  hidden?: boolean;
-  manualBlock?: boolean;
-  locked?: boolean;
-}
-
-export interface ParentalRating {
-  scheme: string;
-  region?: string;
-  value: number;
-  labels?: string[];
-}
-
-export interface Programme {
-  programmeID: string;
-  name: string;
-  description?: string;
-  longDescription?: string;
-  startTime: number;
-  duration: number;
-  channelId: string;
-  programmeIDType?: number;
-  parentalRatings?: Collection<ParentalRating>;
-}
-
-export interface ChannelList {
-  readonly length: number;
-  item(index: number): Channel | null;
-  getChannel(ccid: string): Channel | null;
-  getChannelByTriplet(onid: number, tsid: number, sid: number, nid?: number): Channel | null;
-}
-
-export interface ChannelConfig {
-  channelList: { readonly length: number; item(index: number): Channel | null };
-  readonly favouriteLists?: unknown;
-}
 
 const defaultChannel: Channel = {
   idType: ChannelIdType.ID_DVB_T,

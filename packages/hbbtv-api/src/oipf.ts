@@ -1,10 +1,5 @@
-import { type Channel, type ChannelList, createChannelList, createProgrammes, type Programme } from "./channels";
-
-export interface Oipf {
-  channelList: ChannelList;
-  programmes: Programme[];
-  getCurrentTVChannel: () => Channel;
-}
+import type { Oipf } from "@hbb-emu/lib";
+import { createChannelList, createProgrammes } from "./channels";
 
 export const createOipf = (): Oipf => {
   const channelList = createChannelList();
@@ -13,7 +8,6 @@ export const createOipf = (): Oipf => {
   return {
     channelList,
     programmes,
-
     getCurrentTVChannel: () => {
       return channelList.getChannel("0") || channelList._list[0];
     },

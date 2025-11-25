@@ -1,13 +1,6 @@
-import type { ClassType } from "@hbb-emu/lib";
+import type { ClassType, OipfCapabilities } from "@hbb-emu/lib";
 import { compose } from "@hbb-emu/lib";
 import { getCapabilities } from "./storage";
-
-export interface OipfCapabilities {
-  xmlCapabilities: Document;
-  extraSDVideoDecodes: number;
-  extraHDVideoDecodes: number;
-  hasCapability: (capability: string) => boolean;
-}
 
 class CapabilitiesBase {
   protected capabilitiesXML = getCapabilities();

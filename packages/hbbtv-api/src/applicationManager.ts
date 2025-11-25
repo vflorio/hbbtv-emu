@@ -1,5 +1,4 @@
-import { type ClassType, compose, logger } from "@hbb-emu/lib";
-import type { Application } from "./application";
+import { type Application, type ClassType, compose, logger } from "@hbb-emu/lib";
 import { createApplication } from "./application";
 
 export interface OipfApplicationManager {

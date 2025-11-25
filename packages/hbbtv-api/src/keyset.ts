@@ -1,21 +1,5 @@
-import type { ClassType } from "@hbb-emu/lib";
+import type { ClassType, Keyset } from "@hbb-emu/lib";
 import { compose } from "@hbb-emu/lib";
-
-export interface Keyset {
-  RED: number;
-  GREEN: number;
-  YELLOW: number;
-  BLUE: number;
-  NAVIGATION: number;
-  VCR: number;
-  SCROLL: number;
-  INFO: number;
-  NUMERIC: number;
-  ALPHA: number;
-  OTHER: number;
-  value: number | null;
-  setValue: (value: number) => void;
-}
 
 const KEYSET_VALUES = {
   RED: 0x1,
@@ -31,9 +15,7 @@ const KEYSET_VALUES = {
   OTHER: 0x400,
 } as const;
 
-class KeysetBase {}
-
-const WithKeysetConstants = <T extends ClassType<KeysetBase>>(Base: T) =>
+const WithKeysetConstants = <T extends ClassType>(Base: T) =>
   class extends Base {
     readonly RED = KEYSET_VALUES.RED;
     readonly GREEN = KEYSET_VALUES.GREEN;
@@ -48,7 +30,7 @@ const WithKeysetConstants = <T extends ClassType<KeysetBase>>(Base: T) =>
     readonly OTHER = KEYSET_VALUES.OTHER;
   };
 
-const WithKeysetValue = <T extends ClassType<KeysetBase>>(Base: T) =>
+const WithKeysetValue = <T extends ClassType>(Base: T) =>
   class extends Base {
     private currentValue: number | null = null;
 
@@ -61,6 +43,6 @@ const WithKeysetValue = <T extends ClassType<KeysetBase>>(Base: T) =>
     };
   };
 
-const KeysetClass = compose(KeysetBase, WithKeysetConstants, WithKeysetValue);
+const KeysetClass = compose(class {}, WithKeysetConstants, WithKeysetValue);
 
 export const createKeyset = (): Keyset => new KeysetClass();
