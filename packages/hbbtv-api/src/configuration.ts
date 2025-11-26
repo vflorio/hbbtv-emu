@@ -6,8 +6,9 @@ import {
   type MessageBus,
   type OipfConfiguration,
   version,
+  WithChromeMessageAdapter,
+  WithMessageBus,
 } from "@hbb-emu/lib";
-import { WithContentScriptMessageBus } from ".";
 
 const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
@@ -17,11 +18,11 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_COUNTRY_CODE", ({ payload }) => {
+      this.bus.on("UPDATE_COUNTRY_CODE", ({ message: { payload } }) => {
         this.countryCode = payload;
       });
 
-      this.bus.on("UPDATE_VERSION", ({ payload }) => {
+      this.bus.on("UPDATE_VERSION", ({ message: { payload } }) => {
         this.hbbtvVersion = payload;
       });
     }
@@ -68,6 +69,11 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
   };
 
 export const createOipfConfiguration = (): OipfConfiguration => {
-  const OipfConfigurationClass = compose(class {}, WithContentScriptMessageBus, WithConfiguration);
+  const OipfConfigurationClass = compose(
+    class {},
+    WithChromeMessageAdapter, // TODO PostMessageAdapter
+    WithMessageBus("CONTENT_SCRIPT"),
+    WithConfiguration,
+  );
   return new OipfConfigurationClass();
 };

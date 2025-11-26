@@ -1,9 +1,8 @@
 import { createLogger } from "@hbb-emu/lib";
-import { VideoBroadcastObject } from "./videoBroadcastObject";
 
 export interface OipfObjectFactory {
   isObjectSupported: (mimeType: string) => boolean;
-  createVideoBroadcastObject: () => InstanceType<typeof VideoBroadcastObject>;
+  createVideoBroadcastObject: () => null;
   createVideoMpegObject: () => null;
   onLowMemory: () => void;
 }
@@ -27,7 +26,10 @@ export const createObjectFactory = (): OipfObjectFactory => ({
     return SUPPORTED_MIME_TYPES.has(mimeType);
   },
 
-  createVideoBroadcastObject: () => new VideoBroadcastObject(),
+  createVideoBroadcastObject: () => {
+    logger.log("createVideoBroadcastObject");
+    return null;
+  },
 
   createVideoMpegObject: () => {
     logger.log("createVideoMpegObject");

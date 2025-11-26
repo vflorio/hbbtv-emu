@@ -7,6 +7,7 @@ import {
   initApp,
   type MessageBus,
   validMessageType,
+  WithChromeMessageAdapter,
   WithMessageBus,
 } from "@hbb-emu/lib";
 
@@ -31,7 +32,7 @@ const WithBridge = <T extends ClassType<MessageBus>>(Base: T) =>
 
     forwardAll = () => {
       validMessageType.forEach((messageType) => {
-        this.bus.on(messageType, ({ payload }) => this.forward(messageType, payload));
+        this.bus.on(messageType, ({ message: { payload } }) => this.forward(messageType, payload));
       });
     };
 
@@ -44,5 +45,12 @@ const WithBridge = <T extends ClassType<MessageBus>>(Base: T) =>
     };
   };
 
-const BridgeScript = compose(class {}, WithMessageBus("CONTENT_SCRIPT"), WithBridge);
+// biome-ignore format: ack
+const BridgeScript = compose(
+  class {}, 
+  WithChromeMessageAdapter, 
+  WithMessageBus("BRIDGE_SCRIPT"), 
+  WithBridge
+);
+
 initApp(new BridgeScript());

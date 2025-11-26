@@ -1,8 +1,8 @@
 import type { ExtensionConfig } from "./config";
 
-export type MessageSource = "SIDE_PANEL" | "SERVICE_WORKER" | "CONTENT_SCRIPT";
+export type MessageSource = "SIDE_PANEL" | "SERVICE_WORKER" | "CONTENT_SCRIPT" | "BRIDGE_SCRIPT";
 
-export const validMessageSource: MessageSource[] = ["SIDE_PANEL", "SERVICE_WORKER", "CONTENT_SCRIPT"];
+export const validMessageSource: MessageSource[] = ["SIDE_PANEL", "SERVICE_WORKER", "CONTENT_SCRIPT", "BRIDGE_SCRIPT"];
 
 export const isValidMessageSource = (source: string): source is MessageSource =>
   validMessageSource.includes(source as MessageSource);
@@ -33,6 +33,16 @@ export interface MessageEnvelope<T extends Message = Message> {
   tabId?: number;
 }
 
+export type MessageHandler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => Promise<void> | void;
+
+export interface MessageAdapter {
+  shouldHandleMessage(envelope: MessageEnvelope): boolean;
+  enrichEnvelope(envelope: MessageEnvelope, sender: chrome.runtime.MessageSender): void;
+  registerMessageHandler(handler: MessageHandler): void;
+  sendMessage<T extends Message>(envelope: MessageEnvelope<T>): Promise<void>;
+  sendToTab<T extends Message>(tabId: number, envelope: MessageEnvelope<T>): Promise<void>;
+}
+
 export const isMessage = (data: unknown): data is Message =>
   typeof data === "object" &&
   data !== null &&
@@ -43,7 +53,7 @@ export const isMessage = (data: unknown): data is Message =>
 export const isMessageEnvelope = (data: unknown): data is MessageEnvelope => {
   if (typeof data !== "object" || data === null) return false;
   if (!("id" in data && "timestamp" in data && "message" in data && "source" in data)) return false;
-  
+
   const envelope = data as MessageEnvelope;
   return (
     typeof envelope.id === "string" &&
@@ -53,5 +63,4 @@ export const isMessageEnvelope = (data: unknown): data is MessageEnvelope => {
   );
 };
 
-  
 export const bridgeProxyPrefix = "HBBTV_EMU_";

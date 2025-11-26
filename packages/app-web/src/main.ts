@@ -2,10 +2,10 @@ import {
   createApplicationManager,
   createOipfCapabilities,
   createOipfConfiguration,
-  VideoBroadcastObject,
+  WithVideoBroadcastObject,
 } from "@hbb-emu/hbbtv-api";
 
-import { copyProperties } from "@hbb-emu/lib";
+import { compose, copyProperties, WithChromeMessageAdapter, WithMessageBus } from "@hbb-emu/lib";
 
 const createObjectElement = (type: string, apiObject: object): HTMLObjectElement => {
   const element = document.createElement("object");
@@ -13,6 +13,13 @@ const createObjectElement = (type: string, apiObject: object): HTMLObjectElement
   copyProperties(apiObject, element);
   return element;
 };
+
+const VideoBroadcastObject = compose(
+  class {},
+  WithChromeMessageAdapter, // TODO DebugMessageAdapter
+  WithMessageBus("CONTENT_SCRIPT"),
+  WithVideoBroadcastObject,
+);
 
 const inject = () => {
   const objects = [

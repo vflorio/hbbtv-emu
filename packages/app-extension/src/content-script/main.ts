@@ -1,4 +1,13 @@
-import { type App, bridgeProxyPrefix, type ClassType, compose, createLogger, initApp } from "@hbb-emu/lib";
+import {
+  type App,
+  bridgeProxyPrefix,
+  type ClassType,
+  compose,
+  createLogger,
+  initApp,
+  WithChromeMessageAdapter,
+  WithMessageBus,
+} from "@hbb-emu/lib";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
@@ -31,8 +40,8 @@ const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
     };
 
     init = () => {
-      logger.log("Initialized in MAIN world");
       this.attachObjects(document);
+      logger.log("Initialized");
 
       // TODO: Capire l'impatto sulle performance della pagina
       // this.mutationObserver = new MutationObserver((mutations) => {
@@ -58,5 +67,17 @@ const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
     };
   };
 
-const ContentScript = compose(class {}, WithObjectHandler, WithContentScript);
+export const WithContentScriptMessageBus = <T extends ClassType>(Base: T) =>
+  compose(
+    Base, 
+    WithChromeMessageAdapter, // TODO PostMessageAdapter
+    WithMessageBus("CONTENT_SCRIPT")
+  );
+
+const ContentScript = compose(
+  class {},
+  WithContentScriptMessageBus,
+  WithObjectHandler,
+  WithContentScript,
+);
 initApp(new ContentScript());

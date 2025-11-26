@@ -2,15 +2,26 @@ import {
   createApplicationManager,
   createOipfCapabilities,
   createOipfConfiguration,
-  VideoBroadcastObject,
+  WithVideoBroadcastObject,
 } from "@hbb-emu/hbbtv-api";
-import { type ClassType, copyProperties, ObjectStyleMirror, proxyProperties } from "@hbb-emu/lib";
+import {
+  type ClassType,
+  compose,
+  copyProperties,
+  type MessageAdapter,
+  type MessageBus,
+  ObjectStyleMirror,
+  proxyProperties,
+} from "@hbb-emu/lib";
+import { WithContentScriptMessageBus } from "./main";
 
 export interface ObjectHandler {
   attachObject: (element: HTMLObjectElement) => void;
 }
 
-export const WithObjectHandler = <T extends ClassType>(Base: T) =>
+const VideoBroadcastObject = compose(class {}, WithContentScriptMessageBus, WithVideoBroadcastObject);
+
+export const WithObjectHandler = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements ObjectHandler {
     attachObject = (element: HTMLObjectElement) => {
       const type = element.getAttribute("type");

@@ -17,16 +17,16 @@ export const WithVideoElement = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements VideoElement {
     readonly videoElement: HTMLVideoElement;
 
-    channelStreamUrlCache: Map<string, string> = new Map();
+    channelStreamUrls: Map<string, string> = new Map();
     currentVideoChannel: Channel | null = null;
     isVideoReleasing: boolean = false;
 
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CHANNELS", ({ payload }) => {
+      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
         payload.forEach((channel) => {
-          this.channelStreamUrlCache.set(serializeTriplet(channel), channel.mp4Source);
+          this.channelStreamUrls.set(serializeTriplet(channel), channel.mp4Source);
         });
       });
 
@@ -75,7 +75,7 @@ export const WithVideoElement = <T extends ClassType<MessageBus>>(Base: T) =>
     getChannelStreamUrl = (channel: Channel): string => {
       const key = hasTriplet(channel) ? serializeTriplet(channel) : channel?.ccid || "";
       logger.log(`Getting stream URL for channel: ${key}`);
-      return this.channelStreamUrlCache.get(key) || "";
+      return this.channelStreamUrls.get(key) || "";
     };
 
     loadVideo = (channel: Channel) => {

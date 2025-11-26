@@ -5,15 +5,14 @@ import {
   DEFAULT_HBBTV_CONFIG,
   type ExtensionConfig,
   initApp,
+  type MessageAdapter,
   type MessageBus,
   Storage,
-  WithChromeActionHandler,
-  WithChromeScriptInject,
-  WithChromeWebRequestManager,
+  WithChromeMessageAdapter,
   WithMessageBus,
 } from "@hbb-emu/lib";
 
-const WithServiceWorker = <T extends ClassType<MessageBus>>(Base: T) =>
+const WithServiceWorker = <T extends ClassType<MessageBus & MessageAdapter>>(Base: T) =>
   class extends Base implements App {
     state: Storage<ExtensionConfig.State>;
 
@@ -29,20 +28,19 @@ const WithServiceWorker = <T extends ClassType<MessageBus>>(Base: T) =>
 
       const data = candidate || DEFAULT_HBBTV_CONFIG;
 
-      await this.bus.sendMessage(this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: data.channels }));
-      await this.bus.sendMessage(this.bus.createEnvelope({ type: "UPDATE_VERSION", payload: data.version }));
-      await this.bus.sendMessage(this.bus.createEnvelope({ type: "UPDATE_COUNTRY_CODE", payload: data.countryCode }));
-      await this.bus.sendMessage(this.bus.createEnvelope({ type: "UPDATE_CAPABILITIES", payload: data.capabilities }));
+      await this.sendMessage(this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: data.channels }));
+      await this.sendMessage(this.bus.createEnvelope({ type: "UPDATE_VERSION", payload: data.version }));
+      await this.sendMessage(this.bus.createEnvelope({ type: "UPDATE_COUNTRY_CODE", payload: data.countryCode }));
+      await this.sendMessage(this.bus.createEnvelope({ type: "UPDATE_CAPABILITIES", payload: data.capabilities }));
     };
   };
 
+// biome-ignore format: ack
 const ServiceWorker = compose(
-  class {},
-  WithChromeScriptInject,
-  WithChromeActionHandler,
-  WithChromeWebRequestManager,
-  WithMessageBus("SERVICE_WORKER"),
-  WithServiceWorker,
+  class {}, 
+  WithChromeMessageAdapter, 
+  WithMessageBus("SERVICE_WORKER"), 
+  WithServiceWorker
 );
 
 initApp(new ServiceWorker());

@@ -5,14 +5,16 @@ import {
   DEFAULT_HBBTV_CONFIG,
   type ExtensionConfig,
   initApp,
+  type MessageAdapter,
   type MessageBus,
+  WithChromeMessageAdapter,
   WithMessageBus,
 } from "@hbb-emu/lib";
 import { Settings } from "@hbb-emu/ui";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-const WithSidePanel = <T extends ClassType<MessageBus>>(Base: T) =>
+const WithSidePanel = <T extends ClassType<MessageBus & MessageAdapter>>(Base: T) =>
   class extends Base implements App {
     root: Root | null = null;
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
@@ -20,19 +22,19 @@ const WithSidePanel = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_VERSION", ({ payload }) => {
+      this.bus.on("UPDATE_VERSION", ({ message: { payload } }) => {
         this.state.version = payload;
       });
 
-      this.bus.on("UPDATE_COUNTRY_CODE", ({ payload }) => {
+      this.bus.on("UPDATE_COUNTRY_CODE", ({ message: { payload } }) => {
         this.state.countryCode = payload;
       });
 
-      this.bus.on("UPDATE_CAPABILITIES", ({ payload }) => {
+      this.bus.on("UPDATE_CAPABILITIES", ({ message: { payload } }) => {
         this.state.capabilities = payload;
       });
 
-      this.bus.on("UPDATE_CHANNELS", ({ payload }) => {
+      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
         this.state.channels = payload;
       });
     }
@@ -60,13 +62,13 @@ const WithSidePanel = <T extends ClassType<MessageBus>>(Base: T) =>
                     } else {
                       this.state.channels.push(channel);
                     }
-                    await this.bus.sendMessage(
+                    await this.sendMessage(
                       this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
                     );
                   },
                   remove: async (id: string) => {
                     this.state.channels = this.state.channels.filter((channel) => channel.id !== id);
-                    await this.bus.sendMessage(
+                    await this.sendMessage(
                       this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
                     );
                   },
@@ -80,7 +82,7 @@ const WithSidePanel = <T extends ClassType<MessageBus>>(Base: T) =>
                         const index = channel.streamEvents.findIndex((e) => e.id === event.id);
                         if (index >= 0) {
                           channel.streamEvents[index] = event;
-                          await this.bus.sendMessage(
+                          await this.sendMessage(
                             this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
                           );
                         }
@@ -93,7 +95,7 @@ const WithSidePanel = <T extends ClassType<MessageBus>>(Base: T) =>
                           channel.streamEvents = channel.streamEvents.filter((e) => e.id !== id);
                         }
                       }
-                      return this.bus.sendMessage(
+                      return this.sendMessage(
                         this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
                       );
                     },
@@ -106,5 +108,12 @@ const WithSidePanel = <T extends ClassType<MessageBus>>(Base: T) =>
       );
   };
 
-const SidePanel = compose(class {}, WithMessageBus("SIDE_PANEL"), WithSidePanel);
+// biome-ignore format: ack
+const SidePanel = compose(
+  class {}, 
+  WithChromeMessageAdapter, 
+  WithMessageBus("SIDE_PANEL"), 
+  WithSidePanel
+);
+
 initApp(new SidePanel());

@@ -1,6 +1,5 @@
 import type { ClassType, MessageBus, OipfCapabilities } from "@hbb-emu/lib";
-import { compose } from "@hbb-emu/lib";
-import { WithContentScriptMessageBus } from ".";
+import { compose, WithChromeMessageAdapter, WithMessageBus } from "@hbb-emu/lib";
 
 const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
@@ -9,7 +8,7 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CAPABILITIES", ({ payload }) => {
+      this.bus.on("UPDATE_CAPABILITIES", ({ message: { payload } }) => {
         this.capabilitiesXML = payload;
       });
     }
@@ -41,6 +40,11 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   };
 
 export const createOipfCapabilities = (): OipfCapabilities => {
-  const CapabilitiesClass = compose(class {}, WithContentScriptMessageBus, WithCapabilities);
+  const CapabilitiesClass = compose(
+    class {},
+    WithChromeMessageAdapter, // TODO PostMessageAdapter
+    WithMessageBus("CONTENT_SCRIPT"),
+    WithCapabilities,
+  );
   return new CapabilitiesClass();
 };

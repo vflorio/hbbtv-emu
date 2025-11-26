@@ -1,4 +1,4 @@
-import { compose, WithMessageBus } from "@hbb-emu/lib";
+import { type ClassType, compose, type MessageBus } from "@hbb-emu/lib";
 import { WithAudio } from "./audio";
 import { WithChannel } from "./channel";
 import { WithComponents } from "./components";
@@ -10,17 +10,20 @@ import { WithProgrammes } from "./programmes";
 import { WithStreamEvents } from "./streamEvents";
 import { WithVideoElement } from "./videoElement";
 
-export const VideoBroadcastObject = compose(
-  class {},
-  WithMessageBus("CONTENT_SCRIPT"),
-  WithVideoElement,
-  WithEventTarget,
-  WithPlayback,
-  WithChannel,
-  WithStreamEvents,
-  WithComponents,
-  WithAudio,
-  WithDisplay,
-  WithProgrammes,
-  WithParentalControl,
-);
+export const WithVideoBroadcastObject = <T extends ClassType<MessageBus>>(Base: T) =>
+  compose(
+    Base,
+    WithVideoElement,
+    WithEventTarget,
+    WithPlayback,
+    WithChannel,
+    WithStreamEvents,
+    WithComponents,
+    WithAudio,
+    WithDisplay,
+    WithProgrammes,
+    WithParentalControl,
+  );
+
+export type VideoBroadcastObject = InstanceType<ReturnType<typeof WithVideoBroadcastObject>>;
+

@@ -1,10 +1,6 @@
-import { WithMessageBus } from "@hbb-emu/lib";
-
-export { createApplicationManager } from "./applicationManager";
-export { createOipfCapabilities } from "./capabilities";
-export { createOipfConfiguration } from "./configuration";
-export { createObjectFactory } from "./objectFactory";
-export { createOipf } from "./oipf";
-export { VideoBroadcastObject } from "./videoBroadcastObject";
-
-export const WithContentScriptMessageBus = WithMessageBus("CONTENT_SCRIPT");
+export * from "./applicationManager";
+export * from "./capabilities";
+export * from "./configuration";
+export * from "./objectFactory";
+export * from "./oipf";
+export * from "./videoBroadcastObject";
