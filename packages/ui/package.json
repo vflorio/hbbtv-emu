@@ -4,8 +4,8 @@
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
-    "@hbb-emu/lib": "workspace:*",
     "@hbb-emu/hbbtv-api": "workspace:*",
+    "@hbb-emu/lib": "workspace:*",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "react-router-dom": "7.9.6"

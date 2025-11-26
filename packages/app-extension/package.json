@@ -21,7 +21,12 @@
   },
   "main": "./dist/index.js",
   "scripts": {
-    "build": "vite build",
+    "build": "pnpm build:side-panel && pnpm build:service-worker && pnpm build:bridge && pnpm build:content-script && pnpm build:assets",
+    "build:side-panel": "vite build",
+    "build:service-worker": "vite build --config vite.service-worker.config.ts",
+    "build:bridge": "vite build --config vite.bridge.config.ts",
+    "build:content-script": "vite build --config vite.content-script.config.ts",
+    "build:assets": "cp -r public/* dist/",
     "clean": "rm -rf dist",
     "dev:app": "vite",
     "preview": "vite preview"

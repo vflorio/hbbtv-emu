@@ -7,7 +7,7 @@ export interface WebRequestHandler {
 
 export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject>>(Base: T) =>
   class extends Base implements WebRequestHandler {
-    tabs: Set<number>; 
+    tabs: Set<number>;
 
     constructor(...args: any[]) {
       super(...args);

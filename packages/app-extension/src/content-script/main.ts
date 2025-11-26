@@ -1,20 +1,35 @@
-import { type App, type ClassType, compose, initApp, type MessageBus, WithMessageBus } from "@hbb-emu/lib";
+import { type App, bridgeProxyPrefix, type ClassType, compose, initApp } from "@hbb-emu/lib";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
-const WithContentScript = <T extends ClassType<MessageBus & ObjectHandler>>(Base: T) =>
+const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
   class extends Base implements App {
     mutationObserver: MutationObserver | null = null;
 
     constructor(...args: any[]) {
       super(...args);
-      this.setupMessageHandlers();
+      window.addEventListener("message", this.handleMessage);
     }
 
-    setupMessageHandlers = () => {
-      // this.bus.on("UPDATE_CHANNELS", ({ payload }) => {  });
+    handleMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      switch (event.data?.type) {
+        case `${bridgeProxyPrefix}UPDATE_CHANNELS`:
+          console.log("[HbbTV Content] Received channels:", event.data.payload);
+          break;
+        case `${bridgeProxyPrefix}UPDATE_VERSION`:
+          console.log("[HbbTV Content] Received version:", event.data.payload);
+          break;
+        case `${bridgeProxyPrefix}UPDATE_COUNTRY_CODE`:
+          console.log("[HbbTV Content] Received country code:", event.data.payload);
+          break;
+        case `${bridgeProxyPrefix}UPDATE_CAPABILITIES`:
+          console.log("[HbbTV Content] Received capabilities:", event.data.payload);
+          break;
+      }
     };
 
     init = () => {
+      console.log("[HbbTV Content] Initialized in MAIN world");
       this.attachObjects(document);
 
       // TODO: Capire l'impatto sulle performance della pagina
@@ -41,5 +56,5 @@ const WithContentScript = <T extends ClassType<MessageBus & ObjectHandler>>(Base
     };
   };
 
-const ContentScript = compose(class {}, WithMessageBus("CONTENT_SCRIPT"), WithObjectHandler, WithContentScript);
+const ContentScript = compose(class {}, WithObjectHandler, WithContentScript);
 initApp(new ContentScript());

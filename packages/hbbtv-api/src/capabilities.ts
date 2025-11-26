@@ -40,6 +40,7 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
     };
   };
 
-const CapabilitiesClass = compose(class {}, WithContentScriptMessageBus, WithCapabilities);
-
-export const createOipfCapabilities = (): OipfCapabilities => new CapabilitiesClass();
+export const createOipfCapabilities = (): OipfCapabilities => {
+  const CapabilitiesClass = compose(class {}, WithContentScriptMessageBus, WithCapabilities);
+  return new CapabilitiesClass();
+};

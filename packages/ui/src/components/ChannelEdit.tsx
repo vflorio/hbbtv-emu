@@ -19,8 +19,8 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { generateRandomChannel } from "@/misc";
 import { useConfig } from "../context/config";
+import { generateRandomChannel } from "../misc";
 
 export default function ChannelEdit() {
   const { id } = useParams<{ id: string }>();

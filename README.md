@@ -32,6 +32,26 @@ Run all packages in watch mode:
 pnpm dev
 ```
 
+### Running Specific Applications
+
+**Browser Extension (`app-extension`)**
+
+Run the extension in development mode to access the side panel:
+
+```bash
+pnpm --filter @hbb-emu/app-extension dev
+```
+
+Load the extension in your browser by pointing to the `packages/app-extension/dist` directory.
+
+**Web Application (`app-web`)**
+
+Run the standalone web app that loads the HbbTV API into the DOM of a non-HbbTV HTML application:
+
+```bash
+pnpm --filter @hbb-emu/app-web dev
+```
+
 Clean build artifacts:
 
 ```bash

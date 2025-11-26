@@ -1,6 +1,11 @@
-import { compose, type ExtensionConfig, WithChromeMessageListener, WithChromeMessageSender } from "@hbb-emu/lib";
+import type { ExtensionConfig } from "./config";
 
 export type MessageSource = "SIDE_PANEL" | "SERVICE_WORKER" | "CONTENT_SCRIPT";
+
+export const validMessageSource: MessageSource[] = ["SIDE_PANEL", "SERVICE_WORKER", "CONTENT_SCRIPT"];
+
+export const isValidMessageSource = (source: string): source is MessageSource =>
+  validMessageSource.includes(source as MessageSource);
 
 export type Message =
   | { type: "UPDATE_USER_AGENT"; payload: string }
@@ -9,6 +14,17 @@ export type Message =
   | { type: "UPDATE_COUNTRY_CODE"; payload: string }
   | { type: "UPDATE_CAPABILITIES"; payload: string };
 
+export const validMessageType: Message["type"][] = [
+  "UPDATE_USER_AGENT",
+  "UPDATE_CHANNELS",
+  "UPDATE_VERSION",
+  "UPDATE_COUNTRY_CODE",
+  "UPDATE_CAPABILITIES",
+];
+
+export const isValidMessageType = (type: string): type is Message["type"] =>
+  validMessageType.includes(type as Message["type"]);
+
 export interface MessageEnvelope<T extends Message = Message> {
   id: string;
   timestamp: number;
@@ -16,69 +32,6 @@ export interface MessageEnvelope<T extends Message = Message> {
   source: MessageSource;
   tabId?: number;
 }
-
-type MessageHandler<T extends Message = Message> = (message: T, envelope: MessageEnvelope<T>) => Promise<void> | void;
-
-export class MessageClientBase {
-  private handlers: Map<string, MessageHandler[]> = new Map();
-  readonly source: MessageSource;
-
-  constructor(source: MessageSource) {
-    this.source = source;
-  }
-
-  on = <T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
-    const handlers = this.handlers.get(type) || [];
-    handlers.push(handler as MessageHandler);
-    this.handlers.set(type, handlers);
-  };
-
-  off = <T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
-    const handlers = this.handlers.get(type);
-    if (!handlers) return;
-    this.handlers.set(
-      type,
-      handlers.filter((h) => h !== handler),
-    );
-  };
-
-  dispatch = async (envelope: MessageEnvelope): Promise<void> => {
-    const handlers = this.handlers.get(envelope.message.type);
-    if (!handlers || handlers.length === 0) {
-      console.warn(`No handler for message type: ${envelope.message.type}`);
-      return;
-    }
-
-    await Promise.all(handlers.map((handler) => handler(envelope.message, envelope)));
-  };
-
-  createEnvelope = <T extends Message>(message: T, tabId?: number): MessageEnvelope<T> => ({
-    id: crypto.randomUUID(),
-    timestamp: Date.now(),
-    message,
-    source: this.source,
-    tabId,
-  });
-}
-
-export const MessageClient = compose(MessageClientBase, WithChromeMessageListener, WithChromeMessageSender);
-export type MessageClient = InstanceType<typeof MessageClient>;
-
-export interface MessageBus {
-  bus: MessageClient;
-}
-
-export const WithMessageBus =
-  (source: MessageSource) =>
-  <T extends {}>(Base: T) =>
-    class extends (Base as any) implements MessageBus {
-      bus: MessageClient;
-
-      constructor(...args: any[]) {
-        super(...args);
-        this.bus = new MessageClient(source);
-      }
-    };
 
 export const isMessage = (data: unknown): data is Message =>
   typeof data === "object" && data !== null && "type" in data && "action" in data;
@@ -91,3 +44,6 @@ export const isMessageEnvelope = (data: unknown): data is MessageEnvelope =>
   "message" in data &&
   "source" in data &&
   isMessage((data as MessageEnvelope).message);
+
+  
+export const bridgeProxyPrefix = "HBBTV_EMU_";

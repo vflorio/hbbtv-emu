@@ -67,6 +67,7 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
     setText = (_key: string, _value: string): void => {};
   };
 
-const OipfConfigurationClass = compose(class {}, WithContentScriptMessageBus, WithConfiguration);
-
-export const createOipfConfiguration = (): OipfConfiguration => new OipfConfigurationClass();
+export const createOipfConfiguration = (): OipfConfiguration => {
+  const OipfConfigurationClass = compose(class {}, WithContentScriptMessageBus, WithConfiguration);
+  return new OipfConfigurationClass();
+};

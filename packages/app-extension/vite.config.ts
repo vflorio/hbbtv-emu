@@ -15,17 +15,15 @@ export default defineConfig({
     rollupOptions: {
       input: {
         "side-panel": resolve(__dirname, "side-panel.html"),
-        "service-worker": resolve(__dirname, "src/service-worker/main.ts"),
-        "content-script": resolve(__dirname, "src/content-script/main.ts"),
       },
       output: {
         entryFileNames: "[name].js",
-        chunkFileNames: "[name].js",
+        chunkFileNames: "[name]-[hash].js",
         assetFileNames: "[name].[ext]",
       },
     },
     outDir: "dist",
     emptyOutDir: true,
   },
-  publicDir: "public",
+  publicDir: false, // Copiamo i file public manualmente
 });

@@ -15,7 +15,10 @@ export const WithChromeMessageListener = <T extends ClassType>(Base: T) =>
 
     constructor(...args: any[]) {
       super(...args);
-      chrome.runtime.onMessage.addListener(this.handleChromeMessage);
+      // Registra il listener solo se chrome.runtime è disponibile
+      if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+        chrome.runtime.onMessage.addListener(this.handleChromeMessage);
+      }
     }
 
     shouldHandleMessage = (_envelope: MessageEnvelope): boolean => true; // Override in base class if needed
