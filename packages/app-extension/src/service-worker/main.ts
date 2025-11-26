@@ -1,8 +1,10 @@
 import {
+  type App,
   type ClassType,
   compose,
   DEFAULT_HBBTV_CONFIG,
   type ExtensionConfig,
+  initApp,
   type MessageBus,
   Storage,
   WithChromeActionHandler,
@@ -11,8 +13,8 @@ import {
   WithMessageBus,
 } from "@hbb-emu/lib";
 
-const WithApp = <T extends ClassType<MessageBus>>(Base: T) =>
-  class extends Base {
+const WithServiceWorker = <T extends ClassType<MessageBus>>(Base: T) =>
+  class extends Base implements App {
     state: Storage<ExtensionConfig.State>;
 
     constructor(...args: any[]) {
@@ -34,15 +36,13 @@ const WithApp = <T extends ClassType<MessageBus>>(Base: T) =>
     };
   };
 
-const WithServiceWorkerMessageBus = WithMessageBus("SERVICE_WORKER");
-
 const ServiceWorker = compose(
   class {},
   WithChromeScriptInject,
   WithChromeActionHandler,
   WithChromeWebRequestManager,
-  WithServiceWorkerMessageBus,
-  WithApp,
+  WithMessageBus("SERVICE_WORKER"),
+  WithServiceWorker,
 );
 
-new ServiceWorker();
+initApp(new ServiceWorker());

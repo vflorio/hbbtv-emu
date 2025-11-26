@@ -4,7 +4,7 @@ import { useState } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import ChannelEdit from "./components/ChannelEdit";
 import ChannelList from "./components/ChannelList";
-import Settings from "./components/Settings";
+import Common from "./components/Common";
 import StreamEventsEdit from "./components/StreamEventsEdit";
 import { ConfigProvider, type UIConfig } from "./context/config";
 
@@ -31,18 +31,18 @@ function MainLayout() {
       <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Channels" />
-          <Tab label="Settings" />
+          <Tab label="Common" />
         </Tabs>
       </Box>
       <Box sx={{ flex: 1, overflow: "auto" }}>
         {activeTab === 0 && <ChannelList />}
-        {activeTab === 1 && <Settings config={null} onSave={handleSaveSettings} />}
+        {activeTab === 1 && <Common config={null} onSave={handleSaveSettings} />}
       </Box>
     </Box>
   );
 }
 
-export default function App({ config }: { config: UIConfig }) {
+export function Settings({ config }: { config: UIConfig }) {
   return (
     <ConfigProvider value={config}>
       <ThemeProvider theme={theme}>

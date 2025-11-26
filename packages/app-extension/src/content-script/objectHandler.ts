@@ -1,23 +1,49 @@
-import { createApplicationManager, createOipfCapabilities, createOipfConfiguration } from "@hbb-emu/hbbtv-api";
-import { copyProperties } from "@hbb-emu/lib";
-import { createVideoBroadcastProxy } from "./videoBroadcastProxy";
+import {
+  createApplicationManager,
+  createOipfCapabilities,
+  createOipfConfiguration,
+  VideoBroadcastObject,
+} from "@hbb-emu/hbbtv-api";
+import { type ClassType, copyProperties, ObjectStyleMirror, proxyProperties } from "@hbb-emu/lib";
 
-export const attachObjectElement = (element: HTMLObjectElement) => {
-  const type = element.getAttribute("type");
-  if (!type) return;
+export interface ObjectHandler {
+  attachObject: (element: HTMLObjectElement) => void;
+}
 
-  if (type === "video/broadcast") {
-    createVideoBroadcastProxy(element);
-    return;
-  }
+export const WithObjectHandler = <T extends ClassType>(Base: T) =>
+  class extends Base implements ObjectHandler {
+    attachObject = (element: HTMLObjectElement) => {
+      const type = element.getAttribute("type");
+      if (!type) return;
 
-  const object = {
-    "application/oipfApplicationManager": createApplicationManager(),
-    "application/oipfConfiguration": createOipfConfiguration(),
-    "application/oipfCapabilities": createOipfCapabilities(),
-  }[type];
+      if (type === "video/broadcast") {
+        this.createVideoBroadcast(element);
+        return;
+      }
 
-  if (!object) return;
+      const object = this.createObject(type);
+      if (!object) return;
 
-  copyProperties(object, element);
-};
+      copyProperties(object, element);
+    };
+
+    private createVideoBroadcast = (objectElement: HTMLObjectElement) => {
+      if (!objectElement.parentNode) return;
+
+      const videoBroadcastObject = new VideoBroadcastObject();
+      objectElement.parentNode.insertBefore(videoBroadcastObject.videoElement, objectElement.nextSibling);
+
+      new ObjectStyleMirror(objectElement, videoBroadcastObject.videoElement);
+      proxyProperties(objectElement, videoBroadcastObject);
+    };
+
+    private createObject = (type: string) => {
+      const objectMap: Record<string, () => unknown> = {
+        "application/oipfApplicationManager": createApplicationManager,
+        "application/oipfConfiguration": createOipfConfiguration,
+        "application/oipfCapabilities": createOipfCapabilities,
+      };
+
+      return objectMap[type]?.();
+    };
+  };
