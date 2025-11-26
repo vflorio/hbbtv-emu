@@ -31,41 +31,40 @@ export const createStorageAdapter = (): StorageAdapter => {
   return new LocalStorageAdapter();
 };
 
-export interface StorageOperations<T extends { id: string }> {
-  loadAll(): Promise<T[]>;
-  saveAll(entries: T[]): Promise<void>;
-  saveEntry(entry: T): Promise<void>;
-  deleteEntry(id: string): Promise<void>;
-}
-
-export class Storage<T extends { id: string }> implements StorageOperations<T> {
+export class Storage<T> {
   constructor(
     private key: string,
     private storageAdapter: StorageAdapter = createStorageAdapter(),
   ) {}
 
-  loadAll = async (): Promise<T[]> => {
+  load = async (): Promise<T | null> => {
     try {
       const data = await this.storageAdapter.getItem(this.key);
-      if (!data) return [];
-      return JSON.parse(data) as T[];
+      if (!data) return null;
+      return JSON.parse(data) as T;
     } catch (error) {
-      console.error("Failed to load entries:", error);
-      return [];
+      console.error("Failed to load entry:", error);
+      return null;
     }
   };
 
-  saveAll = async (entries: T[]): Promise<void> => {
+  save = async (entry: T): Promise<void> => {
     try {
-      await this.storageAdapter.setItem(this.key, JSON.stringify(entries));
+      await this.storageAdapter.setItem(this.key, JSON.stringify(entry));
     } catch (error) {
-      console.error("Failed to save entries:", error);
+      console.error("Failed to save entry:", error);
     }
   };
+}
+
+export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
+  constructor(key: string, storageAdapter: StorageAdapter = createStorageAdapter()) {
+    super(key, storageAdapter);
+  }
 
   saveEntry = async (entry: T): Promise<void> => {
-    const entries = await this.loadAll();
-    const index = entries.findIndex((ch) => ch.id === entry.id);
+    const entries = (await this.load()) || [];
+    const index = entries.findIndex((channel) => channel.id === entry.id);
 
     if (index >= 0) {
       entries[index] = entry;
@@ -73,12 +72,12 @@ export class Storage<T extends { id: string }> implements StorageOperations<T> {
       entries.push(entry);
     }
 
-    await this.saveAll(entries);
+    await this.save(entries);
   };
 
   deleteEntry = async (id: string): Promise<void> => {
-    const entries = await this.loadAll();
-    const filtered = entries.filter((ch) => ch.id !== id);
-    await this.saveAll(filtered);
+    const entries = (await this.load()) || [];
+    const filtered = entries.filter((channel) => channel.id !== id);
+    await this.save(filtered);
   };
 }

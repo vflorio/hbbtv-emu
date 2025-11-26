@@ -1,20 +1,23 @@
-import type { ClassType, OipfCapabilities } from "@hbb-emu/lib";
+import type { ClassType, MessageBus, OipfCapabilities } from "@hbb-emu/lib";
 import { compose } from "@hbb-emu/lib";
-import { getCapabilities } from "./storage";
+import { WithContentScriptMessageBus } from ".";
 
-class CapabilitiesBase {
-  protected capabilitiesXML = getCapabilities();
-}
-
-const WithXMLCapabilities = <T extends ClassType<CapabilitiesBase>>(Base: T) =>
+const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
+    protected capabilitiesXML: string = "";
+
+    constructor(...args: any[]) {
+      super(...args);
+
+      this.bus.on("UPDATE_CAPABILITIES", ({ payload }) => {
+        this.capabilitiesXML = payload;
+      });
+    }
+
     get xmlCapabilities(): Document {
       return new DOMParser().parseFromString(this.capabilitiesXML, "text/xml");
     }
-  };
 
-const WithVideoProfiles = <T extends ClassType<CapabilitiesBase>>(Base: T) =>
-  class extends Base {
     private countVideoProfiles = (type: "SD" | "HD"): number => {
       const videoProfiles = this.capabilitiesXML.split("video_profile");
       if (videoProfiles.length <= 1) return 0;
@@ -30,16 +33,13 @@ const WithVideoProfiles = <T extends ClassType<CapabilitiesBase>>(Base: T) =>
     get extraHDVideoDecodes(): number {
       return this.countVideoProfiles("HD");
     }
-  };
 
-const WithCapabilityCheck = <T extends ClassType<CapabilitiesBase & { xmlCapabilities: Document }>>(Base: T) =>
-  class extends Base {
     hasCapability = (capability: string): boolean => {
       const serialized = new XMLSerializer().serializeToString(this.xmlCapabilities);
       return serialized.includes(capability.toString() || "??");
     };
   };
 
-const CapabilitiesClass = compose(CapabilitiesBase, WithXMLCapabilities, WithVideoProfiles, WithCapabilityCheck);
+const CapabilitiesClass = compose(class {}, WithContentScriptMessageBus, WithCapabilities);
 
 export const createOipfCapabilities = (): OipfCapabilities => new CapabilitiesClass();

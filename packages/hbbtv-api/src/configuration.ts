@@ -3,25 +3,35 @@ import {
   type Configuration,
   compose,
   type LocalSystem,
+  type MessageBus,
   type OipfConfiguration,
   version,
 } from "@hbb-emu/lib";
-import { getCountryCode, getHbbTVVersion } from "./storage";
+import { WithContentScriptMessageBus } from ".";
 
-class ConfigurationBase {
-  protected hbbtvVersion = getHbbTVVersion();
-}
-
-const WithConfiguration = <T extends ClassType<ConfigurationBase>>(Base: T) =>
+const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
-    get configuration(): Configuration {
-      const countryId = getCountryCode();
+    protected hbbtvVersion: string = "";
+    protected countryCode: string = "";
 
+    constructor(...args: any[]) {
+      super(...args);
+
+      this.bus.on("UPDATE_COUNTRY_CODE", ({ payload }) => {
+        this.countryCode = payload;
+      });
+
+      this.bus.on("UPDATE_VERSION", ({ payload }) => {
+        this.hbbtvVersion = payload;
+      });
+    }
+
+    get configuration(): Configuration {
       const baseConfig: Configuration = {
-        preferredAudioLanguage: countryId,
-        preferredSubtitleLanguage: `${countryId},ENG`,
-        preferredUILanguage: `${countryId},ENG`,
-        countryId,
+        preferredAudioLanguage: this.countryCode,
+        preferredSubtitleLanguage: `${this.countryCode},ENG`,
+        preferredUILanguage: `${this.countryCode},ENG`,
+        countryId: this.countryCode,
       };
 
       if (version(this.hbbtvVersion).isLessThan("2.0.0")) return baseConfig;
@@ -38,10 +48,7 @@ const WithConfiguration = <T extends ClassType<ConfigurationBase>>(Base: T) =>
         },
       };
     }
-  };
 
-const WithLocalSystem = <T extends ClassType<ConfigurationBase>>(Base: T) =>
-  class extends Base {
     get localSystem(): LocalSystem | undefined {
       if (version(this.hbbtvVersion).isLessThan("2.0.0")) return undefined;
 
@@ -54,15 +61,12 @@ const WithLocalSystem = <T extends ClassType<ConfigurationBase>>(Base: T) =>
         serialNumber: "12345",
       };
     }
-  };
 
-const WithTextHandling = <T extends ClassType<ConfigurationBase>>(Base: T) =>
-  class extends Base {
     getText = (_key: string): string | undefined => undefined;
 
     setText = (_key: string, _value: string): void => {};
   };
 
-const OipfConfigurationClass = compose(ConfigurationBase, WithConfiguration, WithLocalSystem, WithTextHandling);
+const OipfConfigurationClass = compose(class {}, WithContentScriptMessageBus, WithConfiguration);
 
 export const createOipfConfiguration = (): OipfConfiguration => new OipfConfigurationClass();
