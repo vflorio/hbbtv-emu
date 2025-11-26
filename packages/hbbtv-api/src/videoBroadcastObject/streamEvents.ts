@@ -1,4 +1,4 @@
-import { type ClassType, logger } from "@hbb-emu/lib";
+import { type ClassType, createLogger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -17,7 +17,7 @@ export interface StreamEvents {
   removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
 }
 
-const log = logger("StreamEvents");
+const logger = createLogger("StreamEvents");
 
 export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Base: T) =>
   class extends Base implements StreamEvents {
@@ -91,10 +91,10 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       });
 
     addStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => {
-      log(`addStreamEventListener(${targetURL}, ${eventName})`);
+      logger.log(`addStreamEventListener(${targetURL}, ${eventName})`);
 
       if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
-        log("addStreamEventListener: ignored - invalid state");
+        logger.log("addStreamEventListener: ignored - invalid state");
         return;
       }
 
@@ -106,7 +106,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
     };
 
     removeStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => {
-      log(`removeStreamEventListener(${targetURL}, ${eventName})`);
+      logger.log(`removeStreamEventListener(${targetURL}, ${eventName})`);
 
       const key = this.getStreamEventKey(targetURL, eventName);
 
@@ -116,7 +116,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
     };
 
     clearAllStreamEventListeners = () => {
-      log("clearAllStreamEventListeners");
+      logger.log("clearAllStreamEventListeners");
 
       for (const [key, listeners] of this.streamEventMetadata.entries()) {
         const [_targetURL, eventName] = key.split(":", 2);
@@ -135,7 +135,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       if (!this.hasListener(key)) return;
 
       if (version && !this.trackVersion(key, version)) {
-        log(`Stream event ${eventName} version ${version} already received, skipping`);
+        logger.log(`Stream event ${eventName} version ${version} already received, skipping`);
         return;
       }
 

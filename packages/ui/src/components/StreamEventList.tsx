@@ -1,3 +1,4 @@
+import { createLogger } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Send as SendIcon } from "@mui/icons-material";
 import {
   Box,
@@ -17,6 +18,8 @@ import type { ExtensionConfig } from "node_modules/@hbb-emu/lib/dist/config";
 import { useEffect, useState } from "react";
 import { useConfig } from "../context/config";
 import StreamEventForm from "./StreamEventForm";
+
+const logger = createLogger("Stream Events");
 
 export default function StreamEventList() {
   const config = useConfig();
@@ -61,7 +64,7 @@ export default function StreamEventList() {
   };
 
   const handleDispatchEvent = async (event: ExtensionConfig.StreamEvent) => {
-    console.log("TODO Dispatching stream event:", event);
+    logger.log("TODO Dispatching stream event:", event);
   };
 
   return (

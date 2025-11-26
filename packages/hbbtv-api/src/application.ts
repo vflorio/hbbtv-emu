@@ -1,4 +1,4 @@
-import { type Application, type ApplicationPrivateData, type ClassType, compose, logger } from "@hbb-emu/lib";
+import { type Application, type ApplicationPrivateData, type ClassType, compose, createLogger } from "@hbb-emu/lib";
 import { createKeyset } from "./keyset";
 import { createOipf } from "./oipf";
 
@@ -6,7 +6,7 @@ interface PerformanceMemory {
   usedJSHeapSize: number;
 }
 
-const log = logger("Application");
+const logger = createLogger("Application");
 
 class ApplicationBase {
   constructor(protected documentRef: Document) {}
@@ -29,7 +29,7 @@ const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
       return {
         keyset: createKeyset(),
         get currentChannel() {
-          log("currentChannel");
+          logger.log("currentChannel");
           const currentCcid = oipf.getCurrentTVChannel().ccid || "ccid:dvbt.0";
           return oipf.channelList.getChannel(currentCcid);
         },
@@ -53,7 +53,7 @@ const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
     }
 
     show = (): boolean => {
-      log("show");
+      logger.log("show");
       if (this.documentRef?.body) {
         this.documentRef.body.style.visibility = "visible";
         this._visible = true;
@@ -63,7 +63,7 @@ const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
     };
 
     hide = (): boolean => {
-      log("hide");
+      logger.log("hide");
       if (this.documentRef?.body) {
         this.documentRef.body.style.visibility = "hidden";
         this._visible = false;
@@ -81,11 +81,11 @@ interface Lifecycle {
 const WithLifecycle = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base implements Lifecycle {
     createApplication = (_uri: string, _createChild?: boolean): void => {
-      log("createApplication");
+      logger.log("createApplication");
     };
 
     destroyApplication = (): void => {
-      log("destroyApplication");
+      logger.log("destroyApplication");
     };
   };
 

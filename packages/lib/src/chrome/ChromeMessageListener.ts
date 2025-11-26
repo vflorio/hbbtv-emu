@@ -1,5 +1,8 @@
 import { isMessageEnvelope, type MessageEnvelope } from "../message";
+import { createLogger } from "../misc";
 import type { ClassType } from "../mixin";
+
+const logger = createLogger("Chrome Message Listener");
 
 export type MessageHandler = (envelope: MessageEnvelope) => Promise<void>;
 
@@ -15,7 +18,6 @@ export const WithChromeMessageListener = <T extends ClassType>(Base: T) =>
 
     constructor(...args: any[]) {
       super(...args);
-      // Registra il listener solo se chrome.runtime è disponibile
       if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
         chrome.runtime.onMessage.addListener(this.handleChromeMessage);
       }
@@ -37,7 +39,7 @@ export const WithChromeMessageListener = <T extends ClassType>(Base: T) =>
       sendResponse: (response?: unknown) => void,
     ) => {
       if (!isMessageEnvelope(data)) {
-        console.error("Invalid message format");
+        logger.error("Invalid message format");
         return false;
       }
 
@@ -46,7 +48,7 @@ export const WithChromeMessageListener = <T extends ClassType>(Base: T) =>
       this.enrichEnvelope(data, sender);
 
       if (!this.messageHandler) {
-        console.error("No message handler registered");
+        logger.error("No message handler registered");
         return false;
       }
 
@@ -55,7 +57,7 @@ export const WithChromeMessageListener = <T extends ClassType>(Base: T) =>
           sendResponse();
         })
         .catch((error) => {
-          console.error("Message handler error:", error);
+          logger.error("Message handler error:", error);
           sendResponse();
         });
 

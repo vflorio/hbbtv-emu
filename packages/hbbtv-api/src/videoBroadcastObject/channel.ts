@@ -1,4 +1,4 @@
-import { type Channel, ChannelIdType, type ClassType, logger } from "@hbb-emu/lib";
+import { type Channel, ChannelIdType, type ClassType, createLogger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -46,7 +46,7 @@ export interface ChannelManager {
   ): Channel | null;
 }
 
-const log = logger("Channel");
+const logger = createLogger("Channel");
 
 export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback>>(Base: T) =>
   class extends Base implements ChannelManager {
@@ -78,7 +78,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     };
 
     bindToCurrentChannel = (): Channel | null => {
-      log("bindToCurrentChannel");
+      logger.log("bindToCurrentChannel");
 
       if (!this.isPlayStateValid([PlayState.UNREALIZED, PlayState.STOPPED])) {
         return null;
@@ -99,7 +99,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       _contentAccessDescriptorURL?: string,
       _quiet?: number,
     ) => {
-      log(`setChannel: ${channel?.name || "null"}`);
+      logger.log(`setChannel: ${channel?.name || "null"}`);
 
       if (channel === null) {
         this.currentChannel = null;
@@ -118,7 +118,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     };
 
     nextChannel = () => {
-      log("nextChannel");
+      logger.log("nextChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
         const channel = this.currentChannel;
@@ -131,7 +131,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     };
 
     prevChannel = () => {
-      log("prevChannel");
+      logger.log("prevChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
         this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
@@ -143,12 +143,12 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     };
 
     getChannelConfig = (): ChannelConfig | null => {
-      log("getChannelConfig");
+      logger.log("getChannelConfig");
       return null;
     };
 
     createChannelObject = (idType: ChannelIdType, ...args: unknown[]): Channel | null => {
-      log(`createChannelObject(${idType})`);
+      logger.log(`createChannelObject(${idType})`);
 
       if (idType === ChannelIdType.ID_DVB_SI_DIRECT && args.length >= 2) {
         const [dsd, sid] = args as [string, number];

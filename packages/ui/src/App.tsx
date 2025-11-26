@@ -1,4 +1,5 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
+import { createLogger } from "@hbb-emu/lib";
 import { Box, CssBaseline, createTheme, Tab, Tabs, ThemeProvider } from "@mui/material";
 import { useState } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
@@ -7,6 +8,8 @@ import ChannelList from "./components/ChannelList";
 import Common from "./components/Common";
 import StreamEventsEdit from "./components/StreamEventsEdit";
 import { ConfigProvider, type UIConfig } from "./context/config";
+
+const logger = createLogger("Settings UI");
 
 const theme = createTheme({
   palette: {
@@ -23,7 +26,7 @@ function MainLayout() {
 
   const handleSaveSettings = (config: Omit<ExtensionConfig.State, "channels">) => {
     // TODO: implementare il salvataggio delle impostazioni
-    console.log("Save settings:", config);
+    logger.log("Save settings:", config);
   };
 
   return (

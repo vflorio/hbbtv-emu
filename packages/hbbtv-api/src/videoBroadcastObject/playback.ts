@@ -1,4 +1,4 @@
-import { type ClassType, logger } from "@hbb-emu/lib";
+import { type ClassType, createLogger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { VideoElement } from "./videoElement";
 
@@ -19,7 +19,7 @@ export interface Playback {
   release(): void;
 }
 
-const log = logger("Playback");
+const logger = createLogger("Playback");
 
 export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Base: T) =>
   class extends Base implements Playback {
@@ -41,21 +41,21 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
       const oldState = this.playState;
       this.playState = newState;
 
-      log(`VideoBroadcast state: ${oldState} -> ${newState}`);
+      logger.log(`VideoBroadcast state: ${oldState} -> ${newState}`);
 
       this.onPlayStateChange?.(newState, error);
       this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
     };
 
     stop = () => {
-      log("stop");
+      logger.log("stop");
       if (this.playState === PlayState.UNREALIZED) return;
 
       this.stopVideo();
     };
 
     release = () => {
-      log("release");
+      logger.log("release");
       this.stopVideo();
     };
   };

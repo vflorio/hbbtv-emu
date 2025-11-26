@@ -1,9 +1,12 @@
 import { WithChromeMessageListener } from "./chrome/ChromeMessageListener";
 import { WithChromeMessageSender } from "./chrome/ChromeMessageSender";
 import type { Message, MessageEnvelope, MessageSource } from "./message";
+import { createLogger } from "./misc";
 import { compose } from "./mixin";
 
 type MessageHandler<T extends Message = Message> = (message: T, envelope: MessageEnvelope<T>) => Promise<void> | void;
+
+const logger = createLogger("Message Client");
 
 export class MessageClientBase {
   private handlers: Map<string, MessageHandler[]> = new Map();
@@ -31,7 +34,7 @@ export class MessageClientBase {
   dispatch = async (envelope: MessageEnvelope): Promise<void> => {
     const handlers = this.handlers.get(envelope.message.type);
     if (!handlers || handlers.length === 0) {
-      console.warn(`No handler for message type: ${envelope.message.type}`);
+      logger.warn(`No handler for message type: ${envelope.message.type}`);
       return;
     }
 

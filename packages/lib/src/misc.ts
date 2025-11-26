@@ -1,5 +1,29 @@
-export const logger = (section: string) => (message: string) => {
-  console.log(`[hbbtv-emu] ${section}: ${message}`);
+type LogLevel = "log" | "error" | "warn" | "info" | "debug";
+
+export const createLogger = (section: string) => {
+  const createLog =
+    (level: LogLevel) =>
+    (message: string, ...args: unknown[]) => {
+      const prefixStyle = "color: #83a598; font-weight: bold;";
+      const sectionStyle = "color: #fabd2f; font-weight: bold;";
+      const messageStyle = "color: #b8bb26;";
+
+      console[level](
+        `%c[hbbtv-emu]%c ${section}%c ${message}`,
+        prefixStyle,
+        sectionStyle,
+        messageStyle,
+        ...args,
+      );
+    };
+
+  return {
+    log: createLog("log"),
+    error: createLog("error"),
+    warn: createLog("warn"),
+    info: createLog("info"),
+    debug: createLog("debug"),
+  };
 };
 
 export interface Collection<T> {

@@ -1,5 +1,7 @@
-import { type App, bridgeProxyPrefix, type ClassType, compose, initApp } from "@hbb-emu/lib";
+import { type App, bridgeProxyPrefix, type ClassType, compose, createLogger, initApp } from "@hbb-emu/lib";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
+
+const logger = createLogger("ContentScript");
 
 const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
   class extends Base implements App {
@@ -14,22 +16,22 @@ const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
       if (event.source !== window) return;
       switch (event.data?.type) {
         case `${bridgeProxyPrefix}UPDATE_CHANNELS`:
-          console.log("[HbbTV Content] Received channels:", event.data.payload);
+          logger.log("Received channels:", event.data.payload);
           break;
         case `${bridgeProxyPrefix}UPDATE_VERSION`:
-          console.log("[HbbTV Content] Received version:", event.data.payload);
+          logger.log("Received version:", event.data.payload);
           break;
         case `${bridgeProxyPrefix}UPDATE_COUNTRY_CODE`:
-          console.log("[HbbTV Content] Received country code:", event.data.payload);
+          logger.log("Received country code:", event.data.payload);
           break;
         case `${bridgeProxyPrefix}UPDATE_CAPABILITIES`:
-          console.log("[HbbTV Content] Received capabilities:", event.data.payload);
+          logger.log("Received capabilities:", event.data.payload);
           break;
       }
     };
 
     init = () => {
-      console.log("[HbbTV Content] Initialized in MAIN world");
+      logger.log("Initialized in MAIN world");
       this.attachObjects(document);
 
       // TODO: Capire l'impatto sulle performance della pagina

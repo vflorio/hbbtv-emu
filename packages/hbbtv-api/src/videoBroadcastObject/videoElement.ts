@@ -1,4 +1,4 @@
-import { type Channel, type ClassType, logger } from "@hbb-emu/lib";
+import { type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
 import { hasTriplet, serializeTriplet } from "../channels";
 import { PlayState } from "./playback";
 
@@ -11,7 +11,7 @@ export interface VideoElement {
   stopVideo: () => void;
 }
 
-const log = logger("VideoElement");
+const logger = createLogger("VideoElement");
 
 export const WithVideoElement = <T extends ClassType>(Base: T) =>
   class extends Base implements VideoElement {
@@ -25,18 +25,18 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
       super(...args);
 
       const loadstart = () => {
-        log("loadstart");
+        logger.log("loadstart");
         this.dispatchVideoEvent("PlayStateChange", PlayState.CONNECTING);
       };
 
       const canplay = () => {
-        log("canplay");
+        logger.log("canplay");
         this.dispatchVideoEvent("ChannelLoadSuccess", this.currentVideoChannel);
         this.dispatchVideoEvent("PlayStateChange", PlayState.PRESENTING);
       };
 
       const pause = () => {
-        log("pause");
+        logger.log("pause");
         if (this.isVideoReleasing) {
           this.isVideoReleasing = false;
           this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
@@ -46,7 +46,7 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
       };
 
       const error = () => {
-        log("error");
+        logger.log("error");
         this.dispatchVideoEvent("ChannelLoadError", this.currentVideoChannel);
         this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
       };
@@ -68,17 +68,17 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
 
     getChannelStreamUrl = (channel: Channel): string => {
       const key = hasTriplet(channel) ? serializeTriplet(channel) : channel?.ccid || "";
-      log(`Getting stream URL for channel: ${key}`);
+      logger.log(`Getting stream URL for channel: ${key}`);
       return this.channelStreamUrlCache.get(key) || "";
     };
 
     loadVideo = (channel: Channel) => {
       const streamUrl = this.getChannelStreamUrl(channel);
 
-      log(`Loading channel stream: ${streamUrl}`);
+      logger.log(`Loading channel stream: ${streamUrl}`);
 
       if (!streamUrl) {
-        log("No stream URL available");
+        logger.log("No stream URL available");
         return;
       }
 
@@ -87,13 +87,13 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
     };
 
     stopVideo = () => {
-      log("stop");
+      logger.log("stop");
       this.videoElement.pause();
       this.videoElement.src = "";
     };
 
     releaseVideo = () => {
-      log("release");
+      logger.log("release");
       this.isVideoReleasing = true;
       this.stopVideo();
     };

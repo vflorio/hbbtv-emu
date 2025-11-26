@@ -1,18 +1,18 @@
-import { type ClassType, logger } from "@hbb-emu/lib";
+import { type ClassType, createLogger } from "@hbb-emu/lib";
 
 export interface Audio {
   setVolume(volume: number): boolean;
   getVolume(): number;
 }
 
-const log = logger("Audio");
+const logger = createLogger("Audio");
 
 export const WithAudio = <T extends ClassType>(Base: T) =>
   class extends Base implements Audio {
     volume = 100;
 
     setVolume = (volume: number): boolean => {
-      log(`setVolume(${volume})`);
+      logger.log(`setVolume(${volume})`);
 
       if (volume < 0 || volume > 100) {
         return false;
@@ -24,7 +24,7 @@ export const WithAudio = <T extends ClassType>(Base: T) =>
     };
 
     getVolume = (): number => {
-      log("getVolume");
+      logger.log("getVolume");
       return this.volume;
     };
   };

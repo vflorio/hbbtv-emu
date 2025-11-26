@@ -1,4 +1,4 @@
-import { type ClassType, logger } from "@hbb-emu/lib";
+import { type ClassType, createLogger } from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 
 interface Display {
@@ -9,7 +9,7 @@ interface Display {
   setFullScreen(fullScreen: boolean): void;
 }
 
-const log = logger("Display");
+const logger = createLogger("Display");
 
 export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
   class extends Base implements Display {
@@ -20,7 +20,7 @@ export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
     onFullScreenChange?: () => void;
 
     setFullScreen = (fullScreen: boolean) => {
-      log(`setFullScreen(${fullScreen})`);
+      logger.log(`setFullScreen(${fullScreen})`);
 
       const changed = this.fullScreen !== fullScreen;
       this.fullScreen = fullScreen;

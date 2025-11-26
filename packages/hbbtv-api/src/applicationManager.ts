@@ -1,4 +1,4 @@
-import { type Application, type ClassType, compose, logger } from "@hbb-emu/lib";
+import { type Application, type ClassType, compose, createLogger } from "@hbb-emu/lib";
 import { createApplication } from "./application";
 
 export interface OipfApplicationManager {
@@ -6,7 +6,7 @@ export interface OipfApplicationManager {
   getOwnerApplication: (document: Document) => Application;
 }
 
-const log = logger("OipfApplicationManager");
+const logger = createLogger("OipfApplicationManager");
 
 // Store application instances per document
 const applicationCache = new WeakMap<Document, Application>();
@@ -16,14 +16,14 @@ class ApplicationManagerBase {}
 const WithMemoryManagement = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
   class extends Base {
     onLowMemory = (): void => {
-      log("onLowMemory");
+      logger.log("onLowMemory");
     };
   };
 
 const WithApplicationCache = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
   class extends Base {
     getOwnerApplication = (document: Document): Application => {
-      log("getOwnerApplication");
+      logger.log("getOwnerApplication");
 
       let app = applicationCache.get(document);
       if (!app) {

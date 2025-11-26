@@ -3,16 +3,19 @@ import {
   bridgeProxyPrefix,
   type ClassType,
   compose,
+  createLogger,
   initApp,
   type MessageBus,
   validMessageType,
   WithMessageBus,
 } from "@hbb-emu/lib";
 
+const logger = createLogger("BridgeScript");
+
 const WithBridge = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements App {
     init = () => {
-      console.log("[HbbTV Bridge] Initialized");
+      logger.log("Initialized");
       window.addEventListener("message", this.handleMessage);
       this.forwardAll();
     };

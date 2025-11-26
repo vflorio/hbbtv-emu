@@ -1,4 +1,7 @@
 import { ChromeStorageAdapter } from "./chrome";
+import { createLogger } from "./misc";
+
+const logger = createLogger("Storage");
 
 export interface StorageAdapter {
   getItem(key: string): Promise<string | null>;
@@ -10,7 +13,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     try {
       return localStorage.getItem(key);
     } catch (error) {
-      console.error("Failed to get item from localStorage:", error);
+      logger.error("Failed to get item from localStorage:", error);
       return null;
     }
   };
@@ -19,7 +22,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     try {
       localStorage.setItem(key, value);
     } catch (error) {
-      console.error("Failed to set item in localStorage:", error);
+      logger.error("Failed to set item in localStorage:", error);
     }
   };
 }
@@ -43,7 +46,7 @@ export class Storage<T> {
       if (!data) return null;
       return JSON.parse(data) as T;
     } catch (error) {
-      console.error("Failed to load entry:", error);
+      logger.error("Failed to load entry:", error);
       return null;
     }
   };
@@ -52,7 +55,7 @@ export class Storage<T> {
     try {
       await this.storageAdapter.setItem(this.key, JSON.stringify(entry));
     } catch (error) {
-      console.error("Failed to save entry:", error);
+      logger.error("Failed to save entry:", error);
     }
   };
 }
