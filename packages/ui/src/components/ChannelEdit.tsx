@@ -1,3 +1,4 @@
+import type { ExtensionConfig } from "@hbb-emu/lib";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
@@ -18,23 +19,15 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { type ChannelConfig, useConfig } from "../context/config";
-
-const generateRandomIds = () => ({
-  ccid: Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, "0"),
-  onid: Math.floor(Math.random() * 65535).toString(),
-  tsid: Math.floor(Math.random() * 65535).toString(),
-  sid: Math.floor(Math.random() * 65535).toString(),
-});
+import { generateRandomChannel } from "@/misc";
+import { useConfig } from "../context/config";
 
 export default function ChannelEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { api } = useConfig();
-  const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
-    ...generateRandomIds(),
+  const [formData, setFormData] = useState<Omit<ExtensionConfig.Channel, "id">>({
+    ...generateRandomChannel(),
     name: "",
     mp4Source: "",
     streamEvents: [],
@@ -43,12 +36,11 @@ export default function ChannelEdit() {
 
   useEffect(() => {
     if (id && id !== "new") {
-      api.channel.loadChannels().then((channels) => {
+      api.channel.load().then((channels) => {
         const channel = channels.find((ch) => ch.id === id);
         if (channel) {
           setFormData({
             name: channel.name,
-            ccid: channel.ccid,
             onid: channel.onid,
             tsid: channel.tsid,
             sid: channel.sid,
@@ -61,15 +53,16 @@ export default function ChannelEdit() {
     }
   }, [id, api.channel]);
 
-  const handleChange = (field: keyof Omit<ChannelConfig, "id">) => (event: React.ChangeEvent<HTMLInputElement>) =>
-    setFormData((prev) => ({ ...prev, [field]: event.target.value }));
+  const handleChange =
+    (field: keyof Omit<ExtensionConfig.Channel, "id">) => (event: React.ChangeEvent<HTMLInputElement>) =>
+      setFormData((prev) => ({ ...prev, [field]: event.target.value }));
 
   const handleSubmit = async () => {
-    const channelData: ChannelConfig = {
+    const channelData: ExtensionConfig.Channel = {
       id: id && id !== "new" ? id : crypto.randomUUID(),
       ...formData,
     };
-    await api.channel.saveChannel(channelData);
+    await api.channel.save(channelData);
     navigate("/");
   };
 
@@ -150,13 +143,6 @@ export default function ChannelEdit() {
             </AccordionSummary>
             <AccordionDetails>
               <Stack spacing={2}>
-                <TextField
-                  label="CCID"
-                  value={formData.ccid}
-                  onChange={handleChange("ccid")}
-                  fullWidth
-                  helperText="Country Code Identifier"
-                />
                 <TextField
                   label="ONID"
                   value={formData.onid}

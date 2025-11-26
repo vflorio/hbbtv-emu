@@ -1,3 +1,4 @@
+import type { ExtensionConfig } from "@hbb-emu/lib";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
@@ -13,17 +14,16 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import type { StreamEventConfig } from "../context/config";
 
 interface StreamEventFormProps {
   open: boolean;
-  event: StreamEventConfig | null;
+  event: ExtensionConfig.StreamEvent | null;
   onClose: () => void;
-  onSave: (event: StreamEventConfig) => void;
+  onSave: (event: ExtensionConfig.StreamEvent) => void;
 }
 
 export default function StreamEventForm({ open, event, onClose, onSave }: StreamEventFormProps) {
-  const [formData, setFormData] = useState<Omit<StreamEventConfig, "id">>({
+  const [formData, setFormData] = useState<Omit<ExtensionConfig.StreamEvent, "id">>({
     name: "",
     targetURL: "dvb://current.ait",
     eventName: "",
@@ -52,12 +52,13 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
     }
   }, [event, open]);
 
-  const handleChange = (field: keyof Omit<StreamEventConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-  };
+  const handleChange =
+    (field: keyof Omit<ExtensionConfig.StreamEvent, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    };
 
   const handleSubmit = () => {
-    const eventData: StreamEventConfig = {
+    const eventData: ExtensionConfig.StreamEvent = {
       id: event?.id || crypto.randomUUID(),
       ...formData,
     };

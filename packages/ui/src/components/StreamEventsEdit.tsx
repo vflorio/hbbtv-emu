@@ -1,3 +1,4 @@
+import type { ExtensionConfig } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
@@ -16,17 +17,17 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { type ChannelConfig, type StreamEventConfig, useConfig } from "../context/config";
+import { useConfig } from "../context/config";
 
-interface EventFormData extends Omit<StreamEventConfig, "id"> {}
+interface EventFormData extends Omit<ExtensionConfig.StreamEvent, "id"> {}
 
 export default function StreamEventsEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { api } = useConfig();
-  const [channel, setChannel] = useState<ChannelConfig | null>(null);
-  const [events, setEvents] = useState<StreamEventConfig[]>([]);
-  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
+  const [channel, setChannel] = useState<ExtensionConfig.Channel | null>(null);
+  const [events, setEvents] = useState<ExtensionConfig.StreamEvent[]>([]);
+  const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEvent | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<EventFormData>({
     name: "",
@@ -40,7 +41,7 @@ export default function StreamEventsEdit() {
 
   useEffect(() => {
     if (id) {
-      api.channel.loadChannels().then((channels) => {
+      api.channel.load().then((channels) => {
         const ch = channels.find((c) => c.id === id);
         if (ch) {
           setChannel(ch);
@@ -64,7 +65,7 @@ export default function StreamEventsEdit() {
     setShowForm(true);
   };
 
-  const handleEditEvent = (event: StreamEventConfig) => {
+  const handleEditEvent = (event: ExtensionConfig.StreamEvent) => {
     setEditingEvent(event);
     setFormData({
       name: event.name,
@@ -83,7 +84,7 @@ export default function StreamEventsEdit() {
   };
 
   const handleSaveEvent = () => {
-    const eventData: StreamEventConfig = {
+    const eventData: ExtensionConfig.StreamEvent = {
       id: editingEvent?.id || crypto.randomUUID(),
       ...formData,
     };
@@ -103,11 +104,11 @@ export default function StreamEventsEdit() {
 
   const handleSaveAll = async () => {
     if (channel) {
-      const updatedChannel: ChannelConfig = {
+      const updatedChannel: ExtensionConfig.Channel = {
         ...channel,
         streamEvents: events,
       };
-      await api.channel.saveChannel(updatedChannel);
+      await api.channel.save(updatedChannel);
       navigate(`/channel/${id}`);
     }
   };

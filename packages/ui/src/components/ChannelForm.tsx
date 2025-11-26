@@ -1,3 +1,4 @@
+import type { ExtensionConfig } from "@hbb-emu/lib";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
@@ -16,29 +17,20 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import type { ChannelConfig, StreamEventConfig } from "../context/config";
+import { generateRandomChannel } from "@/misc";
 import StreamEventsManager from "./StreamEventsManager";
 
 interface ChannelFormProps {
   open: boolean;
-  channel: ChannelConfig | null;
+  channel: ExtensionConfig.Channel | null;
   onClose: () => void;
-  onSave: (channel: ChannelConfig) => void;
+  onSave: (channel: ExtensionConfig.Channel) => void;
 }
-
-const generateRandomIds = () => ({
-  ccid: Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, "0"),
-  onid: Math.floor(Math.random() * 65535).toString(),
-  tsid: Math.floor(Math.random() * 65535).toString(),
-  sid: Math.floor(Math.random() * 65535).toString(),
-});
 
 export default function ChannelForm({ open, channel, onClose, onSave }: ChannelFormProps) {
   const [streamEventsOpen, setStreamEventsOpen] = useState(false);
-  const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
-    ...generateRandomIds(),
+  const [formData, setFormData] = useState<Omit<ExtensionConfig.Channel, "id">>({
+    ...generateRandomChannel(),
     name: "",
     mp4Source: "",
     streamEvents: [],
@@ -49,7 +41,6 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
     if (channel) {
       setFormData({
         name: channel.name,
-        ccid: channel.ccid,
         onid: channel.onid,
         tsid: channel.tsid,
         sid: channel.sid,
@@ -59,7 +50,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
       });
     } else {
       setFormData({
-        ...generateRandomIds(),
+        ...generateRandomChannel(),
         name: "",
         mp4Source: "",
         streamEvents: [],
@@ -68,12 +59,13 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
     }
   }, [channel]);
 
-  const handleChange = (field: keyof Omit<ChannelConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-  };
+  const handleChange =
+    (field: keyof Omit<ExtensionConfig.Channel, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    };
 
   const handleSubmit = () => {
-    const channelData: ChannelConfig = {
+    const channelData: ExtensionConfig.Channel = {
       id: channel?.id || crypto.randomUUID(),
       ...formData,
     };
@@ -133,18 +125,12 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
               <AccordionDetails>
                 <Stack spacing={2}>
                   <TextField
-                    label="CCID"
-                    value={formData.ccid}
-                    onChange={handleChange("ccid")}
-                    fullWidth
-                    helperText="Common Channel Identifier"
-                  />
-                  <TextField
                     label="ONID"
                     value={formData.onid}
                     onChange={handleChange("onid")}
                     fullWidth
                     helperText="Original Network ID"
+                    type="number"
                   />
                   <TextField
                     label="TSID"
@@ -152,6 +138,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
                     onChange={handleChange("tsid")}
                     fullWidth
                     helperText="Transport Stream ID"
+                    type="number"
                   />
                   <TextField
                     label="SID"
@@ -159,6 +146,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
                     onChange={handleChange("sid")}
                     fullWidth
                     helperText="Service ID"
+                    type="number"
                   />
                 </Stack>
               </AccordionDetails>
@@ -177,7 +165,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
         open={streamEventsOpen}
         events={formData.streamEvents || []}
         onClose={() => setStreamEventsOpen(false)}
-        onSave={(events: StreamEventConfig[]) => {
+        onSave={(events: ExtensionConfig.StreamEvent[]) => {
           setFormData((prev) => ({ ...prev, streamEvents: events }));
           setStreamEventsOpen(false);
         }}

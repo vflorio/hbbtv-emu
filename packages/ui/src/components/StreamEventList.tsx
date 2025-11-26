@@ -13,41 +13,42 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import type { ExtensionConfig } from "node_modules/@hbb-emu/lib/dist/config";
 import { useEffect, useState } from "react";
-import { type StreamEventConfig, useConfig } from "../context/config";
+import { useConfig } from "../context/config";
 import StreamEventForm from "./StreamEventForm";
 
 export default function StreamEventList() {
   const config = useConfig();
-  const [events, setEvents] = useState<StreamEventConfig[]>([]);
+  const [events, setEvents] = useState<ExtensionConfig.StreamEvent[]>([]);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
+  const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEvent | null>(null);
 
   useEffect(() => {
     const loadEvents = async () => {
-      const loaded = await config.api.streamEvent.loadStreamEvents();
+      const loaded = await config.api.channel.streamEvent.load();
       setEvents(loaded);
     };
     loadEvents();
-  }, [config.api.streamEvent]);
+  }, [config.api.channel.streamEvent]);
 
   const handleAddEvent = () => {
     setEditingEvent(null);
     setFormOpen(true);
   };
 
-  const handleEditEvent = (event: StreamEventConfig) => {
+  const handleEditEvent = (event: ExtensionConfig.StreamEvent) => {
     setEditingEvent(event);
     setFormOpen(true);
   };
 
   const handleDeleteEvent = async (id: string) => {
-    await config.api.streamEvent.deleteStreamEvent(id);
+    await config.api.channel.streamEvent.remove(id);
     setEvents((prev) => prev.filter((ev) => ev.id !== id));
   };
 
-  const handleSaveEvent = async (event: StreamEventConfig) => {
-    await config.api.streamEvent.saveStreamEvent(event);
+  const handleSaveEvent = async (event: ExtensionConfig.StreamEvent) => {
+    await config.api.channel.streamEvent.save(event);
     setEvents((prev) => {
       const index = prev.findIndex((ev) => ev.id === event.id);
       if (index >= 0) {
@@ -59,8 +60,8 @@ export default function StreamEventList() {
     });
   };
 
-  const handleDispatchEvent = async (event: StreamEventConfig) => {
-    await config.api.streamEvent.dispatchStreamEvent(event);
+  const handleDispatchEvent = async (event: ExtensionConfig.StreamEvent) => {
+    console.log("TODO Dispatching stream event:", event);
   };
 
   return (

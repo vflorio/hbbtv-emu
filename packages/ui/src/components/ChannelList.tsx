@@ -1,4 +1,4 @@
-import type { ChannelConfig } from "@hbb-emu/lib";
+import type { ExtensionConfig } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import {
   Box,
@@ -21,7 +21,7 @@ import { useConfig } from "../context/config";
 export default function ChannelList() {
   const { api } = useConfig();
   const navigate = useNavigate();
-  const [channels, setChannels] = useState<ChannelConfig[]>([]);
+  const [channels, setChannels] = useState<ExtensionConfig.Channel[]>([]);
 
   const handleAddChannel = () => {
     navigate("/channel/new");
@@ -32,13 +32,13 @@ export default function ChannelList() {
   };
 
   const handleDeleteChannel = async (id: string) => {
-    await api.channel.deleteChannel(id);
-    const updated = await api.channel.loadChannels();
+    await api.channel.remove(id);
+    const updated = await api.channel.load();
     setChannels(updated);
   };
 
   useEffect(() => {
-    api.channel.loadChannels().then(setChannels);
+    api.channel.load().then(setChannels);
   }, [api.channel]);
 
   return (
@@ -65,7 +65,6 @@ export default function ChannelList() {
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>MP4 Source</TableCell>
-              <TableCell>CCID</TableCell>
               <TableCell>ONID</TableCell>
               <TableCell>TSID</TableCell>
               <TableCell>SID</TableCell>
@@ -99,7 +98,6 @@ export default function ChannelList() {
                       </Typography>
                     </Tooltip>
                   </TableCell>
-                  <TableCell>{channel.ccid}</TableCell>
                   <TableCell>{channel.onid}</TableCell>
                   <TableCell>{channel.tsid}</TableCell>
                   <TableCell>{channel.sid}</TableCell>
