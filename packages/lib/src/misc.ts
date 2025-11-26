@@ -4,12 +4,17 @@ export const createLogger = (section: string) => {
   const createLog =
     (level: LogLevel) =>
     (message: string, ...args: unknown[]) => {
-      const prefixStyle = "color: #83a598; font-weight: bold;";
-      const sectionStyle = "color: #fabd2f; font-weight: bold;";
-      const messageStyle = "color: #b8bb26;";
+      const prefixStyle = "color: #bd93f9; font-weight: bold;";    // Purple
+      const sectionStyle = "color: #50fa7b; font-weight: bold;";   // Green
+      const messageStyle = "color: #8be9fd;";                       // Cyan
+      const timestampStyle = "color: #6272a4;";                     // Gray-blue
 
+      const timestamp = new Date().toISOString().split("T")[1].split("Z")[0];
+
+      // biome-ignore format: <ack>
       console[level](
-        `%c[hbbtv-emu]%c ${section}%c ${message}`,
+        `%c ${timestamp} %c[hbbtv-emu]%c ${section}%c ${message}`,
+        timestampStyle,
         prefixStyle,
         sectionStyle,
         messageStyle,

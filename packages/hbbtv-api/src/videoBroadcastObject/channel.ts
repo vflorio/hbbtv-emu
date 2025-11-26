@@ -46,7 +46,7 @@ export interface ChannelManager {
   ): Channel | null;
 }
 
-const logger = createLogger("Channel");
+const logger = createLogger("VideoBroadcast/Channel");
 
 export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback>>(Base: T) =>
   class extends Base implements ChannelManager {

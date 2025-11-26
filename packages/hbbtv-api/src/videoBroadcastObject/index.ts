@@ -1,4 +1,4 @@
-import { compose } from "@hbb-emu/lib";
+import { compose, WithMessageBus } from "@hbb-emu/lib";
 import { WithAudio } from "./audio";
 import { WithChannel } from "./channel";
 import { WithComponents } from "./components";
@@ -12,6 +12,7 @@ import { WithVideoElement } from "./videoElement";
 
 export const VideoBroadcastObject = compose(
   class {},
+  WithMessageBus("CONTENT_SCRIPT"),
   WithVideoElement,
   WithEventTarget,
   WithPlayback,

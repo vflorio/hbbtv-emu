@@ -19,7 +19,7 @@ export interface Playback {
   release(): void;
 }
 
-const logger = createLogger("Playback");
+const logger = createLogger("VideoBroadcast/Playback");
 
 export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Base: T) =>
   class extends Base implements Playback {

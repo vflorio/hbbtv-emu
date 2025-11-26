@@ -9,7 +9,7 @@ interface Display {
   setFullScreen(fullScreen: boolean): void;
 }
 
-const logger = createLogger("Display");
+const logger = createLogger("VideoBroadcast/Display");
 
 export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
   class extends Base implements Display {

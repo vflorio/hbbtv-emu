@@ -34,16 +34,24 @@ export interface MessageEnvelope<T extends Message = Message> {
 }
 
 export const isMessage = (data: unknown): data is Message =>
-  typeof data === "object" && data !== null && "type" in data && "action" in data;
-
-export const isMessageEnvelope = (data: unknown): data is MessageEnvelope =>
   typeof data === "object" &&
   data !== null &&
-  "id" in data &&
-  "timestamp" in data &&
-  "message" in data &&
-  "source" in data &&
-  isMessage((data as MessageEnvelope).message);
+  "type" in data &&
+  "payload" in data &&
+  isValidMessageType((data as { type: string }).type);
+
+export const isMessageEnvelope = (data: unknown): data is MessageEnvelope => {
+  if (typeof data !== "object" || data === null) return false;
+  if (!("id" in data && "timestamp" in data && "message" in data && "source" in data)) return false;
+  
+  const envelope = data as MessageEnvelope;
+  return (
+    typeof envelope.id === "string" &&
+    typeof envelope.timestamp === "number" &&
+    isValidMessageSource(envelope.source as string) &&
+    isMessage(envelope.message)
+  );
+};
 
   
 export const bridgeProxyPrefix = "HBBTV_EMU_";

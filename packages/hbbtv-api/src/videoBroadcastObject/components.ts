@@ -33,7 +33,7 @@ export interface Components {
   unselectComponent(component: AVComponent | ComponentType): void;
 }
 
-const logger = createLogger("Components");
+const logger = createLogger("VideoBroadcast/Components");
 
 export const WithComponents = <T extends ClassType<Playback>>(Base: T) =>
   class extends Base implements Components {

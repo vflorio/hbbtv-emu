@@ -17,7 +17,7 @@ export interface StreamEvents {
   removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
 }
 
-const logger = createLogger("StreamEvents");
+const logger = createLogger("VideoBroadcast/StreamEvents");
 
 export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Base: T) =>
   class extends Base implements StreamEvents {

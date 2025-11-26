@@ -1,4 +1,4 @@
-import { type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
+import { type Channel, type ClassType, createLogger, type MessageBus } from "@hbb-emu/lib";
 import { hasTriplet, serializeTriplet } from "../channels";
 import { PlayState } from "./playback";
 
@@ -11,9 +11,9 @@ export interface VideoElement {
   stopVideo: () => void;
 }
 
-const logger = createLogger("VideoElement");
+const logger = createLogger("VideoBroadcast/VideoElement");
 
-export const WithVideoElement = <T extends ClassType>(Base: T) =>
+export const WithVideoElement = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements VideoElement {
     readonly videoElement: HTMLVideoElement;
 
@@ -23,6 +23,12 @@ export const WithVideoElement = <T extends ClassType>(Base: T) =>
 
     constructor(...args: any[]) {
       super(...args);
+
+      this.bus.on("UPDATE_CHANNELS", ({ payload }) => {
+        payload.forEach((channel) => {
+          this.channelStreamUrlCache.set(serializeTriplet(channel), channel.mp4Source);
+        });
+      });
 
       const loadstart = () => {
         logger.log("loadstart");

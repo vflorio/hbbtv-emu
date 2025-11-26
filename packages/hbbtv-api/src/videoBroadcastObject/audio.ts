@@ -5,7 +5,7 @@ export interface Audio {
   getVolume(): number;
 }
 
-const logger = createLogger("Audio");
+const logger = createLogger("VideoBroadcast/Audio");
 
 export const WithAudio = <T extends ClassType>(Base: T) =>
   class extends Base implements Audio {
