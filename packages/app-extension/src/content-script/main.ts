@@ -5,9 +5,8 @@ import {
   compose,
   createLogger,
   initApp,
-  WithChromeMessageAdapter,
-  WithMessageBus,
 } from "@hbb-emu/lib";
+import { WithContentScriptMessageBus } from "./messageBus";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
@@ -66,13 +65,6 @@ const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
       }
     };
   };
-
-export const WithContentScriptMessageBus = <T extends ClassType>(Base: T) =>
-  compose(
-    Base, 
-    WithChromeMessageAdapter, // TODO PostMessageAdapter
-    WithMessageBus("CONTENT_SCRIPT")
-  );
 
 const ContentScript = compose(
   class {},

@@ -9,6 +9,8 @@ import {
   type MessageBus,
   Storage,
   WithChromeMessageAdapter,
+  WithChromeScriptInject,
+  WithChromeWebRequestManager,
   WithMessageBus,
 } from "@hbb-emu/lib";
 
@@ -38,8 +40,10 @@ const WithServiceWorker = <T extends ClassType<MessageBus & MessageAdapter>>(Bas
 // biome-ignore format: ack
 const ServiceWorker = compose(
   class {}, 
+  WithChromeScriptInject,
+  WithChromeWebRequestManager,
   WithChromeMessageAdapter, 
-  WithMessageBus("SERVICE_WORKER"), 
+  WithMessageBus("SERVICE_WORKER"),
   WithServiceWorker
 );
 

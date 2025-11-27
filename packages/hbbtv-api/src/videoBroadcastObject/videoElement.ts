@@ -1,34 +1,26 @@
-import { type Channel, type ClassType, createLogger, type MessageBus } from "@hbb-emu/lib";
-import { hasTriplet, serializeTriplet } from "../channels";
+import { type Channel, type ClassType, createLogger, isChannelTriplet } from "@hbb-emu/lib";
+import type { ChannelStreamAdapter } from "./channelStreamAdapter";
 import { PlayState } from "./playback";
 
 export type VideoElementEventType = "PlayStateChange" | "ChannelLoadSuccess" | "ChannelLoadError";
 
 export interface VideoElement {
   readonly videoElement: HTMLVideoElement;
-  getChannelStreamUrl: (channel: Channel) => string;
   loadVideo: (channel: Channel) => void;
   stopVideo: () => void;
 }
 
 const logger = createLogger("VideoBroadcast/VideoElement");
 
-export const WithVideoElement = <T extends ClassType<MessageBus>>(Base: T) =>
+export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base: T) =>
   class extends Base implements VideoElement {
     readonly videoElement: HTMLVideoElement;
 
-    channelStreamUrls: Map<string, string> = new Map();
     currentVideoChannel: Channel | null = null;
     isVideoReleasing: boolean = false;
 
     constructor(...args: any[]) {
       super(...args);
-
-      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
-        payload.forEach((channel) => {
-          this.channelStreamUrls.set(serializeTriplet(channel), channel.mp4Source);
-        });
-      });
 
       const loadstart = () => {
         logger.log("loadstart");
@@ -72,30 +64,24 @@ export const WithVideoElement = <T extends ClassType<MessageBus>>(Base: T) =>
     dispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) =>
       this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
-    getChannelStreamUrl = (channel: Channel): string => {
-      const key = hasTriplet(channel) ? serializeTriplet(channel) : channel?.ccid || "";
-      logger.log(`Getting stream URL for channel: ${key}`);
-      return this.channelStreamUrls.get(key) || "";
-    };
-
     loadVideo = (channel: Channel) => {
-      const streamUrl = this.getChannelStreamUrl(channel);
-
-      logger.log(`Loading channel stream: ${streamUrl}`);
-
-      if (!streamUrl) {
-        logger.log("No stream URL available");
+      if (!isChannelTriplet(channel)) {
+        logger.log("Channel does not have a valid triplet");
         return;
       }
+      logger.log("loadVideo", channel);
 
-      this.videoElement.src = streamUrl;
+      this.videoElement.src = this.getChannelStreamUrl(channel) || "";
       this.videoElement.load();
+
+      this.currentVideoChannel = channel;
     };
 
     stopVideo = () => {
       logger.log("stop");
       this.videoElement.pause();
       this.videoElement.src = "";
+      this.currentVideoChannel = null;
     };
 
     releaseVideo = () => {

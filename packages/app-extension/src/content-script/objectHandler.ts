@@ -13,7 +13,7 @@ import {
   ObjectStyleMirror,
   proxyProperties,
 } from "@hbb-emu/lib";
-import { WithContentScriptMessageBus } from "./main";
+import { WithContentScriptMessageBus } from "./messageBus";
 
 export interface ObjectHandler {
   attachObject: (element: HTMLObjectElement) => void;

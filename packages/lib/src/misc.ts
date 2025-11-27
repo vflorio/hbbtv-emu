@@ -65,9 +65,7 @@ export const initApp = (app: App) => {
     }
   }
 
-  if (typeof self !== "undefined" && "ServiceWorkerGlobalScope" in self) {
-    self.addEventListener("activate", () => {
-      app.init();
-    });
+  if (isServiceWorker) {
+    app.init();
   }
 };

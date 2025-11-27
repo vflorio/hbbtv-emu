@@ -1,6 +1,8 @@
 import { type ClassType, compose, type MessageBus } from "@hbb-emu/lib";
 import { WithAudio } from "./audio";
 import { WithChannel } from "./channel";
+import { WithChannelList } from "./channelList";
+import { WithChannelStreamAdapter } from "./channelStreamAdapter";
 import { WithComponents } from "./components";
 import { WithDisplay } from "./display";
 import { WithEventTarget } from "./eventTarget";
@@ -13,9 +15,11 @@ import { WithVideoElement } from "./videoElement";
 export const WithVideoBroadcastObject = <T extends ClassType<MessageBus>>(Base: T) =>
   compose(
     Base,
+    WithChannelStreamAdapter,
     WithVideoElement,
     WithEventTarget,
     WithPlayback,
+    WithChannelList,
     WithChannel,
     WithStreamEvents,
     WithComponents,
@@ -26,4 +30,3 @@ export const WithVideoBroadcastObject = <T extends ClassType<MessageBus>>(Base: 
   );
 
 export type VideoBroadcastObject = InstanceType<ReturnType<typeof WithVideoBroadcastObject>>;
-

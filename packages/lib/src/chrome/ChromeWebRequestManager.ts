@@ -38,7 +38,7 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       if (!contentType.includes("application/vnd.hbbtv.xhtml+xml")) return;
 
       this.tabs.add(details.tabId);
-      this.inject(details.tabId, ["content-script.js"]);
+      this.inject(details.tabId, ["content-script.js"], ["bridge.js"]);
 
       // Prevent chrome from downloading the content
       contentTypeHeader.value = "application/xhtml+xml";

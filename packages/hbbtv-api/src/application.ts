@@ -1,6 +1,5 @@
 import { type Application, type ApplicationPrivateData, type ClassType, compose, createLogger } from "@hbb-emu/lib";
 import { createKeyset } from "./keyset";
-import { createOipf } from "./oipf";
 
 interface PerformanceMemory {
   usedJSHeapSize: number;
@@ -14,9 +13,7 @@ class ApplicationBase {
 
 const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base {
-    private oipf = createOipf();
-
-    private getFreeMem = (): number => {
+    private getFreeMem = () => {
       const perf = performance as Performance & { memory?: PerformanceMemory };
       if (typeof performance !== "undefined" && perf.memory) {
         return perf.memory.usedJSHeapSize || 0;
@@ -25,13 +22,10 @@ const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
     };
 
     get privateData(): ApplicationPrivateData {
-      const oipf = this.oipf;
       return {
         keyset: createKeyset(),
         get currentChannel() {
-          logger.log("currentChannel");
-          const currentCcid = oipf.getCurrentTVChannel().ccid || "ccid:dvbt.0";
-          return oipf.channelList.getChannel(currentCcid);
+          return null;
         },
         getFreeMem: this.getFreeMem,
       };
