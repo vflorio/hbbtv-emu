@@ -1,7 +1,7 @@
 import { createLogger } from "../misc";
 import { type ClassType, compose } from "../mixin";
-import type { Message, MessageAdapter, MessageEnvelope } from "./message";
-import { WithMessageAdapter } from "./messageAdapter";
+import type { Message, MessageEnvelope } from "./message";
+import { type MessageAdapter, WithMessageAdapter } from "./messageAdapter";
 
 const logger = createLogger("PostMessage Adapter");
 
@@ -13,7 +13,7 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     }
 
     handlePostMessage = (event: MessageEvent<MessageEnvelope>) => {
-      if (event.source !== window) return;
+      if (event.data.source === event.data.target) return;
       this.handleMessage(event.data);
       return true;
     };

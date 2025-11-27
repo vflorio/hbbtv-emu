@@ -73,7 +73,7 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Bas
 
     sendConfigToTab = async () => {
       if (!this.tabId) {
-        logger.error("Cannot send config: tabId not set");
+        logger.log("Cannot send config: no active tab with content script");
         return;
       }
 

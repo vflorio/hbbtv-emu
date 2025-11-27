@@ -1,6 +1,7 @@
 import { createLogger } from "../misc";
 import type { ClassType } from "../mixin";
-import type { Message, MessageAdapter, MessageEnvelope, MessageHandler, MessageOrigin } from "./message";
+import type { Message, MessageEnvelope, MessageOrigin, MessageType } from "./message";
+import type { MessageAdapter, MessageHandler } from "./messageAdapter";
 
 const logger = createLogger("MessageBus");
 
@@ -8,8 +9,8 @@ export interface MessageBus {
   readonly messageOrigin: MessageOrigin;
   createEnvelope<T extends Message>(message: T, target?: MessageOrigin, tabId?: number): MessageEnvelope<T>;
   bus: {
-    on<T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
-    off<T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
+    on<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
+    off<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
     dispatch(envelope: MessageEnvelope): Promise<void>;
   };
 }
@@ -23,10 +24,8 @@ export const WithMessageBus =
 
       constructor(...args: any[]) {
         super(...args);
-        this.registerMessageBus(messageOrigin, this.bus.dispatch, this.shouldHandleMessage);
+        this.registerMessageBus(messageOrigin, this.bus.dispatch);
       }
-
-      shouldHandleMessage = (envelope: MessageEnvelope) => !envelope.target || envelope.target === this.messageOrigin;
 
       createEnvelope = <T extends Message>(message: T, target: MessageOrigin): MessageEnvelope<T> => ({
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
@@ -37,13 +36,13 @@ export const WithMessageBus =
       });
 
       bus = {
-        on: <T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
+        on: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
           const handlers = this.handlers.get(type) || [];
           handlers.push(handler as MessageHandler);
           this.handlers.set(type, handlers);
         },
 
-        off: <T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
+        off: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
           const handlers = this.handlers.get(type);
           if (!handlers) return;
           this.handlers.set(

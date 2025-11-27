@@ -12,19 +12,18 @@ export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
     inject = async (tabId: number, main: string[], bridge: string[]) => {
       logger.log(`Injecting scripts into tab ${tabId}:`, { main, bridge });
 
-      await Promise.all([
-        chrome.scripting.executeScript({
-          target: { tabId },
-          files: main,
-          world: "MAIN",
-          injectImmediately: true,
-        }),
-        chrome.scripting.executeScript({
-          target: { tabId },
-          files: bridge,
-          world: "ISOLATED",
-          injectImmediately: true,
-        }),
-      ]);
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: main,
+        world: "MAIN",
+        injectImmediately: true,
+      });
+
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: bridge,
+        world: "ISOLATED",
+        injectImmediately: true,
+      });
     };
   };

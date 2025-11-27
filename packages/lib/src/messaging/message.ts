@@ -1,7 +1,5 @@
 import type { ExtensionConfig } from "../config";
 
-export const bridgeProxyPrefix = "HBBTV_EMU_";
-
 // Message Source
 
 export type MessageOrigin = "SIDE_PANEL" | "SERVICE_WORKER" | "CONTENT_SCRIPT" | "BRIDGE_SCRIPT";
@@ -14,6 +12,7 @@ export const isValidMessageOrigin = (origin: string): origin is MessageOrigin =>
 // Message Type
 
 export type MessageType =
+  | "BRIDGE_READY"
   | "CONTENT_SCRIPT_READY"
   | "UPDATE_USER_AGENT"
   | "UPDATE_CHANNELS"
@@ -22,6 +21,7 @@ export type MessageType =
   | "UPDATE_CAPABILITIES";
 
 export const validMessageType: MessageType[] = [
+  "BRIDGE_READY",
   "CONTENT_SCRIPT_READY",
   "UPDATE_USER_AGENT",
   "UPDATE_CHANNELS",
@@ -36,6 +36,7 @@ export const isValidMessageType = (type: string): type is Message["type"] =>
 // Message
 
 export type Message =
+  | { type: "BRIDGE_READY"; payload: null }
   | { type: "CONTENT_SCRIPT_READY"; payload: null }
   | { type: "UPDATE_USER_AGENT"; payload: string }
   | { type: "UPDATE_CHANNELS"; payload: ExtensionConfig.Channel[] }
@@ -60,33 +61,19 @@ export interface MessageEnvelope<T extends Message = Message> {
   target: MessageOrigin;
 }
 
-export const isMessageEnvelope = (data: unknown): data is MessageEnvelope => {
-  if (typeof data !== "object" || data === null) return false;
-  if (!("id" in data && "timestamp" in data && "message" in data && "source" in data)) return false;
-
-  const envelope = data as MessageEnvelope;
-  return (
-    typeof envelope.id === "string" &&
-    typeof envelope.timestamp === "number" &&
-    isValidMessageOrigin(envelope.source) &&
-    isMessage(envelope.message) &&
-    (envelope.target === undefined || isValidMessageOrigin(envelope.target))
-  );
-};
-
-// Message Adapter
-
-export interface MessageAdapter {
-  registerMessageBus: RegisterMessageBus;
-  sendMessage<T extends Message>(envelope: MessageEnvelope<T>): Promise<void>;
-  handleMessage(data: unknown): boolean;
-  tabId?: number; // Only for Content Script and Bridge Script
-}
-
-export type RegisterMessageBus = (
-  origin: MessageOrigin,
-  handler: MessageHandler,
-  shouldHandleMessage: (envelope: MessageEnvelope) => boolean,
-) => void;
-
-export type MessageHandler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => Promise<void> | void;
+export const isValidMessageEnvelope = (data: unknown): data is MessageEnvelope =>
+  // Step 1
+  typeof data === "object" &&
+  data !== null &&
+  // Step 2
+  "id" in data &&
+  "timestamp" in data &&
+  "message" in data &&
+  "source" in data &&
+  "target" in data &&
+  // Step 3
+  typeof (data as MessageEnvelope).id === "string" &&
+  typeof (data as MessageEnvelope).timestamp === "number" &&
+  isValidMessageOrigin((data as MessageEnvelope).source) &&
+  isValidMessageOrigin((data as MessageEnvelope).target) &&
+  isMessage((data as MessageEnvelope).message);

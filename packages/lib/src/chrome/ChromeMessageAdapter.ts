@@ -1,5 +1,4 @@
-import type { Message, MessageAdapter, MessageEnvelope } from "../messaging/message";
-import { WithMessageAdapter } from "../messaging/messageAdapter";
+import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "../messaging";
 import { createLogger, tryCatch } from "../misc";
 import { type ClassType, compose } from "../mixin";
 
@@ -20,14 +19,25 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       if (sender.tab?.id !== undefined) {
         this.tabId = sender.tab.id;
       }
-      
+
+      logger.log("Received message", data, sender);
       this.handleMessage(data);
     };
 
     sendMessage = async <T extends Message>(envelope: MessageEnvelope<T>) => {
-      if (this.tabId) await this.sendMessageToTab(envelope, this.tabId);
-      else if (envelope.target === "SERVICE_WORKER") await this.sendMessageToServiceWorker(envelope);
-      else logger.error("Cannot send message: no valid target specified");
+      logger.log("Sending message", envelope);
+
+      if (envelope.target === "CONTENT_SCRIPT") {
+        if (!this.tabId) {
+          logger.error("Cannot send message to content script: tabId not set");
+          return;
+        }
+        await this.sendMessageToTab(envelope, this.tabId);
+      } else if (envelope.target === "SERVICE_WORKER") {
+        await this.sendMessageToServiceWorker(envelope);
+      } else {
+        logger.error("Cannot send message: no valid target specified");
+      }
     };
 
     sendMessageToServiceWorker = async <T extends Message>(envelope: MessageEnvelope<T>) =>

@@ -1,7 +1,7 @@
 import { createLogger } from "../misc";
 import { type ClassType, compose } from "../mixin";
-import type { Message, MessageAdapter, MessageEnvelope } from "./message";
-import { WithMessageAdapter } from "./messageAdapter";
+import type { Message, MessageEnvelope } from "./message";
+import { type MessageAdapter, WithMessageAdapter } from "./messageAdapter";
 
 const logger = createLogger("Debug Message Adapter");
 
