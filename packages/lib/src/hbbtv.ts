@@ -22,7 +22,7 @@ export interface ChannelTriplet {
   sid: number;
 }
 
-export const isChannelTriplet = (channel: unknown): channel is ChannelTriplet =>
+export const isValidChannelTriplet = (channel: unknown): channel is ChannelTriplet =>
   typeof channel === "object" &&
   channel !== null &&
   "onid" in channel &&

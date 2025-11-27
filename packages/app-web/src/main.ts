@@ -5,7 +5,7 @@ import {
   WithVideoBroadcastObject,
 } from "@hbb-emu/hbbtv-api";
 
-import { compose, copyProperties, WithChromeMessageAdapter, WithMessageBus } from "@hbb-emu/lib";
+import { compose, copyProperties, WithDebugMessageAdapter, WithMessageBus } from "@hbb-emu/lib";
 
 const createObjectElement = (type: string, apiObject: object): HTMLObjectElement => {
   const element = document.createElement("object");
@@ -16,7 +16,7 @@ const createObjectElement = (type: string, apiObject: object): HTMLObjectElement
 
 const VideoBroadcastObject = compose(
   class {},
-  WithChromeMessageAdapter, // TODO DebugMessageAdapter
+  WithDebugMessageAdapter,
   WithMessageBus("CONTENT_SCRIPT"),
   WithVideoBroadcastObject,
 );

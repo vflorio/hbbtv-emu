@@ -31,12 +31,13 @@ export const createLogger = (section: string) => {
     };
 
   return {
+    ...console,
     log: createLog("log"),
     error: createLog("error"),
     warn: createLog("warn"),
     info: createLog("info"),
     debug: createLog("debug"),
-  };
+  } satisfies typeof console;
 };
 
 export interface Collection<T> {
@@ -67,5 +68,22 @@ export const initApp = (app: App) => {
 
   if (isServiceWorker) {
     app.init();
+  }
+};
+
+export const tryCatch = async (
+  callback: () => Promise<void>,
+  [matchError, message]: [(error: Error) => boolean, string],
+  logger: typeof console = console,
+) => {
+  try {
+    await callback();
+  } catch (error) {
+    if (error instanceof Error && matchError(error)) {
+      logger.error(message);
+      return;
+    }
+    logger.error("Unknown error", error);
+    throw error;
   }
 };

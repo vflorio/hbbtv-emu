@@ -1,46 +1,61 @@
 import {
   type App,
-  bridgeProxyPrefix,
   type ClassType,
   compose,
   createLogger,
   initApp,
+  type MessageAdapter,
+  type MessageBus,
+  type MessageEnvelope,
+  WithMessageBus,
+  WithPostMessageAdapter,
 } from "@hbb-emu/lib";
-import { WithContentScriptMessageBus } from "./messageBus";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
 
-const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
+const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
     mutationObserver: MutationObserver | null = null;
 
     constructor(...args: any[]) {
       super(...args);
-      window.addEventListener("message", this.handleMessage);
+      this.registerMessageBus("CONTENT_SCRIPT", this.handleIncomingMessage, this.shouldHandleMessage);
     }
 
-    handleMessage = (event: MessageEvent) => {
-      if (event.source !== window) return;
-      switch (event.data?.type) {
-        case `${bridgeProxyPrefix}UPDATE_CHANNELS`:
-          logger.log("Received channels:", event.data.payload);
+    shouldHandleMessage = (envelope: MessageEnvelope) => envelope.target === "CONTENT_SCRIPT";
+
+    handleIncomingMessage = (envelope: MessageEnvelope) => {
+      const { message } = envelope;
+      switch (message.type) {
+        case "UPDATE_CHANNELS":
+          logger.log("Received channels:", message.payload);
           break;
-        case `${bridgeProxyPrefix}UPDATE_VERSION`:
-          logger.log("Received version:", event.data.payload);
+        case "UPDATE_VERSION":
+          logger.log("Received version:", message.payload);
           break;
-        case `${bridgeProxyPrefix}UPDATE_COUNTRY_CODE`:
-          logger.log("Received country code:", event.data.payload);
+        case "UPDATE_COUNTRY_CODE":
+          logger.log("Received country code:", message.payload);
           break;
-        case `${bridgeProxyPrefix}UPDATE_CAPABILITIES`:
-          logger.log("Received capabilities:", event.data.payload);
+        case "UPDATE_CAPABILITIES":
+          logger.log("Received capabilities:", message.payload);
           break;
+        default:
+          logger.debug(`Unhandled message type: ${message.type}`);
       }
     };
 
-    init = () => {
+    init = async () => {
       this.attachObjects(document);
       logger.log("Initialized");
+
+      // Invia CONTENT_SCRIPT_READY con target SERVICE_WORKER
+      await this.sendMessage(
+        this.createEnvelope(
+          { type: "CONTENT_SCRIPT_READY", payload: null },
+          "SERVICE_WORKER" // Destinato al service worker, non al content script stesso
+        ),
+      );
 
       // TODO: Capire l'impatto sulle performance della pagina
       // this.mutationObserver = new MutationObserver((mutations) => {
@@ -66,10 +81,12 @@ const WithContentScript = <T extends ClassType<ObjectHandler>>(Base: T) =>
     };
   };
 
+// biome-ignore format: ack
 const ContentScript = compose(
-  class {},
-  WithContentScriptMessageBus,
-  WithObjectHandler,
-  WithContentScript,
+  class {}, 
+  WithPostMessageAdapter, 
+  WithMessageBus("CONTENT_SCRIPT"),
+  WithObjectHandler, 
+  WithContentScript
 );
 initApp(new ContentScript());

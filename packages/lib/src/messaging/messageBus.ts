@@ -1,30 +1,40 @@
-import type { Message, MessageAdapter, MessageEnvelope, MessageHandler, MessageSource } from "./message";
-import { createLogger } from "./misc";
-import type { ClassType } from "./mixin";
+import { createLogger } from "../misc";
+import type { ClassType } from "../mixin";
+import type { Message, MessageAdapter, MessageEnvelope, MessageHandler, MessageOrigin } from "./message";
 
 const logger = createLogger("MessageBus");
 
 export interface MessageBus {
-  readonly source: MessageSource;
+  readonly messageOrigin: MessageOrigin;
+  createEnvelope<T extends Message>(message: T, target?: MessageOrigin, tabId?: number): MessageEnvelope<T>;
   bus: {
     on<T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
     off<T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
     dispatch(envelope: MessageEnvelope): Promise<void>;
-    createEnvelope<T extends Message>(message: T, tabId?: number): MessageEnvelope<T>;
   };
 }
 
 export const WithMessageBus =
-  (source: MessageSource) =>
+  (messageOrigin: MessageOrigin) =>
   <T extends ClassType<MessageAdapter>>(Base: T) =>
     class extends Base implements MessageBus {
-      readonly source: MessageSource = source;
+      readonly messageOrigin: MessageOrigin = messageOrigin;
       handlers: Map<string, MessageHandler[]> = new Map();
 
       constructor(...args: any[]) {
         super(...args);
-        this.registerMessageHandler(this.bus.dispatch);
+        this.registerMessageBus(messageOrigin, this.bus.dispatch, this.shouldHandleMessage);
       }
+
+      shouldHandleMessage = (envelope: MessageEnvelope) => !envelope.target || envelope.target === this.messageOrigin;
+
+      createEnvelope = <T extends Message>(message: T, target: MessageOrigin): MessageEnvelope<T> => ({
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        timestamp: Date.now(),
+        message,
+        source: this.messageOrigin,
+        target,
+      });
 
       bus = {
         on: <T extends Message["type"]>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
@@ -49,15 +59,8 @@ export const WithMessageBus =
             return;
           }
 
+          logger.log(`Dispatching message of type: ${envelope.message.type} to ${handlers.length} handler(s)`);
           await Promise.all(handlers.map((handler) => handler(envelope)));
         },
-
-        createEnvelope: <T extends Message>(message: T, tabId?: number): MessageEnvelope<T> => ({
-          id: crypto.randomUUID(),
-          timestamp: Date.now(),
-          message,
-          source: this.source,
-          tabId,
-        }),
       };
     };

@@ -101,7 +101,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     ) => {
       logger.log(`setChannel: ${channel?.name || "null"}`);
 
-      if (channel === null) {
+      if (!channel) {
         this.currentChannel = null;
         this.stopVideo();
         // TODO assicurarsi che scatta la transizione a unrealized
@@ -109,6 +109,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       }
 
       if (!channel.idType) {
+        logger.log("setChannel: channel idType not supported");
         this.dispatchChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
         return;
       }

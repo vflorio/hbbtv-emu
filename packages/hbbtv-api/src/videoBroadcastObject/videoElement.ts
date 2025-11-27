@@ -1,4 +1,4 @@
-import { type Channel, type ClassType, createLogger, isChannelTriplet } from "@hbb-emu/lib";
+import { type Channel, type ClassType, createLogger, isValidChannelTriplet } from "@hbb-emu/lib";
 import type { ChannelStreamAdapter } from "./channelStreamAdapter";
 import { PlayState } from "./playback";
 
@@ -65,7 +65,7 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
       this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
     loadVideo = (channel: Channel) => {
-      if (!isChannelTriplet(channel)) {
+      if (!isValidChannelTriplet(channel)) {
         logger.log("Channel does not have a valid triplet");
         return;
       }

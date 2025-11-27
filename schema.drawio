@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0" version="29.1.1">
   <diagram name="Pagina-1" id="Kx2tSpUMS8YSXs7x8lLL">
-    <mxGraphModel dx="713" dy="830" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1384" dy="830" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -120,6 +120,40 @@
         </mxCell>
         <mxCell id="5DFRDDl0HPOpqTF1vMP6-48" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="+" vertex="1">
           <mxGeometry height="30" width="60" x="400" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Content Script" vertex="1">
+          <mxGeometry height="70" width="340" x="1110" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-2" edge="1" parent="1" source="CtYL_wlIoKDeZ4yA-OTG-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="CtYL_wlIoKDeZ4yA-OTG-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1169" y="510" />
+              <mxPoint x="1169" y="510" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="DOM" vertex="1">
+          <mxGeometry height="70" width="330" x="1120" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Web Page" vertex="1">
+          <mxGeometry height="30" width="80" x="1240" y="509.5" as="geometry" />
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-5" edge="1" parent="1" source="CtYL_wlIoKDeZ4yA-OTG-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="CtYL_wlIoKDeZ4yA-OTG-3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1169" y="510" />
+              <mxPoint x="1169" y="510" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="hbbtv-api" vertex="1">
+          <mxGeometry height="40" width="90" x="1124" y="575" as="geometry" />
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Broadcast&lt;div&gt;Video Element&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="120" x="1130" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="CtYL_wlIoKDeZ4yA-OTG-8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="window.oipf*" vertex="1">
+          <mxGeometry height="40" width="116" x="1324" y="435" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

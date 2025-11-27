@@ -3,7 +3,7 @@ import {
   ChannelIdType,
   type ChannelList,
   type ClassType,
-  isChannelTriplet,
+  isValidChannelTriplet,
   type MessageBus,
 } from "@hbb-emu/lib";
 
@@ -15,7 +15,7 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
       super(...args);
 
       this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
-        this.channelList = payload.filter(isChannelTriplet).map((channel) => ({
+        this.channelList = payload.filter(isValidChannelTriplet).map((channel) => ({
           idType: ChannelIdType.ID_DVB_T,
           ...channel,
         }));

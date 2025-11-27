@@ -6,8 +6,8 @@ import {
   type MessageBus,
   type OipfConfiguration,
   version,
-  WithChromeMessageAdapter,
   WithMessageBus,
+  WithPostMessageAdapter,
 } from "@hbb-emu/lib";
 
 const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
@@ -71,7 +71,7 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
 export const createOipfConfiguration = (): OipfConfiguration => {
   const OipfConfigurationClass = compose(
     class {},
-    WithChromeMessageAdapter, // TODO PostMessageAdapter
+    WithPostMessageAdapter,
     WithMessageBus("CONTENT_SCRIPT"),
     WithConfiguration,
   );

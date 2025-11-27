@@ -14,7 +14,7 @@ import { Settings } from "@hbb-emu/ui";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-const WithSidePanel = <T extends ClassType<MessageBus & MessageAdapter>>(Base: T) =>
+const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
     root: Root | null = null;
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
@@ -63,13 +63,13 @@ const WithSidePanel = <T extends ClassType<MessageBus & MessageAdapter>>(Base: T
                       this.state.channels.push(channel);
                     }
                     await this.sendMessage(
-                      this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
+                      this.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }, "SERVICE_WORKER"),
                     );
                   },
                   remove: async (id: string) => {
                     this.state.channels = this.state.channels.filter((channel) => channel.id !== id);
                     await this.sendMessage(
-                      this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
+                      this.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }, "SERVICE_WORKER"),
                     );
                   },
                   streamEvent: {
@@ -83,7 +83,10 @@ const WithSidePanel = <T extends ClassType<MessageBus & MessageAdapter>>(Base: T
                         if (index >= 0) {
                           channel.streamEvents[index] = event;
                           await this.sendMessage(
-                            this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
+                            this.createEnvelope(
+                              { type: "UPDATE_CHANNELS", payload: this.state.channels },
+                              "SERVICE_WORKER",
+                            ),
                           );
                         }
                       }
@@ -96,7 +99,10 @@ const WithSidePanel = <T extends ClassType<MessageBus & MessageAdapter>>(Base: T
                         }
                       }
                       return this.sendMessage(
-                        this.bus.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }),
+                        this.createEnvelope(
+                          { type: "UPDATE_CHANNELS", payload: this.state.channels },
+                          "SERVICE_WORKER",
+                        ),
                       );
                     },
                   },

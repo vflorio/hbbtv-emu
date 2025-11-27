@@ -1,5 +1,11 @@
-import type { ClassType, MessageBus, OipfCapabilities } from "@hbb-emu/lib";
-import { compose, WithChromeMessageAdapter, WithMessageBus } from "@hbb-emu/lib";
+import {
+  type ClassType,
+  compose,
+  type MessageBus,
+  type OipfCapabilities,
+  WithMessageBus,
+  WithPostMessageAdapter,
+} from "@hbb-emu/lib";
 
 const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
@@ -42,7 +48,7 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
 export const createOipfCapabilities = (): OipfCapabilities => {
   const CapabilitiesClass = compose(
     class {},
-    WithChromeMessageAdapter, // TODO PostMessageAdapter
+    WithPostMessageAdapter,
     WithMessageBus("CONTENT_SCRIPT"),
     WithCapabilities,
   );

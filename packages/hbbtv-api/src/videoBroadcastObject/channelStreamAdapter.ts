@@ -2,7 +2,7 @@ import {
   type Channel,
   type ClassType,
   createLogger,
-  isChannelTriplet,
+  isValidChannelTriplet,
   type MessageBus,
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
@@ -29,7 +29,7 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: 
     }
 
     getChannelStreamUrl = (channel: Channel): string => {
-      const key = isChannelTriplet(channel) ? serializeChannelTriplet(channel) : channel?.ccid || "";
+      const key = isValidChannelTriplet(channel) ? serializeChannelTriplet(channel) : channel?.ccid || "";
       logger.log(`Getting stream URL for channel: ${key}`);
       return this.channelStreamUrls.get(key) || "";
     };
