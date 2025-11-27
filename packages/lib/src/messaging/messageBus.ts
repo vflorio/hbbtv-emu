@@ -53,12 +53,9 @@ export const WithMessageBus =
 
         dispatch: async (envelope: MessageEnvelope): Promise<void> => {
           const handlers = this.handlers.get(envelope.message.type);
-          if (!handlers || handlers.length === 0) {
-            logger.warn(`No handler for message type: ${envelope.message.type}`);
-            return;
-          }
+          if (!handlers || handlers.length === 0) return;
 
-          logger.log(`Dispatching message of type: ${envelope.message.type} to ${handlers.length} handler(s)`);
+          logger.log("Dispatching message", envelope);
           await Promise.all(handlers.map((handler) => handler(envelope)));
         },
       };

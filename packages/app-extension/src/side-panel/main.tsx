@@ -19,8 +19,12 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     root: Root | null = null;
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
 
-    constructor(...args: any[]) {
-      super(...args);
+    init = () => {
+      const root = document.getElementById("root");
+      if (!root) return;
+      this.root = createRoot(root);
+
+      this.render();
 
       this.bus.on("UPDATE_VERSION", ({ message: { payload } }) => {
         this.state.version = payload;
@@ -37,14 +41,6 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
       this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
         this.state.channels = payload;
       });
-    }
-
-    init = () => {
-      const root = document.getElementById("root");
-      if (!root) return;
-      this.root = createRoot(root);
-
-      this.render();
     };
 
     render = () =>

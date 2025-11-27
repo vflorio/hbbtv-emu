@@ -21,13 +21,12 @@ const logger = createLogger("ServiceWorker");
 
 const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
-    store: Storage<ExtensionConfig.State>;
+    store = new Storage<ExtensionConfig.State>("state");
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
 
-    constructor(...args: any[]) {
-      super(...args);
-
-      this.store = new Storage<ExtensionConfig.State>("state");
+    init = async () => {
+      const candidate = await this.store.load();
+      if (!candidate) this.store.save(DEFAULT_HBBTV_CONFIG);
 
       this.bus.on("CONTENT_SCRIPT_READY", async () => {
         if (!this.tabId) {
@@ -64,11 +63,6 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Bas
         this.sendConfigToTab();
         this.store.save(this.state);
       };
-    }
-
-    init = async () => {
-      const candidate = await this.store.load();
-      if (!candidate) this.store.save(DEFAULT_HBBTV_CONFIG);
     };
 
     sendConfigToTab = async () => {
