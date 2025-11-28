@@ -21,13 +21,12 @@ const logger = createLogger("ServiceWorker");
 
 const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
-    store: Storage<ExtensionConfig.State>;
+    store = new Storage<ExtensionConfig.State>("state");
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
 
-    constructor(...args: any[]) {
-      super(...args);
-
-      this.store = new Storage<ExtensionConfig.State>("state");
+    init = async () => {
+      const candidate = await this.store.load();
+      if (!candidate) this.store.save(DEFAULT_HBBTV_CONFIG);
 
       this.bus.on("CONTENT_SCRIPT_READY", async () => {
         if (!this.tabId) {
@@ -38,37 +37,11 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Bas
         await this.sendConfigToTab();
       });
 
-      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) =>
-        update(() => {
-          this.state.channels = payload;
-        }),
-      );
-      this.bus.on("UPDATE_VERSION", ({ message: { payload } }) =>
-        update(() => {
-          this.state.version = payload;
-        }),
-      );
-      this.bus.on("UPDATE_COUNTRY_CODE", ({ message: { payload } }) =>
-        update(() => {
-          this.state.countryCode = payload;
-        }),
-      );
-      this.bus.on("UPDATE_CAPABILITIES", ({ message: { payload } }) =>
-        update(() => {
-          this.state.capabilities = payload;
-        }),
-      );
-
-      const update = (callback: () => void) => {
-        callback();
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        this.state = payload;
         this.sendConfigToTab();
         this.store.save(this.state);
-      };
-    }
-
-    init = async () => {
-      const candidate = await this.store.load();
-      if (!candidate) this.store.save(DEFAULT_HBBTV_CONFIG);
+      });
     };
 
     sendConfigToTab = async () => {
@@ -85,15 +58,10 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Bas
         return;
       }
 
-      const envelopes: [Message, MessageOrigin][] = [
-        [{ type: "UPDATE_CHANNELS", payload: this.state.channels }, "CONTENT_SCRIPT"],
-        [{ type: "UPDATE_VERSION", payload: this.state.version }, "CONTENT_SCRIPT"],
-        [{ type: "UPDATE_COUNTRY_CODE", payload: this.state.countryCode }, "CONTENT_SCRIPT"],
-        [{ type: "UPDATE_CAPABILITIES", payload: this.state.capabilities }, "CONTENT_SCRIPT"],
-      ];
-
       try {
-        await Promise.all(envelopes.map(([message, target]) => this.sendMessage(this.createEnvelope(message, target))));
+        await this.sendMessage(
+          this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "CONTENT_SCRIPT"),
+        );
         logger.log(`Config sent to tab ${this.tabId}`);
       } catch (error) {
         logger.error(`Failed to send config to tab ${this.tabId}:`, error);

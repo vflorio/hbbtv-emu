@@ -19,32 +19,16 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     root: Root | null = null;
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
 
-    constructor(...args: any[]) {
-      super(...args);
-
-      this.bus.on("UPDATE_VERSION", ({ message: { payload } }) => {
-        this.state.version = payload;
-      });
-
-      this.bus.on("UPDATE_COUNTRY_CODE", ({ message: { payload } }) => {
-        this.state.countryCode = payload;
-      });
-
-      this.bus.on("UPDATE_CAPABILITIES", ({ message: { payload } }) => {
-        this.state.capabilities = payload;
-      });
-
-      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
-        this.state.channels = payload;
-      });
-    }
-
     init = () => {
       const root = document.getElementById("root");
       if (!root) return;
       this.root = createRoot(root);
 
       this.render();
+
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        this.state = payload;
+      });
     };
 
     render = () =>
@@ -63,13 +47,13 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
                       this.state.channels.push(channel);
                     }
                     await this.sendMessage(
-                      this.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }, "SERVICE_WORKER"),
+                      this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "SERVICE_WORKER"),
                     );
                   },
                   remove: async (id: string) => {
                     this.state.channels = this.state.channels.filter((channel) => channel.id !== id);
                     await this.sendMessage(
-                      this.createEnvelope({ type: "UPDATE_CHANNELS", payload: this.state.channels }, "SERVICE_WORKER"),
+                      this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "SERVICE_WORKER"),
                     );
                   },
                   streamEvent: {
@@ -83,10 +67,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
                         if (index >= 0) {
                           channel.streamEvents[index] = event;
                           await this.sendMessage(
-                            this.createEnvelope(
-                              { type: "UPDATE_CHANNELS", payload: this.state.channels },
-                              "SERVICE_WORKER",
-                            ),
+                            this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "SERVICE_WORKER"),
                           );
                         }
                       }
@@ -99,10 +80,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
                         }
                       }
                       return this.sendMessage(
-                        this.createEnvelope(
-                          { type: "UPDATE_CHANNELS", payload: this.state.channels },
-                          "SERVICE_WORKER",
-                        ),
+                        this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "SERVICE_WORKER"),
                       );
                     },
                   },

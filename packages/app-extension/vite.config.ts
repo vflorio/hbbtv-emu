@@ -25,5 +25,5 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
-  publicDir: false, // Copiamo i file public manualmente
+  publicDir: false,
 });

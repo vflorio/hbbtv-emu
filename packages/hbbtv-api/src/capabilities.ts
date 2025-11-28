@@ -14,8 +14,8 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CAPABILITIES", ({ message: { payload } }) => {
-        this.capabilitiesXML = payload;
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        this.capabilitiesXML = payload.capabilities;
       });
     }
 
