@@ -1,10 +1,12 @@
 import {
   type App,
+  ChannelIdType,
   type ClassType,
   compose,
   createEnvelope,
   createLogger,
   initApp,
+  isValidChannelTriplet,
   type MessageAdapter,
   type MessageBus,
   WithMessageBus,
@@ -24,6 +26,18 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
         await this.sendMessage(
           createEnvelope(this.messageOrigin, "SERVICE_WORKER", { type: "CONTENT_SCRIPT_READY", payload: null }),
         );
+      });
+
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        if (!this.videoBroadcastObject) return;
+        if (!isValidChannelTriplet(payload.currentChannel)) return;
+        const { onid, tsid, sid } = payload.currentChannel;
+        this.videoBroadcastObject.setChannel({
+          idType: ChannelIdType.ID_DVB_T,
+          onid,
+          tsid,
+          sid,
+        });
       });
 
       this.attachObjects(document);

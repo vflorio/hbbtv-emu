@@ -66,8 +66,11 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
 
   const handleSubmit = () => {
     const channelData: ExtensionConfig.Channel = {
-      id: channel?.id || crypto.randomUUID(),
       ...formData,
+      id: channel?.id || crypto.randomUUID(),
+      onid: Number(formData.onid),
+      tsid: Number(formData.tsid),
+      sid: Number(formData.sid),
     };
     onSave(channelData);
     onClose();

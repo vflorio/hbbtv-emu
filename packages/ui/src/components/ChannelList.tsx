@@ -1,5 +1,5 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PlayArrow as PlayIcon } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -35,6 +35,10 @@ export default function ChannelList() {
     await channel.remove(id);
     const updated = await channel.load();
     setChannels(updated);
+  };
+
+  const handlePlayChannel = async (ch: ExtensionConfig.Channel) => {
+    await channel.play(ch);
   };
 
   useEffect(() => {
@@ -102,6 +106,11 @@ export default function ChannelList() {
                   <TableCell>{channel.tsid}</TableCell>
                   <TableCell>{channel.sid}</TableCell>
                   <TableCell align="right">
+                    <Tooltip title="Play">
+                      <IconButton size="small" color="success" onClick={() => handlePlayChannel(channel)}>
+                        <PlayIcon />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Edit">
                       <IconButton size="small" color="primary" onClick={() => handleEditChannel(channel.id)}>
                         <EditIcon />

@@ -43,7 +43,7 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
 
       this.tabs.add(details.tabId);
       logger.log(`Tab added: ${details.tabId}`);
-      
+
       this.inject(details.tabId, ["content-script.js"], ["bridge.js"]);
 
       // Prevent chrome from downloading the content

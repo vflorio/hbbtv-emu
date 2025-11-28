@@ -2,6 +2,7 @@ import {
   createApplicationManager,
   createOipfCapabilities,
   createOipfConfiguration,
+  type VideoBroadcastObject as VideoBroadcast,
   WithVideoBroadcastObject,
 } from "@hbb-emu/hbbtv-api";
 import {
@@ -16,6 +17,7 @@ import {
 
 export interface ObjectHandler {
   attachObject: (element: HTMLObjectElement) => void;
+  videoBroadcastObject: VideoBroadcast | null;
 }
 
 const VideoBroadcastObject = compose(
@@ -27,6 +29,8 @@ const VideoBroadcastObject = compose(
 
 export const WithObjectHandler = <T extends ClassType>(Base: T) =>
   class extends Base implements ObjectHandler {
+    videoBroadcastObject: VideoBroadcast | null = null;
+
     attachObject = (element: HTMLObjectElement) => {
       const type = element.getAttribute("type");
       if (!type) return;
@@ -45,11 +49,12 @@ export const WithObjectHandler = <T extends ClassType>(Base: T) =>
     private createVideoBroadcast = (objectElement: HTMLObjectElement) => {
       if (!objectElement.parentNode) return;
 
-      const videoBroadcastObject = new VideoBroadcastObject();
-      objectElement.parentNode.insertBefore(videoBroadcastObject.videoElement, objectElement.nextSibling);
+      this.videoBroadcastObject = new VideoBroadcastObject();
 
-      new ObjectStyleMirror(objectElement, videoBroadcastObject.videoElement);
-      proxyProperties(objectElement, videoBroadcastObject);
+      objectElement.parentNode.insertBefore(this.videoBroadcastObject.videoElement, objectElement.nextSibling);
+
+      new ObjectStyleMirror(objectElement, this.videoBroadcastObject.videoElement);
+      proxyProperties(objectElement, this.videoBroadcastObject);
     };
 
     private createObject = (type: string) => {

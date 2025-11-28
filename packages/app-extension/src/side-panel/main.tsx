@@ -57,6 +57,10 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
                   this.state.channels = this.state.channels.filter((channel) => channel.id !== id);
                   await this.update();
                 },
+                play: async (channel: ExtensionConfig.Channel | null) => {
+                  this.state.currentChannel = channel;
+                  await this.update();
+                },
                 streamEvent: {
                   load: async () => this.state.channels.flatMap((c) => c.streamEvents || []),
 

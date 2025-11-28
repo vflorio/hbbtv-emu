@@ -46,7 +46,12 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & Web
     broadcastConfig = () => {
       this.tabs.forEach((tabId) => {
         this.sendMessage(
-          createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "UPDATE_CONFIG", payload: this.state }, { tabId }),
+          createEnvelope(
+            this.messageOrigin,
+            "CONTENT_SCRIPT",
+            { type: "UPDATE_CONFIG", payload: this.state },
+            { tabId },
+          ),
         );
 
         logger.log(`Config sent to tab ${tabId}`);

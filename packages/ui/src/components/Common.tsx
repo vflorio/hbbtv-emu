@@ -15,6 +15,7 @@ export default function Settings({ config, onSave }: SettingsProps) {
 
   const handleSave = () => {
     onSave({
+      currentChannel: config?.currentChannel || null,
       version,
       countryCode,
       capabilities,

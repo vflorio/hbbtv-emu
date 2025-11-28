@@ -6,6 +6,7 @@ export namespace ExtensionConfig {
     countryCode: string;
     capabilities: string;
     channels: Channel[];
+    currentChannel: Channel | null;
   };
 
   export type StreamEvent = {
@@ -29,6 +30,7 @@ export namespace ExtensionConfig {
 }
 
 export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
+  currentChannel: null,
   channels: [],
   version: "1.5.0",
   countryCode: "ITA",
