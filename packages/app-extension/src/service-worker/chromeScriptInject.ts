@@ -1,7 +1,6 @@
+import { type ClassType, createLogger } from "@hbb-emu/lib";
 import type * as IO from "fp-ts/IO";
 import type * as T from "fp-ts/Task";
-import { createLogger } from "../logger";
-import type { ClassType } from "../mixin";
 
 const logger = createLogger("Chrome Script Inject");
 

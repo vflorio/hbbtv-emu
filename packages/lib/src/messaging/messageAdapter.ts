@@ -4,9 +4,10 @@ import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
-import type { Message, MessageOrigin } from "./message";
+import type { Message } from "./message";
 import type { InvalidMessageEnvelopeError, InvalidTargetError, MessageEnvelope } from "./messageEnvelope";
 import { validateEnvelope } from "./messageEnvelope";
+import type { MessageOrigin } from "./messageOrigin";
 
 export interface MessageAdapter {
   registerMessageBus: RegisterMessageBus;

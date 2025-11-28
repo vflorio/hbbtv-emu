@@ -1,9 +1,9 @@
 import * as TE from "fp-ts/TaskEither";
-import { createLogger } from "../logger";
-import { type ClassType, compose } from "../mixin";
-import type { Message } from "./message";
-import { type MessageAdapter, type MessageAdapterError, WithMessageAdapter } from "./messageAdapter";
-import type { MessageEnvelope } from "./messageEnvelope";
+import { createLogger } from "../../logger";
+import { type ClassType, compose } from "../../mixin";
+import type { Message } from "../message";
+import { type MessageAdapter, type MessageAdapterError, WithMessageAdapter } from "../messageAdapter";
+import type { MessageEnvelope } from "../messageEnvelope";
 
 const logger = createLogger("PostMessage Adapter");
 
@@ -35,8 +35,13 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       );
   };
 
+// biome-ignore format: ack
 export const WithPostMessageAdapter = <T extends ClassType>(Base: T) =>
-  compose(Base, WithMessageAdapter, WithPostMessage);
+  compose(
+    Base, 
+    WithMessageAdapter, 
+    WithPostMessage
+);
 
 // Errors
 

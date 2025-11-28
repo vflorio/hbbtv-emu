@@ -3,9 +3,11 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
-import type { Message, MessageOrigin, MessageType } from "./message";
+import type { Message } from "./message";
 import type { MessageAdapter, MessageHandler } from "./messageAdapter";
 import type { MessageEnvelope } from "./messageEnvelope";
+import type { MessageOrigin } from "./messageOrigin";
+import type { MessageType } from "./messageType";
 
 const logger = createLogger("MessageBus");
 

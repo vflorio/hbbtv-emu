@@ -6,6 +6,11 @@ import * as Ord from "fp-ts/Ord";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as S from "fp-ts/string";
 
+export interface Version {
+  readonly _tag: "Version";
+  readonly parts: ReadonlyArray<number>;
+}
+
 export const parseVersion = (version: string): E.Either<InvalidVersionError, Version> =>
   pipe(
     version,
@@ -44,8 +49,3 @@ export const invalidVersionError = (message: string): InvalidVersionError => ({
   type: "InvalidVersionError",
   message,
 });
-
-export interface Version {
-  readonly _tag: "Version";
-  readonly parts: ReadonlyArray<number>;
-}

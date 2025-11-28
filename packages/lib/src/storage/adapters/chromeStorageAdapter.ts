@@ -1,15 +1,15 @@
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
-import { createLogger } from "../logger";
-import { type DataNotFoundError, dataNotFoundError } from "../misc";
+import { createLogger } from "../../logger";
+import { type DataNotFoundError, dataNotFoundError } from "../../misc";
 import {
   type LocalStorageGetItemError,
   type LocalStorageSetItemError,
   localStorageGetItemError,
   localStorageSetItemError,
-  type StorageAdapter,
-} from "../storage";
+} from "../errors";
+import type { StorageAdapter } from "../types";
 
 const logger = createLogger("Chrome Storage");
 

@@ -10,10 +10,7 @@ import {
   type MessageAdapter,
   type MessageBus,
   Storage,
-  type WebRequestHandler,
   WithChromeMessageAdapter,
-  WithChromeScriptInject,
-  WithChromeWebRequestManager,
   WithMessageBus,
 } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
@@ -22,6 +19,8 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as T from "fp-ts/Task";
+import { WithChromeScriptInject } from "./chromeScriptInject";
+import { type WebRequestHandler, WithChromeWebRequestManager } from "./chromeWebRequestManager";
 
 const logger = createLogger("ServiceWorker");
 

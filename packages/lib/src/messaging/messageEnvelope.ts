@@ -1,7 +1,8 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import { type Message, MessageCodec, type MessageOrigin, MessageOriginCodec } from "./message";
+import { type Message, MessageCodec } from "./message";
+import { type MessageOrigin, MessageOriginCodec } from "./messageOrigin";
 
 export type ServiceWorkerMessageContext = {
   tabId: number;

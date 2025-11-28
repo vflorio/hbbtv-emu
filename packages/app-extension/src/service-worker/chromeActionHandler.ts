@@ -1,7 +1,7 @@
+import type { ClassType } from "@hbb-emu/lib";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import type { ClassType } from "../mixin";
 
 interface ActionHandler {
   onActionClicked(tab: chrome.tabs.Tab): TE.TaskEither<Error, void>;

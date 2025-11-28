@@ -1,15 +1,15 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import { createLogger } from "../logger";
+import { createLogger } from "../../logger";
+import { type ClassType, compose } from "../../mixin";
 import {
   type Message,
   type MessageAdapter,
   type MessageAdapterError,
   type MessageEnvelope,
   WithMessageAdapter,
-} from "../messaging";
-import { type ClassType, compose } from "../mixin";
+} from "..";
 
 const logger = createLogger("Chrome Message Listener");
 
