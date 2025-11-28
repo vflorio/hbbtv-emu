@@ -1,3 +1,4 @@
+import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import { type ClassType, compose } from "../mixin";
 import type { Message } from "./message";
@@ -19,10 +20,17 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       return true;
     };
 
-    sendMessage = async <T extends Message>(envelope: MessageEnvelope<T>): Promise<void> => {
-      logger.log("Sending message", envelope);
-      window.postMessage(envelope, "*");
-    };
+    sendMessage = <T extends Message>(envelope: MessageEnvelope<T>): TE.TaskEither<Error, void> =>
+      TE.tryCatch(
+        async () => {
+          logger.log("Sending message", envelope);
+          window.postMessage(envelope, "*");
+        },
+        (error) => {
+          logger.error("Failed to send message", error);
+          return new Error(`PostMessage failed: ${error}`);
+        },
+      );
   };
 
 export const WithPostMessageAdapter = <T extends ClassType>(Base: T) =>

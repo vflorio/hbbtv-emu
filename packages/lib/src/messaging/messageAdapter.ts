@@ -1,47 +1,55 @@
+import * as E from "fp-ts/Either";
+import { pipe } from "fp-ts/function";
+import * as O from "fp-ts/Option";
+import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message, MessageOrigin } from "./message";
-import { isValidMessageEnvelope, type MessageEnvelope } from "./messageEnvelope";
+import { validateEnvelope, type MessageEnvelope } from "./messageEnvelope";
 
 export interface MessageAdapter {
   registerMessageBus: RegisterMessageBus;
-  sendMessage<T extends Message>(envelope: MessageEnvelope<T>): Promise<void>;
-  handleMessage(data: unknown): boolean;
+  sendMessage<T extends Message>(envelope: MessageEnvelope<T>): TE.TaskEither<Error, void>;
+  handleMessage(data: unknown): E.Either<Error, void>;
 }
 
 export type RegisterMessageBus = (origin: MessageOrigin, handler: MessageHandler) => void;
 
-export type MessageHandler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => Promise<void> | void;
+export type MessageHandler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => TE.TaskEither<Error, void>;
 
 const logger = createLogger("Message Adapter");
 
 export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
   class extends Base implements MessageAdapter {
-    messageOrigin: MessageOrigin | null = null;
-    messageHandler: MessageHandler | null = null;
+    messageOrigin: O.Option<MessageOrigin> = O.none;
+    messageHandler: O.Option<MessageHandler> = O.none;
 
     registerMessageBus = (origin: MessageOrigin, handler: MessageHandler) => {
-      this.messageOrigin = origin;
-      this.messageHandler = handler;
+      this.messageOrigin = O.some(origin);
+      this.messageHandler = O.some(handler);
     };
 
-    handleMessage = (data: unknown) => {
-      if (!isValidMessageEnvelope(data)) {
-        logger.error("Invalid message format", data);
-        return false;
-      }
+    handleMessage = (data: unknown): E.Either<Error, void> =>
+      pipe(
+        validateEnvelope(data),
+        E.flatMap((envelope) =>
+          pipe(
+            this.messageHandler,
+            O.match(
+              () => E.left(new Error("No message handler registered")),
+              (handler) => E.right({ envelope, handler }),
+            ),
+          ),
+        ),
+        E.map(({ envelope, handler }) => {
+          handler(envelope)();
+        }),
+        E.mapLeft((error) => {
+          logger.error("Message handling failed", error);
+          return error;
+        }),
+      );
 
-      if (!this.messageHandler) {
-        logger.error("No message handler registered");
-        return false;
-      }
-
-      this.messageHandler(data);
-
-      return true;
-    };
-
-    sendMessage = async <T extends Message>(_envelope: MessageEnvelope<T>): Promise<void> => {
-      throw new Error("Method not implemented.");
-    };
+    sendMessage = <T extends Message>(_envelope: MessageEnvelope<T>): TE.TaskEither<Error, void> =>
+      TE.left(new Error("Method not implemented."));
   };

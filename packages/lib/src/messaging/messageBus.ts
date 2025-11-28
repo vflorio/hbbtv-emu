@@ -1,3 +1,7 @@
+import * as RA from "fp-ts/ReadonlyArray";
+import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
+import * as IO from "fp-ts/IO";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message, MessageOrigin, MessageType } from "./message";
@@ -11,7 +15,7 @@ export interface MessageBus {
   bus: {
     on<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
     off<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
-    dispatch(envelope: MessageEnvelope): Promise<void>;
+    dispatch(envelope: MessageEnvelope): TE.TaskEither<Error, void>;
   };
 }
 
@@ -20,7 +24,7 @@ export const WithMessageBus =
   <T extends ClassType<MessageAdapter>>(Base: T) =>
     class extends Base implements MessageBus {
       readonly messageOrigin: MessageOrigin = messageOrigin;
-      handlers: Map<string, MessageHandler[]> = new Map();
+      handlers: Map<string, ReadonlyArray<MessageHandler>> = new Map();
 
       constructor(...args: any[]) {
         super(...args);
@@ -29,26 +33,34 @@ export const WithMessageBus =
 
       bus = {
         on: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
-          const handlers = this.handlers.get(type) || [];
-          handlers.push(handler as MessageHandler);
-          this.handlers.set(type, handlers);
+          const hs = this.handlers.get(type) ?? RA.empty;
+          this.handlers.set(type, RA.append(handler as MessageHandler)(hs));
         },
 
         off: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
-          const handlers = this.handlers.get(type);
-          if (!handlers) return;
-          this.handlers.set(
-            type,
-            handlers.filter((h) => h !== handler),
-          );
+          const hs = this.handlers.get(type);
+          if (!hs) return;
+          this.handlers.set(type, RA.filter((h) => h !== handler)(hs));
         },
 
-        dispatch: async (envelope: MessageEnvelope): Promise<void> => {
-          const handlers = this.handlers.get(envelope.message.type);
-          if (!handlers || handlers.length === 0) return;
+        dispatch: (envelope: MessageEnvelope): TE.TaskEither<Error, void> => {
+          const handlers = this.handlers.get(envelope.message.type) ?? RA.empty;
 
-          logger.log("Dispatching message", envelope);
-          await Promise.all(handlers.map((handler) => handler(envelope)));
+          if (RA.isEmpty(handlers)) {
+            return TE.rightIO(IO.of(undefined));
+          }
+ 
+          return pipe(
+            TE.fromIO(() => logger.log("Dispatching message", envelope)),
+            TE.flatMap(() =>
+              pipe(
+                handlers,
+                RA.map((handler) => handler(envelope)),
+                TE.traverseArray((te) => te),
+                TE.map(() => undefined),
+              ),
+            ),
+          );
         },
       };
     };

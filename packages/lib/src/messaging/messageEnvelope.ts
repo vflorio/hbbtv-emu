@@ -1,9 +1,16 @@
+import * as E from "fp-ts/Either";
+import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
-import { isMessage, isValidMessageOrigin, type Message, type MessageOrigin } from "./message";
+import * as t from "io-ts";
+import { MessageCodec, MessageOriginCodec, type Message, type MessageOrigin } from "./message";
 
 export type ServiceWorkerMessageContext = {
   tabId: number;
 };
+
+const ServiceWorkerMessageContextCodec = t.type({
+  tabId: t.number,
+});
 
 export interface MessageEnvelope<T extends Message = Message> {
   id: string;
@@ -14,28 +21,26 @@ export interface MessageEnvelope<T extends Message = Message> {
   context?: ServiceWorkerMessageContext;
 }
 
-export const isValidMessageEnvelope = (data: unknown): data is MessageEnvelope =>
-  // Step 1
-  typeof data === "object" &&
-  data !== null &&
-  // Step 2
-  "id" in data &&
-  "timestamp" in data &&
-  "message" in data &&
-  "source" in data &&
-  "target" in data &&
-  // Step 3
-  typeof data.id === "string" &&
-  typeof data.timestamp === "number" &&
-  typeof data.source === "string" &&
-  typeof data.target === "string" &&
-  // Step 4
-  isValidMessageOrigin(data.source) &&
-  isValidMessageOrigin(data.target) &&
-  isMessage(data.message);
+const MessageEnvelopeCodec = t.intersection([
+  t.type({
+    id: t.string,
+    timestamp: t.number,
+    message: MessageCodec,
+    source: MessageOriginCodec,
+    target: MessageOriginCodec,
+  }),
+  t.partial({
+    context: ServiceWorkerMessageContextCodec,
+  }),
+]);
 
-export const validateEnvelope = (data: unknown): O.Option<MessageEnvelope> =>
-  isValidMessageEnvelope(data) ? O.some(data) : O.none;
+export const validateEnvelope = (data: unknown): E.Either<Error, MessageEnvelope> =>
+  pipe(
+    MessageEnvelopeCodec.decode(data),
+    E.mapLeft(() => new Error(`Invalid message envelope: ${JSON.stringify(data)}`)),
+  );
+
+const generateId = (): string => `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
 export const createEnvelope = <T extends Message>(
   source: MessageOrigin,
@@ -43,7 +48,7 @@ export const createEnvelope = <T extends Message>(
   message: T,
   context?: ServiceWorkerMessageContext,
 ): MessageEnvelope<T> => ({
-  id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+  id: generateId(),
   timestamp: Date.now(),
   message,
   source,
@@ -53,5 +58,12 @@ export const createEnvelope = <T extends Message>(
 
 export const validateTarget =
   (expectedTarget: MessageOrigin) =>
+  (envelope: MessageEnvelope): E.Either<Error, MessageEnvelope> =>
+    envelope.target === expectedTarget
+      ? E.right(envelope)
+      : E.left(new Error(`Expected target ${expectedTarget}, got ${envelope.target}`));
+
+export const validateTargetOption =
+  (expectedTarget: MessageOrigin) =>
   (envelope: MessageEnvelope): O.Option<MessageEnvelope> =>
-    envelope.target === expectedTarget ? O.some(envelope) : O.none;
+    pipe(validateTarget(expectedTarget)(envelope), O.fromEither);

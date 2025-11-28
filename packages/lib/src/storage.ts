@@ -4,7 +4,7 @@ import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 import { ChromeStorageAdapter } from "./chrome";
 import { createLogger } from "./logger";
-import { parseJson, stringifyJson } from "./misc";
+import { jsonParse, jsonStringify } from "./misc";
 
 const logger = createLogger("Storage");
 
@@ -54,7 +54,7 @@ export class Storage<T> {
   load = (): TE.TaskEither<Error, T> =>
     pipe(
       this.storageAdapter.getItem(this.key),
-      TE.flatMapEither(parseJson<T>),
+      TE.flatMapEither(jsonParse<T>),
       TE.mapLeft((error) => {
         logger.error("Failed to load entry:", error);
         return error;
@@ -63,7 +63,7 @@ export class Storage<T> {
 
   save = (entry: T): TE.TaskEither<Error, void> =>
     pipe(
-      stringifyJson(entry),
+      jsonStringify(entry),
       TE.fromEither,
       TE.flatMap((json) => this.storageAdapter.setItem(this.key, json)),
       TE.mapLeft((error) => {

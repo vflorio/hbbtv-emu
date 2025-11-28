@@ -1,11 +1,14 @@
+import * as E from "fp-ts/Either";
+import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "../messaging";
-import { tryCatch } from "../misc";
 import { type ClassType, compose } from "../mixin";
 
 const logger = createLogger("Chrome Message Listener");
 
-const hasNoListenersError = (error: Error) => error.message.includes("Receiving end does not exist");
+const hasNoListenersError = (error: unknown): boolean =>
+  error instanceof Error && error.message.includes("Receiving end does not exist");
 
 const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
   class extends Base implements MessageAdapter {
@@ -14,48 +17,63 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       chrome.runtime.onMessage.addListener(this.handleChromeMessage);
     }
 
-    handleChromeMessage = async (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => {
+    handleChromeMessage = (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => {
       logger.log("Received message", data, sender);
       this.handleMessage(data);
     };
 
-    sendMessage = async <T extends Message>(envelope: MessageEnvelope<T>) => {
+    sendMessage = <T extends Message>(envelope: MessageEnvelope<T>): TE.TaskEither<Error, void> => {
       logger.log("Sending message", envelope);
 
-      const handlers: Record<string, (envelope: MessageEnvelope<T>) => Promise<void>> = {
-        SERVICE_WORKER: async (envelope) => {
-          await this.sendMessageToServiceWorker(envelope);
-        },
-        CONTENT_SCRIPT: async (envelope) => {
-          if (!envelope.context?.tabId) {
-            logger.error("Cannot send message to content script: tabId is missing in context");
-            return;
-          }
-          await this.sendMessageToTab(envelope, envelope.context.tabId);
-        },
+      const sendToServiceWorker = (): TE.TaskEither<Error, void> =>
+        pipe(
+          TE.tryCatch(
+            () => chrome.runtime.sendMessage(envelope),
+            (error) => error as Error,
+          ),
+          TE.mapLeft((error) =>
+            hasNoListenersError(error) ? new Error("No message listeners registered in service worker") : error,
+          ),
+          TE.map(() => undefined),
+        );
+
+      const sendToContentScript = (tabId: number): TE.TaskEither<Error, void> =>
+        pipe(
+          TE.tryCatch(
+            () => chrome.tabs.sendMessage(tabId, envelope),
+            (error) => error as Error,
+          ),
+          TE.mapLeft((error) =>
+            hasNoListenersError(error) ? new Error(`No message listeners registered in tab ${tabId}`) : error,
+          ),
+          TE.map(() => undefined),
+        );
+
+      const sendByTarget = (): TE.TaskEither<Error, void> => {
+        switch (envelope.target) {
+          case "SERVICE_WORKER":
+            return sendToServiceWorker();
+          case "CONTENT_SCRIPT":
+            return pipe(
+              E.fromNullable(new Error("Cannot send message to content script: tabId is missing in context"))(
+                envelope.context?.tabId,
+              ),
+              TE.fromEither,
+              TE.flatMap(sendToContentScript),
+            );
+          default:
+            return TE.left(new Error(`Cannot send message: invalid target ${envelope.target}`));
+        }
       };
 
-      const handler = handlers[envelope.target];
-      if (!handler) {
-        logger.error("Cannot send message: no valid target specified");
-        return;
-      }
-      await handler(envelope);
+      return pipe(
+        sendByTarget(),
+        TE.mapLeft((error) => {
+          logger.error(error.message);
+          return error;
+        }),
+      );
     };
-
-    sendMessageToServiceWorker = async <T extends Message>(envelope: MessageEnvelope<T>) =>
-      tryCatch(
-        () => chrome.runtime.sendMessage(envelope),
-        [hasNoListenersError, "No message listeners registered in service worker"],
-        logger,
-      );
-
-    sendMessageToTab = async <T extends Message>(envelope: MessageEnvelope<T>, tabId: number) =>
-      tryCatch(
-        () => chrome.tabs.sendMessage(tabId, envelope),
-        [hasNoListenersError, `No message listeners registered in tab ${tabId}`],
-        logger,
-      );
   };
 
 export const WithChromeMessageAdapter = <T extends ClassType>(Base: T) =>
