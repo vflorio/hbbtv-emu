@@ -23,22 +23,21 @@ export interface ChannelTriplet {
 }
 
 export const isValidChannelTriplet = (channel: unknown): channel is ChannelTriplet =>
+  // Step 1
   typeof channel === "object" &&
   channel !== null &&
+  // Step 2
   "onid" in channel &&
   "tsid" in channel &&
   "sid" in channel &&
-  channel.onid === "number" &&
-  channel.tsid === "number" &&
-  channel.sid === "number";
+  // Step 3
+  typeof channel.onid === "number" &&
+  typeof channel.tsid === "number" &&
+  typeof channel.sid === "number";
 
 export const serializeChannelTriplet = (triplet: ChannelTriplet) => `${triplet.onid}-${triplet.tsid}-${triplet.sid}`;
 
-type ChannelExtention = {
-  mp4Source?: string;
-};
-
-export interface Channel extends ChannelExtention, Partial<ChannelTriplet> {
+export interface Channel extends Partial<ChannelTriplet> {
   ccid?: string;
   name?: string;
   majorChannel?: number;

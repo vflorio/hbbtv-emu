@@ -19,7 +19,20 @@ export class ObjectStyleMirror {
 
   private sync = () => {
     const styleAttr = this.source.getAttribute("style");
-    if (styleAttr) this.target.setAttribute("style", styleAttr);
+    if (styleAttr) {
+      const stylesWithImportant = styleAttr
+        .split(";")
+        .map((style) => {
+          const trimmed = style.trim();
+          if (!trimmed) return "";
+          // FIXME: Temporary fix for styles being overridden by css rules, video element might be rendered on a canvas later
+          if (trimmed.includes("!important")) return trimmed;
+          return `${trimmed} !important`;
+        })
+        .filter((style) => style)
+        .join("; ");
+      this.target.setAttribute("style", stylesWithImportant);
+    }
   };
 
   disconnect = () => {

@@ -1,13 +1,13 @@
 import { createLogger } from "../misc";
 import type { ClassType } from "../mixin";
-import type { Message, MessageEnvelope, MessageOrigin, MessageType } from "./message";
+import type { Message, MessageOrigin, MessageType } from "./message";
 import type { MessageAdapter, MessageHandler } from "./messageAdapter";
+import type { MessageEnvelope } from "./messageEnvelope";
 
 const logger = createLogger("MessageBus");
 
 export interface MessageBus {
   readonly messageOrigin: MessageOrigin;
-  createEnvelope<T extends Message>(message: T, target?: MessageOrigin, tabId?: number): MessageEnvelope<T>;
   bus: {
     on<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
     off<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
@@ -26,14 +26,6 @@ export const WithMessageBus =
         super(...args);
         this.registerMessageBus(messageOrigin, this.bus.dispatch);
       }
-
-      createEnvelope = <T extends Message>(message: T, target: MessageOrigin): MessageEnvelope<T> => ({
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-        timestamp: Date.now(),
-        message,
-        source: this.messageOrigin,
-        target,
-      });
 
       bus = {
         on: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {

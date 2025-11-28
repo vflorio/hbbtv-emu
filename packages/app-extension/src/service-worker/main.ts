@@ -2,6 +2,7 @@ import {
   type App,
   type ClassType,
   compose,
+  createEnvelope,
   createLogger,
   DEFAULT_HBBTV_CONFIG,
   type ExtensionConfig,
@@ -9,6 +10,7 @@ import {
   type MessageAdapter,
   type MessageBus,
   Storage,
+  type WebRequestHandler,
   WithChromeMessageAdapter,
   WithChromeScriptInject,
   WithChromeWebRequestManager,
@@ -17,7 +19,7 @@ import {
 
 const logger = createLogger("ServiceWorker");
 
-const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
+const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & WebRequestHandler>>(Base: T) =>
   class extends Base implements App {
     store = new Storage<ExtensionConfig.State>("state");
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
@@ -26,44 +28,29 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus>>(Bas
       const candidate = await this.store.load();
       if (!candidate) this.store.save(DEFAULT_HBBTV_CONFIG);
 
-      this.bus.on("CONTENT_SCRIPT_READY", async () => {
-        if (!this.tabId) {
-          logger.warn("Received CONTENT_SCRIPT_READY but tabId is not set");
-          return;
-        }
-        logger.log(`Content script ready in tab ${this.tabId}`);
-        await this.sendConfigToTab();
+      this.bus.on("CONTENT_SCRIPT_READY", () => {
+        logger.log("Content script ready, sending config");
+        this.broadcastConfig();
       });
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        logger.log("Updating config", payload);
+
         this.state = payload;
-        this.sendConfigToTab();
         this.store.save(this.state);
+
+        this.broadcastConfig();
       });
     };
 
-    sendConfigToTab = async () => {
-      if (!this.tabId) {
-        logger.log("Cannot send config: no active tab with content script");
-        return;
-      }
-
-      // Verify tab still exists
-      try {
-        await chrome.tabs.get(this.tabId);
-      } catch {
-        logger.warn(`Tab ${this.tabId} no longer exists, cannot send config`);
-        return;
-      }
-
-      try {
-        await this.sendMessage(
-          this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "CONTENT_SCRIPT"),
+    broadcastConfig = () => {
+      this.tabs.forEach((tabId) => {
+        this.sendMessage(
+          createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "UPDATE_CONFIG", payload: this.state }, { tabId }),
         );
-        logger.log(`Config sent to tab ${this.tabId}`);
-      } catch (error) {
-        logger.error(`Failed to send config to tab ${this.tabId}:`, error);
-      }
+
+        logger.log(`Config sent to tab ${tabId}`);
+      });
     };
   };
 

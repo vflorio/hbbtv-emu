@@ -1,9 +1,12 @@
+import { createLogger } from "../misc";
 import type { ClassType } from "../mixin";
 import type { ChromeScriptInject } from "./chromeScriptInject";
 
 export interface WebRequestHandler {
   tabs: Set<number>;
 }
+
+const logger = createLogger("Chrome WebRequest Manager");
 
 export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject>>(Base: T) =>
   class extends Base implements WebRequestHandler {
@@ -23,6 +26,7 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       );
 
       chrome.tabs.onRemoved.addListener((tabId) => {
+        logger.log(`Tab removed: ${tabId}`);
         this.tabs.delete(tabId);
       });
     }
@@ -38,6 +42,8 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       if (!contentType.includes("application/vnd.hbbtv.xhtml+xml")) return;
 
       this.tabs.add(details.tabId);
+      logger.log(`Tab added: ${details.tabId}`);
+      
       this.inject(details.tabId, ["content-script.js"], ["bridge.js"]);
 
       // Prevent chrome from downloading the content

@@ -99,9 +99,10 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       _contentAccessDescriptorURL?: string,
       _quiet?: number,
     ) => {
-      logger.log(`setChannel: ${channel?.name || "null"}`);
+      logger.log("setChannel", channel);
 
       if (!channel) {
+        logger.log("setChannel: starting transition to unrealized state");
         this.currentChannel = null;
         this.stopVideo();
         // TODO assicurarsi che scatta la transizione a unrealized

@@ -1,12 +1,12 @@
 import { createLogger } from "../misc";
 import type { ClassType } from "../mixin";
-import { isValidMessageEnvelope, type Message, type MessageEnvelope, type MessageOrigin } from "./message";
+import type { Message, MessageOrigin } from "./message";
+import { isValidMessageEnvelope, type MessageEnvelope } from "./messageEnvelope";
 
 export interface MessageAdapter {
   registerMessageBus: RegisterMessageBus;
   sendMessage<T extends Message>(envelope: MessageEnvelope<T>): Promise<void>;
   handleMessage(data: unknown): boolean;
-  tabId?: number; // Only for Content Script and Bridge Script
 }
 
 export type RegisterMessageBus = (origin: MessageOrigin, handler: MessageHandler) => void;

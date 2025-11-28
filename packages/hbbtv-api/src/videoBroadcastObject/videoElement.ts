@@ -1,4 +1,4 @@
-import { type Channel, type ClassType, createLogger, isValidChannelTriplet } from "@hbb-emu/lib";
+import { type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
 import type { ChannelStreamAdapter } from "./channelStreamAdapter";
 import { PlayState } from "./playback";
 
@@ -17,7 +17,6 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
     readonly videoElement: HTMLVideoElement;
 
     currentVideoChannel: Channel | null = null;
-    isVideoReleasing: boolean = false;
 
     constructor(...args: any[]) {
       super(...args);
@@ -33,16 +32,6 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
         this.dispatchVideoEvent("PlayStateChange", PlayState.PRESENTING);
       };
 
-      const pause = () => {
-        logger.log("pause");
-        if (this.isVideoReleasing) {
-          this.isVideoReleasing = false;
-          this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
-        } else {
-          this.dispatchVideoEvent("PlayStateChange", PlayState.STOPPED);
-        }
-      };
-
       const error = () => {
         logger.log("error");
         this.dispatchVideoEvent("ChannelLoadError", this.currentVideoChannel);
@@ -53,7 +42,6 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
 
       this.videoElement.addEventListener("loadstart", loadstart);
       this.videoElement.addEventListener("canplay", canplay);
-      this.videoElement.addEventListener("pause", pause);
       this.videoElement.addEventListener("error", error);
 
       this.videoElement.loop = true;
@@ -65,28 +53,34 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
       this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
     loadVideo = (channel: Channel) => {
-      if (!isValidChannelTriplet(channel)) {
-        logger.log("Channel does not have a valid triplet");
-        return;
-      }
       logger.log("loadVideo", channel);
 
       this.videoElement.src = this.getChannelStreamUrl(channel) || "";
-      this.videoElement.load();
+      if (!this.videoElement.src) {
+        logger.error("loadVideo failed: no stream URL found for channel", channel);
+        return;
+      }
 
+      this.videoElement.load();
       this.currentVideoChannel = channel;
     };
 
     stopVideo = () => {
       logger.log("stop");
-      this.videoElement.pause();
-      this.videoElement.src = "";
-      this.currentVideoChannel = null;
+
+      this.dispatchVideoEvent("PlayStateChange", PlayState.STOPPED);
+      this.cleanupVideoElement();
     };
 
     releaseVideo = () => {
       logger.log("release");
-      this.isVideoReleasing = true;
-      this.stopVideo();
+
+      this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
+      this.cleanupVideoElement();
+    };
+
+    cleanupVideoElement = () => {
+      this.videoElement.src = "";
+      this.currentVideoChannel = null;
     };
   };

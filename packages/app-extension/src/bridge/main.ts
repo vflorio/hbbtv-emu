@@ -2,6 +2,7 @@ import {
   type App,
   type ClassType,
   compose,
+  createEnvelope,
   createLogger,
   initApp,
   isValidMessageEnvelope,
@@ -20,12 +21,16 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
       this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
       window.addEventListener("message", this.forwardToServiceWorker);
 
-      window.postMessage(this.createEnvelope({ type: "BRIDGE_READY", payload: null }, "CONTENT_SCRIPT"), "*");
+      window.postMessage(
+        createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
+        "*",
+      );
       logger.log("Initialized");
     };
 
     forwardToContentScript = (envelope: MessageEnvelope) => {
       if (!isValidMessageEnvelope(envelope)) return;
+      if (envelope.target !== "CONTENT_SCRIPT") return;
 
       logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
       window.postMessage(envelope, "*");
@@ -33,6 +38,7 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
 
     forwardToServiceWorker = async (event: MessageEvent<MessageEnvelope>) => {
       if (!isValidMessageEnvelope(event.data)) return;
+      if (event.data.target !== "SERVICE_WORKER") return;
 
       logger.log(`Forwarding ${event.data.source} → ${event.data.target}: ${event.data.message.type}`);
       await this.sendMessage(event.data);

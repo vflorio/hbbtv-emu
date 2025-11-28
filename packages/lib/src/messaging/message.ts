@@ -11,11 +11,7 @@ export const isValidMessageOrigin = (origin: string): origin is MessageOrigin =>
 
 // Message Type
 
-export type MessageType =
-  | "BRIDGE_READY"
-  | "CONTENT_SCRIPT_READY"
-  | "UPDATE_USER_AGENT"
-  | "UPDATE_CONFIG";
+export type MessageType = "BRIDGE_READY" | "CONTENT_SCRIPT_READY" | "UPDATE_USER_AGENT" | "UPDATE_CONFIG";
 
 export const validMessageType: MessageType[] = [
   "BRIDGE_READY",
@@ -41,30 +37,3 @@ export const isMessage = (data: unknown): data is Message =>
   "type" in data &&
   "payload" in data &&
   isValidMessageType((data as { type: string }).type);
-
-// Message Envelope
-
-export interface MessageEnvelope<T extends Message = Message> {
-  id: string;
-  timestamp: number;
-  message: T;
-  source: MessageOrigin;
-  target: MessageOrigin;
-}
-
-export const isValidMessageEnvelope = (data: unknown): data is MessageEnvelope =>
-  // Step 1
-  typeof data === "object" &&
-  data !== null &&
-  // Step 2
-  "id" in data &&
-  "timestamp" in data &&
-  "message" in data &&
-  "source" in data &&
-  "target" in data &&
-  // Step 3
-  typeof (data as MessageEnvelope).id === "string" &&
-  typeof (data as MessageEnvelope).timestamp === "number" &&
-  isValidMessageOrigin((data as MessageEnvelope).source) &&
-  isValidMessageOrigin((data as MessageEnvelope).target) &&
-  isMessage((data as MessageEnvelope).message);

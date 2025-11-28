@@ -30,22 +30,22 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
     constructor(...args: any[]) {
       super(...args);
 
-      this.videoElement.addEventListener("PlayStateChange", (event: Event) =>
-        this.dispatchPlayStateChange((event as CustomEvent<PlayState>).detail),
-      );
+      this.videoElement.addEventListener("PlayStateChange", (event: Event) => {
+        console.log("VideoElement PlayStateChange event:", event);
+        this.playState = (event as CustomEvent).detail as PlayState;
+      });
     }
-
-    isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playState);
 
     dispatchPlayStateChange = (newState: PlayState, error?: number) => {
       const oldState = this.playState;
+      logger.log(`VideoBroadcast state`, { oldState, newState });
       this.playState = newState;
-
-      logger.log(`VideoBroadcast state: ${oldState} -> ${newState}`);
 
       this.onPlayStateChange?.(newState, error);
       this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
     };
+
+    isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playState);
 
     stop = () => {
       logger.log("stop");

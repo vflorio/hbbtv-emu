@@ -2,6 +2,7 @@ import {
   type App,
   type ClassType,
   compose,
+  createEnvelope,
   DEFAULT_HBBTV_CONFIG,
   type ExtensionConfig,
   initApp,
@@ -32,7 +33,9 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     };
 
     update = () =>
-      this.sendMessage(this.createEnvelope({ type: "UPDATE_CONFIG", payload: this.state }, "SERVICE_WORKER"));
+      this.sendMessage(
+        createEnvelope(this.messageOrigin, "SERVICE_WORKER", { type: "UPDATE_CONFIG", payload: this.state }),
+      );
 
     render = () =>
       this.root?.render(

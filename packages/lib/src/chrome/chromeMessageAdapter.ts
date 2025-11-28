@@ -8,18 +8,12 @@ const hasNoListenersError = (error: Error) => error.message.includes("Receiving 
 
 const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
   class extends Base implements MessageAdapter {
-    tabId: number | undefined;
-
     constructor(...args: any[]) {
       super(...args);
       chrome.runtime.onMessage.addListener(this.handleChromeMessage);
     }
 
     handleChromeMessage = async (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => {
-      if (sender.tab?.id !== undefined) {
-        this.tabId = sender.tab.id;
-      }
-
       logger.log("Received message", data, sender);
       this.handleMessage(data);
     };
@@ -27,35 +21,37 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     sendMessage = async <T extends Message>(envelope: MessageEnvelope<T>) => {
       logger.log("Sending message", envelope);
 
-      if (envelope.target === "CONTENT_SCRIPT") {
-        if (!this.tabId) {
-          logger.error("Cannot send message to content script: tabId not set");
-          return;
-        }
-        await this.sendMessageToTab(envelope, this.tabId);
-      } else if (envelope.target === "SERVICE_WORKER") {
-        await this.sendMessageToServiceWorker(envelope);
-      } else {
+      const handlers: Record<string, (envelope: MessageEnvelope<T>) => Promise<void>> = {
+        SERVICE_WORKER: async (envelope) => {
+          await this.sendMessageToServiceWorker(envelope);
+        },
+        CONTENT_SCRIPT: async (envelope) => {
+          if (!envelope.context?.tabId) {
+            logger.error("Cannot send message to content script: tabId is missing in context");
+            return;
+          }
+          await this.sendMessageToTab(envelope, envelope.context.tabId);
+        },
+      };
+
+      const handler = handlers[envelope.target];
+      if (!handler) {
         logger.error("Cannot send message: no valid target specified");
+        return;
       }
+      await handler(envelope);
     };
 
     sendMessageToServiceWorker = async <T extends Message>(envelope: MessageEnvelope<T>) =>
       tryCatch(
-        async () => {
-          logger.log("Sending message to service worker", envelope);
-          await chrome.runtime.sendMessage(envelope);
-        },
+        () => chrome.runtime.sendMessage(envelope),
         [hasNoListenersError, "No message listeners registered in service worker"],
         logger,
       );
 
     sendMessageToTab = async <T extends Message>(envelope: MessageEnvelope<T>, tabId: number) =>
       tryCatch(
-        async () => {
-          logger.log(`Sending message to tab ${tabId}`, envelope);
-          await chrome.tabs.sendMessage(tabId, envelope);
-        },
+        () => chrome.tabs.sendMessage(tabId, envelope),
         [hasNoListenersError, `No message listeners registered in tab ${tabId}`],
         logger,
       );

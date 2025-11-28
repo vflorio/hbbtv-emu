@@ -2,6 +2,7 @@ import {
   type App,
   type ClassType,
   compose,
+  createEnvelope,
   createLogger,
   initApp,
   type MessageAdapter,
@@ -20,7 +21,9 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
     init = async () => {
       this.bus.on("BRIDGE_READY", async () => {
         logger.log("Bridge is ready");
-        await this.sendMessage(this.createEnvelope({ type: "CONTENT_SCRIPT_READY", payload: null }, "SERVICE_WORKER"));
+        await this.sendMessage(
+          createEnvelope(this.messageOrigin, "SERVICE_WORKER", { type: "CONTENT_SCRIPT_READY", payload: null }),
+        );
       });
 
       this.attachObjects(document);
