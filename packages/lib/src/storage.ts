@@ -1,7 +1,9 @@
 import * as A from "fp-ts/Array";
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
+import * as t from "io-ts";
 import { ChromeStorageAdapter } from "./chrome";
 import { createLogger } from "./logger";
 import { jsonParse, jsonStringify } from "./misc";
@@ -45,16 +47,26 @@ const createStorageAdapter = (): StorageAdapter =>
 export class Storage<T> {
   key: string;
   storageAdapter: StorageAdapter;
+  codec?: t.Type<T>;
 
-  constructor(key: string, storageAdapter: StorageAdapter = createStorageAdapter()) {
+  constructor(key: string, storageAdapter: StorageAdapter = createStorageAdapter(), codec?: t.Type<T>) {
     this.key = key;
     this.storageAdapter = storageAdapter;
+    this.codec = codec;
   }
 
   load = (): TE.TaskEither<Error, T> =>
     pipe(
       this.storageAdapter.getItem(this.key),
-      TE.flatMapEither(jsonParse<T>),
+      TE.flatMapEither(jsonParse<unknown>),
+      TE.flatMapEither((data) =>
+        this.codec
+          ? pipe(
+              this.codec.decode(data),
+              E.mapLeft(() => new Error(`Invalid data for key ${this.key}: ${JSON.stringify(data)}`)),
+            )
+          : E.right(data as T),
+      ),
       TE.mapLeft((error) => {
         logger.error("Failed to load entry:", error);
         return error;
@@ -74,8 +86,8 @@ export class Storage<T> {
 }
 
 export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
-  constructor(key: string, storageAdapter: StorageAdapter = createStorageAdapter()) {
-    super(key, storageAdapter);
+  constructor(key: string, storageAdapter: StorageAdapter = createStorageAdapter(), codec?: t.Type<T[]>) {
+    super(key, storageAdapter, codec);
   }
 
   saveEntry = (entry: T): TE.TaskEither<Error, void> =>

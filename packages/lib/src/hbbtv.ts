@@ -1,3 +1,6 @@
+import * as E from "fp-ts/Either";
+import { pipe } from "fp-ts/function";
+import * as t from "io-ts";
 import type { Collection } from "./misc";
 
 // Channel
@@ -16,43 +19,68 @@ export enum ChannelIdType {
   ID_ATSC_T = 40,
 }
 
-export interface ChannelTriplet {
-  onid: number;
-  tsid: number;
-  sid: number;
-}
+export const ChannelTripletCodec = t.type({
+  onid: t.number,
+  tsid: t.number,
+  sid: t.number,
+});
+
+export type ChannelTriplet = t.TypeOf<typeof ChannelTripletCodec>;
+
+export const validateChannelTriplet = (data: unknown): E.Either<Error, ChannelTriplet> =>
+  pipe(
+    ChannelTripletCodec.decode(data),
+    E.mapLeft(() => new Error(`Invalid channel triplet: ${JSON.stringify(data)}`)),
+  );
 
 export const isValidChannelTriplet = (channel: unknown): channel is ChannelTriplet =>
-  // Step 1
-  typeof channel === "object" &&
-  channel !== null &&
-  // Step 2
-  "onid" in channel &&
-  "tsid" in channel &&
-  "sid" in channel &&
-  // Step 3
-  typeof channel.onid === "number" &&
-  typeof channel.tsid === "number" &&
-  typeof channel.sid === "number";
+  E.isRight(ChannelTripletCodec.decode(channel));
 
 export const serializeChannelTriplet = (triplet: ChannelTriplet) => `${triplet.onid}-${triplet.tsid}-${triplet.sid}`;
 
-export interface Channel extends Partial<ChannelTriplet> {
-  ccid?: string;
-  name?: string;
-  majorChannel?: number;
-  minorChannel?: number;
-  ipBroadcastID?: string;
-  idType: ChannelIdType;
-  sourceID?: number;
-  dsd?: string;
-  channelType?: number;
-  nid?: number;
-  channelMaxBitRate?: number;
-  hidden?: boolean;
-  manualBlock?: boolean;
-  locked?: boolean;
-}
+export const ChannelCodec = t.intersection([
+  t.type({
+    idType: t.union([
+      t.literal(ChannelIdType.ID_ANALOG),
+      t.literal(ChannelIdType.ID_DVB_C),
+      t.literal(ChannelIdType.ID_DVB_S),
+      t.literal(ChannelIdType.ID_DVB_T),
+      t.literal(ChannelIdType.ID_DVB_SI_DIRECT),
+      t.literal(ChannelIdType.ID_IPTV_SDS),
+      t.literal(ChannelIdType.ID_IPTV_URI),
+      t.literal(ChannelIdType.ID_ISDB_S),
+      t.literal(ChannelIdType.ID_ISDB_T),
+      t.literal(ChannelIdType.ID_ISDB_C),
+      t.literal(ChannelIdType.ID_ATSC_T),
+    ]),
+  }),
+  t.partial({
+    onid: t.number,
+    tsid: t.number,
+    sid: t.number,
+    ccid: t.string,
+    name: t.string,
+    majorChannel: t.number,
+    minorChannel: t.number,
+    ipBroadcastID: t.string,
+    sourceID: t.number,
+    dsd: t.string,
+    channelType: t.number,
+    nid: t.number,
+    channelMaxBitRate: t.number,
+    hidden: t.boolean,
+    manualBlock: t.boolean,
+    locked: t.boolean,
+  }),
+]);
+
+export type Channel = t.TypeOf<typeof ChannelCodec>;
+
+export const validateChannel = (data: unknown): E.Either<Error, Channel> =>
+  pipe(
+    ChannelCodec.decode(data),
+    E.mapLeft(() => new Error(`Invalid channel: ${JSON.stringify(data)}`)),
+  );
 
 export enum ChannelChangeError {
   CHANNEL_NOT_SUPPORTED = 0,

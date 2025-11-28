@@ -1,34 +1,62 @@
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
-import { ChannelIdType, type ChannelTriplet, type Channel as FullChannel, isValidChannelTriplet } from "./hbbtv";
+import * as t from "io-ts";
+import {
+  ChannelIdType,
+  ChannelTripletCodec,
+  type Channel as FullChannel,
+  isValidChannelTriplet,
+} from "./hbbtv";
 
 export namespace ExtensionConfig {
-  export type State = {
-    version: string;
-    countryCode: string;
-    capabilities: string;
-    channels: Channel[];
-    currentChannel: Channel | null;
-  };
+  const StreamEventCodec = t.intersection([
+    t.type({
+      id: t.string,
+      name: t.string,
+      eventName: t.string,
+      data: t.string,
+    }),
+    t.partial({
+      text: t.string,
+      targetURL: t.string,
+      cronSchedule: t.string,
+      enabled: t.boolean,
+    }),
+  ]);
 
-  export type StreamEvent = {
-    id: string;
-    name: string;
-    eventName: string;
-    data: string;
-    text?: string;
-    targetURL?: string;
-    cronSchedule?: string;
-    enabled?: boolean;
-  };
+  export type StreamEvent = t.TypeOf<typeof StreamEventCodec>;
 
-  export type Channel = ChannelTriplet & {
-    id: string;
-    name: string;
-    mp4Source: string;
-    streamEvents?: StreamEvent[];
-    enableStreamEvents?: boolean;
-  };
+  const ChannelConfigCodec = t.intersection([
+    ChannelTripletCodec,
+    t.type({
+      id: t.string,
+      name: t.string,
+      mp4Source: t.string,
+    }),
+    t.partial({
+      streamEvents: t.array(StreamEventCodec),
+      enableStreamEvents: t.boolean,
+    }),
+  ]);
+
+  export type Channel = t.TypeOf<typeof ChannelConfigCodec>;
+
+  export const StateCodec = t.type({
+    version: t.string,
+    countryCode: t.string,
+    capabilities: t.string,
+    channels: t.array(ChannelConfigCodec),
+    currentChannel: t.union([ChannelConfigCodec, t.null]),
+  });
+
+  export type State = t.TypeOf<typeof StateCodec>;
+
+  export const validateState = (data: unknown): E.Either<Error, State> =>
+    pipe(
+      StateCodec.decode(data),
+      E.mapLeft(() => new Error(`Invalid ExtensionConfig.State: ${JSON.stringify(data)}`)),
+    );
 
   export const toChannel = (channel: O.Option<ExtensionConfig.Channel>): O.Option<FullChannel> =>
     pipe(

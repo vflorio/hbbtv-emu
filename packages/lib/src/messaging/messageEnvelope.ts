@@ -1,6 +1,5 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
-import * as O from "fp-ts/Option";
 import * as t from "io-ts";
 import { type Message, MessageCodec, type MessageOrigin, MessageOriginCodec } from "./message";
 
@@ -58,12 +57,7 @@ export const createEnvelope = <T extends Message>(
 
 export const validateTarget =
   (expectedTarget: MessageOrigin) =>
-  (envelope: MessageEnvelope): E.Either<Error, MessageEnvelope> =>
-    envelope.target === expectedTarget
-      ? E.right(envelope)
-      : E.left(new Error(`Expected target ${expectedTarget}, got ${envelope.target}`));
-
-export const validateTargetOption =
-  (expectedTarget: MessageOrigin) =>
-  (envelope: MessageEnvelope): O.Option<MessageEnvelope> =>
-    pipe(validateTarget(expectedTarget)(envelope), O.fromEither);
+    (envelope: MessageEnvelope): E.Either<Error, MessageEnvelope> =>
+      envelope.target === expectedTarget
+        ? E.right(envelope)
+        : E.left(new Error(`Expected target ${expectedTarget}, got ${envelope.target}`));

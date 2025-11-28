@@ -1,7 +1,7 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import type { ExtensionConfig } from "../config";
+import { ExtensionConfig } from "../config";
 
 // Message Source
 
@@ -54,7 +54,7 @@ export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("BRIDGE_READY"), payload: t.null }),
   t.type({ type: t.literal("CONTENT_SCRIPT_READY"), payload: t.null }),
   t.type({ type: t.literal("UPDATE_USER_AGENT"), payload: t.string }),
-  t.type({ type: t.literal("UPDATE_CONFIG"), payload: t.unknown as t.Type<ExtensionConfig.State> }),
+  t.type({ type: t.literal("UPDATE_CONFIG"), payload: ExtensionConfig.StateCodec }),
 ]);
 
 export const validateMessage = (data: unknown): E.Either<Error, Message> =>
