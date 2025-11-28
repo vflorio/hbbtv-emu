@@ -57,7 +57,7 @@ export const createEnvelope = <T extends Message>(
 
 export const validateTarget =
   (expectedTarget: MessageOrigin) =>
-    (envelope: MessageEnvelope): E.Either<Error, MessageEnvelope> =>
-      envelope.target === expectedTarget
-        ? E.right(envelope)
-        : E.left(new Error(`Expected target ${expectedTarget}, got ${envelope.target}`));
+  (envelope: MessageEnvelope): E.Either<Error, MessageEnvelope> =>
+    envelope.target === expectedTarget
+      ? E.right(envelope)
+      : E.left(new Error(`Expected target ${expectedTarget}, got ${envelope.target}`));
