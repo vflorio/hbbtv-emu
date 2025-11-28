@@ -1,6 +1,7 @@
 export * from "./chrome";
 export * from "./config";
 export * from "./hbbtv";
+export * from "./logger";
 export * from "./messaging";
 export * from "./misc";
 export * from "./mixin";

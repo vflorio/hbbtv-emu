@@ -1,43 +1,56 @@
-export class ObjectStyleMirror {
-  private observer: MutationObserver;
-  private source: HTMLElement;
-  private target: HTMLElement;
+import * as A from "fp-ts/Array";
+import { pipe } from "fp-ts/function";
+import type * as IO from "fp-ts/IO";
+import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
 
-  constructor(source: HTMLElement, target: HTMLElement) {
-    this.source = source;
-    this.target = target;
-    this.observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === "attributes" && mutation.attributeName === "style") {
-          this.sync();
-        }
-      }
+export class ObjectStyleMirror {
+  observerRef: IORef.IORef<O.Option<MutationObserver>>;
+
+  constructor(
+    readonly source: HTMLElement,
+    readonly target: HTMLElement,
+  ) {
+    this.observerRef = IORef.newIORef(O.none)();
+
+    const observer = new MutationObserver((mutations) =>
+      pipe(
+        mutations,
+        A.some((m) => m.type === "attributes" && m.attributeName === "style"),
+        (shouldSync) => shouldSync && this.sync(),
+      ),
+    );
+
+    observer.observe(this.source, {
+      attributes: true,
+      attributeFilter: ["style"],
     });
+
     this.sync();
-    this.observer.observe(this.source, { attributes: true, attributeFilter: ["style"] });
+    this.observerRef.write(O.some(observer))();
   }
 
-  private sync = () => {
-    const styleAttr = this.source.getAttribute("style");
-    if (styleAttr) {
-      const stylesWithImportant = styleAttr
-        .split(";")
-        .map((style) => {
-          const trimmed = style.trim();
-          if (!trimmed) return "";
-          // FIXME: Temporary fix for styles being overridden by css rules, video element might be rendered on a canvas later
-          if (trimmed.includes("!important")) return trimmed;
-          return `${trimmed} !important`;
-        })
-        .filter((style) => style)
-        .join("; ");
-      this.target.setAttribute("style", stylesWithImportant);
-    }
-  };
+  processStyle = (style: string): string =>
+    pipe(
+      style.split(";"),
+      A.map((s) => s.trim()),
+      A.filter((s) => s.length > 0),
+      A.map((s) => (s.includes("!important") ? s : `${s} !important`)),
+      (styles) => styles.join("; "),
+    );
 
-  disconnect = () => {
-    this.observer.disconnect();
-  };
+  sync: IO.IO<void> = () =>
+    pipe(
+      O.fromNullable(this.source.getAttribute("style")),
+      O.map(this.processStyle),
+      O.map((processed) => this.target.setAttribute("style", processed)),
+    );
+
+  stop: IO.IO<void> = () =>
+    pipe(
+      this.observerRef.read(),
+      O.map((observer) => observer.disconnect()),
+    );
 }
 
 export const copyProperties = (source: object, target: HTMLObjectElement) => {
@@ -57,17 +70,16 @@ export const copyProperties = (source: object, target: HTMLObjectElement) => {
   });
 };
 
-export const getPropertyNames = (source: object): Set<string> => {
-  return new Set<string>([...Object.keys(source), ...Object.getOwnPropertyNames(Object.getPrototypeOf(source))]);
-};
+const getPropertyNames = (source: object) =>
+  new Set<string>([...Object.keys(source), ...Object.getOwnPropertyNames(Object.getPrototypeOf(source))]);
 
-export const getPropertyDescriptor = (source: object, key: string): PropertyDescriptor | undefined => {
+const getPropertyDescriptor = (source: object, key: string): PropertyDescriptor | undefined => {
   return (
     Object.getOwnPropertyDescriptor(source, key) || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), key)
   );
 };
 
-export const proxyMethod = (target: object, source: object, key: string): void => {
+const proxyMethod = (target: object, source: object, key: string) => {
   Object.defineProperty(target, key, {
     value: (...args: unknown[]) => (source as any)[key](...args),
     writable: true,
@@ -75,7 +87,7 @@ export const proxyMethod = (target: object, source: object, key: string): void =
   });
 };
 
-export const proxyAccessor = (target: object, source: object, key: string): void => {
+const proxyAccessor = (target: object, source: object, key: string) => {
   Object.defineProperty(target, key, {
     get: () => (source as any)[key],
     set: (value: unknown) => {
@@ -85,7 +97,7 @@ export const proxyAccessor = (target: object, source: object, key: string): void
   });
 };
 
-export const proxyProperty = (target: object, source: object, key: string): void => {
+const proxyProperty = (target: object, source: object, key: string) => {
   if (key === "constructor" || key in target) return;
 
   const descriptor = getPropertyDescriptor(source, key);
@@ -98,7 +110,7 @@ export const proxyProperty = (target: object, source: object, key: string): void
   }
 };
 
-export const proxyProperties = (target: object, source: object): void => {
+export const proxyProperties = (target: object, source: object) => {
   const propertyNames = getPropertyNames(source);
   for (const key of propertyNames) {
     proxyProperty(target, source, key);

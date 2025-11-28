@@ -1,63 +1,76 @@
+import * as A from "fp-ts/Array";
+import { pipe } from "fp-ts/function";
+import * as O from "fp-ts/Option";
+import * as TE from "fp-ts/TaskEither";
 import { ChromeStorageAdapter } from "./chrome";
-import { createLogger } from "./misc";
+import { createLogger } from "./logger";
+import { parseJson, stringifyJson } from "./misc";
 
 const logger = createLogger("Storage");
 
 export interface StorageAdapter {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
+  getItem(key: string): TE.TaskEither<Error, string>;
+  setItem(key: string, value: string): TE.TaskEither<Error, void>;
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
-  getItem = async (key: string): Promise<string | null> => {
-    try {
-      return localStorage.getItem(key);
-    } catch (error) {
-      logger.error("Failed to get item from localStorage:", error);
-      return null;
-    }
-  };
+  getItem = (key: string): TE.TaskEither<Error, string> =>
+    pipe(
+      TE.tryCatch(
+        () => Promise.resolve(localStorage.getItem(key)),
+        (error): Error => {
+          logger.error("Failed to get item from localStorage:", error);
+          return new Error(`LocalStorage getItem failed: ${error}`);
+        },
+      ),
+      TE.chainOptionK(() => new Error("No data found"))(O.fromNullable),
+    );
 
-  setItem = async (key: string, value: string): Promise<void> => {
-    try {
-      localStorage.setItem(key, value);
-    } catch (error) {
-      logger.error("Failed to set item in localStorage:", error);
-    }
-  };
+  setItem = (key: string, value: string): TE.TaskEither<Error, void> =>
+    TE.tryCatch(
+      () => {
+        localStorage.setItem(key, value);
+        return Promise.resolve();
+      },
+      (error): Error => {
+        logger.error("Failed to set item in localStorage:", error);
+        return new Error(`LocalStorage setItem failed: ${error}`);
+      },
+    );
 }
 
-export const createStorageAdapter = (): StorageAdapter => {
-  if (typeof chrome !== "undefined" && chrome.storage?.local) {
-    return new ChromeStorageAdapter();
-  }
-  return new LocalStorageAdapter();
-};
+const createStorageAdapter = (): StorageAdapter =>
+  typeof chrome !== "undefined" && chrome.storage?.local ? new ChromeStorageAdapter() : new LocalStorageAdapter();
 
 export class Storage<T> {
-  constructor(
-    private key: string,
-    private storageAdapter: StorageAdapter = createStorageAdapter(),
-  ) {}
+  key: string;
+  storageAdapter: StorageAdapter;
 
-  load = async (): Promise<T | null> => {
-    try {
-      const data = await this.storageAdapter.getItem(this.key);
-      if (!data) return null;
-      return JSON.parse(data) as T;
-    } catch (error) {
-      logger.error("Failed to load entry:", error);
-      return null;
-    }
-  };
+  constructor(key: string, storageAdapter: StorageAdapter = createStorageAdapter()) {
+    this.key = key;
+    this.storageAdapter = storageAdapter;
+  }
 
-  save = async (entry: T): Promise<void> => {
-    try {
-      await this.storageAdapter.setItem(this.key, JSON.stringify(entry));
-    } catch (error) {
-      logger.error("Failed to save entry:", error);
-    }
-  };
+  load = (): TE.TaskEither<Error, T> =>
+    pipe(
+      this.storageAdapter.getItem(this.key),
+      TE.flatMapEither(parseJson<T>),
+      TE.mapLeft((error) => {
+        logger.error("Failed to load entry:", error);
+        return error;
+      }),
+    );
+
+  save = (entry: T): TE.TaskEither<Error, void> =>
+    pipe(
+      stringifyJson(entry),
+      TE.fromEither,
+      TE.flatMap((json) => this.storageAdapter.setItem(this.key, json)),
+      TE.mapLeft((error) => {
+        logger.error("Failed to save entry:", error);
+        return error;
+      }),
+    );
 }
 
 export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
@@ -65,22 +78,36 @@ export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
     super(key, storageAdapter);
   }
 
-  saveEntry = async (entry: T): Promise<void> => {
-    const entries = (await this.load()) || [];
-    const index = entries.findIndex((channel) => channel.id === entry.id);
+  saveEntry = (entry: T): TE.TaskEither<Error, void> =>
+    pipe(
+      this.load(),
+      TE.map((entries) =>
+        pipe(
+          entries,
+          A.findIndex((e) => e.id === entry.id),
+          O.match(
+            () => [...entries, entry],
+            (index) =>
+              pipe(
+                entries,
+                A.updateAt(index, entry),
+                O.getOrElse(() => entries),
+              ),
+          ),
+        ),
+      ),
+      TE.chain((updatedEntries) => this.save(updatedEntries)),
+    );
 
-    if (index >= 0) {
-      entries[index] = entry;
-    } else {
-      entries.push(entry);
-    }
-
-    await this.save(entries);
-  };
-
-  deleteEntry = async (id: string): Promise<void> => {
-    const entries = (await this.load()) || [];
-    const filtered = entries.filter((channel) => channel.id !== id);
-    await this.save(filtered);
-  };
+  deleteEntry = (id: string): TE.TaskEither<Error, void> =>
+    pipe(
+      this.load(),
+      TE.map((entries) =>
+        pipe(
+          entries,
+          A.filter((e) => e.id !== id),
+        ),
+      ),
+      TE.chain((filtered) => this.save(filtered)),
+    );
 }

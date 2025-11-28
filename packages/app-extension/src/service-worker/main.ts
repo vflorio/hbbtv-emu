@@ -16,6 +16,7 @@ import {
   WithChromeWebRequestManager,
   WithMessageBus,
 } from "@hbb-emu/lib";
+import * as E from "fp-ts/Either";
 
 const logger = createLogger("ServiceWorker");
 
@@ -25,8 +26,8 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & Web
     state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
 
     init = async () => {
-      const candidate = await this.store.load();
-      if (!candidate) this.store.save(DEFAULT_HBBTV_CONFIG);
+      const candidate = await this.store.load()();
+      if (E.isLeft(candidate)) this.store.save(DEFAULT_HBBTV_CONFIG)();
 
       this.bus.on("CONTENT_SCRIPT_READY", () => {
         logger.log("Content script ready, sending config");
@@ -37,7 +38,7 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & Web
         logger.log("Updating config", payload);
 
         this.state = payload;
-        this.store.save(this.state);
+        this.store.save(this.state)();
 
         this.broadcastConfig();
       });
