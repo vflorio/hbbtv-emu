@@ -13,8 +13,10 @@ import { type ClassType, compose } from "../mixin";
 
 const logger = createLogger("Chrome Message Listener");
 
-const hasNoListenersError = (error: unknown): boolean =>
-  error instanceof Error && error.message.includes("Receiving end does not exist");
+const hasNoListenersError = E.fromPredicate(
+  (error: unknown): error is Error => error instanceof Error && error.message.includes("Receiving end does not exist"),
+  (error) => error as ChromeMessageError,
+);
 
 const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
   class extends Base implements MessageAdapter {
@@ -30,60 +32,74 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
 
     sendMessage = <T extends Message>(
       envelope: MessageEnvelope<T>,
-    ): TE.TaskEither<MessageAdapterError | ChromeMessageError | NoMessageListenersError, void> => {
+    ): TE.TaskEither<MessageAdapterError | ChromeMessageAdapterError, void> => {
       logger.log("Sending message", envelope);
 
-      const sendToServiceWorker = (): TE.TaskEither<ChromeMessageError | NoMessageListenersError, void> =>
+      const sendToServiceWorker = (): TE.TaskEither<ChromeMessageAdapterError, void> =>
         pipe(
           TE.tryCatch(
             () => chrome.runtime.sendMessage(envelope),
             (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
           ),
-          TE.mapLeft((error) =>
-            hasNoListenersError(error)
-              ? noMessageListenersError("No message listeners registered in service worker")
-              : error,
+          TE.flatMap((result) =>
+            pipe(
+              result,
+              hasNoListenersError,
+              E.match(
+                () => TE.left(chromeNoMessageListenersError("No message listeners registered in service worker")),
+                () => TE.right(undefined),
+              ),
+            ),
           ),
-          TE.map(() => undefined),
         );
 
-      const sendToContentScript = (tabId: number): TE.TaskEither<ChromeMessageError | NoMessageListenersError, void> =>
+      const sendToContentScript = (tabId: number): TE.TaskEither<ChromeMessageAdapterError, void> =>
         pipe(
           TE.tryCatch(
             () => chrome.tabs.sendMessage(tabId, envelope),
             (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
           ),
-          TE.mapLeft((error) =>
-            hasNoListenersError(error)
-              ? noMessageListenersError(`No message listeners registered in tab ${tabId}`)
-              : error,
+          TE.flatMap((result) =>
+            pipe(
+              result,
+              hasNoListenersError,
+              E.match(
+                () => TE.left(chromeNoMessageListenersError(`No message listeners registered in tab ${tabId}`)),
+                () => TE.right(undefined),
+              ),
+            ),
           ),
-          TE.map(() => undefined),
         );
 
-      const sendByTarget = (): TE.TaskEither<ChromeMessageError | NoMessageListenersError, void> => {
-        switch (envelope.target) {
-          case "SERVICE_WORKER":
-            return sendToServiceWorker();
-          case "CONTENT_SCRIPT":
-            return pipe(
-              E.fromNullable(chromeMessageError("Cannot send message to content script: tabId is missing in context"))(
-                envelope.context?.tabId,
-              ),
-              TE.fromEither,
-              TE.flatMap(sendToContentScript),
-            );
-          default:
-            return TE.left(chromeMessageError(`Cannot send message: invalid target ${envelope.target}`));
-        }
-      };
+      const sendByTarget = (): TE.TaskEither<ChromeMessageAdapterError, void> =>
+        pipe(
+          envelope.target,
+          E.fromPredicate(
+            (target) => target === "SERVICE_WORKER" || target === "CONTENT_SCRIPT",
+            (target) => chromeMessageError(`Cannot send message: invalid target ${target}`),
+          ),
+          TE.fromEither,
+          TE.flatMap((target) => {
+            const handlers: Record<typeof target, () => TE.TaskEither<ChromeMessageAdapterError, void>> = {
+              SERVICE_WORKER: sendToServiceWorker,
+              CONTENT_SCRIPT: () =>
+                pipe(
+                  envelope.context?.tabId,
+                  E.fromNullable(
+                    chromeMessageError("Cannot send message to content script: tabId is missing in context"),
+                  ),
+                  TE.fromEither,
+                  TE.flatMap(sendToContentScript),
+                ),
+            };
+
+            return handlers[target]();
+          }),
+        );
 
       return pipe(
         sendByTarget(),
-        TE.mapLeft((error) => {
-          logger.error(error.message);
-          return error;
-        }),
+        TE.tapError((error) => TE.fromIO(() => logger.error("Failed to send message:", error))),
       );
     };
   };
@@ -98,12 +114,14 @@ export const WithChromeMessageAdapter = <T extends ClassType>(Base: T) =>
 
 // Errors
 
+export type ChromeMessageAdapterError = ChromeMessageError | ChromeNoMessageListenersError;
+
 export type ChromeMessageError = Readonly<{
   type: "ChromeMessageError";
   message: string;
 }>;
 
-export type NoMessageListenersError = Readonly<{
+export type ChromeNoMessageListenersError = Readonly<{
   type: "NoMessageListenersError";
   message: string;
 }>;
@@ -113,7 +131,7 @@ export const chromeMessageError = (message: string): ChromeMessageError => ({
   message,
 });
 
-export const noMessageListenersError = (message: string): NoMessageListenersError => ({
+export const chromeNoMessageListenersError = (message: string): ChromeNoMessageListenersError => ({
   type: "NoMessageListenersError",
   message,
 });
