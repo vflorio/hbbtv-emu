@@ -1,13 +1,13 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
 import { createLogger } from "@hbb-emu/lib";
 import { Box, CssBaseline, createTheme, Tab, Tabs, ThemeProvider } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import ChannelEdit from "./components/ChannelEdit";
 import ChannelList from "./components/ChannelList";
 import Common from "./components/Common";
 import StreamEventsEdit from "./components/StreamEventsEdit";
-import { ConfigProvider, type UIConfig } from "./context/config";
+import { ConfigProvider, type UIConfig, useConfig } from "./context/config";
 
 const logger = createLogger("Settings UI");
 
@@ -19,14 +19,21 @@ const theme = createTheme({
 
 function MainLayout() {
   const [activeTab, setActiveTab] = useState(0);
+  const [commonConfig, setCommonConfig] = useState<Omit<ExtensionConfig.State, "channels"> | null>(null);
+  const config = useConfig();
+
+  useEffect(() => {
+    config.common.load().then(setCommonConfig);
+  }, [config.common.load]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
 
-  const handleSaveSettings = (config: Omit<ExtensionConfig.State, "channels">) => {
-    // TODO: implementare il salvataggio delle impostazioni
-    logger.log("Save settings:", config);
+  const handleSaveSettings = async (newConfig: Omit<ExtensionConfig.State, "channels">) => {
+    await config.common.save(newConfig);
+    setCommonConfig(newConfig);
+    logger.log("Settings saved:", newConfig);
   };
 
   return (
@@ -39,7 +46,7 @@ function MainLayout() {
       </Box>
       <Box sx={{ flex: 1, overflow: "auto" }}>
         {activeTab === 0 && <ChannelList />}
-        {activeTab === 1 && <Common config={null} onSave={handleSaveSettings} />}
+        {activeTab === 1 && <Common config={commonConfig} onSave={handleSaveSettings} />}
       </Box>
     </Box>
   );

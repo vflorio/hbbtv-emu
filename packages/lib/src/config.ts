@@ -41,6 +41,7 @@ export namespace ExtensionConfig {
     version: t.string,
     countryCode: t.string,
     capabilities: t.string,
+    userAgent: t.string,
     channels: t.array(ChannelConfigCodec),
     currentChannel: t.union([ChannelConfigCodec, t.null]),
   });
@@ -71,6 +72,7 @@ export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
   channels: [],
   version: "1.5.0",
   countryCode: "ITA",
+  userAgent: "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
   capabilities:
     "<profilelist>" +
     '<ui_profile name="OITF_HD_UIPROF+META_SI+META_EIT+TRICKMODE+RTSP+AVCAD+DRM+DVB_T">' +

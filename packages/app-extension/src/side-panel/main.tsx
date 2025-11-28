@@ -79,6 +79,28 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
 
     loadChannels = async () => this.stateRef.read().channels;
 
+    loadCommonConfig = async () => {
+      const state = this.stateRef.read();
+      return {
+        version: state.version,
+        countryCode: state.countryCode,
+        userAgent: state.userAgent,
+        capabilities: state.capabilities,
+        currentChannel: state.currentChannel,
+      };
+    };
+
+    saveCommonConfig = async (config: Omit<ExtensionConfig.State, "channels">) => {
+      this.updateState((state) => ({
+        ...state,
+        version: config.version,
+        countryCode: config.countryCode,
+        userAgent: config.userAgent,
+        capabilities: config.capabilities,
+        currentChannel: config.currentChannel,
+      }));
+    };
+
     upsertChannel = async (channel: ExtensionConfig.Channel) => {
       this.updateState((state) => ({
         ...state,
@@ -150,6 +172,10 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
                   upsert: this.upsertStreamEvent,
                   remove: this.removeStreamEvent,
                 },
+              },
+              common: {
+                load: this.loadCommonConfig,
+                save: this.saveCommonConfig,
               },
             }}
           />

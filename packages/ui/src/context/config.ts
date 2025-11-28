@@ -14,6 +14,10 @@ export interface UIConfig {
       remove: (id: string) => Promise<void>;
     };
   };
+  common: {
+    load: () => Promise<Omit<ExtensionConfig.State, "channels">>;
+    save: (config: Omit<ExtensionConfig.State, "channels">) => Promise<void>;
+  };
 }
 
 const ConfigContext = createContext<UIConfig>({} as UIConfig);

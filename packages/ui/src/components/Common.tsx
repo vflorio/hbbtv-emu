@@ -10,6 +10,10 @@ interface SettingsProps {
 export default function Settings({ config, onSave }: SettingsProps) {
   const [version, setVersion] = useState(config?.version || "1.5.0");
   const [countryCode, setCountryCode] = useState(config?.countryCode || "ITA");
+  const [userAgent, setUserAgent] = useState(
+    config?.userAgent ||
+      "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
+  );
   const [capabilities, setCapabilities] = useState(config?.capabilities || "");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -18,6 +22,7 @@ export default function Settings({ config, onSave }: SettingsProps) {
       currentChannel: config?.currentChannel || null,
       version,
       countryCode,
+      userAgent,
       capabilities,
     });
     setIsEditing(false);
@@ -26,6 +31,10 @@ export default function Settings({ config, onSave }: SettingsProps) {
   const handleCancel = () => {
     setVersion(config?.version || "1.5.0");
     setCountryCode(config?.countryCode || "ITA");
+    setUserAgent(
+      config?.userAgent ||
+        "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
+    );
     setCapabilities(config?.capabilities || "");
     setIsEditing(false);
   };
@@ -57,6 +66,17 @@ export default function Settings({ config, onSave }: SettingsProps) {
           }}
           placeholder="ITA"
           inputProps={{ maxLength: 3 }}
+          fullWidth
+        />
+
+        <TextField
+          label="User Agent"
+          value={userAgent}
+          onChange={(e) => {
+            setUserAgent(e.target.value);
+            setIsEditing(true);
+          }}
+          placeholder="Mozilla/5.0 (SmartTV; HbbTV/1.5.1...)"
           fullWidth
         />
 
