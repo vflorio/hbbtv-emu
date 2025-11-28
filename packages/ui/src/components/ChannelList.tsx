@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { useConfig } from "../context/config";
 
 export default function ChannelList() {
-  const { api } = useConfig();
+  const { channel } = useConfig();
   const navigate = useNavigate();
   const [channels, setChannels] = useState<ExtensionConfig.Channel[]>([]);
 
@@ -32,14 +32,14 @@ export default function ChannelList() {
   };
 
   const handleDeleteChannel = async (id: string) => {
-    await api.channel.remove(id);
-    const updated = await api.channel.load();
+    await channel.remove(id);
+    const updated = await channel.load();
     setChannels(updated);
   };
 
   useEffect(() => {
-    api.channel.load().then(setChannels);
-  }, [api.channel]);
+    channel.load().then(setChannels);
+  }, [channel]);
 
   return (
     <Box p={2}>

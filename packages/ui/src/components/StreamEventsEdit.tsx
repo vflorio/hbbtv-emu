@@ -24,7 +24,7 @@ interface EventFormData extends Omit<ExtensionConfig.StreamEvent, "id"> {}
 export default function StreamEventsEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { api } = useConfig();
+  const config = useConfig();
   const [channel, setChannel] = useState<ExtensionConfig.Channel | null>(null);
   const [events, setEvents] = useState<ExtensionConfig.StreamEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEvent | null>(null);
@@ -41,7 +41,7 @@ export default function StreamEventsEdit() {
 
   useEffect(() => {
     if (id) {
-      api.channel.load().then((channels) => {
+      config.channel.load().then((channels) => {
         const ch = channels.find((c) => c.id === id);
         if (ch) {
           setChannel(ch);
@@ -49,7 +49,7 @@ export default function StreamEventsEdit() {
         }
       });
     }
-  }, [id, api.channel]);
+  }, [id, config.channel]);
 
   const handleAddEvent = () => {
     setEditingEvent(null);
@@ -108,7 +108,7 @@ export default function StreamEventsEdit() {
         ...channel,
         streamEvents: events,
       };
-      await api.channel.save(updatedChannel);
+      await config.channel.save(updatedChannel);
       navigate(`/channel/${id}`);
     }
   };

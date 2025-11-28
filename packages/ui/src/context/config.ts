@@ -2,16 +2,14 @@ import type { ExtensionConfig } from "@hbb-emu/lib";
 import { createContext, useContext } from "react";
 
 export interface UIConfig {
-  api: {
-    channel: {
-      load: () => Promise<ExtensionConfig.Channel[]>;
-      save: (channel: ExtensionConfig.Channel) => Promise<void>;
+  channel: {
+    load: () => Promise<ExtensionConfig.Channel[]>;
+    save: (channel: ExtensionConfig.Channel) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+    streamEvent: {
+      load: () => Promise<ExtensionConfig.StreamEvent[]>;
+      save: (event: ExtensionConfig.StreamEvent) => Promise<void>;
       remove: (id: string) => Promise<void>;
-      streamEvent: {
-        load: () => Promise<ExtensionConfig.StreamEvent[]>;
-        save: (event: ExtensionConfig.StreamEvent) => Promise<void>;
-        remove: (id: string) => Promise<void>;
-      };
     };
   };
 }

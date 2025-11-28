@@ -22,18 +22,18 @@ import StreamEventForm from "./StreamEventForm";
 const logger = createLogger("Stream Events");
 
 export default function StreamEventList() {
-  const config = useConfig();
+  const { channel } = useConfig();
   const [events, setEvents] = useState<ExtensionConfig.StreamEvent[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEvent | null>(null);
 
   useEffect(() => {
     const loadEvents = async () => {
-      const loaded = await config.api.channel.streamEvent.load();
+      const loaded = await channel.streamEvent.load();
       setEvents(loaded);
     };
     loadEvents();
-  }, [config.api.channel.streamEvent]);
+  }, [channel.streamEvent]);
 
   const handleAddEvent = () => {
     setEditingEvent(null);
@@ -46,12 +46,12 @@ export default function StreamEventList() {
   };
 
   const handleDeleteEvent = async (id: string) => {
-    await config.api.channel.streamEvent.remove(id);
+    await channel.streamEvent.remove(id);
     setEvents((prev) => prev.filter((ev) => ev.id !== id));
   };
 
   const handleSaveEvent = async (event: ExtensionConfig.StreamEvent) => {
-    await config.api.channel.streamEvent.save(event);
+    await channel.streamEvent.save(event);
     setEvents((prev) => {
       const index = prev.findIndex((ev) => ev.id === event.id);
       if (index >= 0) {
