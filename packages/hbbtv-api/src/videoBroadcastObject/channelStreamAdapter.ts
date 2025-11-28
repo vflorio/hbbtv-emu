@@ -21,8 +21,8 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: 
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
-        payload.forEach((channel) => {
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        payload.channels.forEach((channel) => {
           this.channelStreamUrls.set(serializeChannelTriplet(channel), channel.mp4Source);
         });
       });

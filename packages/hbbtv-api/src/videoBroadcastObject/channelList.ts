@@ -14,8 +14,8 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CHANNELS", ({ message: { payload } }) => {
-        this.channelList = payload.filter(isValidChannelTriplet).map((channel) => ({
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        this.channelList = payload.channels.filter(isValidChannelTriplet).map((channel) => ({
           idType: ChannelIdType.ID_DVB_T,
           ...channel,
         }));

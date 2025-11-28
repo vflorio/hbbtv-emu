@@ -18,12 +18,9 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_COUNTRY_CODE", ({ message: { payload } }) => {
-        this.countryCode = payload;
-      });
-
-      this.bus.on("UPDATE_VERSION", ({ message: { payload } }) => {
-        this.hbbtvVersion = payload;
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        this.countryCode = payload.countryCode;
+        this.hbbtvVersion = payload.version;
       });
     }
 

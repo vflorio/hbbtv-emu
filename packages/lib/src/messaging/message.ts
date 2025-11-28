@@ -15,19 +15,13 @@ export type MessageType =
   | "BRIDGE_READY"
   | "CONTENT_SCRIPT_READY"
   | "UPDATE_USER_AGENT"
-  | "UPDATE_CHANNELS"
-  | "UPDATE_VERSION"
-  | "UPDATE_COUNTRY_CODE"
-  | "UPDATE_CAPABILITIES";
+  | "UPDATE_CONFIG";
 
 export const validMessageType: MessageType[] = [
   "BRIDGE_READY",
   "CONTENT_SCRIPT_READY",
   "UPDATE_USER_AGENT",
-  "UPDATE_CHANNELS",
-  "UPDATE_VERSION",
-  "UPDATE_COUNTRY_CODE",
-  "UPDATE_CAPABILITIES",
+  "UPDATE_CONFIG",
 ];
 
 export const isValidMessageType = (type: string): type is Message["type"] =>
@@ -39,10 +33,7 @@ export type Message =
   | { type: "BRIDGE_READY"; payload: null }
   | { type: "CONTENT_SCRIPT_READY"; payload: null }
   | { type: "UPDATE_USER_AGENT"; payload: string }
-  | { type: "UPDATE_CHANNELS"; payload: ExtensionConfig.Channel[] }
-  | { type: "UPDATE_VERSION"; payload: string }
-  | { type: "UPDATE_COUNTRY_CODE"; payload: string }
-  | { type: "UPDATE_CAPABILITIES"; payload: string };
+  | { type: "UPDATE_CONFIG"; payload: ExtensionConfig.State };
 
 export const isMessage = (data: unknown): data is Message =>
   typeof data === "object" &&
