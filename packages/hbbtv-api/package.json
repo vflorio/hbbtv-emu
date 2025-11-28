@@ -5,6 +5,7 @@
     "@hbb-emu/lib": "workspace:*"
   },
   "devDependencies": {
+    "fp-ts": "2.16.11",
     "typescript": "5.9.3"
   },
   "exports": {

@@ -41,6 +41,12 @@
       "dependencies": ["@types/chrome"],
       "dependencyTypes": ["dev"],
       "policy": "sameRange"
+    },
+    {
+      "label": "Sync fp-ts versions across workspace",
+      "dependencies": ["fp-ts"],
+      "dependencyTypes": ["dev"],
+      "policy": "sameRange"
     }
   ],
   "semverGroups": [
