@@ -48,111 +48,79 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
       });
     };
 
-    update: IO.IO<void> = () => {
-      const state = this.stateRef.read();
+    updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): void => {
+      pipe(this.stateRef.read(), updater, this.stateRef.write)();
+      this.notify();
+    };
 
+    notify: IO.IO<void> = () => {
       this.sendMessage(
         createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
           type: "UPDATE_CONFIG",
-          payload: state,
+          payload: this.stateRef.read(),
         }),
       );
     };
 
-    loadChannels = async () => {
-      const state = this.stateRef.read();
-      return state.channels;
-    };
-
-    saveChannel = async (channel: ExtensionConfig.Channel) => {
-      const state = this.stateRef.read();
-
-      this.stateRef.write({
-        ...state,
-        channels: pipe(
-          state.channels,
-          A.findIndex((c) => c.id === channel.id),
-          O.match(
-            () => [...state.channels, channel],
-            (index) =>
-              pipe(
-                state.channels,
-                A.updateAt(index, channel),
-                O.getOrElse(() => state.channels),
-              ),
-          ),
+    upsertInArray = <T extends { id: string }>(items: T[], item: T): T[] =>
+      pipe(
+        items,
+        A.findIndex((i) => i.id === item.id),
+        O.match(
+          () => [...items, item],
+          (index) =>
+            pipe(
+              items,
+              A.updateAt(index, item),
+              O.getOrElse(() => items),
+            ),
         ),
-      })();
+      );
 
-      this.update();
+    loadChannels = async () => this.stateRef.read().channels;
+
+    upsertChannel = async (channel: ExtensionConfig.Channel) => {
+      this.updateState((state) => ({
+        ...state,
+        channels: this.upsertInArray(state.channels, channel),
+      }));
     };
 
     removeChannel = async (id: string) => {
-      const state = this.stateRef.read();
-
-      this.stateRef.write({
+      this.updateState((state) => ({
         ...state,
         channels: pipe(
           state.channels,
           A.filter((c) => c.id !== id),
         ),
-      })();
-
-      this.update();
+      }));
     };
 
     playChannel = async (channel: ExtensionConfig.Channel) => {
-      const state = this.stateRef.read();
-
-      this.stateRef.write({ ...state, currentChannel: channel })();
-
-      this.update();
+      this.updateState((state) => ({ ...state, currentChannel: channel }));
     };
 
-    loadStreamEvents = async () => {
-      const state = this.stateRef.read();
-
-      return pipe(
-        state.channels,
+    loadStreamEvents = async () =>
+      pipe(
+        this.stateRef.read().channels,
         A.flatMap((c) => c.streamEvents || []),
       );
-    };
 
-    saveStreamEvent = async (streamEvent: ExtensionConfig.StreamEvent) => {
-      const state = this.stateRef.read();
-
-      this.stateRef.write({
+    upsertStreamEvent = async (streamEvent: ExtensionConfig.StreamEvent) => {
+      this.updateState((state) => ({
         ...state,
         channels: pipe(
           state.channels,
-          A.map((channel) => {
-            if (!channel.streamEvents) channel.streamEvents = [];
-            return pipe(
-              channel.streamEvents,
-              A.findIndex((e) => e.id === streamEvent.id),
-              O.match(
-                () => channel,
-                (index) => ({
-                  ...channel,
-                  streamEvents: pipe(
-                    channel.streamEvents || [],
-                    A.updateAt(index, streamEvent),
-                    O.getOrElse(() => channel.streamEvents || []),
-                  ),
-                }),
-              ),
-            );
-          }),
+          A.map((channel) => ({
+            ...channel,
+            streamEvents: this.upsertInArray(channel.streamEvents || [], streamEvent),
+          })),
         ),
-      })();
-
-      this.update();
+      }));
     };
 
     removeStreamEvent = async (id: string) => {
-      const state = this.stateRef.read();
-
-      this.stateRef.write({
+      this.updateState((state) => ({
         ...state,
         channels: pipe(
           state.channels,
@@ -164,9 +132,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
             ),
           })),
         ),
-      })();
-
-      this.update();
+      }));
     };
 
     render: IO.IO<void> = () => {
@@ -176,12 +142,12 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
             config={{
               channel: {
                 load: this.loadChannels,
-                save: this.saveChannel,
+                upsert: this.upsertChannel,
                 remove: this.removeChannel,
                 play: this.playChannel,
                 streamEvent: {
                   load: this.loadStreamEvents,
-                  save: this.saveStreamEvent,
+                  upsert: this.upsertStreamEvent,
                   remove: this.removeStreamEvent,
                 },
               },

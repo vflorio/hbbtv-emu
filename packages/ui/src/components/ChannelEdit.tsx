@@ -62,7 +62,7 @@ export default function ChannelEdit() {
       id: id && id !== "new" ? id : crypto.randomUUID(),
       ...formData,
     };
-    await channel.save(channelData);
+    await channel.upsert(channelData);
     navigate("/");
   };
 

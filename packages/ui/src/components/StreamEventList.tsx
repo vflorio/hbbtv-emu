@@ -51,7 +51,7 @@ export default function StreamEventList() {
   };
 
   const handleSaveEvent = async (event: ExtensionConfig.StreamEvent) => {
-    await channel.streamEvent.save(event);
+    await channel.streamEvent.upsert(event);
     setEvents((prev) => {
       const index = prev.findIndex((ev) => ev.id === event.id);
       if (index >= 0) {

@@ -5,12 +5,12 @@ import { createContext, useContext } from "react";
 export interface UIConfig {
   channel: {
     load: () => Promise<ExtensionConfig.Channel[]>;
-    save: (channel: ExtensionConfig.Channel) => Promise<void>;
+    upsert: (channel: ExtensionConfig.Channel) => Promise<void>;
     remove: (id: string) => Promise<void>;
     play: (channel: ExtensionConfig.Channel) => Promise<void>;
     streamEvent: {
       load: () => Promise<ExtensionConfig.StreamEvent[]>;
-      save: (event: ExtensionConfig.StreamEvent) => Promise<void>;
+      upsert: (event: ExtensionConfig.StreamEvent) => Promise<void>;
       remove: (id: string) => Promise<void>;
     };
   };

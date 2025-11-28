@@ -108,7 +108,7 @@ export default function StreamEventsEdit() {
         ...channel,
         streamEvents: events,
       };
-      await config.channel.save(updatedChannel);
+      await config.channel.upsert(updatedChannel);
       navigate(`/channel/${id}`);
     }
   };
