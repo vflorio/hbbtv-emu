@@ -1,5 +1,5 @@
 import type { ClassType } from "../mixin";
-import type { ChromeScriptInject } from "./ChromeScriptInject";
+import type { ChromeScriptInject } from "./chromeScriptInject";
 
 export interface WebRequestHandler {
   tabs: Set<number>;
