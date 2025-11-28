@@ -1,4 +1,6 @@
 import { type ClassType, type Collection, createEmptyCollection, createLogger } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 
@@ -48,29 +50,33 @@ export const WithComponents = <T extends ClassType<Playback>>(Base: T) =>
       this.onSelectedComponentChanged?.(componentType);
     };
 
-    getComponents = (_componentType?: ComponentType): Collection<AVComponent> | null => {
-      logger.log("getComponents");
-      return this.playState === PlayState.PRESENTING ? createEmptyCollection() : null;
-    };
+    getComponents = (_componentType?: ComponentType): Collection<AVComponent> | null =>
+      pipe(
+        logger.info("getComponents"),
+        IO.map(() => (this.playState === PlayState.PRESENTING ? createEmptyCollection<AVComponent>() : null)),
+      )();
 
-    getCurrentActiveComponents = (_componentType?: ComponentType): Collection<AVComponent> | null => {
-      logger.log("getCurrentActiveComponents");
-      return this.playState === PlayState.PRESENTING ? createEmptyCollection() : null;
-    };
+    getCurrentActiveComponents = (_componentType?: ComponentType): Collection<AVComponent> | null =>
+      pipe(
+        logger.info("getCurrentActiveComponents"),
+        IO.map(() => (this.playState === PlayState.PRESENTING ? createEmptyCollection<AVComponent>() : null)),
+      )();
 
     selectComponent = (component: AVComponent | ComponentType) => {
       const componentType = typeof component === "number" ? component : component.type;
 
-      logger.log(`selectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
-
-      this.dispatchComponentChange(componentType);
+      pipe(
+        logger.info(`selectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`),
+        IO.flatMap(() => () => this.dispatchComponentChange(componentType)),
+      )();
     };
 
     unselectComponent = (component: AVComponent | ComponentType) => {
       const componentType = typeof component === "number" ? component : component.type;
 
-      logger.log(`unselectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`);
-
-      this.dispatchComponentChange(componentType);
+      pipe(
+        logger.info(`unselectComponent(${typeof component === "number" ? ComponentType[component] : "AVComponent"})`),
+        IO.flatMap(() => () => this.dispatchComponentChange(componentType)),
+      )();
     };
   };

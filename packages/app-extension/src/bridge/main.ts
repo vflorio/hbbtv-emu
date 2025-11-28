@@ -15,23 +15,25 @@ import {
 } from "@hbb-emu/lib";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
 
 const logger = createLogger("BridgeScript");
 
 const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
-    init: IO.IO<void> = () => {
-      this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
-      window.addEventListener("message", this.forwardToBackgroundScript);
+    init: IO.IO<void> = pipe(
+      IO.of<void>(undefined),
+      IO.tap(() => () => {
+        this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
+        window.addEventListener("message", this.forwardToBackgroundScript);
 
-      window.postMessage(
-        createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
-        "*",
-      );
-
-      logger.log("Initialized");
-    };
+        window.postMessage(
+          createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
+          "*",
+        );
+      }),
+      IO.flatMap(() => logger.info("Initialized")),
+    );
 
     forwardToContentScript = (envelope: MessageEnvelope) => {
       pipe(
@@ -40,8 +42,10 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
         E.match(
           () => {},
           (envelope) => {
-            logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
-            window.postMessage(envelope, "*");
+            pipe(
+              logger.info(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`),
+              IO.flatMap(() => () => window.postMessage(envelope, "*")),
+            )();
           },
         ),
       );
@@ -54,8 +58,10 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
         E.match(
           () => {},
           (envelope) => {
-            logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
-            this.sendMessage(envelope);
+            pipe(
+              logger.info(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`),
+              IO.flatMap(() => () => this.sendMessage(envelope)),
+            )();
           },
         ),
       );

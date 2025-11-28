@@ -13,9 +13,7 @@ const WithDebugMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       envelope: MessageEnvelope<T>,
     ): TE.TaskEither<MessageAdapterError | DebugMessageError, void> =>
       TE.tryCatch(
-        async () => {
-          logger.log("sendMessage", envelope);
-        },
+        async () => logger.info("sendMessage", envelope)(),
         (error) => debugMessageError(`Debug message failed: ${error}`),
       );
   };

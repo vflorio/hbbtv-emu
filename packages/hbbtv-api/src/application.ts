@@ -1,5 +1,6 @@
 import { type Application, type ApplicationPrivateData, type ClassType, compose, createLogger } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import { createKeyset } from "./keyset";
@@ -49,25 +50,31 @@ const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
       return pipe(this.visibleRef.read(), O.toUndefined);
     }
 
-    show = (): boolean => {
-      logger.log("show");
-      if (this.documentRef?.body) {
-        this.documentRef.body.style.visibility = "visible";
-        this.visibleRef.write(O.some(true));
-        return true;
-      }
-      return false;
-    };
+    show = (): boolean =>
+      pipe(
+        logger.info("show"),
+        IO.map(() => {
+          if (this.documentRef?.body) {
+            this.documentRef.body.style.visibility = "visible";
+            this.visibleRef.write(O.some(true));
+            return true;
+          }
+          return false;
+        }),
+      )();
 
-    hide = (): boolean => {
-      logger.log("hide");
-      if (this.documentRef?.body) {
-        this.documentRef.body.style.visibility = "hidden";
-        this.visibleRef.write(O.some(false));
-        return true;
-      }
-      return false;
-    };
+    hide = (): boolean =>
+      pipe(
+        logger.info("hide"),
+        IO.map(() => {
+          if (this.documentRef?.body) {
+            this.documentRef.body.style.visibility = "hidden";
+            this.visibleRef.write(O.some(false));
+            return true;
+          }
+          return false;
+        }),
+      )();
   };
 
 interface Lifecycle {
@@ -77,13 +84,9 @@ interface Lifecycle {
 
 const WithLifecycle = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base implements Lifecycle {
-    createApplication = (_uri: string, _createChild?: boolean): void => {
-      logger.log("createApplication");
-    };
+    createApplication = (_uri: string, _createChild?: boolean): void => logger.info("createApplication")();
 
-    destroyApplication = (): void => {
-      logger.log("destroyApplication");
-    };
+    destroyApplication = (): void => logger.info("destroyApplication")();
   };
 
 const ApplicationClass = compose(ApplicationBase, WithPrivateData, WithVisibility, WithLifecycle);

@@ -26,14 +26,14 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     }
 
     handleChromeMessage = (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => {
-      logger.log("Received message", data, sender);
+      logger.info("Received message", data, sender)();
       this.handleMessage(data);
     };
 
     sendMessage = <T extends Message>(
       envelope: MessageEnvelope<T>,
     ): TE.TaskEither<MessageAdapterError | ChromeMessageAdapterError, void> => {
-      logger.log("Sending message", envelope);
+      logger.info("Sending message", envelope)();
 
       const sendToBackgroundScript = (): TE.TaskEither<ChromeMessageAdapterError, void> =>
         pipe(
@@ -99,7 +99,7 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
 
       return pipe(
         sendByTarget(),
-        TE.tapError((error) => TE.fromIO(() => logger.error("Failed to send message:", error))),
+        TE.tapError((error) => TE.fromIO(logger.error("Failed to send message:", error))),
       );
     };
   };

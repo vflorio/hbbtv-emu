@@ -1,6 +1,7 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as RA from "fp-ts/ReadonlyArray";
 import type { EventTarget } from "./eventTarget";
@@ -102,44 +103,50 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
         detail,
       });
 
-    addStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => {
-      logger.log(`addStreamEventListener(${targetURL}, ${eventName})`);
-
-      if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
-        logger.log("addStreamEventListener: ignored - invalid state");
-        return;
-      }
-
-      const key = this.getStreamEventKey(targetURL, eventName);
-      this.registerListener(key, listener);
-      this.addEventListener(eventName, listener);
-    };
-
-    removeStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => {
-      logger.log(`removeStreamEventListener(${targetURL}, ${eventName})`);
-
-      const key = this.getStreamEventKey(targetURL, eventName);
-      this.unregisterListener(key, listener);
-      this.removeEventListener(eventName, listener);
-    };
-
-    clearAllStreamEventListeners = (): void => {
-      logger.log("clearAllStreamEventListeners");
-
-      const metadata = this.streamEventMetadataRef.read();
-
+    addStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) =>
       pipe(
-        Array.from(metadata.entries()),
-        RA.chain(([key, listeners]) => {
-          const [_targetURL, eventName] = key.split(":", 2);
-          return Array.from(listeners).map((listener) => () => this.removeEventListener(eventName, listener));
-        }),
-        RA.map((io) => io()), // eseguo gli IO side‑effect
-      );
+        logger.info(`addStreamEventListener(${targetURL}, ${eventName})`),
+        IO.flatMap(() => () => {
+          if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
+            logger.info("addStreamEventListener: ignored - invalid state")();
+            return;
+          }
 
-      this.streamEventMetadataRef.write(new Map());
-      this.streamEventVersionsRef.write(new Map());
-    };
+          const key = this.getStreamEventKey(targetURL, eventName);
+          this.registerListener(key, listener);
+          this.addEventListener(eventName, listener);
+        }),
+      )();
+
+    removeStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) =>
+      pipe(
+        logger.info(`removeStreamEventListener(${targetURL}, ${eventName})`),
+        IO.flatMap(() => () => {
+          const key = this.getStreamEventKey(targetURL, eventName);
+          this.unregisterListener(key, listener);
+          this.removeEventListener(eventName, listener);
+        }),
+      )();
+
+    clearAllStreamEventListeners = (): void =>
+      pipe(
+        logger.info("clearAllStreamEventListeners"),
+        IO.flatMap(() => () => {
+          const metadata = this.streamEventMetadataRef.read();
+
+          pipe(
+            Array.from(metadata.entries()),
+            RA.flatMap(([key, listeners]) => {
+              const [_targetURL, eventName] = key.split(":", 2);
+              return Array.from(listeners).map((listener) => () => this.removeEventListener(eventName, listener));
+            }),
+            RA.map((io) => io()), // eseguo gli IO side‑effect
+          );
+
+          this.streamEventMetadataRef.write(new Map());
+          this.streamEventVersionsRef.write(new Map());
+        }),
+      )();
 
     dispatchStreamEvent = (targetURL: string, eventName: string, data: string, text: string = "", version?: number) => {
       const key = this.getStreamEventKey(targetURL, eventName);
@@ -147,7 +154,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       if (!this.hasListener(key)) return;
 
       if (version && !this.trackVersion(key, version)) {
-        logger.log(`Stream event ${eventName} version ${version} already received, skipping`);
+        logger.info(`Stream event ${eventName} version ${version} already received, skipping`);
         return;
       }
 

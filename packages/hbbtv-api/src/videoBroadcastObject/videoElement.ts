@@ -1,5 +1,6 @@
 import { type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type { ChannelStreamAdapter } from "./channelStreamAdapter";
@@ -24,28 +25,35 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
     constructor(...args: any[]) {
       super(...args);
 
-      const loadstart = () => {
-        logger.log("loadstart");
-        this.dispatchVideoEvent("PlayStateChange", PlayState.CONNECTING);
-      };
-
-      const canplay = () => {
-        logger.log("canplay");
+      const loadstart = () =>
         pipe(
-          this.currentVideoChannelRef.read(),
-          O.map((channel) => this.dispatchVideoEvent("ChannelLoadSuccess", channel)),
-        );
-        this.dispatchVideoEvent("PlayStateChange", PlayState.PRESENTING);
-      };
+          logger.info("loadstart"),
+          IO.flatMap(() => () => this.dispatchVideoEvent("PlayStateChange", PlayState.CONNECTING)),
+        )();
 
-      const error = (event: Event) => {
-        logger.log("error", event);
+      const canplay = () =>
         pipe(
-          this.currentVideoChannelRef.read(),
-          O.map((channel) => this.dispatchVideoEvent("ChannelLoadError", channel)),
-        );
-        this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
-      };
+          logger.info("canplay"),
+          IO.flatMap(() => () => {
+            pipe(
+              this.currentVideoChannelRef.read(),
+              O.map((channel) => this.dispatchVideoEvent("ChannelLoadSuccess", channel)),
+            );
+            this.dispatchVideoEvent("PlayStateChange", PlayState.PRESENTING);
+          }),
+        )();
+
+      const error = (event: Event) =>
+        pipe(
+          logger.info("error", event),
+          IO.flatMap(() => () => {
+            pipe(
+              this.currentVideoChannelRef.read(),
+              O.map((channel) => this.dispatchVideoEvent("ChannelLoadError", channel)),
+            );
+            this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
+          }),
+        )();
 
       this.videoElement = document.createElement("video");
 
@@ -61,31 +69,39 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
     dispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) =>
       this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
-    loadVideo = (channel: Channel) => {
-      logger.log("loadVideo", channel);
+    loadVideo = (channel: Channel) =>
+      pipe(
+        logger.info("loadVideo", channel),
+        IO.flatMap(() => () => {
+          const streamUrl = this.getChannelStreamUrl(channel);
+          if (!streamUrl) {
+            logger.warn("loadVideo: no stream URL found for channel, skipping load", channel)();
+            return;
+          }
 
-      const streamUrl = this.getChannelStreamUrl(channel);
-      if (!streamUrl) {
-        logger.warn("loadVideo: no stream URL found for channel, skipping load", channel);
-        return;
-      }
+          this.videoElement.src = streamUrl;
+          this.videoElement.load();
+          this.currentVideoChannelRef.write(O.some(channel));
+        }),
+      )();
 
-      this.videoElement.src = streamUrl;
-      this.videoElement.load();
-      this.currentVideoChannelRef.write(O.some(channel));
-    };
+    stopVideo = () =>
+      pipe(
+        logger.info("stop"),
+        IO.flatMap(() => () => {
+          this.dispatchVideoEvent("PlayStateChange", PlayState.STOPPED);
+          this.cleanupVideoElement();
+        }),
+      )();
 
-    stopVideo = () => {
-      logger.log("stop");
-      this.dispatchVideoEvent("PlayStateChange", PlayState.STOPPED);
-      this.cleanupVideoElement();
-    };
-
-    releaseVideo = () => {
-      logger.log("release");
-      this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
-      this.cleanupVideoElement();
-    };
+    releaseVideo = () =>
+      pipe(
+        logger.info("release"),
+        IO.flatMap(() => () => {
+          this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
+          this.cleanupVideoElement();
+        }),
+      )();
 
     cleanupVideoElement = () => {
       this.videoElement.src = "";

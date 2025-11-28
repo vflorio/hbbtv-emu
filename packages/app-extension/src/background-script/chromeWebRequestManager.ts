@@ -50,8 +50,10 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       );
 
       chrome.tabs.onRemoved.addListener((tabId) => {
-        logger.log(`Tab removed: ${tabId}`);
-        this.tabs.delete(tabId);
+        pipe(
+          logger.info(`Tab removed: ${tabId}`),
+          IO.flatMap(() => () => this.tabs.delete(tabId)),
+        )();
       });
     }
 
@@ -63,13 +65,16 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
         O.flatMap(flow(validateHbbTVHeader, O.fromEither)),
         O.map((header) => {
           this.tabs.add(details.tabId);
-          logger.log(`Tab added: ${details.tabId}`);
-
           pipe(
-            this.inject(details.tabId, ["content-script.js"], ["bridge.js"]),
-            IO.map(T.map(() => logger.log(`Injection completed for tab ${details.tabId}`))),
-            (ioTask) => ioTask()(),
-          );
+            logger.info(`Tab added: ${details.tabId}`),
+            IO.flatMap(() => this.inject(details.tabId, ["content-script.js"], ["bridge.js"])),
+            IO.map((task) =>
+              pipe(
+                task,
+                T.flatMap(() => T.fromIO(logger.info(`Injection completed for tab ${details.tabId}`))),
+              )(),
+            ),
+          )();
 
           return normalizeContentType(header);
         }),

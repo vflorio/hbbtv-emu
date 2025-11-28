@@ -13,7 +13,7 @@ import {
 } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
@@ -23,17 +23,28 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
     mutationObserver: MutationObserver | null = null;
     currentChannelFromConfig: Channel | null = null;
 
-    init: IO.IO<void> = () => {
-      this.bus.on("BRIDGE_READY", async () => {
-        logger.log("Bridge is ready");
-        await this.sendMessage(
-          createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", { type: "CONTENT_SCRIPT_READY", payload: null }),
-        );
-      });
+    init: IO.IO<void> = pipe(
+      IO.of<void>(undefined),
+      IO.tap(() => () => {
+        this.bus.on("BRIDGE_READY", async () => {
+          pipe(
+            logger.info("Bridge is ready"),
+            IO.flatMap(
+              () => () =>
+                this.sendMessage(
+                  createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
+                    type: "CONTENT_SCRIPT_READY",
+                    payload: null,
+                  }),
+                ),
+            ),
+          )();
+        });
 
-      this.attachObjects(document);
-      logger.log("Initialized");
-    };
+        this.attachObjects(document);
+      }),
+      IO.flatMap(() => logger.info("Initialized")),
+    );
 
     attachObjects = (context: Document | HTMLElement) => {
       pipe(

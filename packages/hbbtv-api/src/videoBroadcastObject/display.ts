@@ -33,7 +33,7 @@ export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
     }
 
     setFullScreen = (fullScreen: boolean) => {
-      logger.log(`setFullScreen(${fullScreen})`);
+      logger.info(`setFullScreen(${fullScreen})`);
 
       const currentFullScreen = this.fullScreenRef.read();
       const changed = currentFullScreen !== fullScreen;

@@ -43,14 +43,16 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
 
     setupMessageHandlers: IO.IO<void> = () => {
       this.bus.on("CONTENT_SCRIPT_READY", () => {
-        logger.log("Content script ready, sending config");
-        this.broadcastConfig();
+        pipe(
+          logger.info("Content script ready, sending config"),
+          IO.flatMap(() => this.broadcastConfig),
+        )();
       });
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        logger.log("Updating config", payload);
         pipe(
-          this.stateRef.write(payload),
+          logger.info("Updating config", payload),
+          IO.flatMap(() => this.stateRef.write(payload)),
           IO.flatMap(() => this.store.save(payload)),
           IO.flatMap(() => this.updateUserAgent(payload.userAgent)),
           IO.flatMap(() => this.broadcastConfig),
@@ -58,10 +60,10 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
       });
 
       this.bus.on("UPDATE_USER_AGENT", ({ message: { payload } }) => {
-        logger.log("Updating user agent", payload);
         const currentState = this.stateRef.read();
         pipe(
-          this.stateRef.write({ ...currentState, userAgent: payload }),
+          logger.info("Updating user agent", payload),
+          IO.flatMap(() => this.stateRef.write({ ...currentState, userAgent: payload })),
           IO.flatMap(() => this.store.save({ ...currentState, userAgent: payload })),
           IO.flatMap(() => this.updateUserAgent(payload)),
           IO.flatMap(() => this.broadcastConfig),
@@ -72,17 +74,19 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
     broadcastConfig: IO.IO<void> = pipe(
       Array.from(this.tabs),
       A.traverse(IO.Applicative)((tabId) =>
-        IO.of(() => {
-          this.sendMessage(
-            createEnvelope(
-              this.messageOrigin,
-              "CONTENT_SCRIPT",
-              { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
-              { tabId },
-            ),
-          );
-          logger.log(`Config sent to tab ${tabId}`);
-        }),
+        pipe(
+          IO.of(() => {
+            this.sendMessage(
+              createEnvelope(
+                this.messageOrigin,
+                "CONTENT_SCRIPT",
+                { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
+                { tabId },
+              ),
+            );
+          }),
+          IO.flatMap(() => logger.info(`Config sent to tab ${tabId}`)),
+        ),
       ),
       IO.map(() => undefined),
     );

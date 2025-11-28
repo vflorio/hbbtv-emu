@@ -51,7 +51,7 @@ export const WithMessageBus =
             return TE.right(undefined);
           }
 
-          logger.log("Dispatching message", envelope);
+          logger.info("Dispatching message", envelope)();
           pipe(
             handlers,
             RA.map((handler) => handler(envelope)),

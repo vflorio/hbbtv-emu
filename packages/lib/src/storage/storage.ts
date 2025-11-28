@@ -33,7 +33,7 @@ export class Storage<T> {
             )
           : E.right(data as T),
       ),
-      TE.tapError((error) => TE.fromIO(() => logger.error("Failed to load entry:", error))),
+      TE.tapError((error) => TE.fromIO(logger.error("Failed to load entry:", error))),
     );
 
   save = (entry: T): TE.TaskEither<StorageError, void> =>
@@ -41,6 +41,6 @@ export class Storage<T> {
       jsonStringify(entry),
       TE.fromEither,
       TE.flatMap((json) => this.storageAdapter.setItem(this.key, json)),
-      TE.tapError((error) => TE.fromIO(() => logger.error("Failed to save entry:", error))),
+      TE.tapError((error) => TE.fromIO(logger.error("Failed to save entry:", error))),
     );
 }

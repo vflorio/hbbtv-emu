@@ -19,7 +19,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       TE.tryCatch(
         () => Promise.resolve(localStorage.getItem(key)),
         (error): LocalStorageGetItemError => {
-          logger.error("Failed to get item from localStorage:", error);
+          logger.error("Failed to get item from localStorage:", error)();
           return localStorageGetItemError(`LocalStorage getItem failed: ${error}`);
         },
       ),
@@ -35,7 +35,7 @@ export class LocalStorageAdapter implements StorageAdapter {
         return Promise.resolve();
       },
       (error): LocalStorageSetItemError => {
-        logger.error("Failed to set item in localStorage:", error);
+        logger.error("Failed to set item in localStorage:", error)();
         return localStorageSetItemError(`LocalStorage setItem failed: ${error}`);
       },
     );

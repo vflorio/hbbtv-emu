@@ -11,6 +11,7 @@ import {
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type { EventTarget } from "./eventTarget";
@@ -77,10 +78,11 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
           ),
           O.match(
             () => undefined,
-            (channel) => {
-              logger.log("Setting channel", channel);
-              this.setChannel(channel);
-            },
+            (channel) =>
+              pipe(
+                logger.info("Setting channel", channel),
+                IO.flatMap(() => () => this.setChannel(channel)),
+              )(),
           ),
         );
       });
@@ -100,84 +102,105 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
     };
 
-    bindToCurrentChannel = (): Channel | null => {
-      logger.log("bindToCurrentChannel");
+    bindToCurrentChannel = (): Channel | null =>
+      pipe(
+        logger.info("bindToCurrentChannel"),
+        IO.flatMap(() => () => {
+          if (!this.isPlayStateValid([PlayState.UNREALIZED, PlayState.STOPPED])) {
+            return null;
+          }
 
-      if (!this.isPlayStateValid([PlayState.UNREALIZED, PlayState.STOPPED])) {
-        return null;
-      }
-
-      return pipe(
-        this.currentChannelRef.read(),
-        O.map((channel) => {
-          this.loadVideo(channel);
-          return channel;
+          return pipe(
+            this.currentChannelRef.read(),
+            O.map((channel) => {
+              this.loadVideo(channel);
+              return channel;
+            }),
+            O.toNullable,
+          );
         }),
-        O.toNullable,
-      );
-    };
+      )();
 
     setChannel = (
       channel: Channel | null,
       _trickplay?: boolean,
       _contentAccessDescriptorURL?: string,
       _quiet?: number,
-    ) => {
-      logger.log("setChannel", channel);
+    ) =>
       pipe(
-        O.fromNullable(channel),
-        O.match(
-          () => {
-            logger.log("setChannel: starting transition to unrealized state");
-            this.currentChannelRef.write(O.none);
-            this.releaseVideo();
-          },
-          (channel) => {
-            if (!channel.idType) {
-              logger.log("setChannel: channel idType not supported");
-              this.dispatchChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
+        logger.info("setChannel", channel),
+        IO.map(() =>
+          pipe(
+            O.fromNullable(channel),
+            O.match(
+              () => {
+                () =>
+                  pipe(
+                    logger.info("setChannel: starting transition to unrealized state"),
+                    IO.flatMap(() =>
+                      IO.of(() => {
+                        this.currentChannelRef.write(O.none);
+                        this.releaseVideo();
+                      }),
+                    ),
+                  )();
+              },
+              (channel) => {
+                if (!channel.idType) {
+                  pipe(
+                    logger.info("setChannel: channel idType not supported"),
+                    IO.flatMap(() =>
+                      IO.of(() => {
+                        this.dispatchChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
+                      }),
+                    ),
+                  )();
+                  return;
+                }
+
+                this.currentChannelRef.write(O.some(channel));
+                this.loadVideo(channel);
+              },
+            ),
+          ),
+        ),
+      )();
+
+    nextChannel = () =>
+      pipe(
+        logger.info("nextChannel"),
+        IO.flatMap(
+          IO.of(() => {
+            if (this.playState === PlayState.UNREALIZED) {
+              this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
               return;
             }
 
-            this.currentChannelRef.write(O.some(channel));
-            this.loadVideo(channel);
-          },
+            // TODO
+            this.dispatchChannelError(this.currentChannel, ChannelChangeError.INSUFFICIENT_RESOURCES);
+          }),
         ),
-      );
-    };
+      )();
 
-    nextChannel = () => {
-      logger.log("nextChannel");
+    prevChannel = () =>
+      pipe(
+        logger.info("prevChannel"),
+        IO.flatMap(
+          IO.of(() => {
+            if (this.playState === PlayState.UNREALIZED) {
+              this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
+            }
+          }),
+        ),
+      )();
 
-      if (this.playState === PlayState.UNREALIZED) {
-        this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
-        return;
-      }
-
-      // TODO
-      this.dispatchChannelError(this.currentChannel, ChannelChangeError.INSUFFICIENT_RESOURCES);
-    };
-
-    prevChannel = () => {
-      logger.log("prevChannel");
-
-      if (this.playState === PlayState.UNREALIZED) {
-        this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
-        return;
-      }
-
-      // TODO
-      this.dispatchChannelError(this.currentChannel, ChannelChangeError.INSUFFICIENT_RESOURCES);
-    };
-
-    getChannelConfig = (): ChannelConfig | null => {
-      logger.log("getChannelConfig");
-      return null;
-    };
+    getChannelConfig = (): ChannelConfig | null =>
+      pipe(
+        logger.info("getChannelConfig"),
+        IO.map(() => null),
+      )();
 
     createChannelObject = (idType: ChannelIdType, ...args: unknown[]): Channel | null => {
-      logger.log(`createChannelObject(${idType})`);
-
       return pipe(
         args as [number?, number?, number?, number?, string?],
         ([onid, tsid, sid, sourceID, ipBroadcastID]) => ({

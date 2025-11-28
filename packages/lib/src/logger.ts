@@ -1,52 +1,92 @@
+import * as D from "fp-ts/Date";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
+import type * as L from "logging-ts/lib/IO";
 
-export type LogLevel = "log" | "error" | "warn" | "info" | "debug";
+type Level = "debug" | "info" | "warning" | "error";
 
-const getTimestamp = (): string => new Date().toISOString().split("T")[1].split("Z")[0];
+interface Entry {
+  message: string;
+  args: readonly unknown[];
+  time: Date;
+  level: Level;
+  section: string;
+}
 
 const browserStyles = {
   timestamp: "color: #6272a4;",
   prefix: "color: #bd93f9; font-weight: bold;",
   section: "color: #50fa7b; font-weight: bold;",
   message: "color: #8be9fd;",
+} as const;
+
+const formatBackgroundScriptLog = (entry: Entry): readonly [string, ...unknown[]] => {
+  const timestamp = entry.time.toISOString().split("T")[1].split("Z")[0];
+  return [`${timestamp} [hbbtv-emu] ${entry.section} ${entry.message}`, ...entry.args];
 };
 
-const formatBackgroundScriptLog = (timestamp: string, section: string, message: string): string =>
-  `${timestamp} [hbbtv-emu] ${section} ${message}`;
-
-const formatBrowserLog = (timestamp: string, section: string, message: string): readonly [string, ...string[]] =>
-  [
-    `%c${timestamp}%c [hbbtv-emu]%c ${section}%c ${message}`,
+const formatBrowserLog = (entry: Entry): readonly [string, ...unknown[]] => {
+  const timestamp = entry.time.toISOString().split("T")[1].split("Z")[0];
+  return [
+    `%c${timestamp}%c [hbbtv-emu]%c ${entry.section}%c ${entry.message}`,
     browserStyles.timestamp,
     browserStyles.prefix,
     browserStyles.section,
     browserStyles.message,
-  ] as const;
+    ...entry.args,
+  ];
+};
 
-const createLog =
-  (section: string) =>
-  (level: LogLevel) =>
-  (message: string, ...args: unknown[]): IO.IO<void> =>
-  () => {
-    const timestamp = getTimestamp();
+const isBackgroundScript: IO.IO<boolean> = () => typeof self !== "undefined" && "WorkerGlobalScope" in self;
 
-    pipe(typeof self !== "undefined" && "BackgroundScriptGlobalScope" in self, (isWorker) =>
-      isWorker
-        ? console[level](formatBackgroundScriptLog(timestamp, section, message), ...args)
-        : console[level](...formatBrowserLog(timestamp, section, message), ...args),
-    );
-  };
+const consoleLogger: L.LoggerIO<Entry> = (entry) =>
+  pipe(
+    isBackgroundScript,
+    IO.flatMap((isBackgroundScript) => () => {
+      const formatted = isBackgroundScript ? formatBackgroundScriptLog(entry) : formatBrowserLog(entry);
+
+      pipe(
+        O.fromNullable(
+          {
+            debug: console.debug,
+            info: console.info,
+            warning: console.warn,
+            error: console.error,
+          }[entry.level],
+        ),
+        O.match(
+          () => undefined,
+          (fn) => fn(...formatted),
+        ),
+      );
+    }),
+  );
 
 export const createLogger = (section: string) => {
-  const log = createLog(section);
+  const debug = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+    pipe(
+      D.create,
+      IO.flatMap((time) => consoleLogger({ level: "debug", message, args, time, section })),
+    );
 
-  return {
-    ...console,
-    log: log("log"),
-    error: log("error"),
-    warn: log("warn"),
-    info: log("info"),
-    debug: log("debug"),
-  } as typeof console;
+  const info = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+    pipe(
+      D.create,
+      IO.flatMap((time) => consoleLogger({ level: "info", message, args, time, section })),
+    );
+
+  const warn = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+    pipe(
+      D.create,
+      IO.flatMap((time) => consoleLogger({ level: "warning", message, args, time, section })),
+    );
+
+  const error = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+    pipe(
+      D.create,
+      IO.flatMap((time) => consoleLogger({ level: "error", message, args, time, section })),
+    );
+
+  return { debug, info, warn, error };
 };

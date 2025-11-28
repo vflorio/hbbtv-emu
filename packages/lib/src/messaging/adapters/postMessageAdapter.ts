@@ -25,7 +25,7 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     ): TE.TaskEither<MessageAdapterError | PostMessageError, void> =>
       TE.tryCatch(
         async () => {
-          logger.log("Sending message", envelope);
+          logger.info("Sending message", envelope)();
           window.postMessage(envelope, "*");
         },
         (error) => {

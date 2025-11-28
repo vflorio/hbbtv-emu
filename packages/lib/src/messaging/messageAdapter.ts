@@ -50,7 +50,7 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
           ),
         ),
         E.mapLeft((error) => {
-          logger.error("Message handling failed", error);
+          logger.error("Message handling failed", error)();
           return error;
         }),
       );

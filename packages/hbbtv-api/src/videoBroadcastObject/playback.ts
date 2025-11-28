@@ -1,4 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import type { EventTarget } from "./eventTarget";
 import type { VideoElement } from "./videoElement";
@@ -42,24 +44,30 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
 
     dispatchPlayStateChange = (newState: PlayState, error?: number) => {
       const oldState = this.playStateRef.read();
-      logger.log(`VideoBroadcast state`, { oldState, newState });
-      this.playStateRef.write(newState);
-
-      this.onPlayStateChange?.(newState, error);
-      this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
+      pipe(
+        logger.info(`VideoBroadcast state`, { oldState, newState }),
+        IO.flatMap(() => () => {
+          this.playStateRef.write(newState);
+          this.onPlayStateChange?.(newState, error);
+          this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
+        }),
+      )();
     };
 
     isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playStateRef.read());
 
-    stop = () => {
-      logger.log("stop");
-      if (this.playStateRef.read() === PlayState.UNREALIZED) return;
+    stop = () =>
+      pipe(
+        logger.info("stop"),
+        IO.flatMap(() => () => {
+          if (this.playStateRef.read() === PlayState.UNREALIZED) return;
+          this.stopVideo();
+        }),
+      )();
 
-      this.stopVideo();
-    };
-
-    release = () => {
-      logger.log("release");
-      this.stopVideo();
-    };
+    release = () =>
+      pipe(
+        logger.info("release"),
+        IO.flatMap(() => () => this.stopVideo()),
+      )();
   };

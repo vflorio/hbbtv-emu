@@ -21,5 +21,8 @@
     "syncpack:format": "syncpack format",
     "syncpack:list": "syncpack list"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "logging-ts": "^0.3.4"
+  }
 }

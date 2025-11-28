@@ -64,7 +64,7 @@ export default function StreamEventList() {
   };
 
   const handleDispatchEvent = async (event: ExtensionConfig.StreamEvent) => {
-    logger.log("TODO Dispatching stream event:", event);
+    logger.info("TODO Dispatching stream event:", event);
   };
 
   return (

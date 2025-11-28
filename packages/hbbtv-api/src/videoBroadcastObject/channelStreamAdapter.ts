@@ -6,6 +6,8 @@ import {
   type MessageBus,
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 
 export interface ChannelStreamAdapter {
@@ -37,7 +39,9 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: 
 
     getChannelStreamUrl = (channel: Channel): string => {
       const key = isValidChannelTriplet(channel) ? serializeChannelTriplet(channel) : channel?.ccid || "";
-      logger.log(`Getting stream URL for channel: ${key}`);
-      return this.channelStreamUrlsRef.read().get(key) || "";
+      return pipe(
+        logger.info(`Getting stream URL for channel: ${key}`),
+        IO.map(() => this.channelStreamUrlsRef.read().get(key) || ""),
+      )();
     };
   };

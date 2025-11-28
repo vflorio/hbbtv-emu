@@ -38,9 +38,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
               this.render();
             },
         ),
-        O.getOrElse(() => () => {
-          logger.error("Root element not found");
-        }),
+        O.getOrElse(() => logger.error("Root element not found")),
       )();
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {

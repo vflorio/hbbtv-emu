@@ -1,13 +1,13 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
 import { Box, Button, Stack, TextField, Typography } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useConfig } from "@/context/config";
 
-interface SettingsProps {
-  config: ExtensionConfig.State | null;
-  onSave: (config: Omit<ExtensionConfig.State, "channels">) => void;
-}
+export default function Settings() {
+  const { common } = useConfig();
 
-export default function Settings({ config, onSave }: SettingsProps) {
+  const [config, setConfig] = useState<Omit<ExtensionConfig.State, "channels"> | null>(null);
+
   const [version, setVersion] = useState(config?.version || "1.5.0");
   const [countryCode, setCountryCode] = useState(config?.countryCode || "ITA");
   const [userAgent, setUserAgent] = useState(
@@ -17,14 +17,22 @@ export default function Settings({ config, onSave }: SettingsProps) {
   const [capabilities, setCapabilities] = useState(config?.capabilities || "");
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleSave = () => {
-    onSave({
+  useEffect(() => {
+    common.load().then(setConfig);
+  }, [common.load]);
+
+  const handleSave = async () => {
+    const newConfig = {
       currentChannel: config?.currentChannel || null,
       version,
       countryCode,
       userAgent,
       capabilities,
-    });
+    };
+
+    await common.save(newConfig);
+    setConfig(newConfig);
+    console.log("Settings saved:", newConfig);
     setIsEditing(false);
   };
 

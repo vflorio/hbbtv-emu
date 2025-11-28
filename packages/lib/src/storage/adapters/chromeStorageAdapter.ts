@@ -19,7 +19,7 @@ export class ChromeStorageAdapter implements StorageAdapter {
       TE.tryCatch(
         () => chrome.storage.local.get(key),
         (error): LocalStorageGetItemError => {
-          logger.error("Failed to get item from chrome.storage:", error);
+          logger.error("Failed to get item from chrome.storage:", error)();
           return localStorageGetItemError(`Chrome storage getItem failed: ${error}`);
         },
       ),
@@ -38,7 +38,7 @@ export class ChromeStorageAdapter implements StorageAdapter {
     TE.tryCatch(
       () => chrome.storage.local.set({ [key]: value }),
       (error): LocalStorageSetItemError => {
-        logger.error("Failed to set item in chrome.storage:", error);
+        logger.error("Failed to set item in chrome.storage:", error)();
         return localStorageSetItemError(`Chrome storage setItem failed: ${error}`);
       },
     );
