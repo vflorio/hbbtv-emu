@@ -11,7 +11,6 @@ import {
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type { EventTarget } from "./eventTarget";
@@ -76,13 +75,13 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
               ),
             ),
           ),
-          O.map((channel) =>
-            IO.of(() => {
+          O.match(
+            () => undefined,
+            (channel) => {
               logger.log("Setting channel", channel);
               this.setChannel(channel);
-            }),
+            },
           ),
-          O.map((io) => io()),
         );
       });
     }

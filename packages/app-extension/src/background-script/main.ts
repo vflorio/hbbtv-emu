@@ -41,7 +41,7 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
       )();
     };
 
-    setupMessageHandlers = IO.of(() => {
+    setupMessageHandlers: IO.IO<void> = () => {
       this.bus.on("CONTENT_SCRIPT_READY", () => {
         logger.log("Content script ready, sending config");
         this.broadcastConfig();
@@ -67,26 +67,24 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
           IO.flatMap(() => this.broadcastConfig),
         )();
       });
-    });
+    };
 
-    broadcastConfig = IO.of(() =>
-      pipe(
-        Array.from(this.tabs),
-        A.traverse(IO.Applicative)((tabId) =>
-          IO.of(() => {
-            this.sendMessage(
-              createEnvelope(
-                this.messageOrigin,
-                "CONTENT_SCRIPT",
-                { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
-                { tabId },
-              ),
-            );
-            logger.log(`Config sent to tab ${tabId}`);
-          }),
-        ),
-        IO.map(() => undefined),
-      )(),
+    broadcastConfig: IO.IO<void> = pipe(
+      Array.from(this.tabs),
+      A.traverse(IO.Applicative)((tabId) =>
+        IO.of(() => {
+          this.sendMessage(
+            createEnvelope(
+              this.messageOrigin,
+              "CONTENT_SCRIPT",
+              { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
+              { tabId },
+            ),
+          );
+          logger.log(`Config sent to tab ${tabId}`);
+        }),
+      ),
+      IO.map(() => undefined),
     );
   };
 

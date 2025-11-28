@@ -1,5 +1,5 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
-import * as IO from "fp-ts/IO";
+import type * as IO from "fp-ts/IO";
 
 const logger = createLogger("Chrome User Agent Manager");
 
@@ -9,8 +9,9 @@ export interface UserAgentManager {
 
 export const WithChromeUserAgentManager = <T extends ClassType>(Base: T) =>
   class extends Base implements UserAgentManager {
-    updateUserAgent = (userAgent: string) =>
-      IO.of(() => {
+    updateUserAgent =
+      (userAgent: string): IO.IO<void> =>
+      () => {
         chrome.declarativeNetRequest.updateSessionRules({
           removeRuleIds: [1],
           addRules: [
@@ -38,5 +39,5 @@ export const WithChromeUserAgentManager = <T extends ClassType>(Base: T) =>
           ],
         });
         logger.log("User-Agent updated to:", userAgent);
-      });
+      };
   };
