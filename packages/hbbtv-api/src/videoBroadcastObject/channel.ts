@@ -2,7 +2,7 @@ import {
   type Channel,
   ChannelChangeError,
   type ChannelConfig,
-  ChannelIdType,
+  type ChannelIdType,
   type ClassType,
   createLogger,
   ExtensionConfig,
@@ -11,8 +11,9 @@ import {
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
-import * as O from "fp-ts/Option";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -75,10 +76,13 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
               ),
             ),
           ),
-          O.map((channel) => {
-            logger.log("Setting channel", channel);
-            this.setChannel(channel);
-          }),
+          O.map((channel) =>
+            IO.of(() => {
+              logger.log("Setting channel", channel);
+              this.setChannel(channel);
+            }),
+          ),
+          O.map((io) => io()),
         );
       });
     }

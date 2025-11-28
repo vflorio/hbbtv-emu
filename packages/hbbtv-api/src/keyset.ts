@@ -1,8 +1,8 @@
 import type { ClassType, Keyset } from "@hbb-emu/lib";
 import { compose } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
-import { pipe } from "fp-ts/function";
 
 const KEYSET_VALUES = {
   RED: 0x1,

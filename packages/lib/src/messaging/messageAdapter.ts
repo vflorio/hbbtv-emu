@@ -5,7 +5,7 @@ import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message, MessageOrigin } from "./message";
-import { validateEnvelope, type MessageEnvelope } from "./messageEnvelope";
+import { type MessageEnvelope, validateEnvelope } from "./messageEnvelope";
 
 export interface MessageAdapter {
   registerMessageBus: RegisterMessageBus;
@@ -37,13 +37,16 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
             this.messageHandler,
             O.match(
               () => E.left(new Error("No message handler registered")),
-              (handler) => E.right({ envelope, handler }),
+              (handler) =>
+                E.tryCatch(
+                  () => {
+                    handler(envelope);
+                  },
+                  (error) => (error instanceof Error ? error : new Error(String(error))),
+                ),
             ),
           ),
         ),
-        E.map(({ envelope, handler }) => {
-          handler(envelope);
-        }),
         E.mapLeft((error) => {
           logger.error("Message handling failed", error);
           return error;

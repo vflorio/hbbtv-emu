@@ -1,7 +1,8 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
-import * as IORef from "fp-ts/IORef";
 import { pipe } from "fp-ts/function";
+import * as IORef from "fp-ts/IORef";
+import * as RA from "fp-ts/ReadonlyArray";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -122,17 +123,18 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.removeEventListener(eventName, listener);
     };
 
-    clearAllStreamEventListeners = () => {
+    clearAllStreamEventListeners = (): void => {
       logger.log("clearAllStreamEventListeners");
 
       const metadata = this.streamEventMetadataRef.read();
 
       pipe(
         Array.from(metadata.entries()),
-        A.map(([key, listeners]) => {
+        RA.chain(([key, listeners]) => {
           const [_targetURL, eventName] = key.split(":", 2);
-          Array.from(listeners).forEach((listener) => this.removeEventListener(eventName, listener));
+          return Array.from(listeners).map((listener) => () => this.removeEventListener(eventName, listener));
         }),
+        RA.map((io) => io()), // eseguo gli IO side‑effect
       );
 
       this.streamEventMetadataRef.write(new Map());

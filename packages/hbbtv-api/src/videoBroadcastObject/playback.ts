@@ -32,7 +32,6 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
       super(...args);
 
       this.videoElement.addEventListener("PlayStateChange", (event: Event) => {
-        console.log("VideoElement PlayStateChange event:", event);
         this.playStateRef.write((event as CustomEvent).detail as PlayState);
       });
     }

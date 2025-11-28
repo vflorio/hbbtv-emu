@@ -89,7 +89,8 @@ export const WithObjectHandler = <T extends ClassType>(Base: T) =>
       (element: HTMLObjectElement, type: string): IO.IO<void> =>
       () =>
         pipe(
-          R.lookup(type)(objectFactoryMap),
+          objectFactoryMap,
+          R.lookup(type),
           O.match(
             () => {},
             (factory) => copyProperties(factory() as object, element),

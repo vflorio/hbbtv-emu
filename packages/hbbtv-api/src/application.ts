@@ -1,7 +1,7 @@
 import { type Application, type ApplicationPrivateData, type ClassType, compose, createLogger } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
-import { pipe } from "fp-ts/function";
 import { createKeyset } from "./keyset";
 
 interface PerformanceMemory {

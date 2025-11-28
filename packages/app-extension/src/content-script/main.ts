@@ -13,6 +13,7 @@ import {
 } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
+import type * as IO from "fp-ts/IO";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
@@ -22,7 +23,7 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
     mutationObserver: MutationObserver | null = null;
     currentChannelFromConfig: Channel | null = null;
 
-    init = () => {
+    init: IO.IO<void> = () => {
       this.bus.on("BRIDGE_READY", async () => {
         logger.log("Bridge is ready");
         await this.sendMessage(
@@ -45,11 +46,11 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
 
 // biome-ignore format: ack
 const ContentScript = compose(
-  class {}, 
-  WithPostMessageAdapter, 
+  class { },
+  WithPostMessageAdapter,
   WithMessageBus("CONTENT_SCRIPT"),
-  WithObjectHandler, 
+  WithObjectHandler,
   WithContentScript
 );
 
-initApp(new ContentScript());
+initApp(new ContentScript())();

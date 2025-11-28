@@ -1,5 +1,5 @@
-import * as RA from "fp-ts/ReadonlyArray";
 import { pipe } from "fp-ts/function";
+import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";

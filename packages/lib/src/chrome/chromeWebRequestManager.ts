@@ -1,9 +1,9 @@
 import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
-import * as O from "fp-ts/Option";
-import * as IO from "fp-ts/IO";
-import * as T from "fp-ts/Task";
 import { flow, pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
+import * as T from "fp-ts/Task";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { ChromeScriptInject } from "./chromeScriptInject";

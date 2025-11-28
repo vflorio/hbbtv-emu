@@ -1,7 +1,7 @@
 import { type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
-import { pipe } from "fp-ts/function";
 import type { ChannelStreamAdapter } from "./channelStreamAdapter";
 import { PlayState } from "./playback";
 

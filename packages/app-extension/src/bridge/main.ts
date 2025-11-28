@@ -13,16 +13,15 @@ import {
   WithChromeMessageAdapter,
   WithMessageBus,
 } from "@hbb-emu/lib";
-
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import * as O from "fp-ts/Option";
+import type * as IO from "fp-ts/IO";
 
 const logger = createLogger("BridgeScript");
 
 const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
-    init = () => {
+    init: IO.IO<void> = () => {
       this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
       window.addEventListener("message", this.forwardToServiceWorker);
 
@@ -37,40 +36,38 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
     forwardToContentScript = (envelope: MessageEnvelope) => {
       pipe(
         validateEnvelope(envelope),
-        O.tap(validateTarget("CONTENT_SCRIPT")),
-        O.match(
-          () => IO.of(undefined),
-          (envelope): IO.IO<void> =>
-            () => {
-              logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
-              window.postMessage(envelope, "*");
-            },
+        E.flatMap(validateTarget("CONTENT_SCRIPT")),
+        E.match(
+          () => {},
+          (envelope) => {
+            logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
+            window.postMessage(envelope, "*");
+          },
         ),
-      )();
+      );
     };
 
     forwardToServiceWorker = (event: MessageEvent<MessageEnvelope>) => {
       pipe(
         validateEnvelope(event.data),
-        O.flatMap(validateTarget("SERVICE_WORKER")),
-        O.match(
-          () => IO.of(undefined),
-          (envelope): IO.IO<void> =>
-            () => {
-              logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
-              this.sendMessage(envelope);
-            },
+        E.flatMap(validateTarget("SERVICE_WORKER")),
+        E.match(
+          () => {},
+          (envelope) => {
+            logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
+            this.sendMessage(envelope);
+          },
         ),
-      )();
+      );
     };
   };
 
 // biome-ignore format: ack
 const BridgeScript = compose(
-  class {},
+  class { },
   WithChromeMessageAdapter,
   WithMessageBus("BRIDGE_SCRIPT"),
   WithBridge
 );
 
-initApp(new BridgeScript());
+initApp(new BridgeScript())();

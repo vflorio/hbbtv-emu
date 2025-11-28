@@ -7,9 +7,9 @@ import {
   type MessageBus,
 } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
-import * as O from "fp-ts/Option";
-import * as IORef from "fp-ts/IORef";
 import { pipe } from "fp-ts/function";
+import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
 
 export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements ChannelList {

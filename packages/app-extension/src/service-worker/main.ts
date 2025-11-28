@@ -30,11 +30,11 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & Web
     store = new Storage<ExtensionConfig.State>("state");
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
 
-    init = () => {
+    init: IO.IO<void> = () => {
       pipe(
         this.store.load(),
         T.map(E.getOrElse(() => DEFAULT_HBBTV_CONFIG)),
-        T.map((state) => this.stateRef.write(state)()),
+        T.map((state) => this.stateRef.write(state)),
         T.flatMap(() => T.fromIO(this.setupMessageHandlers)),
       )();
     };
@@ -84,4 +84,4 @@ const ServiceWorker = compose(
   WithServiceWorker
 );
 
-initApp(new ServiceWorker());
+initApp(new ServiceWorker())();

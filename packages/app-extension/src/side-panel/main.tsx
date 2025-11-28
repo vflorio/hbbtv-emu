@@ -28,7 +28,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     root: Root | null = null;
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
 
-    init = () => {
+    init: IO.IO<void> = () => {
       pipe(
         O.fromNullable(document.getElementById("root")),
         O.map(
@@ -194,10 +194,10 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
 
 // biome-ignore format: ack
 const SidePanel = compose(
-  class {}, 
-  WithChromeMessageAdapter, 
-  WithMessageBus("SIDE_PANEL"), 
+  class { },
+  WithChromeMessageAdapter,
+  WithMessageBus("SIDE_PANEL"),
   WithSidePanel
 );
 
-initApp(new SidePanel());
+initApp(new SidePanel())();
