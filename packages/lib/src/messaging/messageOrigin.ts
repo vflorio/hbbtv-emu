@@ -4,11 +4,11 @@ import * as t from "io-ts";
 
 // Message Source
 
-export type MessageOrigin = "SIDE_PANEL" | "SERVICE_WORKER" | "CONTENT_SCRIPT" | "BRIDGE_SCRIPT";
+export type MessageOrigin = "SIDE_PANEL" | "BACKGROUND_SCRIPT" | "CONTENT_SCRIPT" | "BRIDGE_SCRIPT";
 
 export const MessageOriginCodec = t.union([
   t.literal("SIDE_PANEL"),
-  t.literal("SERVICE_WORKER"),
+  t.literal("BACKGROUND_SCRIPT"),
   t.literal("CONTENT_SCRIPT"),
   t.literal("BRIDGE_SCRIPT"),
 ]);

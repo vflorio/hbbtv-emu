@@ -4,10 +4,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, "src/service-worker/main.ts"),
-      name: "ServiceWorker",
+      entry: resolve(__dirname, "src/background-script/main.ts"),
+      name: "BackgroundScript",
       formats: ["iife"],
-      fileName: () => "service-worker.js",
+      fileName: () => "background-script.js",
     },
     rollupOptions: {
       output: {

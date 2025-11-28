@@ -22,9 +22,9 @@ import * as T from "fp-ts/Task";
 import { WithChromeScriptInject } from "./chromeScriptInject";
 import { type WebRequestHandler, WithChromeWebRequestManager } from "./chromeWebRequestManager";
 
-const logger = createLogger("ServiceWorker");
+const logger = createLogger("BackgroundScript");
 
-const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & WebRequestHandler>>(Base: T) =>
+const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & WebRequestHandler>>(Base: T) =>
   class extends Base implements App {
     store = new Storage<ExtensionConfig.State>("state");
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
@@ -74,13 +74,13 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & Web
   };
 
 // biome-ignore format: ack
-const ServiceWorker = compose(
+const BackgroundScript = compose(
   class {}, 
   WithChromeScriptInject,
   WithChromeWebRequestManager,
   WithChromeMessageAdapter, 
-  WithMessageBus("SERVICE_WORKER"),
-  WithServiceWorker
+  WithMessageBus("BACKGROUND_SCRIPT"),
+  WithBackgroundScript
 );
 
-initApp(new ServiceWorker())();
+initApp(new BackgroundScript())();

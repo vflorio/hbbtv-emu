@@ -27,7 +27,7 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
       this.bus.on("BRIDGE_READY", async () => {
         logger.log("Bridge is ready");
         await this.sendMessage(
-          createEnvelope(this.messageOrigin, "SERVICE_WORKER", { type: "CONTENT_SCRIPT_READY", payload: null }),
+          createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", { type: "CONTENT_SCRIPT_READY", payload: null }),
         );
       });
 

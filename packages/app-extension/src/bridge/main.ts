@@ -23,7 +23,7 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
   class extends Base implements App {
     init: IO.IO<void> = () => {
       this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
-      window.addEventListener("message", this.forwardToServiceWorker);
+      window.addEventListener("message", this.forwardToBackgroundScript);
 
       window.postMessage(
         createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
@@ -47,10 +47,10 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
       );
     };
 
-    forwardToServiceWorker = (event: MessageEvent<MessageEnvelope>) => {
+    forwardToBackgroundScript = (event: MessageEvent<MessageEnvelope>) => {
       pipe(
         validateEnvelope(event.data),
-        E.flatMap(validateTarget("SERVICE_WORKER")),
+        E.flatMap(validateTarget("BACKGROUND_SCRIPT")),
         E.match(
           () => {},
           (envelope) => {

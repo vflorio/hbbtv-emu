@@ -4,11 +4,11 @@ import * as t from "io-ts";
 import { type Message, MessageCodec } from "./message";
 import { type MessageOrigin, MessageOriginCodec } from "./messageOrigin";
 
-export type ServiceWorkerMessageContext = {
+export type BackgroundScriptMessageContext = {
   tabId: number;
 };
 
-const ServiceWorkerMessageContextCodec = t.type({
+const BackgroundScriptMessageContextCodec = t.type({
   tabId: t.number,
 });
 
@@ -18,7 +18,7 @@ export interface MessageEnvelope<T extends Message = Message> {
   message: T;
   source: MessageOrigin;
   target: MessageOrigin;
-  context?: ServiceWorkerMessageContext;
+  context?: BackgroundScriptMessageContext;
 }
 
 const MessageEnvelopeCodec = t.intersection([
@@ -30,7 +30,7 @@ const MessageEnvelopeCodec = t.intersection([
     target: MessageOriginCodec,
   }),
   t.partial({
-    context: ServiceWorkerMessageContextCodec,
+    context: BackgroundScriptMessageContextCodec,
   }),
 ]);
 
@@ -46,7 +46,7 @@ export const createEnvelope = <T extends Message>(
   source: MessageOrigin,
   target: MessageOrigin,
   message: T,
-  context?: ServiceWorkerMessageContext,
+  context?: BackgroundScriptMessageContext,
 ): MessageEnvelope<T> => ({
   id: generateId(),
   timestamp: Date.now(),

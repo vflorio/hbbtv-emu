@@ -35,7 +35,7 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     ): TE.TaskEither<MessageAdapterError | ChromeMessageAdapterError, void> => {
       logger.log("Sending message", envelope);
 
-      const sendToServiceWorker = (): TE.TaskEither<ChromeMessageAdapterError, void> =>
+      const sendToBackgroundScript = (): TE.TaskEither<ChromeMessageAdapterError, void> =>
         pipe(
           TE.tryCatch(
             () => chrome.runtime.sendMessage(envelope),
@@ -75,13 +75,13 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
         pipe(
           envelope.target,
           E.fromPredicate(
-            (target) => target === "SERVICE_WORKER" || target === "CONTENT_SCRIPT",
+            (target) => target === "BACKGROUND_SCRIPT" || target === "CONTENT_SCRIPT",
             (target) => chromeMessageError(`Cannot send message: invalid target ${target}`),
           ),
           TE.fromEither,
           TE.flatMap((target) => {
             const handlers: Record<typeof target, () => TE.TaskEither<ChromeMessageAdapterError, void>> = {
-              SERVICE_WORKER: sendToServiceWorker,
+              BACKGROUND_SCRIPT: sendToBackgroundScript,
               CONTENT_SCRIPT: () =>
                 pipe(
                   envelope.context?.tabId,

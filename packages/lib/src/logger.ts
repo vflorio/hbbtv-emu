@@ -12,7 +12,7 @@ const browserStyles = {
   message: "color: #8be9fd;",
 };
 
-const formatServiceWorkerLog = (timestamp: string, section: string, message: string): string =>
+const formatBackgroundScriptLog = (timestamp: string, section: string, message: string): string =>
   `${timestamp} [hbbtv-emu] ${section} ${message}`;
 
 const formatBrowserLog = (timestamp: string, section: string, message: string): readonly [string, ...string[]] =>
@@ -31,9 +31,9 @@ const createLog =
   () => {
     const timestamp = getTimestamp();
 
-    pipe(typeof self !== "undefined" && "ServiceWorkerGlobalScope" in self, (isWorker) =>
+    pipe(typeof self !== "undefined" && "BackgroundScriptGlobalScope" in self, (isWorker) =>
       isWorker
-        ? console[level](formatServiceWorkerLog(timestamp, section, message), ...args)
+        ? console[level](formatBackgroundScriptLog(timestamp, section, message), ...args)
         : console[level](...formatBrowserLog(timestamp, section, message), ...args),
     );
   };

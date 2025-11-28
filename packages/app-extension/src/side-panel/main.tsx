@@ -52,7 +52,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
       const state = this.stateRef.read();
 
       this.sendMessage(
-        createEnvelope(this.messageOrigin, "SERVICE_WORKER", {
+        createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
           type: "UPDATE_CONFIG",
           payload: state,
         }),

@@ -9,7 +9,7 @@ import {
   localStorageGetItemError,
   localStorageSetItemError,
 } from "../errors";
-import type { StorageAdapter } from "../types";
+import type { StorageAdapter } from "../storageAdapter";
 
 const logger = createLogger("Chrome Storage");
 
