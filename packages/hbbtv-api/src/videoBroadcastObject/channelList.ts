@@ -10,7 +10,6 @@ import * as A from "fp-ts/Array";
 import * as O from "fp-ts/Option";
 import * as IORef from "fp-ts/IORef";
 import { pipe } from "fp-ts/function";
-import * as TE from "fp-ts/TaskEither";
 
 export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements ChannelList {
@@ -29,7 +28,6 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
           })),
         );
         this.channelListRef.write(channels);
-        return TE.right(void 0);
       });
     }
 

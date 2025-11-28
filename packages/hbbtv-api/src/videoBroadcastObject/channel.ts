@@ -17,7 +17,6 @@ import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 import type { VideoElement } from "./videoElement";
-import * as TE from "fp-ts/TaskEither";
 
 export interface ChannelManager {
   get currentChannel(): Channel | null;
@@ -81,7 +80,6 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
             this.setChannel(channel);
           }),
         );
-        return TE.right(void 0);
       });
     }
 

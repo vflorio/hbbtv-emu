@@ -15,7 +15,6 @@ import {
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
-import * as TE from "fp-ts/TaskEither";
 import * as O from "fp-ts/Option";
 import * as Ord from "fp-ts/Ord";
 
@@ -61,7 +60,6 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
         this.countryCodeRef.write(payload.countryCode);
         this.hbbtvVersionRef.write(payload.version);
-        return TE.right(void 0);
       });
     }
 

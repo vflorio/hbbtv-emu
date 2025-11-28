@@ -15,7 +15,7 @@ export interface MessageAdapter {
 
 export type RegisterMessageBus = (origin: MessageOrigin, handler: MessageHandler) => void;
 
-export type MessageHandler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => TE.TaskEither<Error, void>;
+export type MessageHandler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => void;
 
 const logger = createLogger("Message Adapter");
 
@@ -42,7 +42,7 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
           ),
         ),
         E.map(({ envelope, handler }) => {
-          handler(envelope)();
+          handler(envelope);
         }),
         E.mapLeft((error) => {
           logger.error("Message handling failed", error);

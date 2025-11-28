@@ -7,7 +7,6 @@ import {
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
 import * as IORef from "fp-ts/IORef";
-import * as TE from "fp-ts/TaskEither";
 
 const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
@@ -18,7 +17,6 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
         this.capabilitiesXMLRef.write(payload.capabilities);
-        return TE.right(void 0);
       });
     }
 

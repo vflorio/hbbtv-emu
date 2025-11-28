@@ -1,7 +1,6 @@
 import * as RA from "fp-ts/ReadonlyArray";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import * as IO from "fp-ts/IO";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message, MessageOrigin, MessageType } from "./message";
@@ -47,20 +46,15 @@ export const WithMessageBus =
           const handlers = this.handlers.get(envelope.message.type) ?? RA.empty;
 
           if (RA.isEmpty(handlers)) {
-            return TE.rightIO(IO.of(undefined));
+            return TE.right(undefined);
           }
 
-          return pipe(
-            TE.fromIO(() => logger.log("Dispatching message", envelope)),
-            TE.flatMap(() =>
-              pipe(
-                handlers,
-                RA.map((handler) => handler(envelope)),
-                TE.traverseArray((te) => te),
-                TE.map(() => undefined),
-              ),
-            ),
+          logger.log("Dispatching message", envelope);
+          pipe(
+            handlers,
+            RA.map((handler) => handler(envelope)),
           );
+          return TE.right(undefined);
         },
       };
     };

@@ -7,7 +7,6 @@ import {
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
 import * as IORef from "fp-ts/IORef";
-import * as TE from "fp-ts/TaskEither";
 
 export interface ChannelStreamAdapter {
   get channelStreamUrls(): Map<string, string>;
@@ -29,7 +28,6 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: 
           streamUrls.set(serializeChannelTriplet(channel), channel.mp4Source);
         });
         this.channelStreamUrlsRef.write(streamUrls);
-        return TE.right(void 0);
       });
     }
 
