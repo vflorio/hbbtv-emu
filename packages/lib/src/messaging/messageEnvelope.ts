@@ -1,3 +1,4 @@
+import * as O from "fp-ts/Option";
 import { isMessage, isValidMessageOrigin, type Message, type MessageOrigin } from "./message";
 
 export type ServiceWorkerMessageContext = {
@@ -33,6 +34,9 @@ export const isValidMessageEnvelope = (data: unknown): data is MessageEnvelope =
   isValidMessageOrigin(data.target) &&
   isMessage(data.message);
 
+export const validateEnvelope = (data: unknown): O.Option<MessageEnvelope> =>
+  isValidMessageEnvelope(data) ? O.some(data) : O.none;
+
 export const createEnvelope = <T extends Message>(
   source: MessageOrigin,
   target: MessageOrigin,
@@ -46,3 +50,8 @@ export const createEnvelope = <T extends Message>(
   target,
   context,
 });
+
+export const validateTarget =
+  (expectedTarget: MessageOrigin) =>
+  (envelope: MessageEnvelope): O.Option<MessageEnvelope> =>
+    envelope.target === expectedTarget ? O.some(envelope) : O.none;

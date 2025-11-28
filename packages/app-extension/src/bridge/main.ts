@@ -5,19 +5,24 @@ import {
   createEnvelope,
   createLogger,
   initApp,
-  isValidMessageEnvelope,
   type MessageAdapter,
   type MessageBus,
   type MessageEnvelope,
+  validateEnvelope,
+  validateTarget,
   WithChromeMessageAdapter,
   WithMessageBus,
 } from "@hbb-emu/lib";
+
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
 
 const logger = createLogger("BridgeScript");
 
 const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
-    init = async () => {
+    init = () => {
       this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
       window.addEventListener("message", this.forwardToServiceWorker);
 
@@ -25,23 +30,38 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
         createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
         "*",
       );
+
       logger.log("Initialized");
     };
 
     forwardToContentScript = (envelope: MessageEnvelope) => {
-      if (!isValidMessageEnvelope(envelope)) return;
-      if (envelope.target !== "CONTENT_SCRIPT") return;
-
-      logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
-      window.postMessage(envelope, "*");
+      pipe(
+        validateEnvelope(envelope),
+        O.tap(validateTarget("CONTENT_SCRIPT")),
+        O.match(
+          () => IO.of(undefined),
+          (envelope): IO.IO<void> =>
+            () => {
+              logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
+              window.postMessage(envelope, "*");
+            },
+        ),
+      )();
     };
 
-    forwardToServiceWorker = async (event: MessageEvent<MessageEnvelope>) => {
-      if (!isValidMessageEnvelope(event.data)) return;
-      if (event.data.target !== "SERVICE_WORKER") return;
-
-      logger.log(`Forwarding ${event.data.source} → ${event.data.target}: ${event.data.message.type}`);
-      await this.sendMessage(event.data);
+    forwardToServiceWorker = (event: MessageEvent<MessageEnvelope>) => {
+      pipe(
+        validateEnvelope(event.data),
+        O.flatMap(validateTarget("SERVICE_WORKER")),
+        O.match(
+          () => IO.of(undefined),
+          (envelope): IO.IO<void> =>
+            () => {
+              logger.log(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
+              this.sendMessage(envelope);
+            },
+        ),
+      )();
     };
   };
 

@@ -1,3 +1,4 @@
+export * from "./app";
 export * from "./chrome";
 export * from "./config";
 export * from "./hbbtv";

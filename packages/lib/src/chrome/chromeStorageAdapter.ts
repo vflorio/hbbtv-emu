@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
-import { createLogger } from "../misc";
+import { createLogger } from "../logger";
 import type { StorageAdapter } from "../storage";
 
 const logger = createLogger("Chrome Storage");

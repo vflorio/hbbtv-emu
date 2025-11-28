@@ -14,10 +14,14 @@ import {
   WithMessageBus,
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
+import * as R from "fp-ts/Record";
 
 export interface ObjectHandler {
-  attachObject: (element: HTMLObjectElement) => void;
-  videoBroadcastObject: VideoBroadcast | null;
+  attachObject: (element: HTMLObjectElement) => IO.IO<void>;
+  videoBroadcastObject: O.Option<VideoBroadcast>;
   onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 }
 
@@ -28,43 +32,67 @@ const VideoBroadcastObject = compose(
   WithVideoBroadcastObject,
 );
 
+type OipfObjectType =
+  | "application/oipfApplicationManager"
+  | "application/oipfConfiguration"
+  | "application/oipfCapabilities";
+
+const objectFactoryMap: Record<OipfObjectType, () => unknown> = {
+  "application/oipfApplicationManager": createApplicationManager,
+  "application/oipfConfiguration": createOipfConfiguration,
+  "application/oipfCapabilities": createOipfCapabilities,
+};
+
 export const WithObjectHandler = <T extends ClassType>(Base: T) =>
   class extends Base implements ObjectHandler {
-    videoBroadcastObject: VideoBroadcast | null = null;
+    videoBroadcastObject: O.Option<VideoBroadcast> = O.none;
+    onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 
-    attachObject = (element: HTMLObjectElement) => {
-      const type = element.getAttribute("type");
-      if (!type) return;
+    // biome-ignore format: ack
+    attachObject = (element: HTMLObjectElement): IO.IO<void> =>
+      pipe(
+        O.fromNullable(element.getAttribute("type")),
+        O.match(() => IO.of(undefined), (type) =>
+          type === "video/broadcast" 
+            ? this.createVideoBroadcast(element) 
+            : this.createOipfObject(element, type),
+        ),
+      );
 
-      if (type === "video/broadcast") {
-        this.createVideoBroadcast(element);
-        return;
-      }
+    private createVideoBroadcast =
+      (objectElement: HTMLObjectElement): IO.IO<void> =>
+      () =>
+        pipe(
+          O.fromNullable(objectElement.parentNode),
+          O.match(
+            () => {},
+            (parentNode) => {
+              const videoBroadcast = new VideoBroadcastObject();
+              this.videoBroadcastObject = O.some(videoBroadcast);
 
-      const object = this.createObject(type);
-      if (!object) return;
+              parentNode.insertBefore(videoBroadcast.videoElement, objectElement.nextSibling);
 
-      copyProperties(object, element);
-    };
+              const objectStyleMirror = new ObjectStyleMirror(objectElement, videoBroadcast.videoElement);
+              objectStyleMirror.start();
 
-    private createVideoBroadcast = (objectElement: HTMLObjectElement) => {
-      if (!objectElement.parentNode) return;
+              proxyProperties(objectElement, videoBroadcast);
 
-      this.videoBroadcastObject = new VideoBroadcastObject();
+              pipe(
+                O.fromNullable(this.onVideoBroadcastCreated),
+                O.map((callback) => callback(videoBroadcast)),
+              );
+            },
+          ),
+        );
 
-      objectElement.parentNode.insertBefore(this.videoBroadcastObject.videoElement, objectElement.nextSibling);
-
-      new ObjectStyleMirror(objectElement, this.videoBroadcastObject.videoElement);
-      proxyProperties(objectElement, this.videoBroadcastObject);
-    };
-
-    private createObject = (type: string) => {
-      const objectMap: Record<string, () => unknown> = {
-        "application/oipfApplicationManager": createApplicationManager,
-        "application/oipfConfiguration": createOipfConfiguration,
-        "application/oipfCapabilities": createOipfCapabilities,
-      };
-
-      return objectMap[type]?.();
-    };
+    private createOipfObject =
+      (element: HTMLObjectElement, type: string): IO.IO<void> =>
+      () =>
+        pipe(
+          R.lookup(type)(objectFactoryMap),
+          O.match(
+            () => {},
+            (factory) => copyProperties(factory() as object, element),
+          ),
+        );
   };

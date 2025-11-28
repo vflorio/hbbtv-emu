@@ -25,26 +25,6 @@ export const createEmptyCollection = <T>(): Collection<T> => ({
   item: () => null,
 });
 
-export interface App {
-  init: () => void;
-}
-
-export const initApp = (app: App) => {
-  if (typeof document !== "undefined") {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => {
-        app.init();
-      });
-    } else {
-      app.init();
-    }
-  }
-
-  if (isServiceWorker) {
-    app.init();
-  }
-};
-
 export const tryCatch = async (
   callback: () => Promise<void>,
   [matchError, message]: [(error: Error) => boolean, string],

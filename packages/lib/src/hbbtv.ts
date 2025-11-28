@@ -80,11 +80,10 @@ export interface ChannelList {
   getChannelByTriplet(onid: number, tsid: number, sid: number, nid?: number): Channel | null;
 }
 
-export interface HbbTVChannelConfig {
+export interface ChannelConfig {
   channelList: { readonly length: number; item(index: number): Channel | null };
   readonly favouriteLists?: unknown;
 }
-
 // Keyset
 
 export interface Keyset {

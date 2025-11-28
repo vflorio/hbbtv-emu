@@ -1,4 +1,4 @@
-import { createLogger } from "../misc";
+import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message, MessageOrigin, MessageType } from "./message";
 import type { MessageAdapter, MessageHandler } from "./messageAdapter";

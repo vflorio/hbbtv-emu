@@ -96,7 +96,7 @@ export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
           ),
         ),
       ),
-      TE.chain((updatedEntries) => this.save(updatedEntries)),
+      TE.flatMap((updatedEntries) => this.save(updatedEntries)),
     );
 
   deleteEntry = (id: string): TE.TaskEither<Error, void> =>
@@ -108,6 +108,6 @@ export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
           A.filter((e) => e.id !== id),
         ),
       ),
-      TE.chain((filtered) => this.save(filtered)),
+      TE.flatMap((filtered) => this.save(filtered)),
     );
 }

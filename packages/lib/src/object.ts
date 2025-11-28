@@ -12,7 +12,11 @@ export class ObjectStyleMirror {
     readonly target: HTMLElement,
   ) {
     this.observerRef = IORef.newIORef(O.none)();
+    this.source = source;
+    this.target = target;
+  }
 
+  start: IO.IO<void> = () => {
     const observer = new MutationObserver((mutations) =>
       pipe(
         mutations,
@@ -28,7 +32,13 @@ export class ObjectStyleMirror {
 
     this.sync();
     this.observerRef.write(O.some(observer))();
-  }
+  };
+
+  stop: IO.IO<void> = () =>
+    pipe(
+      this.observerRef.read(),
+      O.map((observer) => observer.disconnect()),
+    );
 
   processStyle = (style: string): string =>
     pipe(
@@ -39,18 +49,13 @@ export class ObjectStyleMirror {
       (styles) => styles.join("; "),
     );
 
-  sync: IO.IO<void> = () =>
+  sync: IO.IO<void> = () => {
     pipe(
       O.fromNullable(this.source.getAttribute("style")),
       O.map(this.processStyle),
       O.map((processed) => this.target.setAttribute("style", processed)),
     );
-
-  stop: IO.IO<void> = () =>
-    pipe(
-      this.observerRef.read(),
-      O.map((observer) => observer.disconnect()),
-    );
+  };
 }
 
 export const copyProperties = (source: object, target: HTMLObjectElement) => {
@@ -70,34 +75,32 @@ export const copyProperties = (source: object, target: HTMLObjectElement) => {
   });
 };
 
-const getPropertyNames = (source: object) =>
-  new Set<string>([...Object.keys(source), ...Object.getOwnPropertyNames(Object.getPrototypeOf(source))]);
-
-const getPropertyDescriptor = (source: object, key: string): PropertyDescriptor | undefined => {
-  return (
-    Object.getOwnPropertyDescriptor(source, key) || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), key)
-  );
-};
-
-const proxyMethod = (target: object, source: object, key: string) => {
-  Object.defineProperty(target, key, {
-    value: (...args: unknown[]) => (source as any)[key](...args),
-    writable: true,
-    configurable: true,
-  });
-};
-
-const proxyAccessor = (target: object, source: object, key: string) => {
-  Object.defineProperty(target, key, {
-    get: () => (source as any)[key],
-    set: (value: unknown) => {
-      (source as any)[key] = value;
-    },
-    configurable: true,
-  });
-};
-
 const proxyProperty = (target: object, source: object, key: string) => {
+  const getPropertyDescriptor = (source: object, key: string): PropertyDescriptor | undefined => {
+    return (
+      Object.getOwnPropertyDescriptor(source, key) ||
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), key)
+    );
+  };
+
+  const proxyMethod = (target: object, source: object, key: string) => {
+    Object.defineProperty(target, key, {
+      value: (...args: unknown[]) => (source as any)[key](...args),
+      writable: true,
+      configurable: true,
+    });
+  };
+
+  const proxyAccessor = (target: object, source: object, key: string) => {
+    Object.defineProperty(target, key, {
+      get: () => (source as any)[key],
+      set: (value: unknown) => {
+        (source as any)[key] = value;
+      },
+      configurable: true,
+    });
+  };
+
   if (key === "constructor" || key in target) return;
 
   const descriptor = getPropertyDescriptor(source, key);
@@ -111,7 +114,11 @@ const proxyProperty = (target: object, source: object, key: string) => {
 };
 
 export const proxyProperties = (target: object, source: object) => {
-  const propertyNames = getPropertyNames(source);
+  const propertyNames = new Set<string>([
+    ...Object.keys(source),
+    ...Object.getOwnPropertyNames(Object.getPrototypeOf(source)),
+  ]);
+
   for (const key of propertyNames) {
     proxyProperty(target, source, key);
   }

@@ -16,19 +16,30 @@ import {
   WithChromeWebRequestManager,
   WithMessageBus,
 } from "@hbb-emu/lib";
+import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as IORef from "fp-ts/IORef";
+import * as T from "fp-ts/Task";
 
 const logger = createLogger("ServiceWorker");
 
 const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & WebRequestHandler>>(Base: T) =>
   class extends Base implements App {
     store = new Storage<ExtensionConfig.State>("state");
-    state: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
+    stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
 
-    init = async () => {
-      const candidate = await this.store.load()();
-      if (E.isLeft(candidate)) this.store.save(DEFAULT_HBBTV_CONFIG)();
+    init = () => {
+      pipe(
+        this.store.load(),
+        T.map(E.getOrElse(() => DEFAULT_HBBTV_CONFIG)),
+        T.map((state) => this.stateRef.write(state)()),
+        T.flatMap(() => T.fromIO(this.setupMessageHandlers)),
+      )();
+    };
 
+    setupMessageHandlers: IO.IO<void> = () => {
       this.bus.on("CONTENT_SCRIPT_READY", () => {
         logger.log("Content script ready, sending config");
         this.broadcastConfig();
@@ -36,27 +47,30 @@ const WithServiceWorker = <T extends ClassType<MessageAdapter & MessageBus & Web
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
         logger.log("Updating config", payload);
-
-        this.state = payload;
-        this.store.save(this.state)();
-
-        this.broadcastConfig();
+        pipe(
+          this.stateRef.write(payload),
+          IO.flatMap(() => this.store.save(payload)),
+          IO.flatMap(() => this.broadcastConfig),
+        )();
       });
     };
 
-    broadcastConfig = () => {
-      this.tabs.forEach((tabId) => {
-        this.sendMessage(
-          createEnvelope(
-            this.messageOrigin,
-            "CONTENT_SCRIPT",
-            { type: "UPDATE_CONFIG", payload: this.state },
-            { tabId },
-          ),
-        );
-
-        logger.log(`Config sent to tab ${tabId}`);
-      });
+    broadcastConfig: IO.IO<void> = () => {
+      pipe(
+        Array.from(this.tabs),
+        A.traverse(IO.Applicative)((tabId) => () => {
+          this.sendMessage(
+            createEnvelope(
+              this.messageOrigin,
+              "CONTENT_SCRIPT",
+              { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
+              { tabId },
+            ),
+          );
+          logger.log(`Config sent to tab ${tabId}`);
+        }),
+        (io) => io(),
+      );
     };
   };
 

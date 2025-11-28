@@ -11,6 +11,8 @@ import {
   WithMessageBus,
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
+import * as A from "fp-ts/Array";
+import { pipe } from "fp-ts/function";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
@@ -20,7 +22,7 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
     mutationObserver: MutationObserver | null = null;
     currentChannelFromConfig: Channel | null = null;
 
-    init = async () => {
+    init = () => {
       this.bus.on("BRIDGE_READY", async () => {
         logger.log("Bridge is ready");
         await this.sendMessage(
@@ -33,10 +35,11 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
     };
 
     attachObjects = (context: Document | HTMLElement) => {
-      const elements = Array.from(context.querySelectorAll<HTMLObjectElement>("object"));
-      for (const element of elements) {
-        this.attachObject(element);
-      }
+      pipe(
+        context.querySelectorAll<HTMLObjectElement>("object"),
+        (nodeList) => Array.from(nodeList),
+        A.map((element) => this.attachObject(element)),
+      );
     };
   };
 
@@ -48,4 +51,5 @@ const ContentScript = compose(
   WithObjectHandler, 
   WithContentScript
 );
+
 initApp(new ContentScript());

@@ -1,3 +1,5 @@
+import { pipe } from "fp-ts/function";
+import * as O from "fp-ts/Option";
 import { ChannelIdType, type ChannelTriplet, type Channel as FullChannel, isValidChannelTriplet } from "./hbbtv";
 
 export namespace ExtensionConfig {
@@ -28,19 +30,17 @@ export namespace ExtensionConfig {
     enableStreamEvents?: boolean;
   };
 
-  export const toChannel = (channel: ExtensionConfig.Channel | null): FullChannel | null => {
-    if (!channel || !isValidChannelTriplet(channel)) {
-      return null;
-    }
-
-    const { onid, tsid, sid } = channel;
-    return {
-      idType: ChannelIdType.ID_DVB_T,
-      onid,
-      tsid,
-      sid,
-    };
-  };
+  export const toChannel = (channel: O.Option<ExtensionConfig.Channel>): O.Option<FullChannel> =>
+    pipe(
+      channel,
+      O.filter(isValidChannelTriplet),
+      O.map(({ onid, tsid, sid }) => ({
+        idType: ChannelIdType.ID_DVB_T,
+        onid,
+        tsid,
+        sid,
+      })),
+    );
 }
 
 export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {

@@ -1,5 +1,6 @@
 import {
   type Channel,
+  type ChannelConfig,
   ChannelIdType,
   type ClassType,
   createLogger,
@@ -8,6 +9,8 @@ import {
   type MessageBus,
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
+import { pipe } from "fp-ts/function";
+import * as O from "fp-ts/Option";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -28,11 +31,6 @@ export enum ChannelChangeError {
   INSUFFICIENT_RESOURCES = 11,
   CHANNEL_NOT_IN_TS = 12,
   UNIDENTIFIED_ERROR = 100,
-}
-
-export interface ChannelConfig {
-  channelList: { readonly length: number; item(index: number): Channel | null };
-  readonly favouriteLists?: unknown;
 }
 
 export interface ChannelManager {
@@ -76,19 +74,25 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       });
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        const channel = ExtensionConfig.toChannel(payload.currentChannel);
-
-        if (
-          channel &&
-          isValidChannelTriplet(channel) &&
-          isValidChannelTriplet(this.currentChannel) &&
-          serializeChannelTriplet(this.currentChannel) === serializeChannelTriplet(channel)
-        ) {
-          return;
-        }
-
-        logger.log("Setting  channel", channel);
-        this.setChannel(channel);
+        pipe(
+          payload.currentChannel,
+          O.fromNullable,
+          ExtensionConfig.toChannel,
+          O.filter((channel) => {
+            return !(
+              isValidChannelTriplet(channel) &&
+              isValidChannelTriplet(this.currentChannel) &&
+              serializeChannelTriplet(this.currentChannel) === serializeChannelTriplet(channel)
+            );
+          }),
+          O.match(
+            () => {},
+            (channel) => {
+              logger.log("Setting  channel", channel);
+              this.setChannel(channel);
+            },
+          ),
+        );
       });
     }
 
