@@ -14,10 +14,10 @@ export const MessageOriginCodec = t.union([
   t.literal("BRIDGE_SCRIPT"),
 ]);
 
-export const validateMessageOrigin = (data: unknown): E.Either<Error, MessageOrigin> =>
+export const validateMessageOrigin = (data: unknown): E.Either<InvalidMessageOriginError, MessageOrigin> =>
   pipe(
     MessageOriginCodec.decode(data),
-    E.mapLeft(() => new Error(`Invalid message origin: ${data}`)),
+    E.mapLeft(() => invalidMessageOriginError(`Invalid message origin: ${data}`)),
   );
 
 export const isValidMessageOrigin = (origin: string): origin is MessageOrigin =>
@@ -34,10 +34,10 @@ export const MessageTypeCodec = t.union([
   t.literal("UPDATE_CONFIG"),
 ]);
 
-export const validateMessageType = (data: unknown): E.Either<Error, MessageType> =>
+export const validateMessageType = (data: unknown): E.Either<InvalidMessageTypeError, MessageType> =>
   pipe(
     MessageTypeCodec.decode(data),
-    E.mapLeft(() => new Error(`Invalid message type: ${data}`)),
+    E.mapLeft(() => invalidMessageTypeError(`Invalid message type: ${data}`)),
   );
 
 export const isValidMessageType = (type: string): type is Message["type"] => E.isRight(MessageTypeCodec.decode(type));
@@ -57,10 +57,42 @@ export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("UPDATE_CONFIG"), payload: ExtensionConfig.StateCodec }),
 ]);
 
-export const validateMessage = (data: unknown): E.Either<Error, Message> =>
+export const validateMessage = (data: unknown): E.Either<InvalidMessageError, Message> =>
   pipe(
     MessageCodec.decode(data),
-    E.mapLeft(() => new Error(`Invalid message: ${JSON.stringify(data)}`)),
+    E.mapLeft(() => invalidMessageError(`Invalid message: ${JSON.stringify(data)}`)),
   );
 
 export const isMessage = (data: unknown): data is Message => E.isRight(MessageCodec.decode(data));
+
+// Errors
+
+export type InvalidMessageOriginError = Readonly<{
+  type: "InvalidMessageOriginError";
+  message: string;
+}>;
+
+export type InvalidMessageTypeError = Readonly<{
+  type: "InvalidMessageTypeError";
+  message: string;
+}>;
+
+export type InvalidMessageError = Readonly<{
+  type: "InvalidMessageError";
+  message: string;
+}>;
+
+export const invalidMessageOriginError = (message: string): InvalidMessageOriginError => ({
+  type: "InvalidMessageOriginError",
+  message,
+});
+
+export const invalidMessageTypeError = (message: string): InvalidMessageTypeError => ({
+  type: "InvalidMessageTypeError",
+  message,
+});
+
+export const invalidMessageError = (message: string): InvalidMessageError => ({
+  type: "InvalidMessageError",
+  message,
+});

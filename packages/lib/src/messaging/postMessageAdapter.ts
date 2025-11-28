@@ -2,7 +2,7 @@ import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import { type ClassType, compose } from "../mixin";
 import type { Message } from "./message";
-import { type MessageAdapter, WithMessageAdapter } from "./messageAdapter";
+import { type MessageAdapter, type MessageAdapterError, WithMessageAdapter } from "./messageAdapter";
 import type { MessageEnvelope } from "./messageEnvelope";
 
 const logger = createLogger("PostMessage Adapter");
@@ -20,7 +20,9 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       return true;
     };
 
-    sendMessage = <T extends Message>(envelope: MessageEnvelope<T>): TE.TaskEither<Error, void> =>
+    sendMessage = <T extends Message>(
+      envelope: MessageEnvelope<T>,
+    ): TE.TaskEither<MessageAdapterError | PostMessageError, void> =>
       TE.tryCatch(
         async () => {
           logger.log("Sending message", envelope);
@@ -28,10 +30,22 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
         },
         (error) => {
           logger.error("Failed to send message", error);
-          return new Error(`PostMessage failed: ${error}`);
+          return postMessageError(`PostMessage failed: ${error}`);
         },
       );
   };
 
 export const WithPostMessageAdapter = <T extends ClassType>(Base: T) =>
   compose(Base, WithMessageAdapter, WithPostMessage);
+
+// Errors
+
+export type PostMessageError = Readonly<{
+  type: "PostMessageError";
+  message: string;
+}>;
+
+export const postMessageError = (message: string): PostMessageError => ({
+  type: "PostMessageError",
+  message,
+});

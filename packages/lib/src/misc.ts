@@ -1,18 +1,22 @@
-import * as E from "fp-ts/Either";
+export type DataNotFoundError = Readonly<{
+  type: "DataNotFoundError";
+  message: string;
+}>;
 
-export const isServiceWorker = typeof self !== "undefined" && "ServiceWorkerGlobalScope" in self;
+export type InvalidDataError = Readonly<{
+  type: "InvalidDataError";
+  message: string;
+}>;
 
-export const jsonParse = <T>(jsonString: string): E.Either<Error, T> =>
-  E.tryCatch(
-    () => JSON.parse(jsonString) as T,
-    (error) => new Error(`JSON parse error: ${error}`),
-  );
+export const dataNotFoundError = (message: string): DataNotFoundError => ({
+  type: "DataNotFoundError",
+  message,
+});
 
-export const jsonStringify = <T>(value: T): E.Either<Error, string> =>
-  E.tryCatch(
-    () => JSON.stringify(value),
-    (error) => new Error(`JSON stringify error: ${error}`),
-  );
+export const invalidDataError = (message: string): InvalidDataError => ({
+  type: "InvalidDataError",
+  message,
+});
 
 export interface Collection<T> {
   readonly length: number;

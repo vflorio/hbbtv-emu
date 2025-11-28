@@ -33,10 +33,10 @@ const MessageEnvelopeCodec = t.intersection([
   }),
 ]);
 
-export const validateEnvelope = (data: unknown): E.Either<Error, MessageEnvelope> =>
+export const validateEnvelope = (data: unknown): E.Either<InvalidMessageEnvelopeError, MessageEnvelope> =>
   pipe(
     MessageEnvelopeCodec.decode(data),
-    E.mapLeft(() => new Error(`Invalid message envelope: ${JSON.stringify(data)}`)),
+    E.mapLeft(() => invalidMessageEnvelopeError(`Invalid message envelope: ${JSON.stringify(data)}`)),
   );
 
 const generateId = (): string => `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
@@ -57,7 +57,29 @@ export const createEnvelope = <T extends Message>(
 
 export const validateTarget =
   (expectedTarget: MessageOrigin) =>
-  (envelope: MessageEnvelope): E.Either<Error, MessageEnvelope> =>
+  (envelope: MessageEnvelope): E.Either<InvalidTargetError, MessageEnvelope> =>
     envelope.target === expectedTarget
       ? E.right(envelope)
-      : E.left(new Error(`Expected target ${expectedTarget}, got ${envelope.target}`));
+      : E.left(invalidTargetError(`Expected target ${expectedTarget}, got ${envelope.target}`));
+
+// Errors
+
+export type InvalidMessageEnvelopeError = Readonly<{
+  type: "InvalidMessageEnvelopeError";
+  message: string;
+}>;
+
+export type InvalidTargetError = Readonly<{
+  type: "InvalidTargetError";
+  message: string;
+}>;
+
+export const invalidMessageEnvelopeError = (message: string): InvalidMessageEnvelopeError => ({
+  type: "InvalidMessageEnvelopeError",
+  message,
+});
+
+export const invalidTargetError = (message: string): InvalidTargetError => ({
+  type: "InvalidTargetError",
+  message,
+});

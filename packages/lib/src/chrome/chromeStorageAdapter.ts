@@ -2,18 +2,25 @@ import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
-import type { StorageAdapter } from "../storage";
+import { type DataNotFoundError, dataNotFoundError } from "../misc";
+import {
+  type LocalStorageGetItemError,
+  type LocalStorageSetItemError,
+  localStorageGetItemError,
+  localStorageSetItemError,
+  type StorageAdapter,
+} from "../storage";
 
 const logger = createLogger("Chrome Storage");
 
 export class ChromeStorageAdapter implements StorageAdapter {
-  getItem = (key: string): TE.TaskEither<Error, string> =>
+  getItem = (key: string): TE.TaskEither<LocalStorageGetItemError | DataNotFoundError, string> =>
     pipe(
       TE.tryCatch(
         () => chrome.storage.local.get(key),
-        (error): Error => {
+        (error): LocalStorageGetItemError => {
           logger.error("Failed to get item from chrome.storage:", error);
-          return new Error(`Chrome storage getItem failed: ${error}`);
+          return localStorageGetItemError(`Chrome storage getItem failed: ${error}`);
         },
       ),
       TE.flatMapOption(
@@ -23,16 +30,16 @@ export class ChromeStorageAdapter implements StorageAdapter {
             O.fromNullable,
             O.filter((value): value is string => typeof value === "string"),
           ),
-        () => new Error("No data found"),
+        () => dataNotFoundError("No data found"),
       ),
     );
 
-  setItem = (key: string, value: string): TE.TaskEither<Error, void> =>
+  setItem = (key: string, value: string): TE.TaskEither<LocalStorageSetItemError, void> =>
     TE.tryCatch(
       () => chrome.storage.local.set({ [key]: value }),
-      (error): Error => {
+      (error): LocalStorageSetItemError => {
         logger.error("Failed to set item in chrome.storage:", error);
-        return new Error(`Chrome storage setItem failed: ${error}`);
+        return localStorageSetItemError(`Chrome storage setItem failed: ${error}`);
       },
     );
 }

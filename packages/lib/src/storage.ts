@@ -5,38 +5,42 @@ import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 import type * as t from "io-ts";
 import { ChromeStorageAdapter } from "./chrome";
+import type { JsonParseError, JsonStringifyError } from "./json";
+import { jsonParse, jsonStringify } from "./json";
 import { createLogger } from "./logger";
-import { jsonParse, jsonStringify } from "./misc";
+import { type DataNotFoundError, dataNotFoundError, type InvalidDataError, invalidDataError } from "./misc";
 
 const logger = createLogger("Storage");
 
 export interface StorageAdapter {
-  getItem(key: string): TE.TaskEither<Error, string>;
-  setItem(key: string, value: string): TE.TaskEither<Error, void>;
+  getItem(key: string): TE.TaskEither<LocalStorageGetItemError | DataNotFoundError, string>;
+  setItem(key: string, value: string): TE.TaskEither<LocalStorageSetItemError, void>;
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
-  getItem = (key: string): TE.TaskEither<Error, string> =>
+  getItem = (key: string): TE.TaskEither<LocalStorageGetItemError | DataNotFoundError, string> =>
     pipe(
       TE.tryCatch(
         () => Promise.resolve(localStorage.getItem(key)),
-        (error): Error => {
+        (error): LocalStorageGetItemError => {
           logger.error("Failed to get item from localStorage:", error);
-          return new Error(`LocalStorage getItem failed: ${error}`);
+          return localStorageGetItemError(`LocalStorage getItem failed: ${error}`);
         },
       ),
-      TE.chainOptionK(() => new Error("No data found"))(O.fromNullable),
+      TE.chainOptionK<LocalStorageGetItemError | DataNotFoundError>(() => dataNotFoundError("No data found"))(
+        O.fromNullable,
+      ),
     );
 
-  setItem = (key: string, value: string): TE.TaskEither<Error, void> =>
+  setItem = (key: string, value: string): TE.TaskEither<LocalStorageSetItemError, void> =>
     TE.tryCatch(
       () => {
         localStorage.setItem(key, value);
         return Promise.resolve();
       },
-      (error): Error => {
+      (error): LocalStorageSetItemError => {
         logger.error("Failed to set item in localStorage:", error);
-        return new Error(`LocalStorage setItem failed: ${error}`);
+        return localStorageSetItemError(`LocalStorage setItem failed: ${error}`);
       },
     );
 }
@@ -55,7 +59,7 @@ export class Storage<T> {
     this.codec = codec;
   }
 
-  load = (): TE.TaskEither<Error, T> =>
+  load = (): TE.TaskEither<StorageError, T> =>
     pipe(
       this.storageAdapter.getItem(this.key),
       TE.flatMapEither(jsonParse<unknown>),
@@ -63,7 +67,7 @@ export class Storage<T> {
         this.codec
           ? pipe(
               this.codec.decode(data),
-              E.mapLeft(() => new Error(`Invalid data for key ${this.key}: ${JSON.stringify(data)}`)),
+              E.mapLeft(() => invalidDataError(`Invalid data for key ${this.key}: ${JSON.stringify(data)}`)),
             )
           : E.right(data as T),
       ),
@@ -73,7 +77,7 @@ export class Storage<T> {
       }),
     );
 
-  save = (entry: T): TE.TaskEither<Error, void> =>
+  save = (entry: T): TE.TaskEither<JsonStringifyError | LocalStorageSetItemError, void> =>
     pipe(
       jsonStringify(entry),
       TE.fromEither,
@@ -90,7 +94,7 @@ export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
     super(key, storageAdapter, codec);
   }
 
-  saveEntry = (entry: T): TE.TaskEither<Error, void> =>
+  saveEntry = (entry: T): TE.TaskEither<StorageError, void> =>
     pipe(
       this.load(),
       TE.map((entries) =>
@@ -111,7 +115,7 @@ export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
       TE.flatMap((updatedEntries) => this.save(updatedEntries)),
     );
 
-  deleteEntry = (id: string): TE.TaskEither<Error, void> =>
+  deleteEntry = (id: string): TE.TaskEither<StorageError, void> =>
     pipe(
       this.load(),
       TE.map((entries) =>
@@ -123,3 +127,33 @@ export class EntryStorage<T extends { id: string }> extends Storage<T[]> {
       TE.flatMap((filtered) => this.save(filtered)),
     );
 }
+
+// Errors
+
+export type LocalStorageGetItemError = Readonly<{
+  type: "LocalStorageGetItemError";
+  message: string;
+}>;
+
+export type LocalStorageSetItemError = Readonly<{
+  type: "LocalStorageSetItemError";
+  message: string;
+}>;
+
+export const localStorageGetItemError = (message: string): LocalStorageGetItemError => ({
+  type: "LocalStorageGetItemError",
+  message,
+});
+
+export const localStorageSetItemError = (message: string): LocalStorageSetItemError => ({
+  type: "LocalStorageSetItemError",
+  message,
+});
+
+export type StorageError =
+  | LocalStorageGetItemError
+  | LocalStorageSetItemError
+  | DataNotFoundError
+  | InvalidDataError
+  | JsonParseError
+  | JsonStringifyError;

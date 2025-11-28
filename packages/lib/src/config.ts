@@ -47,10 +47,10 @@ export namespace ExtensionConfig {
 
   export type State = t.TypeOf<typeof StateCodec>;
 
-  export const validateState = (data: unknown): E.Either<Error, State> =>
+  export const validateState = (data: unknown): E.Either<InvalidExtensionConfigStateError, State> =>
     pipe(
       StateCodec.decode(data),
-      E.mapLeft(() => new Error(`Invalid ExtensionConfig.State: ${JSON.stringify(data)}`)),
+      E.mapLeft(() => invalidExtensionConfigStateError(`Invalid ExtensionConfig.State: ${JSON.stringify(data)}`)),
     );
 
   export const toChannel = (channel: O.Option<ExtensionConfig.Channel>): O.Option<FullChannel> =>
@@ -92,3 +92,25 @@ export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
     '<video_profile name="MP4_AVC_HD_25_HEAAC" type="video/mp4" transport="dash"/>' +
     "</profilelist>",
 };
+
+// Errors
+
+export type InvalidExtensionConfigStateError = Readonly<{
+  type: "InvalidExtensionConfigStateError";
+  message: string;
+}>;
+
+export type ConfigContextError = Readonly<{
+  type: "ConfigContextError";
+  message: string;
+}>;
+
+export const invalidExtensionConfigStateError = (message: string): InvalidExtensionConfigStateError => ({
+  type: "InvalidExtensionConfigStateError",
+  message,
+});
+
+export const configContextError = (message: string): ConfigContextError => ({
+  type: "ConfigContextError",
+  message,
+});

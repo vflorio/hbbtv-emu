@@ -1,6 +1,5 @@
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
-import { isServiceWorker } from "./misc";
 
 export type LogLevel = "log" | "error" | "warn" | "info" | "debug";
 
@@ -32,7 +31,7 @@ const createLog =
   () => {
     const timestamp = getTimestamp();
 
-    pipe(isServiceWorker, (isWorker) =>
+    pipe(typeof self !== "undefined" && "ServiceWorkerGlobalScope" in self, (isWorker) =>
       isWorker
         ? console[level](formatServiceWorkerLog(timestamp, section, message), ...args)
         : console[level](...formatBrowserLog(timestamp, section, message), ...args),

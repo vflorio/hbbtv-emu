@@ -1,4 +1,5 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
+import { configContextError } from "@hbb-emu/lib";
 import { createContext, useContext } from "react";
 
 export interface UIConfig {
@@ -23,7 +24,7 @@ export const useConfig = (): UIConfig => {
   const context = useContext(ConfigContext);
 
   if (!context) {
-    throw new Error("useConfig must be used within a ConfigProvider");
+    throw configContextError("useConfig must be used within a ConfigProvider");
   }
 
   return context;

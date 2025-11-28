@@ -27,10 +27,20 @@ export const ChannelTripletCodec = t.type({
 
 export type ChannelTriplet = t.TypeOf<typeof ChannelTripletCodec>;
 
-export const validateChannelTriplet = (data: unknown): E.Either<Error, ChannelTriplet> =>
+export type InvalidChannelTripletError = Readonly<{
+  type: "InvalidChannelTripletError";
+  message: string;
+}>;
+
+export const invalidChannelTripletError = (message: string): InvalidChannelTripletError => ({
+  type: "InvalidChannelTripletError",
+  message,
+});
+
+export const validateChannelTriplet = (data: unknown): E.Either<InvalidChannelTripletError, ChannelTriplet> =>
   pipe(
     ChannelTripletCodec.decode(data),
-    E.mapLeft(() => new Error(`Invalid channel triplet: ${JSON.stringify(data)}`)),
+    E.mapLeft(() => invalidChannelTripletError(`Invalid channel triplet: ${JSON.stringify(data)}`)),
   );
 
 export const isValidChannelTriplet = (channel: unknown): channel is ChannelTriplet =>
@@ -76,10 +86,20 @@ export const ChannelCodec = t.intersection([
 
 export type Channel = t.TypeOf<typeof ChannelCodec>;
 
-export const validateChannel = (data: unknown): E.Either<Error, Channel> =>
+export type InvalidChannelError = Readonly<{
+  type: "InvalidChannelError";
+  message: string;
+}>;
+
+export const invalidChannelError = (message: string): InvalidChannelError => ({
+  type: "InvalidChannelError",
+  message,
+});
+
+export const validateChannel = (data: unknown): E.Either<InvalidChannelError, Channel> =>
   pipe(
     ChannelCodec.decode(data),
-    E.mapLeft(() => new Error(`Invalid channel: ${JSON.stringify(data)}`)),
+    E.mapLeft(() => invalidChannelError(`Invalid channel: ${JSON.stringify(data)}`)),
   );
 
 export enum ChannelChangeError {
