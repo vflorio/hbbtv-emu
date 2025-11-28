@@ -49,7 +49,7 @@ export const WithMessageBus =
           if (RA.isEmpty(handlers)) {
             return TE.rightIO(IO.of(undefined));
           }
- 
+
           return pipe(
             TE.fromIO(() => logger.log("Dispatching message", envelope)),
             TE.flatMap(() =>

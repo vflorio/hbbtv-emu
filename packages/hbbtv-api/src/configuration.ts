@@ -14,6 +14,8 @@ import {
 } from "@hbb-emu/lib";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
+import * as IORef from "fp-ts/IORef";
+import * as TE from "fp-ts/TaskEither";
 import * as O from "fp-ts/Option";
 import * as Ord from "fp-ts/Ord";
 
@@ -50,22 +52,24 @@ const isVersion2 = (version: Version) => isGreaterThanOrEqual(version, unsafePar
 
 const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
-    protected hbbtvVersion: string = "";
-    protected countryCode: string = "";
+    protected hbbtvVersionRef = IORef.newIORef("")();
+    protected countryCodeRef = IORef.newIORef("")();
 
     constructor(...args: any[]) {
       super(...args);
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        this.countryCode = payload.countryCode;
-        this.hbbtvVersion = payload.version;
+        this.countryCodeRef.write(payload.countryCode);
+        this.hbbtvVersionRef.write(payload.version);
+        return TE.right(void 0);
       });
     }
 
     get configuration(): Configuration {
-      const base = baseConfiguration(this.countryCode);
+      const countryCode = this.countryCodeRef.read();
+      const base = baseConfiguration(countryCode);
       return pipe(
-        parseVersion(this.hbbtvVersion),
+        parseVersion(this.hbbtvVersionRef.read()),
         E.match(
           () => base,
           (hbbtvVersion) => (isVersion2(hbbtvVersion) ? extendedConfiguration(base) : base),
@@ -75,7 +79,7 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
 
     get localSystem(): LocalSystem | undefined {
       return pipe(
-        parseVersion(this.hbbtvVersion),
+        parseVersion(this.hbbtvVersionRef.read()),
         E.match(
           () => O.none,
           (hbbtvVersion) => (isVersion2(hbbtvVersion) ? O.some(localSystemV2) : O.none),

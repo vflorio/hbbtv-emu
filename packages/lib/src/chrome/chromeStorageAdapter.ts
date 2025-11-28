@@ -16,12 +16,14 @@ export class ChromeStorageAdapter implements StorageAdapter {
           return new Error(`Chrome storage getItem failed: ${error}`);
         },
       ),
-      TE.chainOptionK(() => new Error("No data found"))((result) =>
-        pipe(
-          result[key],
-          O.fromNullable,
-          O.filter((value): value is string => typeof value === "string"),
-        ),
+      TE.flatMapOption(
+        (result) =>
+          pipe(
+            result[key],
+            O.fromNullable,
+            O.filter((value): value is string => typeof value === "string"),
+          ),
+        () => new Error("No data found"),
       ),
     );
 

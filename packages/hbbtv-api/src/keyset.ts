@@ -1,5 +1,8 @@
 import type { ClassType, Keyset } from "@hbb-emu/lib";
 import { compose } from "@hbb-emu/lib";
+import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
+import { pipe } from "fp-ts/function";
 
 const KEYSET_VALUES = {
   RED: 0x1,
@@ -32,14 +35,14 @@ const WithKeysetConstants = <T extends ClassType>(Base: T) =>
 
 const WithKeysetValue = <T extends ClassType>(Base: T) =>
   class extends Base {
-    private currentValue: number | null = null;
+    private currentValueRef = IORef.newIORef<O.Option<number>>(O.none)();
 
     get value(): number | null {
-      return this.currentValue;
+      return pipe(this.currentValueRef.read(), O.toNullable);
     }
 
     setValue = (value: number): void => {
-      this.currentValue = value;
+      this.currentValueRef.write(O.some(value));
     };
   };
 

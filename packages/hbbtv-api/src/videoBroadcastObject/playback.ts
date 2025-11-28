@@ -1,4 +1,5 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
+import * as IORef from "fp-ts/IORef";
 import type { EventTarget } from "./eventTarget";
 import type { VideoElement } from "./videoElement";
 
@@ -10,7 +11,7 @@ export enum PlayState {
 }
 
 export interface Playback {
-  playState: PlayState;
+  get playState(): PlayState;
   onPlayStateChange?: (state: PlayState, error?: number) => void;
   dispatchPlayStateChange(newState: PlayState, error?: number): void;
 
@@ -23,7 +24,7 @@ const logger = createLogger("VideoBroadcast/Playback");
 
 export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Base: T) =>
   class extends Base implements Playback {
-    playState: PlayState = PlayState.UNREALIZED;
+    playStateRef = IORef.newIORef(PlayState.UNREALIZED)();
 
     onPlayStateChange?: (state: PlayState, error?: number) => void;
 
@@ -32,24 +33,28 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
 
       this.videoElement.addEventListener("PlayStateChange", (event: Event) => {
         console.log("VideoElement PlayStateChange event:", event);
-        this.playState = (event as CustomEvent).detail as PlayState;
+        this.playStateRef.write((event as CustomEvent).detail as PlayState);
       });
     }
 
+    get playState(): PlayState {
+      return this.playStateRef.read();
+    }
+
     dispatchPlayStateChange = (newState: PlayState, error?: number) => {
-      const oldState = this.playState;
+      const oldState = this.playStateRef.read();
       logger.log(`VideoBroadcast state`, { oldState, newState });
-      this.playState = newState;
+      this.playStateRef.write(newState);
 
       this.onPlayStateChange?.(newState, error);
       this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
     };
 
-    isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playState);
+    isPlayStateValid = (validStates: PlayState[]) => validStates.includes(this.playStateRef.read());
 
     stop = () => {
       logger.log("stop");
-      if (this.playState === PlayState.UNREALIZED) return;
+      if (this.playStateRef.read() === PlayState.UNREALIZED) return;
 
       this.stopVideo();
     };

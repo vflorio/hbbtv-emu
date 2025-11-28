@@ -6,9 +6,11 @@ import {
   type MessageBus,
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
+import * as IORef from "fp-ts/IORef";
+import * as TE from "fp-ts/TaskEither";
 
 export interface ChannelStreamAdapter {
-  channelStreamUrls: Map<string, string>;
+  get channelStreamUrls(): Map<string, string>;
   getChannelStreamUrl: (channel: Channel) => string;
 }
 
@@ -16,21 +18,28 @@ const logger = createLogger("VideoBroadcast/ChannelStreamAdapter");
 
 export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements ChannelStreamAdapter {
-    channelStreamUrls: Map<string, string> = new Map();
+    channelStreamUrlsRef = IORef.newIORef<Map<string, string>>(new Map())();
 
     constructor(...args: any[]) {
       super(...args);
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        const streamUrls = new Map<string, string>();
         payload.channels.forEach((channel) => {
-          this.channelStreamUrls.set(serializeChannelTriplet(channel), channel.mp4Source);
+          streamUrls.set(serializeChannelTriplet(channel), channel.mp4Source);
         });
+        this.channelStreamUrlsRef.write(streamUrls);
+        return TE.right(void 0);
       });
+    }
+
+    get channelStreamUrls(): Map<string, string> {
+      return this.channelStreamUrlsRef.read();
     }
 
     getChannelStreamUrl = (channel: Channel): string => {
       const key = isValidChannelTriplet(channel) ? serializeChannelTriplet(channel) : channel?.ccid || "";
       logger.log(`Getting stream URL for channel: ${key}`);
-      return this.channelStreamUrls.get(key) || "";
+      return this.channelStreamUrlsRef.read().get(key) || "";
     };
   };

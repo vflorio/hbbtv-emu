@@ -6,30 +6,54 @@ import {
   isValidChannelTriplet,
   type MessageBus,
 } from "@hbb-emu/lib";
+import * as A from "fp-ts/Array";
+import * as O from "fp-ts/Option";
+import * as IORef from "fp-ts/IORef";
+import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 
 export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements ChannelList {
-    channelList: Channel[] = [];
+    channelListRef = IORef.newIORef<Channel[]>([])();
 
     constructor(...args: any[]) {
       super(...args);
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        this.channelList = payload.channels.filter(isValidChannelTriplet).map((channel) => ({
-          idType: ChannelIdType.ID_DVB_T,
-          ...channel,
-        }));
+        const channels = pipe(
+          payload.channels,
+          A.filter(isValidChannelTriplet),
+          A.map((channel) => ({
+            idType: ChannelIdType.ID_DVB_T,
+            ...channel,
+          })),
+        );
+        this.channelListRef.write(channels);
+        return TE.right(void 0);
       });
     }
 
-    get length(): number {
-      return this.channelList.length;
+    get channelList(): Channel[] {
+      return this.channelListRef.read();
     }
 
-    item = (index: number) => this.channelList[index] || null;
+    get length(): number {
+      return this.channelListRef.read().length;
+    }
 
-    getChannel = (ccid: string) => this.channelList.find((ch) => ch.ccid === ccid) || null;
+    item = (index: number) => pipe(this.channelListRef.read(), A.lookup(index), O.toNullable);
+
+    getChannel = (ccid: string) =>
+      pipe(
+        this.channelListRef.read(),
+        A.findFirst((channel) => channel.ccid === ccid),
+        O.toNullable,
+      );
 
     getChannelByTriplet = (onid: number, tsid: number, sid: number, _nid?: number) =>
-      this.channelList.find((ch) => ch.onid === onid && ch.tsid === tsid && ch.sid === sid) || null;
+      pipe(
+        this.channelListRef.read(),
+        A.findFirst((channel) => channel.onid === onid && channel.tsid === tsid && channel.sid === sid),
+        O.toNullable,
+      );
   };

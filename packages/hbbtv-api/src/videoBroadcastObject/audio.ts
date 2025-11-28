@@ -22,17 +22,13 @@ export const WithAudio = <T extends ClassType>(Base: T) =>
 
       return pipe(
         validateVolume(volume),
-        E.match(
-          () => false,
-          (validVolume) => {
-            const currentVolume = this.volumeRef.read();
-            const changed = currentVolume !== validVolume;
-            if (changed) {
-              this.volumeRef.write(validVolume);
-            }
-            return changed;
-          },
-        ),
+        E.map((validVolume) => {
+          const currentVolume = this.volumeRef.read();
+          const changed = currentVolume !== validVolume;
+          changed && this.volumeRef.write(validVolume);
+          return changed;
+        }),
+        E.getOrElse(() => false),
       );
     };
 

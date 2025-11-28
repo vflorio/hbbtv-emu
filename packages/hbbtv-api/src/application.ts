@@ -1,4 +1,7 @@
 import { type Application, type ApplicationPrivateData, type ClassType, compose, createLogger } from "@hbb-emu/lib";
+import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
+import { pipe } from "fp-ts/function";
 import { createKeyset } from "./keyset";
 
 interface PerformanceMemory {
@@ -40,17 +43,17 @@ interface Visibility {
 
 const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base implements Visibility {
-    private _visible: boolean | undefined;
+    private visibleRef = IORef.newIORef<O.Option<boolean>>(O.none)();
 
-    get visible() {
-      return this._visible;
+    get visible(): boolean | undefined {
+      return pipe(this.visibleRef.read(), O.toUndefined);
     }
 
     show = (): boolean => {
       logger.log("show");
       if (this.documentRef?.body) {
         this.documentRef.body.style.visibility = "visible";
-        this._visible = true;
+        this.visibleRef.write(O.some(true));
         return true;
       }
       return false;
@@ -60,7 +63,7 @@ const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
       logger.log("hide");
       if (this.documentRef?.body) {
         this.documentRef.body.style.visibility = "hidden";
-        this._visible = false;
+        this.visibleRef.write(O.some(false));
         return true;
       }
       return false;

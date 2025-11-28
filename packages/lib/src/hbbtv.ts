@@ -54,6 +54,23 @@ export interface Channel extends Partial<ChannelTriplet> {
   locked?: boolean;
 }
 
+export enum ChannelChangeError {
+  CHANNEL_NOT_SUPPORTED = 0,
+  CANNOT_TUNE = 1,
+  TUNER_LOCKED = 2,
+  PARENTAL_LOCK = 3,
+  ENCRYPTED_NO_KEY = 4,
+  UNKNOWN_CHANNEL = 5,
+  INTERRUPTED = 6,
+  RECORDING = 7,
+  CANNOT_RESOLVE_URI = 8,
+  INSUFFICIENT_BANDWIDTH = 9,
+  NO_CHANNEL_LIST = 10,
+  INSUFFICIENT_RESOURCES = 11,
+  CHANNEL_NOT_IN_TS = 12,
+  UNIDENTIFIED_ERROR = 100,
+}
+
 export interface ParentalRating {
   scheme: string;
   region?: string;

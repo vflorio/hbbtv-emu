@@ -19,7 +19,7 @@ export const initApp = (app: App): IO.IO<void> => {
 
   return pipe(
     O.fromNullable(typeof document !== "undefined" ? document : null),
-    O.fold(
+    O.match(
       () => runInit,
       () => initOnDomReady,
     ),

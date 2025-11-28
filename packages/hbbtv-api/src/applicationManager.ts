@@ -1,4 +1,5 @@
 import { type Application, type ClassType, compose, createLogger } from "@hbb-emu/lib";
+import * as IORef from "fp-ts/IORef";
 import { createApplication } from "./application";
 
 export interface OipfApplicationManager {
@@ -7,9 +8,6 @@ export interface OipfApplicationManager {
 }
 
 const logger = createLogger("OipfApplicationManager");
-
-// Store application instances per document
-const applicationCache = new WeakMap<Document, Application>();
 
 class ApplicationManagerBase {}
 
@@ -22,13 +20,17 @@ const WithMemoryManagement = <T extends ClassType<ApplicationManagerBase>>(Base:
 
 const WithApplicationCache = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
   class extends Base {
+    private applicationCacheRef = IORef.newIORef<WeakMap<Document, Application>>(new WeakMap())();
+
     getOwnerApplication = (document: Document): Application => {
       logger.log("getOwnerApplication");
 
-      let app = applicationCache.get(document);
+      const cache = this.applicationCacheRef.read();
+      let app = cache.get(document);
       if (!app) {
         app = createApplication(document);
-        applicationCache.set(document, app);
+        cache.set(document, app);
+        this.applicationCacheRef.write(cache);
       }
 
       return app;

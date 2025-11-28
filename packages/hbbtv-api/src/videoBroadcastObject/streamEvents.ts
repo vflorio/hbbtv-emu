@@ -1,4 +1,7 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
+import * as A from "fp-ts/Array";
+import * as IORef from "fp-ts/IORef";
+import { pipe } from "fp-ts/function";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -21,13 +24,8 @@ const logger = createLogger("VideoBroadcast/StreamEvents");
 
 export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Base: T) =>
   class extends Base implements StreamEvents {
-    // Map to track targetURL+eventName combinations
-    // Stores metadata about registered stream event listeners
-    streamEventMetadata = new Map<string, Set<EventListener>>();
-
-    // Track last received stream event versions to avoid duplicate dispatches
-    // Key: targetURL:eventName, Value: Set of version numbers
-    streamEventVersions = new Map<string, Set<number>>();
+    streamEventMetadataRef = IORef.newIORef<Map<string, Set<EventListener>>>(new Map())();
+    streamEventVersionsRef = IORef.newIORef<Map<string, Set<number>>>(new Map())();
 
     constructor(...args: any[]) {
       super(...args);
@@ -55,34 +53,47 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
     getStreamEventKey = (targetURL: string, eventName: string) => `${targetURL}:${eventName}`;
 
     registerListener = (key: string, listener: EventListener) => {
-      if (!this.streamEventMetadata.has(key)) {
-        this.streamEventMetadata.set(key, new Set());
+      const metadata = this.streamEventMetadataRef.read();
+      if (!metadata.has(key)) {
+        metadata.set(key, new Set());
       }
-      this.streamEventMetadata.get(key)!.add(listener);
+      metadata.get(key)!.add(listener);
+      this.streamEventMetadataRef.write(metadata);
     };
 
     unregisterListener = (key: string, listener: EventListener) => {
-      if (!this.streamEventMetadata.has(key)) return;
-      this.streamEventMetadata.get(key)!.delete(listener);
+      const metadata = this.streamEventMetadataRef.read();
+      if (!metadata.has(key)) return;
 
-      if (this.streamEventMetadata.get(key)!.size !== 0) return;
-      this.streamEventMetadata.delete(key);
-      this.streamEventVersions.delete(key);
+      metadata.get(key)!.delete(listener);
+
+      if (metadata.get(key)!.size === 0) {
+        metadata.delete(key);
+        const versions = this.streamEventVersionsRef.read();
+        versions.delete(key);
+        this.streamEventVersionsRef.write(versions);
+      }
+
+      this.streamEventMetadataRef.write(metadata);
     };
 
-    hasListener = (key: string) => this.streamEventMetadata.has(key);
+    hasListener = (key: string) => this.streamEventMetadataRef.read().has(key);
 
     trackVersion = (key: string, version: number): boolean => {
-      if (!this.streamEventVersions.has(key)) {
-        this.streamEventVersions.set(key, new Set());
+      const versions = this.streamEventVersionsRef.read();
+
+      if (!versions.has(key)) {
+        versions.set(key, new Set());
       }
 
-      const versions = this.streamEventVersions.get(key);
-      if (versions?.has(version)) {
-        return false; // Version already tracked
+      const versionSet = versions.get(key);
+      if (versionSet?.has(version)) {
+        return false;
       }
-      versions?.add(version);
-      return true; // New version tracked
+
+      versionSet?.add(version);
+      this.streamEventVersionsRef.write(versions);
+      return true;
     };
 
     createStreamEvent = (detail: StreamEventDetail): StreamEvent =>
@@ -99,9 +110,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       }
 
       const key = this.getStreamEventKey(targetURL, eventName);
-
       this.registerListener(key, listener);
-
       this.addEventListener(eventName, listener);
     };
 
@@ -109,24 +118,25 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       logger.log(`removeStreamEventListener(${targetURL}, ${eventName})`);
 
       const key = this.getStreamEventKey(targetURL, eventName);
-
       this.unregisterListener(key, listener);
-
       this.removeEventListener(eventName, listener);
     };
 
     clearAllStreamEventListeners = () => {
       logger.log("clearAllStreamEventListeners");
 
-      for (const [key, listeners] of this.streamEventMetadata.entries()) {
-        const [_targetURL, eventName] = key.split(":", 2);
-        for (const listener of listeners) {
-          this.removeEventListener(eventName, listener);
-        }
-      }
+      const metadata = this.streamEventMetadataRef.read();
 
-      this.streamEventMetadata.clear();
-      this.streamEventVersions.clear();
+      pipe(
+        Array.from(metadata.entries()),
+        A.map(([key, listeners]) => {
+          const [_targetURL, eventName] = key.split(":", 2);
+          Array.from(listeners).forEach((listener) => this.removeEventListener(eventName, listener));
+        }),
+      );
+
+      this.streamEventMetadataRef.write(new Map());
+      this.streamEventVersionsRef.write(new Map());
     };
 
     dispatchStreamEvent = (targetURL: string, eventName: string, data: string, text: string = "", version?: number) => {
@@ -163,9 +173,10 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
 
       this.dispatchEvent(errorEvent);
 
-      const listeners = Array.from(this.streamEventMetadata.get(key) || []);
-      for (const listener of listeners) {
-        this.removeStreamEventListener(targetURL, eventName, listener);
-      }
+      const metadata = this.streamEventMetadataRef.read();
+      pipe(
+        Array.from(metadata.get(key) || []),
+        A.map((listener) => this.removeStreamEventListener(targetURL, eventName, listener)),
+      );
     };
   };

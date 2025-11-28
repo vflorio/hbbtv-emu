@@ -6,25 +6,29 @@ import {
   WithMessageBus,
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
+import * as IORef from "fp-ts/IORef";
+import * as TE from "fp-ts/TaskEither";
 
 const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
-    protected capabilitiesXML: string = "";
+    protected capabilitiesXMLRef = IORef.newIORef("")();
 
     constructor(...args: any[]) {
       super(...args);
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        this.capabilitiesXML = payload.capabilities;
+        this.capabilitiesXMLRef.write(payload.capabilities);
+        return TE.right(void 0);
       });
     }
 
     get xmlCapabilities(): Document {
-      return new DOMParser().parseFromString(this.capabilitiesXML, "text/xml");
+      return new DOMParser().parseFromString(this.capabilitiesXMLRef.read(), "text/xml");
     }
 
     private countVideoProfiles = (type: "SD" | "HD"): number => {
-      const videoProfiles = this.capabilitiesXML.split("video_profile");
+      const capabilitiesXML = this.capabilitiesXMLRef.read();
+      const videoProfiles = capabilitiesXML.split("video_profile");
       if (videoProfiles.length <= 1) return 0;
 
       const profilesString = videoProfiles.slice(1).join();

@@ -1,5 +1,6 @@
 import {
   type Channel,
+  ChannelChangeError,
   type ChannelConfig,
   ChannelIdType,
   type ClassType,
@@ -11,30 +12,15 @@ import {
 } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
+import * as IORef from "fp-ts/IORef";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 import type { VideoElement } from "./videoElement";
-
-export enum ChannelChangeError {
-  CHANNEL_NOT_SUPPORTED = 0,
-  CANNOT_TUNE = 1,
-  TUNER_LOCKED = 2,
-  PARENTAL_LOCK = 3,
-  ENCRYPTED_NO_KEY = 4,
-  UNKNOWN_CHANNEL = 5,
-  INTERRUPTED = 6,
-  RECORDING = 7,
-  CANNOT_RESOLVE_URI = 8,
-  INSUFFICIENT_BANDWIDTH = 9,
-  NO_CHANNEL_LIST = 10,
-  INSUFFICIENT_RESOURCES = 11,
-  CHANNEL_NOT_IN_TS = 12,
-  UNIDENTIFIED_ERROR = 100,
-}
+import * as TE from "fp-ts/TaskEither";
 
 export interface ChannelManager {
-  currentChannel: Channel | null;
+  get currentChannel(): Channel | null;
   onChannelChangeSucceeded?: (channel: Channel) => void;
   onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
   bindToCurrentChannel(): Channel | null;
@@ -55,9 +41,12 @@ export interface ChannelManager {
 
 const logger = createLogger("VideoBroadcast/Channel");
 
+const isChannelEqual = (a: Channel, b: Channel): boolean =>
+  isValidChannelTriplet(a) && isValidChannelTriplet(b) && serializeChannelTriplet(a) === serializeChannelTriplet(b);
+
 export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback & MessageBus>>(Base: T) =>
   class extends Base implements ChannelManager {
-    currentChannel: Channel | null = null;
+    currentChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 
     onChannelChangeSucceeded?: (channel: Channel) => void;
     onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
@@ -78,22 +67,26 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
           payload.currentChannel,
           O.fromNullable,
           ExtensionConfig.toChannel,
-          O.filter((channel) => {
-            return !(
-              isValidChannelTriplet(channel) &&
-              isValidChannelTriplet(this.currentChannel) &&
-              serializeChannelTriplet(this.currentChannel) === serializeChannelTriplet(channel)
-            );
-          }),
-          O.match(
-            () => {},
-            (channel) => {
-              logger.log("Setting  channel", channel);
-              this.setChannel(channel);
-            },
+          O.filter((channel) =>
+            pipe(
+              this.currentChannelRef.read(),
+              O.match(
+                () => true,
+                (currentChannel) => !isChannelEqual(channel, currentChannel),
+              ),
+            ),
           ),
+          O.map((channel) => {
+            logger.log("Setting channel", channel);
+            this.setChannel(channel);
+          }),
         );
+        return TE.right(void 0);
       });
+    }
+
+    get currentChannel(): Channel | null {
+      return pipe(this.currentChannelRef.read(), O.toNullable);
     }
 
     dispatchChannelError = (channel: Channel | null, errorState: ChannelChangeError) => {
@@ -113,13 +106,14 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         return null;
       }
 
-      if (!this.currentChannel) {
-        return null;
-      }
-
-      this.loadVideo(this.currentChannel);
-
-      return this.currentChannel;
+      return pipe(
+        this.currentChannelRef.read(),
+        O.map((channel) => {
+          this.loadVideo(channel);
+          return channel;
+        }),
+        O.toNullable,
+      );
     };
 
     setChannel = (
@@ -129,31 +123,33 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       _quiet?: number,
     ) => {
       logger.log("setChannel", channel);
+      pipe(
+        O.fromNullable(channel),
+        O.match(
+          () => {
+            logger.log("setChannel: starting transition to unrealized state");
+            this.currentChannelRef.write(O.none);
+            this.releaseVideo();
+          },
+          (channel) => {
+            if (!channel.idType) {
+              logger.log("setChannel: channel idType not supported");
+              this.dispatchChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
+              return;
+            }
 
-      if (!channel) {
-        logger.log("setChannel: starting transition to unrealized state");
-        this.currentChannel = null;
-        this.stopVideo();
-        // TODO assicurarsi che scatta la transizione a unrealized
-        return;
-      }
-
-      if (!channel.idType) {
-        logger.log("setChannel: channel idType not supported");
-        this.dispatchChannelError(channel, ChannelChangeError.CHANNEL_NOT_SUPPORTED);
-        return;
-      }
-
-      this.currentChannel = channel;
-      this.loadVideo(channel);
+            this.currentChannelRef.write(O.some(channel));
+            this.loadVideo(channel);
+          },
+        ),
+      );
     };
 
     nextChannel = () => {
       logger.log("nextChannel");
 
       if (this.playState === PlayState.UNREALIZED) {
-        const channel = this.currentChannel;
-        this.dispatchChannelError(channel, ChannelChangeError.NO_CHANNEL_LIST);
+        this.dispatchChannelError(this.currentChannel, ChannelChangeError.NO_CHANNEL_LIST);
         return;
       }
 
@@ -181,19 +177,16 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
     createChannelObject = (idType: ChannelIdType, ...args: unknown[]): Channel | null => {
       logger.log(`createChannelObject(${idType})`);
 
-      if (idType === ChannelIdType.ID_DVB_SI_DIRECT && args.length >= 2) {
-        const [dsd, sid] = args as [string, number];
-        return { idType, dsd, sid };
-      }
-
-      const [onid, tsid, sid, sourceID, ipBroadcastID] = args as [
-        number | undefined,
-        number | undefined,
-        number | undefined,
-        number | undefined,
-        string | undefined,
-      ];
-
-      return { idType, onid, tsid, sid, sourceID, ipBroadcastID };
+      return pipe(
+        args as [number?, number?, number?, number?, string?],
+        ([onid, tsid, sid, sourceID, ipBroadcastID]) => ({
+          idType,
+          onid,
+          tsid,
+          sid,
+          sourceID,
+          ipBroadcastID,
+        }),
+      );
     };
   };
