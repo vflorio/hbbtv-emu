@@ -1,5 +1,6 @@
+import { createLogger } from "../logger";
 import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "../messaging";
-import { createLogger, tryCatch } from "../misc";
+import { tryCatch } from "../misc";
 import { type ClassType, compose } from "../mixin";
 
 const logger = createLogger("Chrome Message Listener");

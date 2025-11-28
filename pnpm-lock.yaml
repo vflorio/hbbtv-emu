@@ -61,7 +61,7 @@ importers:
         specifier: 1.0.0
         version: 1.0.0
       fp-ts:
-        specifier: ^2.16.11
+        specifier: 2.16.11
         version: 2.16.11
       globals:
         specifier: 16.5.0
@@ -99,7 +99,7 @@ importers:
         version: link:../lib
     devDependencies:
       fp-ts:
-        specifier: ^2.16.11
+        specifier: 2.16.11
         version: 2.16.11
       typescript:
         specifier: 5.9.3
@@ -111,7 +111,7 @@ importers:
         specifier: 0.1.29
         version: 0.1.29
       fp-ts:
-        specifier: ^2.16.11
+        specifier: 2.16.11
         version: 2.16.11
       typescript:
         specifier: 5.9.3
@@ -157,7 +157,7 @@ importers:
         specifier: 5.3.3
         version: 5.3.3
       fp-ts:
-        specifier: ^2.16.11
+        specifier: 2.16.11
         version: 2.16.11
       typescript:
         specifier: 5.9.3
