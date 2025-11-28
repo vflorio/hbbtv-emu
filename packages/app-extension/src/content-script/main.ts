@@ -1,12 +1,11 @@
 import {
   type App,
-  ChannelIdType,
+  type Channel,
   type ClassType,
   compose,
   createEnvelope,
   createLogger,
   initApp,
-  isValidChannelTriplet,
   type MessageAdapter,
   type MessageBus,
   WithMessageBus,
@@ -19,6 +18,7 @@ const logger = createLogger("ContentScript");
 const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
     mutationObserver: MutationObserver | null = null;
+    currentChannelFromConfig: Channel | null = null;
 
     init = async () => {
       this.bus.on("BRIDGE_READY", async () => {
@@ -26,18 +26,6 @@ const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & 
         await this.sendMessage(
           createEnvelope(this.messageOrigin, "SERVICE_WORKER", { type: "CONTENT_SCRIPT_READY", payload: null }),
         );
-      });
-
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        if (!this.videoBroadcastObject) return;
-        if (!isValidChannelTriplet(payload.currentChannel)) return;
-        const { onid, tsid, sid } = payload.currentChannel;
-        this.videoBroadcastObject.setChannel({
-          idType: ChannelIdType.ID_DVB_T,
-          onid,
-          tsid,
-          sid,
-        });
       });
 
       this.attachObjects(document);

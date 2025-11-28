@@ -1,18 +1,7 @@
-spostate i types dell'api in lib, in modo tale da poterli importare nel message bus
 
 ui 
     - capabilities picker
     - api version picker
-    - broadcast settings
-        * streamevents emu config
-    - channels config
-        (lista crud) per associare sorgente mp4 con ccid e onid tsid sid
-    - hbbtv-api status visualizer
+    - streamevents emu config & dispatch
     - virtual tv-remote
 
-Service Worker va in init
-    - legge lo storage 
-    - manda un messaggio di aggiornamento alla ui e all'api (hydrate) ( attualmente solo la lista dei canali)
-    - ui e api rimangono in ascolto di cambiamenti di stato 
-        la ui 
-    - il service worker rimane in ascolto di tutto, e salva su storage lo stato 

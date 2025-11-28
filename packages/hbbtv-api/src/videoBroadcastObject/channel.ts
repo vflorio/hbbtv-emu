@@ -1,4 +1,13 @@
-import { type Channel, ChannelIdType, type ClassType, createLogger } from "@hbb-emu/lib";
+import {
+  type Channel,
+  ChannelIdType,
+  type ClassType,
+  createLogger,
+  ExtensionConfig,
+  isValidChannelTriplet,
+  type MessageBus,
+  serializeChannelTriplet,
+} from "@hbb-emu/lib";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
@@ -48,7 +57,7 @@ export interface ChannelManager {
 
 const logger = createLogger("VideoBroadcast/Channel");
 
-export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback>>(Base: T) =>
+export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback & MessageBus>>(Base: T) =>
   class extends Base implements ChannelManager {
     currentChannel: Channel | null = null;
 
@@ -64,6 +73,22 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
 
       this.videoElement.addEventListener("ChannelLoadError", (event: Event) => {
         this.dispatchChannelError((event as CustomEvent<Channel>).detail, ChannelChangeError.UNIDENTIFIED_ERROR);
+      });
+
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+        const channel = ExtensionConfig.toChannel(payload.currentChannel);
+
+        if (
+          channel &&
+          isValidChannelTriplet(channel) &&
+          isValidChannelTriplet(this.currentChannel) &&
+          serializeChannelTriplet(this.currentChannel) === serializeChannelTriplet(channel)
+        ) {
+          return;
+        }
+
+        logger.log("Setting  channel", channel);
+        this.setChannel(channel);
       });
     }
 

@@ -32,8 +32,8 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
         this.dispatchVideoEvent("PlayStateChange", PlayState.PRESENTING);
       };
 
-      const error = () => {
-        logger.log("error");
+      const error = (event: Event) => {
+        logger.log("error", event);
         this.dispatchVideoEvent("ChannelLoadError", this.currentVideoChannel);
         this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED);
       };
@@ -55,12 +55,13 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
     loadVideo = (channel: Channel) => {
       logger.log("loadVideo", channel);
 
-      this.videoElement.src = this.getChannelStreamUrl(channel) || "";
-      if (!this.videoElement.src) {
-        logger.error("loadVideo failed: no stream URL found for channel", channel);
+      const streamUrl = this.getChannelStreamUrl(channel);
+      if (!streamUrl) {
+        logger.warn("loadVideo: no stream URL found for channel, skipping load", channel);
         return;
       }
 
+      this.videoElement.src = streamUrl;
       this.videoElement.load();
       this.currentVideoChannel = channel;
     };

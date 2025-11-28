@@ -1,4 +1,4 @@
-import type { ChannelTriplet } from "./hbbtv";
+import { ChannelIdType, type ChannelTriplet, type Channel as FullChannel, isValidChannelTriplet } from "./hbbtv";
 
 export namespace ExtensionConfig {
   export type State = {
@@ -26,6 +26,20 @@ export namespace ExtensionConfig {
     mp4Source: string;
     streamEvents?: StreamEvent[];
     enableStreamEvents?: boolean;
+  };
+
+  export const toChannel = (channel: ExtensionConfig.Channel | null): FullChannel | null => {
+    if (!channel || !isValidChannelTriplet(channel)) {
+      return null;
+    }
+
+    const { onid, tsid, sid } = channel;
+    return {
+      idType: ChannelIdType.ID_DVB_T,
+      onid,
+      tsid,
+      sid,
+    };
   };
 }
 

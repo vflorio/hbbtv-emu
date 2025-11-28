@@ -18,6 +18,7 @@ import {
 export interface ObjectHandler {
   attachObject: (element: HTMLObjectElement) => void;
   videoBroadcastObject: VideoBroadcast | null;
+  onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 }
 
 const VideoBroadcastObject = compose(
