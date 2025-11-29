@@ -4,12 +4,14 @@ import * as IO from "fp-ts/IO";
 
 const logger = createLogger("ChromeUserAgentManager");
 
-export interface UserAgentManager {
-  updateUserAgent: (userAgent: string) => IO.IO<void>;
+export namespace UserAgentManager {
+  export interface Contract {
+    updateUserAgent: (userAgent: string) => IO.IO<void>;
+  }
 }
 
 export const WithChromeUserAgentManager = <T extends ClassType>(Base: T) =>
-  class extends Base implements UserAgentManager {
+  class extends Base implements UserAgentManager.Contract {
     updateUserAgent = (userAgent: string): IO.IO<void> =>
       pipe(
         IO.of<void>(undefined),

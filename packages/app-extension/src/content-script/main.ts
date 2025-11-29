@@ -57,13 +57,7 @@ export const WithContentScript = <
     attachObjects: IO.IO<void> = pipe(
       document,
       querySelectorAll("object"),
-      IOO.matchW(
-        () => undefined,
-        A.traverse(IO.Applicative)((element) => {
-          logger.info(`Attaching object of type="${element.getAttribute("type")}"`)();
-          return this.attachObject(element);
-        }),
-      ),
+      IOO.matchE(() => IO.of(undefined), A.traverse(IO.Applicative)(this.attachObject)),
     );
   };
 

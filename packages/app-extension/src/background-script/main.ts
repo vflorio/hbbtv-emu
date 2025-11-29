@@ -26,7 +26,9 @@ import { type WebRequestHandler, WithChromeWebRequestManager } from "./chromeWeb
 const logger = createLogger("BackgroundScript");
 
 const WithBackgroundScript = <
-  T extends ClassType<MessageAdapter.Contract & MessageBus.Contract & WebRequestHandler & UserAgentManager>,
+  T extends ClassType<
+    MessageAdapter.Contract & MessageBus.Contract & WebRequestHandler.Contract & UserAgentManager.Contract
+  >,
 >(
   Base: T,
 ) =>
@@ -34,32 +36,30 @@ const WithBackgroundScript = <
     store = new Storage<ExtensionConfig.State>("state");
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
 
-    init: IO.IO<void> = () => {
-      pipe(
-        this.store.load(),
-        T.map(E.getOrElse(() => DEFAULT_HBBTV_CONFIG)),
-        T.map((state) => this.stateRef.write(state)),
-        T.flatMap(() => T.fromIO(this.setupMessageHandlers)),
-      )();
-    };
+    init: IO.IO<void> = pipe(
+      this.store.load(),
+      T.map(E.getOrElse(() => DEFAULT_HBBTV_CONFIG)),
+      T.map((state) => this.stateRef.write(state)),
+      T.flatMap(() => T.fromIO(this.setupMessageHandlers)),
+    );
 
     setupMessageHandlers: IO.IO<void> = () => {
-      this.bus.on("CONTENT_SCRIPT_READY", () => {
+      this.bus.on(
+        "CONTENT_SCRIPT_READY",
         pipe(
           logger.info("Content script ready, sending config"),
           IO.flatMap(() => this.broadcastConfig),
-        )();
-      });
+        ),
+      );
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
         pipe(
           logger.info("Updating config", payload),
           IO.flatMap(() => this.stateRef.write(payload)),
           IO.flatMap(() => this.store.save(payload)),
-          IO.flatMap(() => this.updateUserAgent(payload.userAgent)),
           IO.flatMap(() => this.broadcastConfig),
-        )();
-      });
+        ),
+      );
 
       this.bus.on("UPDATE_USER_AGENT", ({ message: { payload } }) => {
         const currentState = this.stateRef.read();
@@ -68,28 +68,28 @@ const WithBackgroundScript = <
           IO.flatMap(() => this.stateRef.write({ ...currentState, userAgent: payload })),
           IO.flatMap(() => this.store.save({ ...currentState, userAgent: payload })),
           IO.flatMap(() => this.updateUserAgent(payload)),
-          IO.flatMap(() => this.broadcastConfig),
         )();
       });
     };
 
+    sendToTab = (tabId: number): IO.IO<void> =>
+      pipe(
+        IO.of(() => {
+          this.sendMessage(
+            createEnvelope(
+              this.messageOrigin,
+              "CONTENT_SCRIPT",
+              { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
+              { tabId },
+            ),
+          );
+        }),
+        IO.flatMap(() => logger.info(`Config sent to tab ${tabId}`)),
+      );
+
     broadcastConfig: IO.IO<void> = pipe(
       Array.from(this.tabs),
-      A.traverse(IO.Applicative)((tabId) =>
-        pipe(
-          IO.of(() => {
-            this.sendMessage(
-              createEnvelope(
-                this.messageOrigin,
-                "CONTENT_SCRIPT",
-                { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
-                { tabId },
-              ),
-            );
-          }),
-          IO.flatMap(() => logger.info(`Config sent to tab ${tabId}`)),
-        ),
-      ),
+      A.traverse(IO.Applicative)(this.sendToTab),
       IO.map(() => undefined),
     );
   };

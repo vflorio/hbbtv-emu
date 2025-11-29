@@ -26,7 +26,6 @@ const WithBridge = <T extends ClassType<MessageAdapter.Contract & MessageBus.Con
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),
-      IO.tap(() => logger.info("Registered message bus and event listener")),
       IO.tap(() => this.registerMessageHandler("BRIDGE_SCRIPT", this.forwardToContentScript)),
       IO.tap(() => this.setupEventListener),
       IO.tap(() => logger.info("Initialized")),

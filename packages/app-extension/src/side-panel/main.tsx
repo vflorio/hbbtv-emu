@@ -37,15 +37,25 @@ const WithSidePanel = <T extends ClassType<MessageAdapter.Contract & MessageBus.
     );
 
     initializeRoot: IO.IO<void> = pipe(
-      document,
-      querySelector("#root"),
-      IOO.match(
-        () => logger.error("Root element not found"),
-        (rootElement) =>
-          pipe(
-            IO.of(createRoot(rootElement)),
-            IO.flatMap((root) => this.render(root)),
+      logger.info("Initializing root element"),
+      IO.flatMap(() =>
+        pipe(
+          document,
+          querySelector("#root"),
+          IOO.matchE(
+            () => logger.error("Root element not found"),
+            (rootElement) =>
+              pipe(
+                logger.info("Creating React root"),
+                IO.flatMap(() =>
+                  pipe(
+                    IO.of(createRoot(rootElement)),
+                    IO.flatMap((root) => this.render(root)),
+                  ),
+                ),
+              ),
           ),
+        ),
       ),
     );
 
@@ -160,33 +170,35 @@ const WithSidePanel = <T extends ClassType<MessageAdapter.Contract & MessageBus.
         ),
       }))();
 
-    render =
-      (root: Root): IO.IO<void> =>
-      () =>
-        pipe(
-          <StrictMode>
-            <Settings
-              config={{
-                channel: {
-                  load: this.loadChannels,
-                  upsert: this.upsertChannel,
-                  remove: this.removeChannel,
-                  play: this.playChannel,
-                  streamEvent: {
-                    load: this.loadStreamEvents,
-                    upsert: this.upsertStreamEvent,
-                    remove: this.removeStreamEvent,
+    render = (root: Root): IO.IO<void> =>
+      pipe(
+        logger.info("Rendering SidePanel"),
+        IO.map(() =>
+          root.render(
+            <StrictMode>
+              <Settings
+                config={{
+                  channel: {
+                    load: this.loadChannels,
+                    upsert: this.upsertChannel,
+                    remove: this.removeChannel,
+                    play: this.playChannel,
+                    streamEvent: {
+                      load: this.loadStreamEvents,
+                      upsert: this.upsertStreamEvent,
+                      remove: this.removeStreamEvent,
+                    },
                   },
-                },
-                common: {
-                  load: this.loadCommonConfig,
-                  save: this.saveCommonConfig,
-                },
-              }}
-            />
-          </StrictMode>,
-          root.render,
-        );
+                  common: {
+                    load: this.loadCommonConfig,
+                    save: this.saveCommonConfig,
+                  },
+                }}
+              />
+            </StrictMode>,
+          ),
+        ),
+      );
   };
 
 // biome-ignore format: ack
