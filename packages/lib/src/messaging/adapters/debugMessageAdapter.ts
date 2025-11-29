@@ -5,7 +5,7 @@ import type { Message } from "../message";
 import { type MessageAdapter, WithMessageAdapter } from "../messageAdapter";
 import type { MessageEnvelope } from "../messageEnvelope";
 
-const logger = createLogger("Debug Message Adapter");
+const logger = createLogger("DebugMessageAdapter");
 
 const WithDebugMessage = <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
   class extends Base implements MessageAdapter.Type {

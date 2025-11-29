@@ -30,23 +30,27 @@ export const WithContentScript = <T extends ClassType<ObjectHandler & MessageAda
       IO.tap(() => logger.info("Initialized")),
     );
 
-    subscribe: IO.IO<void> = () => {
-      this.bus.on(
-        "BRIDGE_READY",
-        pipe(
-          logger.info("Bridge is ready"),
-          IO.tap(() =>
-            this.sendMessage(
-              createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
-                type: "CONTENT_SCRIPT_READY",
-                payload: null,
-              }),
+    subscribe: IO.IO<void> = () =>
+      pipe(
+        logger.info("Subscribing to bridge ready message"),
+        IO.tap(() => () => {
+          this.bus.on(
+            "BRIDGE_READY",
+            pipe(
+              logger.info("Bridge is ready"),
+              IO.tap(() =>
+                this.sendMessage(
+                  createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
+                    type: "CONTENT_SCRIPT_READY",
+                    payload: null,
+                  }),
+                ),
+              ),
+              IO.tap(() => logger.info("Notified background script")),
             ),
-          ),
-          IO.tap(() => logger.info("Notified background script")),
-        ),
+          );
+        }),
       );
-    };
 
     attachObjects: IO.IO<void> = pipe(
       document,

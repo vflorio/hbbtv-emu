@@ -11,7 +11,7 @@ import {
 } from "../errors";
 import type { StorageAdapter } from "../storageAdapter";
 
-const logger = createLogger("Chrome Storage");
+const logger = createLogger("ChromeStorageAdapter");
 
 export class ChromeStorageAdapter implements StorageAdapter {
   getItem = (key: string): TE.TaskEither<LocalStorageGetItemError | DataNotFoundError, string> =>

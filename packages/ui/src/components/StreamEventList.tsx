@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 import { useConfig } from "../context/config";
 import StreamEventForm from "./StreamEventForm";
 
-const logger = createLogger("Stream Events");
+const logger = createLogger("StreamEventList");
 
 export default function StreamEventList() {
   const { channel } = useConfig();

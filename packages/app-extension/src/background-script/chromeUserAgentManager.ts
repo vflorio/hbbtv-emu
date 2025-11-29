@@ -2,7 +2,7 @@ import { type ClassType, createLogger } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
-const logger = createLogger("Chrome User Agent Manager");
+const logger = createLogger("ChromeUserAgentManager");
 
 export interface UserAgentManager {
   updateUserAgent: (userAgent: string) => IO.IO<void>;

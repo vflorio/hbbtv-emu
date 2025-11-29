@@ -25,8 +25,8 @@ export namespace MessageAdapter {
     | InvalidMessageEnvelopeError
     | InvalidTargetError;
 
-  export type RegisterMessageHandler = (origin: MessageOrigin, handler: Handler) => IO.IO<void>;
   export type Handler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => void;
+  export type RegisterMessageHandler = (origin: MessageOrigin, handler: Handler) => IO.IO<void>;
   export type SendMessage = <T extends Message = Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
   export type HandleMessage = (data: unknown) => E.Either<unknown, void>;
 

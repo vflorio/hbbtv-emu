@@ -11,7 +11,7 @@ import {
 import { createLogger } from "../../logger";
 import { type DataNotFoundError, dataNotFoundError } from "../../misc";
 
-const logger = createLogger("Local Storage");
+const logger = createLogger("LocalStorageAdapter");
 
 export class LocalStorageAdapter implements StorageAdapter {
   getItem = (key: string): TE.TaskEither<LocalStorageGetItemError | DataNotFoundError, string> =>

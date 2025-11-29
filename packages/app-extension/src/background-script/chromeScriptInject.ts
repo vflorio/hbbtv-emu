@@ -3,7 +3,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as T from "fp-ts/Task";
 
-const logger = createLogger("Chrome Script Inject");
+const logger = createLogger("ChromeScriptInject");
 
 export interface ChromeScriptInject {
   inject(tabId: number, mainScripts: string[], bridgeScripts: string[]): IO.IO<T.Task<void>>;

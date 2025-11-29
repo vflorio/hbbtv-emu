@@ -11,7 +11,7 @@ export interface WebRequestHandler {
   tabs: Set<number>;
 }
 
-const logger = createLogger("Chrome WebRequest Manager");
+const logger = createLogger("ChromeWebRequestManager");
 
 const findContentTypeHeader = (headers: chrome.webRequest.HttpHeader[]): O.Option<chrome.webRequest.HttpHeader> =>
   pipe(

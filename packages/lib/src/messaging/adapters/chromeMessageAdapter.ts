@@ -5,7 +5,7 @@ import { createLogger } from "../../logger";
 import { type ClassType, compose } from "../../mixin";
 import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "..";
 
-const logger = createLogger("Chrome Message Listener");
+const logger = createLogger("ChromeMessageListener");
 
 const hasNoListenersError = E.fromPredicate(
   (error: unknown): error is Error => error instanceof Error && error.message.includes("Receiving end does not exist"),
