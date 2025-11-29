@@ -1,8 +1,8 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
+import { parse, stringify } from "fp-ts-std/JSON";
 import type * as t from "io-ts";
-import { jsonParse, jsonStringify } from "../json";
 import { createLogger } from "../logger";
 import { invalidDataError } from "../misc";
 import type { StorageError } from "./errors";
@@ -24,7 +24,7 @@ export class Storage<T> {
   load = (): TE.TaskEither<StorageError, T> =>
     pipe(
       this.storageAdapter.getItem(this.key),
-      TE.flatMapEither(jsonParse<unknown>),
+      TE.flatMapEither(parse((error) => invalidDataError(`Failed to parse JSON: ${error.message}`))),
       TE.flatMapEither((data) =>
         this.codec
           ? pipe(
@@ -38,7 +38,8 @@ export class Storage<T> {
 
   save = (entry: T): TE.TaskEither<StorageError, void> =>
     pipe(
-      jsonStringify(entry),
+      entry,
+      stringify((error) => invalidDataError(`Failed to stringify entry: ${error.message}`)),
       TE.fromEither,
       TE.flatMap((json) => this.storageAdapter.setItem(this.key, json)),
       TE.tapError((error) => TE.fromIO(logger.error("Failed to save entry:", error))),

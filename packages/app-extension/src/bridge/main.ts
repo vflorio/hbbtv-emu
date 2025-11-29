@@ -19,21 +19,26 @@ import * as IO from "fp-ts/IO";
 
 const logger = createLogger("BridgeScript");
 
-const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
+const logForwardedMessage = (envelope: MessageEnvelope): IO.IO<void> =>
+  logger.info(`Forwarded ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
+
+const WithBridge = <T extends ClassType<MessageAdapter.Type & MessageBus.Type>>(Base: T) =>
   class extends Base implements App {
     init: IO.IO<void> = pipe(
-      IO.of<void>(undefined),
-      IO.tap(() => () => {
-        this.registerMessageBus("BRIDGE_SCRIPT", this.forwardToContentScript);
-        window.addEventListener("message", this.forwardToBackgroundScript);
-
-        window.postMessage(
-          createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
-          "*",
-        );
-      }),
-      IO.flatMap(() => logger.info("Initialized")),
+      logger.info("Initializing"),
+      IO.tap(() => logger.info("Registered message bus and event listener")),
+      IO.tap(() => this.registerMessageHandler("BRIDGE_SCRIPT", this.forwardToContentScript)),
+      IO.tap(() => this.setupEventListener),
+      IO.tap(() => logger.info("Initialized")),
     );
+
+    setupEventListener: IO.IO<void> = () => {
+      window.addEventListener("message", this.forwardToBackgroundScript);
+      window.postMessage(
+        createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
+        "*",
+      );
+    };
 
     forwardToContentScript = (envelope: MessageEnvelope) => {
       pipe(
@@ -41,12 +46,11 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
         E.flatMap(validateTarget("CONTENT_SCRIPT")),
         E.match(
           () => {},
-          (envelope) => {
+          (envelope) =>
             pipe(
-              logger.info(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`),
-              IO.flatMap(() => () => window.postMessage(envelope, "*")),
-            )();
-          },
+              logForwardedMessage(envelope),
+              IO.tap(() => () => window.postMessage(envelope, "*")),
+            )(),
         ),
       );
     };
@@ -57,12 +61,11 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
         E.flatMap(validateTarget("BACKGROUND_SCRIPT")),
         E.match(
           () => {},
-          (envelope) => {
+          (envelope) =>
             pipe(
-              logger.info(`Forwarding ${envelope.source} → ${envelope.target}: ${envelope.message.type}`),
-              IO.flatMap(() => () => this.sendMessage(envelope)),
-            )();
-          },
+              logForwardedMessage(envelope),
+              IO.tap(() => this.sendMessage(envelope)),
+            )(),
         ),
       );
     };

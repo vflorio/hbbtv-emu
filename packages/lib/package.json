@@ -4,6 +4,7 @@
   "devDependencies": {
     "@types/chrome": "0.1.29",
     "fp-ts": "2.16.11",
+    "fp-ts-std": "^1.0.0",
     "io-ts": "^2.2.22",
     "typescript": "5.9.3"
   },

@@ -1,7 +1,7 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
 import { Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
-import { useConfig } from "@/context/config";
+import { useConfig } from "../context/config";
 
 export default function Settings() {
   const { common } = useConfig();

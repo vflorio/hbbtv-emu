@@ -15,50 +15,61 @@ import {
 import { Settings } from "@hbb-emu/ui";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
+import { querySelector } from "fp-ts-std/DOM";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 const logger = createLogger("SidePanel");
 
-const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
+const WithSidePanel = <T extends ClassType<MessageAdapter.Type & MessageBus.Type>>(Base: T) =>
   class extends Base implements App {
-    root: Root | null = null;
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
 
-    init: IO.IO<void> = () => {
+    init: IO.IO<void> = pipe(
+      logger.info("Initializing"),
+      IO.tap(() => this.initializeRoot),
+      IO.tap(() => this.subscribe),
+      IO.tap(() => logger.info("Initialized")),
+    );
+
+    initializeRoot: IO.IO<void> = pipe(
+      document,
+      querySelector("#root"),
+      IOO.match(
+        () => logger.error("Root element not found"),
+        (rootElement) =>
+          pipe(
+            IO.of(createRoot(rootElement)),
+            IO.flatMap((root) => this.render(root)),
+          ),
+      ),
+    );
+
+    subscribe: IO.IO<void> = () =>
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => this.stateRef.write(payload)());
+
+    updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): IO.IO<void> =>
       pipe(
-        O.fromNullable(document.getElementById("root")),
-        O.map(
-          (rootElement): IO.IO<void> =>
-            () => {
-              this.root = createRoot(rootElement);
-              this.render();
-            },
-        ),
-        O.getOrElse(() => logger.error("Root element not found")),
-      )();
+        IO.of(this.stateRef.read()),
+        IO.map(updater),
+        IO.tap((newState) => this.stateRef.write(newState)),
+        IO.tap(() => this.notify),
+      );
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        this.stateRef.write(payload)();
-      });
-    };
-
-    updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): void => {
-      pipe(this.stateRef.read(), updater, this.stateRef.write)();
-      this.notify();
-    };
-
-    notify: IO.IO<void> = () => {
-      this.sendMessage(
+    notify: IO.IO<void> = pipe(
+      IO.of(this.stateRef.read()),
+      IO.map((state) =>
         createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
           type: "UPDATE_CONFIG",
-          payload: this.stateRef.read(),
+          payload: state,
         }),
-      );
-    };
+      ),
+      IO.tap((envelope) => this.sendMessage(envelope)),
+    );
 
     upsertInArray = <T extends { id: string }>(items: T[], item: T): T[] =>
       pipe(
@@ -88,7 +99,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
       };
     };
 
-    saveCommonConfig = async (config: Omit<ExtensionConfig.State, "channels">) => {
+    saveCommonConfig = async (config: Omit<ExtensionConfig.State, "channels">) =>
       this.updateState((state) => ({
         ...state,
         version: config.version,
@@ -96,29 +107,25 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
         userAgent: config.userAgent,
         capabilities: config.capabilities,
         currentChannel: config.currentChannel,
-      }));
-    };
+      }))();
 
-    upsertChannel = async (channel: ExtensionConfig.Channel) => {
+    upsertChannel = async (channel: ExtensionConfig.Channel) =>
       this.updateState((state) => ({
         ...state,
         channels: this.upsertInArray(state.channels, channel),
-      }));
-    };
+      }))();
 
-    removeChannel = async (id: string) => {
+    removeChannel = async (id: string) =>
       this.updateState((state) => ({
         ...state,
         channels: pipe(
           state.channels,
           A.filter((c) => c.id !== id),
         ),
-      }));
-    };
+      }))();
 
-    playChannel = async (channel: ExtensionConfig.Channel) => {
-      this.updateState((state) => ({ ...state, currentChannel: channel }));
-    };
+    playChannel = async (channel: ExtensionConfig.Channel) =>
+      this.updateState((state) => ({ ...state, currentChannel: channel }))();
 
     loadStreamEvents = async () =>
       pipe(
@@ -126,7 +133,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
         A.flatMap((c) => c.streamEvents || []),
       );
 
-    upsertStreamEvent = async (streamEvent: ExtensionConfig.StreamEvent) => {
+    upsertStreamEvent = async (streamEvent: ExtensionConfig.StreamEvent) =>
       this.updateState((state) => ({
         ...state,
         channels: pipe(
@@ -136,10 +143,9 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
             streamEvents: this.upsertInArray(channel.streamEvents || [], streamEvent),
           })),
         ),
-      }));
-    };
+      }))();
 
-    removeStreamEvent = async (id: string) => {
+    removeStreamEvent = async (id: string) =>
       this.updateState((state) => ({
         ...state,
         channels: pipe(
@@ -152,34 +158,35 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
             ),
           })),
         ),
-      }));
-    };
+      }))();
 
-    render: IO.IO<void> = () => {
-      this.root?.render(
-        <StrictMode>
-          <Settings
-            config={{
-              channel: {
-                load: this.loadChannels,
-                upsert: this.upsertChannel,
-                remove: this.removeChannel,
-                play: this.playChannel,
-                streamEvent: {
-                  load: this.loadStreamEvents,
-                  upsert: this.upsertStreamEvent,
-                  remove: this.removeStreamEvent,
+    render =
+      (root: Root): IO.IO<void> =>
+      () =>
+        pipe(
+          <StrictMode>
+            <Settings
+              config={{
+                channel: {
+                  load: this.loadChannels,
+                  upsert: this.upsertChannel,
+                  remove: this.removeChannel,
+                  play: this.playChannel,
+                  streamEvent: {
+                    load: this.loadStreamEvents,
+                    upsert: this.upsertStreamEvent,
+                    remove: this.removeStreamEvent,
+                  },
                 },
-              },
-              common: {
-                load: this.loadCommonConfig,
-                save: this.saveCommonConfig,
-              },
-            }}
-          />
-        </StrictMode>,
-      );
-    };
+                common: {
+                  load: this.loadCommonConfig,
+                  save: this.saveCommonConfig,
+                },
+              }}
+            />
+          </StrictMode>,
+          root.render,
+        );
   };
 
 // biome-ignore format: ack

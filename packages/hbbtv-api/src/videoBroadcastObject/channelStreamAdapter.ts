@@ -17,7 +17,7 @@ export interface ChannelStreamAdapter {
 
 const logger = createLogger("VideoBroadcast/ChannelStreamAdapter");
 
-export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: T) =>
+export const WithChannelStreamAdapter = <T extends ClassType<MessageBus.Type>>(Base: T) =>
   class extends Base implements ChannelStreamAdapter {
     channelStreamUrlsRef = IORef.newIORef<Map<string, string>>(new Map())();
 

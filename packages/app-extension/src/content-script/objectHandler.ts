@@ -20,7 +20,7 @@ import * as O from "fp-ts/Option";
 import * as R from "fp-ts/Record";
 
 export interface ObjectHandler {
-  attachObject: (element: HTMLObjectElement) => IO.IO<void>;
+  attachObject: (element: Element) => IO.IO<void>;
   videoBroadcastObject: O.Option<VideoBroadcast>;
   onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 }
@@ -49,7 +49,7 @@ export const WithObjectHandler = <T extends ClassType>(Base: T) =>
     onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 
     // biome-ignore format: ack
-    attachObject = (element: HTMLObjectElement): IO.IO<void> =>
+    attachObject = (element: Element): IO.IO<void> =>
       pipe(
         O.fromNullable(element.getAttribute("type")),
         O.match(() => IO.of(undefined), (type) =>
@@ -60,7 +60,7 @@ export const WithObjectHandler = <T extends ClassType>(Base: T) =>
       );
 
     private createVideoBroadcast =
-      (objectElement: HTMLObjectElement): IO.IO<void> =>
+      (objectElement: Element): IO.IO<void> =>
       () =>
         pipe(
           O.fromNullable(objectElement.parentNode),
@@ -86,7 +86,7 @@ export const WithObjectHandler = <T extends ClassType>(Base: T) =>
         );
 
     private createOipfObject =
-      (element: HTMLObjectElement, type: string): IO.IO<void> =>
+      (element: Element, type: string): IO.IO<void> =>
       () =>
         pipe(
           objectFactoryMap,

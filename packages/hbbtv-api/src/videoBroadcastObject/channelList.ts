@@ -11,7 +11,7 @@ import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 
-export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
+export const WithChannelList = <T extends ClassType<MessageBus.Type>>(Base: T) =>
   class extends Base implements ChannelList {
     channelListRef = IORef.newIORef<Channel[]>([])();
 

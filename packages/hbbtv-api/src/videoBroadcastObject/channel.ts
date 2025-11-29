@@ -44,7 +44,7 @@ const logger = createLogger("VideoBroadcast/Channel");
 const isChannelEqual = (a: Channel, b: Channel): boolean =>
   isValidChannelTriplet(a) && isValidChannelTriplet(b) && serializeChannelTriplet(a) === serializeChannelTriplet(b);
 
-export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback & MessageBus>>(Base: T) =>
+export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Playback & MessageBus.Type>>(Base: T) =>
   class extends Base implements ChannelManager {
     currentChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 

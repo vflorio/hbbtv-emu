@@ -3,13 +3,7 @@ import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../../logger";
 import { type ClassType, compose } from "../../mixin";
-import {
-  type Message,
-  type MessageAdapter,
-  type MessageAdapterError,
-  type MessageEnvelope,
-  WithMessageAdapter,
-} from "..";
+import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "..";
 
 const logger = createLogger("Chrome Message Listener");
 
@@ -18,8 +12,8 @@ const hasNoListenersError = E.fromPredicate(
   (error) => error as ChromeMessageError,
 );
 
-const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
-  class extends Base implements MessageAdapter {
+const WithChromeMessage = <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
+  class extends Base implements MessageAdapter.Type {
     constructor(...args: any[]) {
       super(...args);
       chrome.runtime.onMessage.addListener(this.handleChromeMessage);
@@ -32,7 +26,7 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
 
     sendMessage = <T extends Message>(
       envelope: MessageEnvelope<T>,
-    ): TE.TaskEither<MessageAdapterError | ChromeMessageAdapterError, void> => {
+    ): TE.TaskEither<MessageAdapter.Error | ChromeMessageAdapterError, void> => {
       logger.info("Sending message", envelope)();
 
       const sendToBackgroundScript = (): TE.TaskEither<ChromeMessageAdapterError, void> =>

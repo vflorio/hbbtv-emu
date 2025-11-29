@@ -8,8 +8,8 @@ export class ObjectStyleMirror {
   observerRef: IORef.IORef<O.Option<MutationObserver>>;
 
   constructor(
-    readonly source: HTMLElement,
-    readonly target: HTMLElement,
+    readonly source: Element,
+    readonly target: Element,
   ) {
     this.observerRef = IORef.newIORef(O.none)();
     this.source = source;
@@ -58,7 +58,7 @@ export class ObjectStyleMirror {
   };
 }
 
-export const copyProperties = (source: object, target: HTMLObjectElement) => {
+export const copyProperties = (source: object, target: Element) => {
   Object.keys(source).forEach((key) => {
     const descriptor = Object.getOwnPropertyDescriptor(source, key);
     if (descriptor) Object.defineProperty(target, key, descriptor);

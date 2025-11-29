@@ -1,6 +1,5 @@
 import {
   type App,
-  type Channel,
   type ClassType,
   compose,
   createEnvelope,
@@ -14,50 +13,57 @@ import {
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
+import { querySelectorAll } from "fp-ts-std/DOM";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
 
-const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & MessageBus>>(Base: T) =>
+export const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter.Type & MessageBus.Type>>(
+  Base: T,
+) =>
   class extends Base implements App {
-    mutationObserver: MutationObserver | null = null;
-    currentChannelFromConfig: Channel | null = null;
-
     init: IO.IO<void> = pipe(
-      IO.of<void>(undefined),
-      IO.tap(() => () => {
-        this.bus.on("BRIDGE_READY", async () => {
-          pipe(
-            logger.info("Bridge is ready"),
-            IO.flatMap(
-              () => () =>
-                this.sendMessage(
-                  createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
-                    type: "CONTENT_SCRIPT_READY",
-                    payload: null,
-                  }),
-                ),
-            ),
-          )();
-        });
-
-        this.attachObjects(document);
-      }),
-      IO.flatMap(() => logger.info("Initialized")),
+      logger.info("Initializing"),
+      IO.tap(() => this.subscribe),
+      IO.tap(() => this.attachObjects),
+      IO.tap(() => logger.info("Initialized")),
     );
 
-    attachObjects = (context: Document | HTMLElement) => {
-      pipe(
-        context.querySelectorAll<HTMLObjectElement>("object"),
-        (nodeList) => Array.from(nodeList),
-        A.map((element) => this.attachObject(element)),
+    subscribe: IO.IO<void> = () => {
+      this.bus.on(
+        "BRIDGE_READY",
+        pipe(
+          logger.info("Bridge is ready"),
+          IO.tap(() =>
+            this.sendMessage(
+              createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
+                type: "CONTENT_SCRIPT_READY",
+                payload: null,
+              }),
+            ),
+          ),
+          IO.tap(() => logger.info("Notified background script")),
+        ),
       );
     };
+
+    attachObjects: IO.IO<void> = pipe(
+      document,
+      querySelectorAll("object"),
+      IOO.matchW(
+        () => undefined,
+        A.traverse(IO.Applicative)((element) => {
+          logger.info(`Attaching object of type="${element.getAttribute("type")}"`)();
+          return this.attachObject(element);
+        }),
+      ),
+    );
   };
 
 // biome-ignore format: ack
 const ContentScript = compose(
-  class { },
+  class {},
   WithPostMessageAdapter,
   WithMessageBus("CONTENT_SCRIPT"),
   WithObjectHandler,

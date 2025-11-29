@@ -2,16 +2,16 @@ import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../../logger";
 import { type ClassType, compose } from "../../mixin";
 import type { Message } from "../message";
-import { type MessageAdapter, type MessageAdapterError, WithMessageAdapter } from "../messageAdapter";
+import { type MessageAdapter, WithMessageAdapter } from "../messageAdapter";
 import type { MessageEnvelope } from "../messageEnvelope";
 
 const logger = createLogger("Debug Message Adapter");
 
-const WithDebugMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
-  class extends Base implements MessageAdapter {
+const WithDebugMessage = <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
+  class extends Base implements MessageAdapter.Type {
     sendMessage = <T extends Message>(
       envelope: MessageEnvelope<T>,
-    ): TE.TaskEither<MessageAdapterError | DebugMessageError, void> =>
+    ): TE.TaskEither<MessageAdapter.Error | DebugMessageError, void> =>
       TE.tryCatch(
         async () => logger.info("sendMessage", envelope)(),
         (error) => debugMessageError(`Debug message failed: ${error}`),

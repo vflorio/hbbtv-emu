@@ -4,47 +4,51 @@ import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message } from "./message";
-import type { MessageAdapter, MessageHandler } from "./messageAdapter";
+import type { MessageAdapter } from "./messageAdapter";
 import type { MessageEnvelope } from "./messageEnvelope";
 import type { MessageOrigin } from "./messageOrigin";
 import type { MessageType } from "./messageType";
 
 const logger = createLogger("MessageBus");
 
-export interface MessageBus {
-  readonly messageOrigin: MessageOrigin;
-  bus: {
-    on<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
-    off<T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>): void;
+export namespace MessageBus {
+  export interface Type {
+    readonly messageOrigin: MessageOrigin;
+    bus: Bus;
+  }
+
+  export interface Bus {
+    on<T extends MessageType>(type: T, handler: MessageAdapter.Handler<Extract<Message, { type: T }>>): void;
+    off<T extends MessageType>(type: T, handler: MessageAdapter.Handler<Extract<Message, { type: T }>>): void;
     dispatch(envelope: MessageEnvelope): TE.TaskEither<Error, void>;
-  };
+  }
 }
 
 export const WithMessageBus =
   (messageOrigin: MessageOrigin) =>
-  <T extends ClassType<MessageAdapter>>(Base: T) =>
-    class extends Base implements MessageBus {
+  <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
+    class extends Base implements MessageBus.Type {
       readonly messageOrigin: MessageOrigin = messageOrigin;
-      handlers: Map<string, ReadonlyArray<MessageHandler>> = new Map();
+      handlers: Map<string, ReadonlyArray<MessageAdapter.Handler>> = new Map();
 
       constructor(...args: any[]) {
         super(...args);
-        this.registerMessageBus(messageOrigin, this.bus.dispatch);
+        this.registerMessageHandler(messageOrigin, this.bus.dispatch)();
       }
 
-      bus = {
-        on: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
+      bus: MessageBus.Bus = {
+        on: (type, handler) => {
           const hs = this.handlers.get(type) ?? RA.empty;
-          this.handlers.set(type, RA.append(handler as MessageHandler)(hs));
+          this.handlers.set(type, RA.append(handler as MessageAdapter.Handler)(hs));
         },
 
-        off: <T extends MessageType>(type: T, handler: MessageHandler<Extract<Message, { type: T }>>) => {
+        off: (type, handler) => {
           const hs = this.handlers.get(type);
           if (!hs) return;
           this.handlers.set(type, RA.filter((h) => h !== handler)(hs));
         },
 
-        dispatch: (envelope: MessageEnvelope): TE.TaskEither<Error, void> => {
+        dispatch: (envelope) => {
           const handlers = this.handlers.get(envelope.message.type) ?? RA.empty;
 
           if (RA.isEmpty(handlers)) {
