@@ -8,7 +8,7 @@ import {
 } from "@hbb-emu/lib";
 import * as IORef from "fp-ts/IORef";
 
-const WithCapabilities = <T extends ClassType<MessageBus.Type>>(Base: T) =>
+const WithCapabilities = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
   class extends Base {
     protected capabilitiesXMLRef = IORef.newIORef("")();
 

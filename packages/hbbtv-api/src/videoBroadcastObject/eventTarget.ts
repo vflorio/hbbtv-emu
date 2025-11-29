@@ -1,45 +1,45 @@
 import type { ClassType } from "@hbb-emu/lib";
 import type { VideoElement } from "./videoElement";
 
-export interface EventDispatcher {
-  dispatchEvent(event: Event): boolean;
-  addEventListener(
+export namespace EventDispatcher {
+  export interface Contract {
+    dispatchEvent: DispatchEvent;
+    addEventListener: AddEventListener;
+    removeEventListener: RemoveEventListener;
+  }
+
+  export type DispatchEvent = (event: Event) => boolean;
+  export type AddEventListener = (
     type: string,
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
-  ): void;
-  removeEventListener(
+  ) => void;
+  export type RemoveEventListener = (
     type: string,
     listener: EventListenerOrEventListenerObject,
     options?: boolean | EventListenerOptions,
-  ): void;
+  ) => void;
 }
 
-export interface EventTarget extends EventDispatcher {
-  readonly eventTarget: EventDispatcher;
+export namespace EventTarget {
+  export interface Contract extends EventDispatcher.Contract {
+    readonly eventTarget: EventDispatcher.Contract;
+  }
 }
 
-export const WithEventTarget = <T extends ClassType<VideoElement>>(Base: T) =>
-  class extends Base implements EventTarget {
-    get eventTarget(): EventDispatcher {
+export const WithEventTarget = <T extends ClassType<VideoElement.Contract>>(Base: T) =>
+  class extends Base implements EventTarget.Contract {
+    get eventTarget(): EventDispatcher.Contract {
       return this.videoElement;
     }
 
-    dispatchEvent = (event: Event): boolean => this.eventTarget.dispatchEvent(event);
+    dispatchEvent: EventDispatcher.DispatchEvent = (event) => this.eventTarget.dispatchEvent(event);
 
-    addEventListener = (
-      type: string,
-      listener: EventListenerOrEventListenerObject,
-      options?: boolean | AddEventListenerOptions,
-    ) => {
+    addEventListener: EventDispatcher.AddEventListener = (type, listener, options) => {
       this.eventTarget.addEventListener(type, listener, options);
     };
 
-    removeEventListener = (
-      type: string,
-      listener: EventListenerOrEventListenerObject,
-      options?: boolean | EventListenerOptions,
-    ) => {
+    removeEventListener: EventDispatcher.RemoveEventListener = (type, listener, options) => {
       this.eventTarget.removeEventListener(type, listener, options);
     };
   };

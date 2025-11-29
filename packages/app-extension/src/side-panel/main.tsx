@@ -25,7 +25,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 const logger = createLogger("SidePanel");
 
-const WithSidePanel = <T extends ClassType<MessageAdapter.Type & MessageBus.Type>>(Base: T) =>
+const WithSidePanel = <T extends ClassType<MessageAdapter.Contract & MessageBus.Contract>>(Base: T) =>
   class extends Base implements App {
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
 

@@ -19,7 +19,9 @@ import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
 
-export const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter.Type & MessageBus.Type>>(
+export const WithContentScript = <
+  T extends ClassType<ObjectHandler.Contract & MessageAdapter.Contract & MessageBus.Contract>,
+>(
   Base: T,
 ) =>
   class extends Base implements App {

@@ -22,7 +22,7 @@ const logger = createLogger("BridgeScript");
 const logForwardedMessage = (envelope: MessageEnvelope): IO.IO<void> =>
   logger.info(`Forwarded ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
 
-const WithBridge = <T extends ClassType<MessageAdapter.Type & MessageBus.Type>>(Base: T) =>
+const WithBridge = <T extends ClassType<MessageAdapter.Contract & MessageBus.Contract>>(Base: T) =>
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),

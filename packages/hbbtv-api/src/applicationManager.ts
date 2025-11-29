@@ -11,14 +11,12 @@ export interface OipfApplicationManager {
 
 const logger = createLogger("OipfApplicationManager");
 
-class ApplicationManagerBase {}
-
-const WithMemoryManagement = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
+const WithMemoryManagement = <T extends ClassType>(Base: T) =>
   class extends Base {
     onLowMemory = (): void => logger.info("onLowMemory")();
   };
 
-const WithApplicationCache = <T extends ClassType<ApplicationManagerBase>>(Base: T) =>
+const WithApplicationCache = <T extends ClassType>(Base: T) =>
   class extends Base {
     private applicationCacheRef = IORef.newIORef<WeakMap<Document, Application>>(new WeakMap())();
 
@@ -38,6 +36,6 @@ const WithApplicationCache = <T extends ClassType<ApplicationManagerBase>>(Base:
       )();
   };
 
-const ApplicationManagerClass = compose(ApplicationManagerBase, WithMemoryManagement, WithApplicationCache);
+const ApplicationManagerClass = compose(class {}, WithMemoryManagement, WithApplicationCache);
 
 export const createApplicationManager = (): OipfApplicationManager => new ApplicationManagerClass();

@@ -10,15 +10,19 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 
-export interface ChannelStreamAdapter {
-  get channelStreamUrls(): Map<string, string>;
-  getChannelStreamUrl: (channel: Channel) => string;
+export namespace ChannelStreamAdapter {
+  export interface Contract {
+    readonly channelStreamUrls: Map<string, string>;
+    getChannelStreamUrl: GetChannelStreamUrl;
+  }
+
+  export type GetChannelStreamUrl = (channel: Channel) => string;
 }
 
 const logger = createLogger("VideoBroadcast/ChannelStreamAdapter");
 
-export const WithChannelStreamAdapter = <T extends ClassType<MessageBus.Type>>(Base: T) =>
-  class extends Base implements ChannelStreamAdapter {
+export const WithChannelStreamAdapter = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
+  class extends Base implements ChannelStreamAdapter.Contract {
     channelStreamUrlsRef = IORef.newIORef<Map<string, string>>(new Map())();
 
     constructor(...args: any[]) {
@@ -37,7 +41,7 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus.Type>>(B
       return this.channelStreamUrlsRef.read();
     }
 
-    getChannelStreamUrl = (channel: Channel): string => {
+    getChannelStreamUrl: ChannelStreamAdapter.GetChannelStreamUrl = (channel) => {
       const key = isValidChannelTriplet(channel) ? serializeChannelTriplet(channel) : channel?.ccid || "";
       return pipe(
         logger.info(`Getting stream URL for channel: ${key}`),

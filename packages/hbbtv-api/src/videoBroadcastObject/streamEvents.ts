@@ -17,15 +17,46 @@ export interface StreamEventDetail {
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}
 
-export interface StreamEvents {
-  addStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
-  removeStreamEventListener(targetURL: string, eventName: string, listener: EventListener): void;
+export namespace StreamEvents {
+  export interface Contract {
+    addStreamEventListener: AddStreamEventListener;
+    removeStreamEventListener: RemoveStreamEventListener;
+    getStreamEventKey: GetStreamEventKey;
+    registerListener: RegisterListener;
+    unregisterListener: UnregisterListener;
+    hasListener: HasListener;
+    trackVersion: TrackVersion;
+    createStreamEvent: CreateStreamEvent;
+    clearAllStreamEventListeners: ClearAllStreamEventListeners;
+    dispatchStreamEvent: DispatchStreamEvent;
+    dispatchStreamEventError: DispatchStreamEventError;
+    augmentDispatchPlayStateChange: AugmentDispatchPlayStateChange;
+  }
+
+  export type AddStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
+  export type RemoveStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
+  export type GetStreamEventKey = (targetURL: string, eventName: string) => string;
+  export type RegisterListener = (key: string, listener: EventListener) => void;
+  export type UnregisterListener = (key: string, listener: EventListener) => void;
+  export type HasListener = (key: string) => boolean;
+  export type TrackVersion = (key: string, version: number) => boolean;
+  export type CreateStreamEvent = (detail: StreamEventDetail) => StreamEvent;
+  export type ClearAllStreamEventListeners = () => void;
+  export type DispatchStreamEvent = (
+    targetURL: string,
+    eventName: string,
+    data: string,
+    text?: string,
+    version?: number,
+  ) => void;
+  export type DispatchStreamEventError = (targetURL: string, eventName: string, errorMessage?: string) => void;
+  export type AugmentDispatchPlayStateChange = () => void;
 }
 
 const logger = createLogger("VideoBroadcast/StreamEvents");
 
-export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Base: T) =>
-  class extends Base implements StreamEvents {
+export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTarget.Contract>>(Base: T) =>
+  class extends Base implements StreamEvents.Contract {
     streamEventMetadataRef = IORef.newIORef<Map<string, Set<EventListener>>>(new Map())();
     streamEventVersionsRef = IORef.newIORef<Map<string, Set<number>>>(new Map())();
 
@@ -34,7 +65,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.augmentDispatchPlayStateChange();
     }
 
-    augmentDispatchPlayStateChange = () => {
+    augmentDispatchPlayStateChange: StreamEvents.AugmentDispatchPlayStateChange = () => {
       const originalDispatchPlayStateChange = this.dispatchPlayStateChange.bind(this);
 
       this.dispatchPlayStateChange = (newState: PlayState, error?: number) => {
@@ -52,9 +83,9 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       };
     };
 
-    getStreamEventKey = (targetURL: string, eventName: string) => `${targetURL}:${eventName}`;
+    getStreamEventKey: StreamEvents.GetStreamEventKey = (targetURL, eventName) => `${targetURL}:${eventName}`;
 
-    registerListener = (key: string, listener: EventListener) => {
+    registerListener: StreamEvents.RegisterListener = (key, listener) => {
       const metadata = this.streamEventMetadataRef.read();
       if (!metadata.has(key)) {
         metadata.set(key, new Set());
@@ -63,7 +94,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.streamEventMetadataRef.write(metadata);
     };
 
-    unregisterListener = (key: string, listener: EventListener) => {
+    unregisterListener: StreamEvents.UnregisterListener = (key, listener) => {
       const metadata = this.streamEventMetadataRef.read();
       if (!metadata.has(key)) return;
 
@@ -79,9 +110,9 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.streamEventMetadataRef.write(metadata);
     };
 
-    hasListener = (key: string) => this.streamEventMetadataRef.read().has(key);
+    hasListener: StreamEvents.HasListener = (key) => this.streamEventMetadataRef.read().has(key);
 
-    trackVersion = (key: string, version: number): boolean => {
+    trackVersion: StreamEvents.TrackVersion = (key, version) => {
       const versions = this.streamEventVersionsRef.read();
 
       if (!versions.has(key)) {
@@ -98,12 +129,12 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       return true;
     };
 
-    createStreamEvent = (detail: StreamEventDetail): StreamEvent =>
+    createStreamEvent: StreamEvents.CreateStreamEvent = (detail) =>
       new CustomEvent<StreamEventDetail>("StreamEvent", {
         detail,
       });
 
-    addStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) =>
+    addStreamEventListener: StreamEvents.AddStreamEventListener = (targetURL, eventName, listener) =>
       pipe(
         logger.info(`addStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
@@ -118,7 +149,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
         }),
       )();
 
-    removeStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) =>
+    removeStreamEventListener: StreamEvents.RemoveStreamEventListener = (targetURL, eventName, listener) =>
       pipe(
         logger.info(`removeStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
@@ -128,7 +159,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
         }),
       )();
 
-    clearAllStreamEventListeners = (): void =>
+    clearAllStreamEventListeners: StreamEvents.ClearAllStreamEventListeners = () =>
       pipe(
         logger.info("clearAllStreamEventListeners"),
         IO.flatMap(() => () => {
@@ -148,7 +179,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
         }),
       )();
 
-    dispatchStreamEvent = (targetURL: string, eventName: string, data: string, text: string = "", version?: number) => {
+    dispatchStreamEvent: StreamEvents.DispatchStreamEvent = (targetURL, eventName, data, text = "", version?) => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
       if (!this.hasListener(key)) return;
@@ -168,7 +199,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget>>(Ba
       this.dispatchEvent(event);
     };
 
-    dispatchStreamEventError = (targetURL: string, eventName: string, errorMessage: string = "") => {
+    dispatchStreamEventError: StreamEvents.DispatchStreamEventError = (targetURL, eventName, errorMessage = "") => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
       if (!this.hasListener(key)) return;

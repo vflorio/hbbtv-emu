@@ -12,22 +12,34 @@ import type { MessageType } from "./messageType";
 const logger = createLogger("MessageBus");
 
 export namespace MessageBus {
-  export interface Type {
+  export interface Contract {
     readonly messageOrigin: MessageOrigin;
     bus: Bus;
   }
 
   export interface Bus {
-    on<T extends MessageType>(type: T, handler: MessageAdapter.Handler<Extract<Message, { type: T }>>): void;
-    off<T extends MessageType>(type: T, handler: MessageAdapter.Handler<Extract<Message, { type: T }>>): void;
-    dispatch(envelope: MessageEnvelope): TE.TaskEither<Error, void>;
+    on: On;
+    off: Off;
+    dispatch: Dispatch;
   }
+
+  export type On = <T extends MessageType>(
+    type: T,
+    handler: MessageAdapter.Handler<Extract<Message, { type: T }>>,
+  ) => void;
+
+  export type Off = <T extends MessageType>(
+    type: T,
+    handler: MessageAdapter.Handler<Extract<Message, { type: T }>>,
+  ) => void;
+
+  export type Dispatch = (envelope: MessageEnvelope) => TE.TaskEither<Error, void>;
 }
 
 export const WithMessageBus =
   (messageOrigin: MessageOrigin) =>
-  <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
-    class extends Base implements MessageBus.Type {
+  <T extends ClassType<MessageAdapter.Contract>>(Base: T) =>
+    class extends Base implements MessageBus.Contract {
       readonly messageOrigin: MessageOrigin = messageOrigin;
       handlers: Map<string, ReadonlyArray<MessageAdapter.Handler>> = new Map();
 

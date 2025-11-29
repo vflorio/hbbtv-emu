@@ -10,14 +10,34 @@ import { validateMessageOrigin } from "../messageOrigin";
 
 const logger = createLogger("PostMessageAdapter");
 
-const WithPostMessage = <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
-  class extends Base implements MessageAdapter.Type {
+export namespace PostMessageAdapter {
+  export interface Contract extends MessageAdapter.Contract {
+    handlePostMessage: HandlePostMessage;
+    sendMessage: SendMessage;
+  }
+
+  export type Error = PostMessageError;
+
+  export type HandlePostMessage = (event: MessageEvent<MessageEnvelope>) => boolean;
+
+  export type SendMessage = <T extends Message>(
+    envelope: MessageEnvelope<T>,
+  ) => TE.TaskEither<MessageAdapter.Error | PostMessageError, void>;
+
+  export type PostMessageError = Readonly<{
+    type: "PostMessageError";
+    message: string;
+  }>;
+}
+
+const WithPostMessage = <T extends ClassType<MessageAdapter.Contract>>(Base: T) =>
+  class extends Base implements PostMessageAdapter.Contract {
     constructor(...args: any[]) {
       super(...args);
       window.addEventListener("message", this.handlePostMessage);
     }
 
-    handlePostMessage = (event: MessageEvent<MessageEnvelope>): boolean =>
+    handlePostMessage: PostMessageAdapter.HandlePostMessage = (event) =>
       pipe(
         validateMessageOrigin(event.origin),
         E.flatMap(() =>
@@ -37,9 +57,7 @@ const WithPostMessage = <T extends ClassType<MessageAdapter.Type>>(Base: T) =>
         E.getOrElse(() => true),
       );
 
-    sendMessage = <T extends Message>(
-      envelope: MessageEnvelope<T>,
-    ): TE.TaskEither<MessageAdapter.Error | PostMessageError, void> =>
+    sendMessage: PostMessageAdapter.SendMessage = <T extends Message>(envelope: MessageEnvelope<T>) =>
       TE.tryCatch(
         async () => {
           logger.info("Sending message", envelope)();
@@ -62,12 +80,7 @@ export const WithPostMessageAdapter = <T extends ClassType>(Base: T) =>
 
 // Errors
 
-export type PostMessageError = Readonly<{
-  type: "PostMessageError";
-  message: string;
-}>;
-
-export const postMessageError = (message: string): PostMessageError => ({
+export const postMessageError = (message: string): PostMessageAdapter.PostMessageError => ({
   type: "PostMessageError",
   message,
 });

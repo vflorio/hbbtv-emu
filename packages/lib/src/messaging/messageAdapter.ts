@@ -12,7 +12,7 @@ import { validateEnvelope } from "./messageEnvelope";
 import type { MessageOrigin } from "./messageOrigin";
 
 export namespace MessageAdapter {
-  export interface Type {
+  export interface Contract {
     registerMessageHandler: RegisterMessageHandler;
     sendMessage: SendMessage;
     handleMessage: HandleMessage;
@@ -44,7 +44,7 @@ export namespace MessageAdapter {
 const logger = createLogger("MessageAdapter");
 
 export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
-  class extends Base implements MessageAdapter.Type {
+  class extends Base implements MessageAdapter.Contract {
     messageOrigin: O.Option<MessageOrigin> = O.none;
     messageHandler: O.Option<MessageAdapter.Handler> = O.none;
 

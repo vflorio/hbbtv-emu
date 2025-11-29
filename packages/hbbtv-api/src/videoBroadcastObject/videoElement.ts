@@ -8,17 +8,27 @@ import { PlayState } from "./playback";
 
 export type VideoElementEventType = "PlayStateChange" | "ChannelLoadSuccess" | "ChannelLoadError";
 
-export interface VideoElement {
-  readonly videoElement: HTMLVideoElement;
-  loadVideo: (channel: Channel) => void;
-  stopVideo: () => void;
-  releaseVideo: () => void;
+export namespace VideoElement {
+  export interface Contract {
+    readonly videoElement: HTMLVideoElement;
+    loadVideo: LoadVideo;
+    stopVideo: StopVideo;
+    releaseVideo: ReleaseVideo;
+    dispatchVideoEvent: DispatchVideoEvent;
+    cleanupVideoElement: CleanupVideoElement;
+  }
+
+  export type LoadVideo = (channel: Channel) => void;
+  export type StopVideo = () => void;
+  export type ReleaseVideo = () => void;
+  export type DispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) => boolean;
+  export type CleanupVideoElement = () => void;
 }
 
 const logger = createLogger("VideoBroadcast/VideoElement");
 
-export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base: T) =>
-  class extends Base implements VideoElement {
+export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter.Contract>>(Base: T) =>
+  class extends Base implements VideoElement.Contract {
     readonly videoElement: HTMLVideoElement;
     currentVideoChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 
@@ -66,10 +76,10 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
       this.videoElement.muted = true;
     }
 
-    dispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) =>
+    dispatchVideoEvent: VideoElement.DispatchVideoEvent = (eventType, payload) =>
       this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
-    loadVideo = (channel: Channel) =>
+    loadVideo: VideoElement.LoadVideo = (channel) =>
       pipe(
         logger.info("loadVideo", channel),
         IO.flatMap(() => () => {
@@ -85,7 +95,7 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
         }),
       )();
 
-    stopVideo = () =>
+    stopVideo: VideoElement.StopVideo = () =>
       pipe(
         logger.info("stop"),
         IO.flatMap(() => () => {
@@ -94,7 +104,7 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
         }),
       )();
 
-    releaseVideo = () =>
+    releaseVideo: VideoElement.ReleaseVideo = () =>
       pipe(
         logger.info("release"),
         IO.flatMap(() => () => {
@@ -103,7 +113,7 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
         }),
       )();
 
-    cleanupVideoElement = () => {
+    cleanupVideoElement: VideoElement.CleanupVideoElement = () => {
       this.videoElement.src = "";
       this.currentVideoChannelRef.write(O.none);
     };

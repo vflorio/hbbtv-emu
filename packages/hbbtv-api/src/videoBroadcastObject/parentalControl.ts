@@ -1,14 +1,22 @@
 import type { ClassType } from "@hbb-emu/lib";
 
-export interface ParentalControl {
-  onParentalRatingChange?: (
+export namespace ParentalControl {
+  export interface Contract {
+    onParentalRatingChange?: OnParentalRatingChange;
+    onParentalRatingError?: OnParentalRatingError;
+    onDRMRightsError?: OnDRMRightsError;
+  }
+
+  export type OnParentalRatingChange = (
     contentID: string | null,
     ratings: unknown,
     DRMSystemID: string | null,
     blocked: boolean,
   ) => void;
-  onParentalRatingError?: (contentID: string | null, ratings: unknown, DRMSystemID: string | null) => void;
-  onDRMRightsError?: (
+
+  export type OnParentalRatingError = (contentID: string | null, ratings: unknown, DRMSystemID: string | null) => void;
+
+  export type OnDRMRightsError = (
     errorState: number,
     contentID: string | null,
     DRMSystemID: string | null,
@@ -17,18 +25,8 @@ export interface ParentalControl {
 }
 
 export const WithParentalControl = <T extends ClassType>(Base: T) =>
-  class extends Base implements ParentalControl {
-    onParentalRatingChange?: (
-      contentID: string | null,
-      ratings: unknown,
-      DRMSystemID: string | null,
-      blocked: boolean,
-    ) => void;
-    onParentalRatingError?: (contentID: string | null, ratings: unknown, DRMSystemID: string | null) => void;
-    onDRMRightsError?: (
-      errorState: number,
-      contentID: string | null,
-      DRMSystemID: string | null,
-      rightsIssuerURL?: string,
-    ) => void;
+  class extends Base implements ParentalControl.Contract {
+    onParentalRatingChange?: ParentalControl.OnParentalRatingChange;
+    onParentalRatingError?: ParentalControl.OnParentalRatingError;
+    onDRMRightsError?: ParentalControl.OnDRMRightsError;
   };
