@@ -14,7 +14,7 @@ export const WithChromeUserAgentManager = <T extends ClassType>(Base: T) =>
   class extends Base implements UserAgentManager.Contract {
     updateUserAgent = (userAgent: string): IO.IO<void> =>
       pipe(
-        IO.of<void>(undefined),
+        IO.Do,
         IO.tap(() => () => {
           chrome.declarativeNetRequest.updateSessionRules({
             removeRuleIds: [1],

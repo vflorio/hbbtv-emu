@@ -2,8 +2,6 @@
 
 ![Architecture](./schema.svg)
 
-Browser extension for emulating HbbTV applications with development tools.
-
 ## Prerequisites
 
 Install [pnpm](https://pnpm.io/):

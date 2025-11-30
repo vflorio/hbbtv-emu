@@ -11,14 +11,21 @@ export interface Version {
   readonly parts: ReadonlyArray<number>;
 }
 
+const parseVersionPart = (num: string): E.Either<InvalidVersionError, number> =>
+  pipe(
+    num,
+    Number,
+    E.fromPredicate(
+      (n) => Number.isInteger(n) && n >= 0,
+      () => invalidVersionError(`Invalid version number: ${num}`),
+    ),
+  );
+
 export const parseVersion = (version: string): E.Either<InvalidVersionError, Version> =>
   pipe(
     version,
     S.split("."),
-    RA.traverse(E.Applicative)((part) => {
-      const num = Number(part);
-      return Number.isNaN(num) || num < 0 ? E.left(invalidVersionError(`Invalid version part: ${part}`)) : E.right(num);
-    }),
+    RA.traverse(E.Applicative)(parseVersionPart),
     E.map((parts) => ({ _tag: "Version" as const, parts })),
   );
 

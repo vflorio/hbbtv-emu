@@ -1,6 +1,9 @@
 {
   "name": "hbb-emu",
   "version": "0.1.0",
+  "dependencies": {
+    "logging-ts": "^0.3.4"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.3.6",
     "@tsconfig/node20": "^20.1.8",
@@ -21,8 +24,5 @@
     "syncpack:format": "syncpack format",
     "syncpack:list": "syncpack list"
   },
-  "type": "module",
-  "dependencies": {
-    "logging-ts": "^0.3.4"
-  }
+  "type": "module"
 }

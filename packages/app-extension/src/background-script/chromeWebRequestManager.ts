@@ -4,7 +4,6 @@ import * as E from "fp-ts/Either";
 import { flow, pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
-import * as T from "fp-ts/Task";
 import type { ChromeScriptInject } from "./chromeScriptInject";
 
 export namespace WebRequestHandler {
@@ -64,6 +63,19 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       });
     }
 
+    injectScripts = (tabId: number): IO.IO<void> =>
+      pipe(
+        IO.Do,
+        IO.flatMap(() =>
+          this.inject({
+            tabId,
+            bridgeScripts: "bridge.js",
+            mainScripts: "content-script.js",
+          }),
+        ),
+        IO.flatMap(() => logger.info(`Injection completed for tab ${tabId}`)),
+      );
+
     onHeadersReceivedListener: WebRequestHandler.OnHeadersReceivedListener = (details) =>
       pipe(
         details.responseHeaders,
@@ -71,16 +83,11 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
         O.flatMap(findContentTypeHeader),
         O.flatMap(flow(validateHbbTVHeader, O.fromEither)),
         O.map((header) => {
-          this.tabs.add(details.tabId);
           pipe(
-            logger.info(`Tab added: ${details.tabId}`),
-            IO.flatMap(() => this.inject(details.tabId, ["content-script.js"], ["bridge.js"])),
-            IO.map((task) =>
-              pipe(
-                task,
-                T.flatMap(() => T.fromIO(logger.info(`Injection completed for tab ${details.tabId}`))),
-              )(),
-            ),
+            IO.Do,
+            IO.tap(() => () => this.tabs.add(details.tabId)),
+            IO.tap(() => logger.info(`Tab added: ${details.tabId}`)),
+            IO.tap(() => this.injectScripts(details.tabId)),
           )();
 
           return normalizeContentType(header);

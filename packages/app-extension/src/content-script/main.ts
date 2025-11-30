@@ -41,14 +41,16 @@ export const WithContentScript = <
             pipe(
               logger.info("Bridge is ready"),
               IO.tap(() =>
-                this.sendMessage(
-                  createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
-                    type: "CONTENT_SCRIPT_READY",
-                    payload: null,
-                  }),
+                pipe(
+                  IO.of(
+                    createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
+                      type: "CONTENT_SCRIPT_READY",
+                      payload: null,
+                    }),
+                  ),
+                  IO.flatMap((envelope) => this.sendMessage(envelope)),
                 ),
               ),
-              IO.tap(() => logger.info("Notified background script")),
             ),
           );
         }),

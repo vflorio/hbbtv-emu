@@ -10,23 +10,31 @@ export namespace ChromeScriptInject {
     inject: Inject;
   }
 
-  export type Inject = (tabId: number, mainScripts: string[], bridgeScripts: string[]) => IO.IO<T.Task<void>>;
+  export type Inject = ({
+    tabId,
+    mainScripts,
+    bridgeScripts,
+  }: {
+    tabId: number;
+    mainScripts: string;
+    bridgeScripts: string;
+  }) => IO.IO<T.Task<void>>;
 }
 
 export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
   class extends Base implements ChromeScriptInject.Contract {
-    inject: ChromeScriptInject.Inject = (tabId, mainScripts, bridgeScripts) =>
+    inject: ChromeScriptInject.Inject = ({ tabId, mainScripts, bridgeScripts }) =>
       pipe(
         logger.info(`Preparing injection for tab ${tabId}`, {
-          main: mainScripts,
-          bridge: bridgeScripts,
+          mainScripts,
+          bridgeScripts,
         }),
-        IO.map(() => {
-          const task: T.Task<void> = pipe(
+        IO.map(() =>
+          pipe(
             T.fromIO(() => {
               chrome.scripting.executeScript({
                 target: { tabId },
-                files: mainScripts,
+                files: [mainScripts],
                 world: "MAIN",
                 injectImmediately: true,
               });
@@ -35,15 +43,13 @@ export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
               () => () =>
                 chrome.scripting.executeScript({
                   target: { tabId },
-                  files: bridgeScripts,
+                  files: [bridgeScripts],
                   world: "ISOLATED",
                   injectImmediately: true,
                 }),
             ),
             T.flatMap(() => T.fromIO(logger.info(`Injection completed for tab ${tabId}`))),
-          );
-
-          return task;
-        }),
+          ),
+        ),
       );
   };

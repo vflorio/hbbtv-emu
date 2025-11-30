@@ -45,7 +45,9 @@ export class ObjectStyleMirror {
       style.split(";"),
       A.map((s) => s.trim()),
       A.filter((s) => s.length > 0),
+      A.filter((s) => !s.startsWith("background-color")),
       A.map((s) => (s.includes("!important") ? s : `${s} !important`)),
+      A.append("background-color: black !important"),
       (styles) => styles.join("; "),
     );
 

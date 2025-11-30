@@ -1,51 +1,53 @@
 import {
   type Channel,
   type ClassType,
-  createLogger,
   isValidChannelTriplet,
   type MessageBus,
   serializeChannelTriplet,
 } from "@hbb-emu/lib";
+import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
 
 export namespace ChannelStreamAdapter {
   export interface Contract {
-    readonly channelStreamUrls: Map<string, string>;
     getChannelStreamUrl: GetChannelStreamUrl;
   }
 
-  export type GetChannelStreamUrl = (channel: Channel) => string;
+  export type GetChannelStreamUrl = (channel: Channel) => O.Option<string>;
 }
-
-const logger = createLogger("VideoBroadcast/ChannelStreamAdapter");
 
 export const WithChannelStreamAdapter = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
   class extends Base implements ChannelStreamAdapter.Contract {
-    channelStreamUrlsRef = IORef.newIORef<Map<string, string>>(new Map())();
+    channelStreamUrlsRef = IORef.newIORef<Record<string, string>>({})();
 
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        const streamUrls = new Map<string, string>();
-        payload.channels.forEach((channel) => {
-          streamUrls.set(serializeChannelTriplet(channel), channel.mp4Source);
-        });
-        this.channelStreamUrlsRef.write(streamUrls);
-      });
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+        pipe(
+          IO.of(payload),
+          IO.flatMap(({ channels }) =>
+            pipe(
+              channels,
+              A.reduce({}, (acc, channel) => ({
+                ...acc,
+                [serializeChannelTriplet(channel)]: channel.mp4Source,
+              })),
+              this.channelStreamUrlsRef.write,
+            ),
+          ),
+        ),
+      );
     }
 
-    get channelStreamUrls(): Map<string, string> {
-      return this.channelStreamUrlsRef.read();
-    }
-
-    getChannelStreamUrl: ChannelStreamAdapter.GetChannelStreamUrl = (channel) => {
-      const key = isValidChannelTriplet(channel) ? serializeChannelTriplet(channel) : channel?.ccid || "";
-      return pipe(
-        logger.info(`Getting stream URL for channel: ${key}`),
-        IO.map(() => this.channelStreamUrlsRef.read().get(key) || ""),
-      )();
-    };
+    getChannelStreamUrl: ChannelStreamAdapter.GetChannelStreamUrl = (channel) =>
+      pipe(
+        channel,
+        O.fromPredicate(isValidChannelTriplet),
+        O.map(serializeChannelTriplet),
+        O.flatMap((key) => pipe(this.channelStreamUrlsRef.read()[key], O.fromNullable)),
+      );
   };

@@ -25,8 +25,8 @@ export namespace MessageAdapter {
     | InvalidMessageEnvelopeError
     | InvalidTargetError;
 
-  export type Handler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => void;
-  export type RegisterMessageHandler = (origin: MessageOrigin, handler: Handler) => IO.IO<void>;
+  export type Handler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => IO.IO<void>;
+  export type RegisterMessageHandler = (origin: MessageOrigin) => (handler: Handler) => IO.IO<void>;
   export type SendMessage = <T extends Message = Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
   export type HandleMessage = (data: unknown) => E.Either<unknown, void>;
 
@@ -48,7 +48,7 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
     messageOrigin: O.Option<MessageOrigin> = O.none;
     messageHandler: O.Option<MessageAdapter.Handler> = O.none;
 
-    registerMessageHandler: MessageAdapter.RegisterMessageHandler = (origin, handler) =>
+    registerMessageHandler: MessageAdapter.RegisterMessageHandler = (origin) => (handler) =>
       pipe(
         IO.of({ origin, handler }),
         IO.tap(({ origin }) => () => {

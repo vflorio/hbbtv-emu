@@ -47,6 +47,12 @@
       "dependencies": ["fp-ts"],
       "dependencyTypes": ["dev"],
       "policy": "sameRange"
+    },
+    {
+      "label": "Sync fp-ts-std versions across workspace",
+      "dependencies": ["fp-ts-std"],
+      "dependencyTypes": ["dev"],
+      "policy": "sameRange"
     }
   ],
   "semverGroups": [

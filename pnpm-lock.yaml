@@ -40,7 +40,7 @@ importers:
         specifier: workspace:*
         version: link:../ui
       fp-ts-std:
-        specifier: ^1.0.0
+        specifier: 1.0.0
         version: 1.0.0(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11)))
       react:
         specifier: 19.2.0
@@ -108,6 +108,9 @@ importers:
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
+      fp-ts-std:
+        specifier: 1.0.0
+        version: 1.0.0(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11)))
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -121,10 +124,10 @@ importers:
         specifier: 2.16.11
         version: 2.16.11
       fp-ts-std:
-        specifier: ^1.0.0
+        specifier: 1.0.0
         version: 1.0.0(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11)))
       io-ts:
-        specifier: ^2.2.22
+        specifier: 2.2.22
         version: 2.2.22(fp-ts@2.16.11)
       typescript:
         specifier: 5.9.3
