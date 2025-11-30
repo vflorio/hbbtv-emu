@@ -7,6 +7,7 @@ import {
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
 import * as IORef from "fp-ts/IORef";
+import { pipe } from "fp-ts/lib/function";
 
 const WithCapabilities = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
   class extends Base {
@@ -15,9 +16,9 @@ const WithCapabilities = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        this.capabilitiesXMLRef.write(payload.capabilities);
-      });
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+        pipe(payload.capabilities, this.capabilitiesXMLRef.write),
+      );
     }
 
     get xmlCapabilities(): Document {

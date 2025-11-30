@@ -1,15 +1,12 @@
 import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import * as TE from "fp-ts/TaskEither";
-import { createLogger } from "../logger";
 import type { ClassType } from "../mixin";
 import type { Message } from "./message";
 import type { MessageAdapter } from "./messageAdapter";
 import type { MessageEnvelope } from "./messageEnvelope";
 import type { MessageOrigin } from "./messageOrigin";
 import type { MessageType } from "./messageType";
-
-const logger = createLogger("MessageBus");
 
 export namespace MessageBus {
   export interface Contract {
@@ -26,14 +23,14 @@ export namespace MessageBus {
   export type On = <T extends MessageType>(
     type: T,
     handler: MessageAdapter.Handler<Extract<Message, { type: T }>>,
-  ) => void;
+  ) => IO.IO<void>;
 
   export type Off = <T extends MessageType>(
     type: T,
     handler: MessageAdapter.Handler<Extract<Message, { type: T }>>,
-  ) => void;
+  ) => IO.IO<void>;
 
-  export type Dispatch = (envelope: MessageEnvelope) => TE.TaskEither<Error, void>;
+  export type Dispatch = (envelope: MessageEnvelope) => IO.IO<void>;
 }
 
 export const WithMessageBus =
@@ -45,34 +42,28 @@ export const WithMessageBus =
 
       constructor(...args: any[]) {
         super(...args);
-        this.registerMessageHandler(messageOrigin, this.bus.dispatch)();
+        this.registerMessageHandler(messageOrigin)(this.bus.dispatch)();
       }
 
+      updateHandlers = (
+        type: string,
+        updater: (handlers: ReadonlyArray<MessageAdapter.Handler>) => ReadonlyArray<MessageAdapter.Handler>,
+      ): IO.IO<void> => IO.of(this.handlers.set(type, updater(this.handlers.get(type) ?? RA.empty)));
+
       bus: MessageBus.Bus = {
-        on: (type, handler) => {
-          const hs = this.handlers.get(type) ?? RA.empty;
-          this.handlers.set(type, RA.append(handler as MessageAdapter.Handler)(hs));
-        },
+        on: (type, handler) => this.updateHandlers(type, RA.append(handler as MessageAdapter.Handler)),
 
-        off: (type, handler) => {
-          const hs = this.handlers.get(type);
-          if (!hs) return;
-          this.handlers.set(type, RA.filter((h) => h !== handler)(hs));
-        },
+        off: (type, handler) =>
+          this.updateHandlers(
+            type,
+            RA.filter((h) => h !== handler),
+          ),
 
-        dispatch: (envelope) => {
-          const handlers = this.handlers.get(envelope.message.type) ?? RA.empty;
-
-          if (RA.isEmpty(handlers)) {
-            return TE.right(undefined);
-          }
-
-          logger.info("Dispatching message", envelope)();
+        dispatch: (envelope) =>
           pipe(
-            handlers,
+            this.handlers.get(envelope.message.type) ?? RA.empty,
             RA.map((handler) => handler(envelope)),
-          );
-          return TE.right(undefined);
-        },
+            IO.sequenceArray,
+          ),
       };
     };

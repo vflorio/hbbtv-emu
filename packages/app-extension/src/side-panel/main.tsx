@@ -37,30 +37,25 @@ const WithSidePanel = <T extends ClassType<MessageAdapter.Contract & MessageBus.
     );
 
     initializeRoot: IO.IO<void> = pipe(
-      logger.info("Initializing root element"),
-      IO.flatMap(() =>
-        pipe(
-          document,
-          querySelector("#root"),
-          IOO.matchE(
-            () => logger.error("Root element not found"),
-            (rootElement) =>
+      document,
+      querySelector("#root"),
+      IOO.matchE(
+        () => logger.error("Root element not found"),
+        (rootElement) =>
+          pipe(
+            logger.info("Creating React root"),
+            IO.flatMap(() =>
               pipe(
-                logger.info("Creating React root"),
-                IO.flatMap(() =>
-                  pipe(
-                    IO.of(createRoot(rootElement)),
-                    IO.flatMap((root) => this.render(root)),
-                  ),
-                ),
+                IO.of(createRoot(rootElement)),
+                IO.flatMap((root) => this.render(root)),
               ),
+            ),
           ),
-        ),
       ),
     );
 
     subscribe: IO.IO<void> = () =>
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => this.stateRef.write(payload)());
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => pipe(payload, this.stateRef.write));
 
     updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): IO.IO<void> =>
       pipe(

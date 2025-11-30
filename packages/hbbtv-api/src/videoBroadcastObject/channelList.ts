@@ -26,17 +26,17 @@ export const WithChannelList = <T extends ClassType<MessageBus.Contract>>(Base: 
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        const channels = pipe(
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+        pipe(
           payload.channels,
           A.filter(isValidChannelTriplet),
           A.map((channel) => ({
             idType: ChannelIdType.ID_DVB_T,
             ...channel,
           })),
-        );
-        this.channelListRef.write(channels);
-      });
+          this.channelListRef.write,
+        ),
+      );
     }
 
     get channelList(): Channel[] {

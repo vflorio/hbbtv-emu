@@ -7,6 +7,7 @@ import * as RA from "fp-ts/ReadonlyArray";
 import type { EventTarget } from "./eventTarget";
 import type { Playback } from "./playback";
 import { PlayState } from "./playback";
+import type { VideoElement } from "./videoElement";
 
 export interface StreamEventDetail {
   readonly name: string;
@@ -30,7 +31,6 @@ export namespace StreamEvents {
     clearAllStreamEventListeners: ClearAllStreamEventListeners;
     dispatchStreamEvent: DispatchStreamEvent;
     dispatchStreamEventError: DispatchStreamEventError;
-    augmentDispatchPlayStateChange: AugmentDispatchPlayStateChange;
   }
 
   export type AddStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
@@ -50,38 +50,26 @@ export namespace StreamEvents {
     version?: number,
   ) => void;
   export type DispatchStreamEventError = (targetURL: string, eventName: string, errorMessage?: string) => void;
-  export type AugmentDispatchPlayStateChange = () => void;
 }
 
 const logger = createLogger("VideoBroadcast/StreamEvents");
 
-export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTarget.Contract>>(Base: T) =>
+export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTarget.Contract & VideoElement.Contract>>(
+  Base: T,
+) =>
   class extends Base implements StreamEvents.Contract {
     streamEventMetadataRef = IORef.newIORef<Map<string, Set<EventListener>>>(new Map())();
     streamEventVersionsRef = IORef.newIORef<Map<string, Set<number>>>(new Map())();
 
     constructor(...args: any[]) {
       super(...args);
-      this.augmentDispatchPlayStateChange();
+
+      this.videoElement.addEventListener("PlayStateChange", () => {
+        const isValidState = this.isPlayStateValid([PlayState.UNREALIZED, PlayState.CONNECTING]);
+        if (!isValidState) return;
+        this.clearAllStreamEventListeners();
+      });
     }
-
-    augmentDispatchPlayStateChange: StreamEvents.AugmentDispatchPlayStateChange = () => {
-      const originalDispatchPlayStateChange = this.dispatchPlayStateChange.bind(this);
-
-      this.dispatchPlayStateChange = (newState: PlayState, error?: number) => {
-        const oldState = this.playState;
-
-        if (newState === PlayState.UNREALIZED) {
-          this.clearAllStreamEventListeners();
-        }
-
-        if (newState === PlayState.CONNECTING && oldState === PlayState.PRESENTING) {
-          this.clearAllStreamEventListeners();
-        }
-
-        originalDispatchPlayStateChange(newState, error);
-      };
-    };
 
     getStreamEventKey: StreamEvents.GetStreamEventKey = (targetURL, eventName) => `${targetURL}:${eventName}`;
 

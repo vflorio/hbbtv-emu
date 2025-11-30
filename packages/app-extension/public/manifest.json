@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "HbbTV Emulator",
   "version": "1.0.0",
-  "description": "HbbTV emulator extension with side panel",
+  "description": "HbbTV emulator extension",
   "permissions": [
     "sidePanel",
     "activeTab",

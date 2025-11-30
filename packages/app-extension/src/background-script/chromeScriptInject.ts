@@ -1,7 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as T from "fp-ts/Task";
 
 const logger = createLogger("ChromeScriptInject");
 
@@ -10,46 +9,31 @@ export namespace ChromeScriptInject {
     inject: Inject;
   }
 
-  export type Inject = ({
-    tabId,
-    mainScripts,
-    bridgeScripts,
-  }: {
-    tabId: number;
-    mainScripts: string;
-    bridgeScripts: string;
-  }) => IO.IO<T.Task<void>>;
+  export type Inject = (tabId: number) => IO.IO<void>;
 }
+
+const executeScript =
+  (tabId: number, files: string[], world: "MAIN" | "ISOLATED"): IO.IO<void> =>
+  () =>
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files,
+      world,
+      injectImmediately: true,
+    });
+
+const mainScripts = ["content-script.js"];
+const bridgeScripts = ["bridge.js"];
 
 export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
   class extends Base implements ChromeScriptInject.Contract {
-    inject: ChromeScriptInject.Inject = ({ tabId, mainScripts, bridgeScripts }) =>
+    inject: ChromeScriptInject.Inject = (tabId) =>
       pipe(
-        logger.info(`Preparing injection for tab ${tabId}`, {
-          mainScripts,
-          bridgeScripts,
+        logger.info(`Script injection for tab ${tabId}`, {
+          main: mainScripts,
+          bridge: bridgeScripts,
         }),
-        IO.map(() =>
-          pipe(
-            T.fromIO(() => {
-              chrome.scripting.executeScript({
-                target: { tabId },
-                files: [mainScripts],
-                world: "MAIN",
-                injectImmediately: true,
-              });
-            }),
-            T.flatMap(
-              () => () =>
-                chrome.scripting.executeScript({
-                  target: { tabId },
-                  files: [bridgeScripts],
-                  world: "ISOLATED",
-                  injectImmediately: true,
-                }),
-            ),
-            T.flatMap(() => T.fromIO(logger.info(`Injection completed for tab ${tabId}`))),
-          ),
-        ),
+        IO.tap(() => executeScript(tabId, mainScripts, "MAIN")),
+        IO.tap(() => executeScript(tabId, bridgeScripts, "ISOLATED")),
       );
   };

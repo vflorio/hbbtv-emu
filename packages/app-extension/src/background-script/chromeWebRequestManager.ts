@@ -63,19 +63,6 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       });
     }
 
-    injectScripts = (tabId: number): IO.IO<void> =>
-      pipe(
-        IO.Do,
-        IO.flatMap(() =>
-          this.inject({
-            tabId,
-            bridgeScripts: "bridge.js",
-            mainScripts: "content-script.js",
-          }),
-        ),
-        IO.flatMap(() => logger.info(`Injection completed for tab ${tabId}`)),
-      );
-
     onHeadersReceivedListener: WebRequestHandler.OnHeadersReceivedListener = (details) =>
       pipe(
         details.responseHeaders,
@@ -87,7 +74,7 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
             IO.Do,
             IO.tap(() => () => this.tabs.add(details.tabId)),
             IO.tap(() => logger.info(`Tab added: ${details.tabId}`)),
-            IO.tap(() => this.injectScripts(details.tabId)),
+            IO.tap(() => this.inject(details.tabId)),
           )();
 
           return normalizeContentType(header);

@@ -7,20 +7,16 @@ export interface App {
 }
 
 export const initApp = (app: App): IO.IO<void> => {
-  const runInit: IO.IO<void> = app.init;
-
-  const initOnDomReady: IO.IO<void> = () => {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", runInit);
-    } else {
-      runInit();
-    }
-  };
+  // biome-ignore format: ack
+  const initOnDomReady: IO.IO<void> = () =>
+    document.readyState === "loading" 
+      ? document.addEventListener("DOMContentLoaded", app.init) 
+      : app.init();
 
   return pipe(
     O.fromNullable(typeof document !== "undefined" ? document : null),
     O.match(
-      () => runInit,
+      () => app.init,
       () => initOnDomReady,
     ),
   );

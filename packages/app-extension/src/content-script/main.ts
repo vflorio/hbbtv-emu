@@ -36,8 +36,7 @@ export const WithContentScript = <
       pipe(
         logger.info("Subscribing to bridge ready message"),
         IO.tap(() => () => {
-          this.bus.on(
-            "BRIDGE_READY",
+          this.bus.on("BRIDGE_READY", () =>
             pipe(
               logger.info("Bridge is ready"),
               IO.tap(() =>

@@ -23,7 +23,7 @@ export namespace Playback {
   }
 
   export type OnPlayStateChange = (state: PlayState, error?: number) => void;
-  export type DispatchPlayStateChange = (newState: PlayState, error?: number) => void;
+  export type DispatchPlayStateChange = (newState: PlayState, error?: number) => IO.IO<void>;
   export type IsPlayStateValid = (validStates: PlayState[]) => boolean;
   export type Stop = () => void;
   export type Release = () => void;
@@ -49,19 +49,18 @@ export const WithPlayback = <T extends ClassType<VideoElement.Contract & EventTa
       return this.playStateRef.read();
     }
 
-    dispatchPlayStateChange: Playback.DispatchPlayStateChange = (newState, error?) => {
-      const oldState = this.playStateRef.read();
+    dispatchPlayStateChange: Playback.DispatchPlayStateChange = (newState, error?) =>
       pipe(
-        logger.info(`VideoBroadcast state`, { oldState, newState }),
+        logger.info(`dispatchPlayStateChange`, { newState }),
         IO.flatMap(() => () => {
           this.playStateRef.write(newState);
           this.onPlayStateChange?.(newState, error);
           this.dispatchEvent(new CustomEvent("PlayStateChange", { detail: { state: newState, error } }));
         }),
-      )();
-    };
+      );
 
-    isPlayStateValid: Playback.IsPlayStateValid = (validStates) => validStates.includes(this.playStateRef.read());
+    isPlayStateValid: Playback.IsPlayStateValid = (validStates) =>
+      pipe(this.playStateRef.read(), (currentState) => validStates.includes(currentState));
 
     stop: Playback.Stop = () =>
       pipe(

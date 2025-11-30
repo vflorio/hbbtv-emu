@@ -66,15 +66,14 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
         E.flatMap((envelope) =>
           pipe(
             this.messageHandler,
-            O.match(
-              (): E.Either<unknown, void> => E.left(noMessageHandlerRegisteredError("No message handler registered")),
-              (handler): E.Either<unknown, void> =>
-                E.tryCatch(
-                  () => {
-                    handler(envelope);
-                  },
-                  (error) => messageHandlingError(error instanceof Error ? error.message : String(error)),
-                ),
+            E.fromOption(() => noMessageHandlerRegisteredError("No message handler registered")),
+            E.flatMap((handler) =>
+              E.tryCatch(
+                () => {
+                  handler(envelope)();
+                },
+                (error) => messageHandlingError(error instanceof Error ? error.message : String(error)),
+              ),
             ),
           ),
         ),

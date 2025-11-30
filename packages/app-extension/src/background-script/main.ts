@@ -37,16 +37,16 @@ const WithBackgroundScript = <
     store = new Storage<ExtensionConfig.State>("state");
     stateRef = IORef.newIORef<ExtensionConfig.State>(DEFAULT_HBBTV_CONFIG)();
 
-    init: IO.IO<void> = pipe(
-      this.store.load(),
-      T.map(E.getOrElse(() => DEFAULT_HBBTV_CONFIG)),
-      T.map((state) => this.stateRef.write(state)),
-      T.tapIO(() => this.setupMessageHandlers),
-    );
+    init: IO.IO<void> = () =>
+      pipe(
+        this.store.load(),
+        TE.getOrElse(() => T.of(DEFAULT_HBBTV_CONFIG)),
+        T.flatMap((state) => T.fromIO(this.stateRef.write(state))),
+        T.tapIO(() => this.subscribe),
+      )();
 
-    setupMessageHandlers: IO.IO<void> = () => {
-      this.bus.on(
-        "CONTENT_SCRIPT_READY",
+    subscribe: IO.IO<void> = () => {
+      this.bus.on("CONTENT_SCRIPT_READY", () =>
         pipe(
           logger.info("Content script ready, sending config"),
           IO.tap(() => this.notify),
@@ -86,7 +86,7 @@ const WithBackgroundScript = <
         IO.flatMap((envelope) =>
           pipe(
             this.sendMessage(envelope),
-            TE.match(IO.of(undefined), () => logger.info(`Config sent to tab ${tabId}`)),
+            TE.match(IO.Do, () => logger.info(`Config sent to tab ${tabId}`)),
           ),
         ),
       );

@@ -14,18 +14,19 @@ import {
 } from "@hbb-emu/lib";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import * as Ord from "fp-ts/Ord";
 
-const baseConfiguration = (countryCode: string): Configuration => ({
+const base = (countryCode: string): Configuration => ({
   preferredAudioLanguage: countryCode,
   preferredSubtitleLanguage: `${countryCode},ENG`,
   preferredUILanguage: `${countryCode},ENG`,
   countryId: countryCode,
 });
 
-const extendedConfiguration = (base: Configuration): Configuration => ({
+const extended = (base: Configuration): Configuration => ({
   ...base,
   subtitlesEnabled: true,
   audioDescriptionEnabled: true,
@@ -51,26 +52,28 @@ const isVersion2 = (version: Version) => isGreaterThanOrEqual(version, unsafePar
 
 const WithConfiguration = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
   class extends Base {
-    protected hbbtvVersionRef = IORef.newIORef("")();
-    protected countryCodeRef = IORef.newIORef("")();
+    hbbtvVersionRef = IORef.newIORef("")();
+    countryCodeRef = IORef.newIORef("")();
 
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
-        this.countryCodeRef.write(payload.countryCode);
-        this.hbbtvVersionRef.write(payload.version);
-      });
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+        pipe(
+          IO.of(payload),
+          IO.flatMap(() => this.countryCodeRef.write(payload.countryCode)),
+          IO.flatMap(() => this.hbbtvVersionRef.write(payload.version)),
+        ),
+      );
     }
 
     get configuration(): Configuration {
-      const countryCode = this.countryCodeRef.read();
-      const base = baseConfiguration(countryCode);
       return pipe(
         parseVersion(this.hbbtvVersionRef.read()),
         E.match(
-          () => base,
-          (hbbtvVersion) => (isVersion2(hbbtvVersion) ? extendedConfiguration(base) : base),
+          () => base(this.countryCodeRef.read()),
+          (hbbtvVersion) =>
+            pipe(base(this.countryCodeRef.read()), (base) => (isVersion2(hbbtvVersion) ? extended(base) : base)),
         ),
       );
     }

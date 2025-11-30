@@ -88,30 +88,29 @@ export const WithChannel = <
         this.dispatchChannelError((event as CustomEvent<Channel>).detail, ChannelChangeError.UNIDENTIFIED_ERROR);
       });
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => {
+      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
         pipe(
-          payload.currentChannel,
-          O.fromNullable,
+          O.fromNullable(payload.currentChannel),
           ExtensionConfig.toChannel,
           O.filter((channel) =>
             pipe(
               this.currentChannelRef.read(),
               O.match(
                 () => true,
-                (currentChannel) => !isChannelEqual(channel, currentChannel),
+                (current) => !isChannelEqual(channel, current),
               ),
             ),
           ),
           O.match(
-            () => undefined,
+            () => IO.of(undefined),
             (channel) =>
               pipe(
                 logger.info("Setting channel", channel),
                 IO.flatMap(() => () => this.setChannel(channel)),
-              )(),
+              ),
           ),
-        );
-      });
+        ),
+      );
     }
 
     get currentChannel(): Channel | null {
