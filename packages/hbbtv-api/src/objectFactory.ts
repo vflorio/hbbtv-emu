@@ -9,16 +9,19 @@ export interface OipfObjectFactory {
   onLowMemory: () => void;
 }
 
-const SUPPORTED_MIME_TYPES = new Set([
-  "video/broadcast",
-  "video/mpeg",
+export type OipfObjectType =
+  | "application/oipfApplicationManager"
+  | "application/oipfConfiguration"
+  | "application/oipfCapabilities";
+
+export const oipfMimeTypes: OipfObjectType[] = [
   "application/oipfApplicationManager",
-  "application/oipfCapabilities",
   "application/oipfConfiguration",
-  "application/oipfDrmAgent",
-  "application/oipfParentalControlManager",
-  "application/oipfSearchManager",
-]);
+  "application/oipfCapabilities",
+];
+
+export const isValidMimeType = (mimeType: string): mimeType is OipfObjectType =>
+  oipfMimeTypes.includes(mimeType as OipfObjectType);
 
 const logger = createLogger("OipfObjectFactory");
 
@@ -26,7 +29,7 @@ export const createObjectFactory = (): OipfObjectFactory => ({
   isObjectSupported: (mimeType: string) =>
     pipe(
       logger.info(`isObjectSupported(${mimeType})`),
-      IO.map(() => SUPPORTED_MIME_TYPES.has(mimeType)),
+      IO.map(() => isValidMimeType(mimeType)),
     )(),
 
   createVideoBroadcastObject: () =>

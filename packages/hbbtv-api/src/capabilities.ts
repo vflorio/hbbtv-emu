@@ -25,7 +25,7 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
       return new DOMParser().parseFromString(this.capabilitiesXMLRef.read(), "text/xml");
     }
 
-    private countVideoProfiles = (type: "SD" | "HD"): number => {
+    countVideoProfiles = (type: "SD" | "HD"): number => {
       const capabilitiesXML = this.capabilitiesXMLRef.read();
       const videoProfiles = capabilitiesXML.split("video_profile");
       if (videoProfiles.length <= 1) return 0;

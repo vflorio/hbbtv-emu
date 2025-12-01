@@ -35,7 +35,7 @@ const WithKeysetConstants = <T extends ClassType>(Base: T) =>
 
 const WithKeysetValue = <T extends ClassType>(Base: T) =>
   class extends Base {
-    private currentValueRef = IORef.newIORef<O.Option<number>>(O.none)();
+    currentValueRef = IORef.newIORef<O.Option<number>>(O.none)();
 
     get value(): number | null {
       return pipe(this.currentValueRef.read(), O.toNullable);

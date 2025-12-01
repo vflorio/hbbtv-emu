@@ -17,7 +17,7 @@ class ApplicationBase {
 
 const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base {
-    private getFreeMem = () => {
+    getFreeMem = () => {
       const perf = performance as Performance & { memory?: PerformanceMemory };
       if (typeof performance !== "undefined" && perf.memory) {
         return perf.memory.usedJSHeapSize || 0;
@@ -44,7 +44,7 @@ interface Visibility {
 
 const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base implements Visibility {
-    private visibleRef = IORef.newIORef<O.Option<boolean>>(O.none)();
+    visibleRef = IORef.newIORef<O.Option<boolean>>(O.none)();
 
     get visible(): boolean | undefined {
       return pipe(this.visibleRef.read(), O.toUndefined);

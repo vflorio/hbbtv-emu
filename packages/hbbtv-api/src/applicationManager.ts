@@ -18,7 +18,7 @@ const WithMemoryManagement = <T extends ClassType>(Base: T) =>
 
 const WithApplicationCache = <T extends ClassType>(Base: T) =>
   class extends Base {
-    private applicationCacheRef = IORef.newIORef<WeakMap<Document, Application>>(new WeakMap())();
+    applicationCacheRef = IORef.newIORef<WeakMap<Document, Application>>(new WeakMap())();
 
     getOwnerApplication = (document: Document): Application =>
       pipe(
