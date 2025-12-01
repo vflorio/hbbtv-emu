@@ -7,13 +7,15 @@ export type Message =
   | { type: "BRIDGE_READY"; payload: null }
   | { type: "CONTENT_SCRIPT_READY"; payload: null }
   | { type: "UPDATE_USER_AGENT"; payload: string }
-  | { type: "UPDATE_CONFIG"; payload: ExtensionConfig.State };
+  | { type: "UPDATE_CONFIG"; payload: ExtensionConfig.State }
+  | { type: "GET_CONFIG"; payload: null };
 
 export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("BRIDGE_READY"), payload: t.null }),
   t.type({ type: t.literal("CONTENT_SCRIPT_READY"), payload: t.null }),
   t.type({ type: t.literal("UPDATE_USER_AGENT"), payload: t.string }),
   t.type({ type: t.literal("UPDATE_CONFIG"), payload: ExtensionConfig.StateCodec }),
+  t.type({ type: t.literal("GET_CONFIG"), payload: t.null }),
 ]);
 
 export type InvalidMessageError = Readonly<{

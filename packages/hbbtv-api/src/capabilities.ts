@@ -16,8 +16,8 @@ const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
-        pipe(payload.capabilities, this.capabilitiesXMLRef.write),
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
+        pipe(envelope.message.payload.capabilities, this.capabilitiesXMLRef.write),
       );
     }
 

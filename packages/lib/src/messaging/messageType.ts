@@ -2,13 +2,19 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
 
-export type MessageType = "BRIDGE_READY" | "CONTENT_SCRIPT_READY" | "UPDATE_USER_AGENT" | "UPDATE_CONFIG";
+export type MessageType =
+  | "BRIDGE_READY"
+  | "CONTENT_SCRIPT_READY"
+  | "UPDATE_USER_AGENT"
+  | "UPDATE_CONFIG"
+  | "GET_CONFIG";
 
 export const MessageTypeCodec = t.union([
   t.literal("BRIDGE_READY"),
   t.literal("CONTENT_SCRIPT_READY"),
   t.literal("UPDATE_USER_AGENT"),
   t.literal("UPDATE_CONFIG"),
+  t.literal("GET_CONFIG"),
 ]);
 
 export const validateMessageType = (data: unknown): E.Either<InvalidMessageTypeError, MessageType> =>

@@ -58,11 +58,11 @@ const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
         pipe(
-          IO.of(payload),
-          IO.flatMap(() => this.countryCodeRef.write(payload.countryCode)),
-          IO.flatMap(() => this.hbbtvVersionRef.write(payload.version)),
+          IO.of(envelope.message.payload),
+          IO.flatMap((payload) => this.countryCodeRef.write(payload.countryCode)),
+          IO.flatMap(() => this.hbbtvVersionRef.write(envelope.message.payload.version)),
         ),
       );
     }

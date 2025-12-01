@@ -9,6 +9,7 @@ import {
   initApp,
   type MessageAdapter,
   type MessageBus,
+  type MessageOrigin,
   Storage,
   WithChromeMessageAdapter,
   WithMessageBus,
@@ -44,47 +45,102 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
       this.bus.on("CONTENT_SCRIPT_READY", () =>
         pipe(
           logger.info("Content script ready, sending config"),
-          IO.tap(() => this.notify),
+          IO.flatMap(() => () => this.notifyTabs()),
         ),
       );
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+      this.bus.on("GET_CONFIG", (envelope) =>
         pipe(
-          logger.info("Updating config", payload),
-          IO.tap(() => this.stateRef.write(payload)),
-          IO.tap(() => this.store.save(payload)),
-          IO.tap(() => this.notify),
+          logger.info("Get config request from", envelope.source),
+          IO.flatMap(() => () => this.sendConfigTo(envelope.source)()),
         ),
       );
 
-      this.bus.on("UPDATE_USER_AGENT", ({ message: { payload } }) =>
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
         pipe(
-          logger.info("Updating user agent", payload),
-          IO.bind("currentState", () => this.stateRef.read),
-          IO.tap(({ currentState }) => this.stateRef.write({ ...currentState, userAgent: payload })),
-          IO.tap(({ currentState }) => this.store.save({ ...currentState, userAgent: payload })),
-          IO.tap(() => this.updateUserAgent(payload)),
-        ),
-      );
-    };
-
-    sendToTab = (tabId: number): IO.IO<void> =>
-      pipe(
-        IO.Do,
-        IO.bind("messageOrigin", () => this.messageOrigin.read),
-        IO.bind("state", () => this.stateRef.read),
-        IO.map(({ messageOrigin, state }) =>
-          createEnvelope(messageOrigin, "CONTENT_SCRIPT", { type: "UPDATE_CONFIG", payload: state }, { tabId }),
-        ),
-        IO.flatMap((envelope) =>
-          pipe(
-            this.sendMessage(envelope),
-            TE.match(IO.Do, () => logger.info(`Config sent to tab ${tabId}`)),
+          logger.info("Updating config", envelope.message.payload),
+          IO.tap(() => this.stateRef.write(envelope.message.payload)),
+          IO.flatMap(
+            () => () =>
+              pipe(
+                this.store.save(envelope.message.payload),
+                TE.match(
+                  (error) => logger.error("Failed to save config", error)(),
+                  () => logger.info("Config saved")(),
+                ),
+                T.flatMap(() => this.notifyTabs),
+                T.flatMap(() => this.sendConfigTo(envelope.source)),
+              )(),
           ),
         ),
       );
 
-    notify: IO.IO<void> = pipe(Array.from(this.tabs), A.traverse(IO.Applicative)(this.sendToTab));
+      this.bus.on("UPDATE_USER_AGENT", (envelope) =>
+        pipe(
+          logger.info("Updating user agent", envelope.message.payload),
+          IO.bind("currentState", () => this.stateRef.read),
+          IO.tap(({ currentState }) => this.stateRef.write({ ...currentState, userAgent: envelope.message.payload })),
+          IO.flatMap(
+            ({ currentState }) =>
+              () =>
+                pipe(
+                  this.store.save({ ...currentState, userAgent: envelope.message.payload }),
+                  TE.match(
+                    (error) => logger.error("Failed to save config", error)(),
+                    () => logger.info("Config saved")(),
+                  ),
+                )(),
+          ),
+          IO.tap(() => this.updateUserAgent(envelope.message.payload)),
+        ),
+      );
+    };
+
+    sendConfigTo = (target: MessageOrigin): T.Task<void> =>
+      pipe(
+        T.fromIO(this.messageOrigin.read),
+        T.bindTo("messageOrigin"),
+        T.bind("state", () => T.fromIO(this.stateRef.read)),
+        T.map(({ messageOrigin, state }) =>
+          createEnvelope(messageOrigin, target, { type: "UPDATE_CONFIG", payload: state }),
+        ),
+        T.flatMap((envelope) =>
+          pipe(
+            this.sendMessage(envelope),
+            TE.match(
+              () => logger.info(`Failed to send config to ${target}`)(),
+              () => logger.info(`Config sent to ${target}`)(),
+            ),
+          ),
+        ),
+      );
+
+    sendToTab = (tabId: number): T.Task<void> =>
+      pipe(
+        T.fromIO(this.messageOrigin.read),
+        T.bindTo("messageOrigin"),
+        T.bind("state", () => T.fromIO(this.stateRef.read)),
+        T.map(({ messageOrigin, state }) =>
+          createEnvelope(messageOrigin, "CONTENT_SCRIPT", { type: "UPDATE_CONFIG", payload: state }, { tabId }),
+        ),
+        T.flatMap((envelope) =>
+          pipe(
+            this.sendMessage(envelope),
+            TE.match(
+              () => logger.info(`Failed to send config to tab ${tabId}`)(),
+              () => logger.info(`Config sent to tab ${tabId}`)(),
+            ),
+          ),
+        ),
+      );
+
+    notifyTabs: T.Task<void> = pipe(
+      Array.from(this.tabs),
+      A.traverse(T.ApplicativeSeq)(this.sendToTab),
+      T.map(() => undefined),
+    );
+
+    notify: IO.IO<void> = () => this.notifyTabs();
   };
 
 // biome-ignore format: ack

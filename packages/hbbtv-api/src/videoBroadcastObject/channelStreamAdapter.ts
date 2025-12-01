@@ -22,12 +22,12 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: 
     constructor(...args: any[]) {
       super(...args);
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
         pipe(
-          IO.of(payload),
-          IO.flatMap(({ channels }) =>
+          IO.of(envelope.message.payload),
+          IO.flatMap((payload) =>
             pipe(
-              channels,
+              payload.channels,
               A.reduce({}, (acc, channel) => ({
                 ...acc,
                 [serializeChannelTriplet(channel)]: channel.mp4Source,

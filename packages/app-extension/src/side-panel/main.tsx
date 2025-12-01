@@ -30,12 +30,21 @@ const logger = createLogger("SidePanel");
 const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
     stateRef = IORef.newIORef(DEFAULT_HBBTV_CONFIG)();
+    rootRef = IORef.newIORef<Root | null>(null)();
+    configLoaded = false;
 
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),
-      IO.tap(() => this.initializeRoot),
       IO.tap(() => this.subscribe),
+      IO.tap(() => this.initializeRoot),
+      IO.tap(() => this.requestConfig),
       IO.tap(() => logger.info("Initialized")),
+    );
+
+    requestConfig: IO.IO<void> = pipe(
+      this.messageOrigin.read,
+      IO.map((origin) => createEnvelope(origin, "BACKGROUND_SCRIPT", { type: "GET_CONFIG", payload: null })),
+      IO.flatMap((envelope) => () => this.sendMessage(envelope)()),
     );
 
     initializeRoot: IO.IO<void> = pipe(
@@ -49,6 +58,7 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
             IO.flatMap(() =>
               pipe(
                 IO.of(createRoot(rootElement)),
+                IO.tap((root) => this.rootRef.write(root)),
                 IO.flatMap((root) => this.render(root)),
               ),
             ),
@@ -57,7 +67,18 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     );
 
     subscribe: IO.IO<void> = () =>
-      this.bus.on("UPDATE_CONFIG", (envelope) => pipe(envelope.message.payload, this.stateRef.write));
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
+        pipe(
+          logger.info("Received config update", envelope.message.payload),
+          IO.tap(() => this.stateRef.write(envelope.message.payload)),
+          IO.tap(() => () => {
+            const root = this.rootRef.read();
+            if (root) {
+              this.render(root)();
+            }
+          }),
+        ),
+      );
 
     updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): T.Task<void> =>
       pipe(

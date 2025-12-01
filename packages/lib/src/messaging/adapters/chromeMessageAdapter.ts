@@ -55,13 +55,15 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
         pipe(
           envelope.target,
           E.fromPredicate(
-            (target) => target === "BACKGROUND_SCRIPT" || target === "CONTENT_SCRIPT",
+            (target) =>
+              target === "BACKGROUND_SCRIPT" || target === "CONTENT_SCRIPT" || target === "SIDE_PANEL",
             (target) => chromeMessageError(`Cannot send message: invalid target ${target}`),
           ),
           TE.fromEither,
           TE.flatMap((target) =>
             ({
               BACKGROUND_SCRIPT: sendToBackgroundScript,
+              SIDE_PANEL: sendToBackgroundScript, // Side panel uses same mechanism as background script
               CONTENT_SCRIPT: () =>
                 pipe(
                   envelope.context?.tabId,

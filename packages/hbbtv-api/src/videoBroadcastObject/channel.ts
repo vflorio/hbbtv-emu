@@ -79,9 +79,9 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         this.dispatchChannelError((event as CustomEvent<Channel>).detail, ChannelChangeError.UNIDENTIFIED_ERROR);
       });
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
         pipe(
-          O.fromNullable(payload.currentChannel),
+          O.fromNullable(envelope.message.payload.currentChannel),
           ExtensionConfig.toChannel,
           O.filter((channel) =>
             pipe(
