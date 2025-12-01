@@ -2,6 +2,7 @@ import {
   createApplicationManager,
   createOipfCapabilities,
   createOipfConfiguration,
+  type OipfObjectType,
   type VideoBroadcastObject as VideoBroadcast,
   WithVideoBroadcastObject,
 } from "@hbb-emu/hbbtv-api";
@@ -16,13 +17,13 @@ import {
 } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import * as R from "fp-ts/Record";
 
 export interface ObjectHandler {
   attachObject: (element: Element) => IO.IO<void>;
-  videoBroadcastObject: O.Option<VideoBroadcast>;
-  onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
+  videoBroadcastObjectRef: IORef.IORef<O.Option<VideoBroadcast>>;
 }
 
 const VideoBroadcastObject = compose(
@@ -32,68 +33,61 @@ const VideoBroadcastObject = compose(
   WithVideoBroadcastObject,
 );
 
-type OipfObjectType =
-  | "application/oipfApplicationManager"
-  | "application/oipfConfiguration"
-  | "application/oipfCapabilities";
-
 const objectFactoryMap: Record<OipfObjectType, () => unknown> = {
   "application/oipfApplicationManager": createApplicationManager,
   "application/oipfConfiguration": createOipfConfiguration,
   "application/oipfCapabilities": createOipfCapabilities,
 };
 
+const insertAfter =
+  (newNode: Node) =>
+  (referenceNode: Node) =>
+  (parent: ParentNode): IO.IO<void> =>
+  () => {
+    parent.insertBefore(newNode, referenceNode.nextSibling);
+  };
+
 export const WithObjectHandler = <T extends ClassType>(Base: T) =>
   class extends Base implements ObjectHandler {
-    videoBroadcastObject: O.Option<VideoBroadcast> = O.none;
-    onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
+    videoBroadcastObjectRef: IORef.IORef<O.Option<VideoBroadcast>> = IORef.newIORef<O.Option<VideoBroadcast>>(O.none)();
 
-    // biome-ignore format: ack
     attachObject = (element: Element): IO.IO<void> =>
       pipe(
         O.fromNullable(element.getAttribute("type")),
-        O.match(() => IO.of(undefined), (type) =>
-          type === "video/broadcast" 
-            ? this.createVideoBroadcast(element) 
-            : this.createOipfObject(element, type),
+        O.match(
+          () => IO.Do,
+          (type) =>
+            type === "video/broadcast" ? this.createVideoBroadcast(element) : this.createOipfObject(element, type),
         ),
       );
 
-    private createVideoBroadcast =
-      (objectElement: Element): IO.IO<void> =>
-      () =>
-        pipe(
-          O.fromNullable(objectElement.parentNode),
+    createVideoBroadcast = (objectElement: Element): IO.IO<void> =>
+      pipe(
+        IO.of(O.fromNullable(objectElement.parentNode)),
+        IO.flatMap(
           O.match(
-            () => {},
-            (parentNode) => {
-              const videoBroadcast = new VideoBroadcastObject();
-              this.videoBroadcastObject = O.some(videoBroadcast);
-
-              parentNode.insertBefore(videoBroadcast.videoElement, objectElement.nextSibling);
-
-              const objectStyleMirror = new ObjectStyleMirror(objectElement, videoBroadcast.videoElement);
-              objectStyleMirror.start();
-
-              proxyProperties(objectElement, videoBroadcast);
-
+            () => IO.Do,
+            (parentNode) =>
               pipe(
-                O.fromNullable(this.onVideoBroadcastCreated),
-                O.map((callback) => callback(videoBroadcast)),
-              );
-            },
+                IO.of(new VideoBroadcastObject()),
+                IO.tap((videoBroadcast) => this.videoBroadcastObjectRef.write(O.some(videoBroadcast))),
+                IO.tap((videoBroadcast) => insertAfter(videoBroadcast.videoElement)(objectElement)(parentNode)),
+                IO.tap((videoBroadcast) => new ObjectStyleMirror(objectElement, videoBroadcast.videoElement).start),
+                IO.tap((videoBroadcast) => () => proxyProperties(objectElement, videoBroadcast)),
+                IO.asUnit,
+              ),
           ),
-        );
+        ),
+      );
 
-    private createOipfObject =
-      (element: Element, type: string): IO.IO<void> =>
-      () =>
-        pipe(
-          objectFactoryMap,
-          R.lookup(type),
+    createOipfObject = (element: Element, type: string): IO.IO<void> =>
+      pipe(
+        IO.of(R.lookup(type)(objectFactoryMap)),
+        IO.flatMap(
           O.match(
-            () => {},
-            (factory) => copyProperties(factory() as object, element),
+            () => IO.Do,
+            (factory) => () => copyProperties(factory() as object, element),
           ),
-        );
+        ),
+      );
   };

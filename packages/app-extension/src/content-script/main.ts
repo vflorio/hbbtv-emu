@@ -16,15 +16,25 @@ import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
 import { querySelectorAll } from "fp-ts-std/DOM";
 import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
+import { type Source, type SourceElementObserver, WithSourceElementObserver } from "./sourceElementObserver";
 
 const logger = createLogger("ContentScript");
 
-export const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & MessageBus>>(Base: T) =>
+const onSourceDetected = (source: Source): void => {
+  logger.info("Source element detected", { src: source.src, parentVideo: source.parentVideo?.id })();
+};
+
+export const WithContentScript = <
+  T extends ClassType<ObjectHandler & MessageAdapter & MessageBus & SourceElementObserver>,
+>(
+  Base: T,
+) =>
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),
       IO.tap(() => this.subscribe),
       IO.tap(() => this.attachObjects),
+      IO.tap(() => this.startSourceObserver(onSourceDetected)),
       IO.tap(() => logger.info("Initialized")),
     );
 
@@ -65,6 +75,7 @@ const ContentScript = compose(
   WithPostMessageAdapter,
   WithMessageBus("CONTENT_SCRIPT"),
   WithObjectHandler,
+  WithSourceElementObserver,
   WithContentScript
 );
 
