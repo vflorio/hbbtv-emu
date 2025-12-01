@@ -1,3 +1,4 @@
+import type { VideoBroadcastObject as VideoBroadcast } from "@hbb-emu/hbbtv-api";
 import {
   type App,
   type ClassType,
@@ -10,31 +11,31 @@ import {
   WithMessageBus,
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
-import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as IOO from "fp-ts/IOOption";
-import { querySelectorAll } from "fp-ts-std/DOM";
-import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
-import { type Source, type SourceElementObserver, WithSourceElementObserver } from "./sourceElementObserver";
+import * as IORef from "fp-ts/IORef";
+import * as O from "fp-ts/Option";
+import { WithDomObserver } from "../../../lib/src/domObserver";
+import { type ElementMatcherRegistry, WithElementMatcherRegistry } from "./elementMatcher";
+import { createDashSourceMatcher, createVideoBroadcastMatcher, type DashSource, oipfObjectMatcher } from "./matchers";
 
 const logger = createLogger("ContentScript");
 
-const onSourceDetected = (source: Source): void => {
+const onSourceDetected = (source: DashSource): void => {
   logger.info("Source element detected", { src: source.src, parentVideo: source.parentVideo?.id })();
 };
 
-export const WithContentScript = <
-  T extends ClassType<ObjectHandler & MessageAdapter & MessageBus & SourceElementObserver>,
->(
-  Base: T,
-) =>
+export const WithContentScript = <T extends ClassType<MessageAdapter & MessageBus & ElementMatcherRegistry>>(Base: T) =>
   class extends Base implements App {
+    videoBroadcastRef: IORef.IORef<O.Option<VideoBroadcast>> = IORef.newIORef<O.Option<VideoBroadcast>>(O.none)();
+
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),
       IO.tap(() => this.subscribe),
-      IO.tap(() => this.attachObjects),
-      IO.tap(() => this.startSourceObserver(onSourceDetected)),
+      IO.tap(() => this.registerMatcher(oipfObjectMatcher)),
+      IO.tap(() => this.registerMatcher(createVideoBroadcastMatcher(this.videoBroadcastRef))),
+      IO.tap(() => this.registerMatcher(createDashSourceMatcher(onSourceDetected))),
+      IO.tap(() => this.initMatchers),
       IO.tap(() => logger.info("Initialized")),
     );
 
@@ -61,12 +62,6 @@ export const WithContentScript = <
           );
         }),
       );
-
-    attachObjects: IO.IO<void> = pipe(
-      document,
-      querySelectorAll("object"),
-      IOO.matchE(() => IO.of(undefined), A.traverse(IO.Applicative)(this.attachObject)),
-    );
   };
 
 // biome-ignore format: ack
@@ -74,8 +69,8 @@ const ContentScript = compose(
   class {},
   WithPostMessageAdapter,
   WithMessageBus("CONTENT_SCRIPT"),
-  WithObjectHandler,
-  WithSourceElementObserver,
+  WithDomObserver,
+  WithElementMatcherRegistry,
   WithContentScript
 );
 
