@@ -7,8 +7,8 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as S from "fp-ts/string";
 
 export interface Version {
-  readonly _tag: "Version";
-  readonly parts: ReadonlyArray<number>;
+  _tag: "Version";
+  parts: ReadonlyArray<number>;
 }
 
 const parseVersionPart = (num: string): E.Either<InvalidVersionError, number> =>

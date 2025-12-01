@@ -3,9 +3,9 @@ import * as IORef from "fp-ts/IORef";
 import type { EventTarget } from "./eventTarget";
 
 export interface Display {
-  readonly width: number;
-  readonly height: number;
-  readonly fullScreen: boolean;
+  width: number;
+  height: number;
+  fullScreen: boolean;
   onFullScreenChange?: () => void;
   setFullScreen: (fullScreen: boolean) => void;
 }

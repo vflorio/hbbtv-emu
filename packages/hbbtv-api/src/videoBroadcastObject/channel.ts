@@ -20,7 +20,7 @@ import { PlayState } from "./playback";
 import type { VideoElement } from "./videoElement";
 
 export interface ChannelManager {
-  readonly currentChannel: Channel | null;
+  currentChannel: Channel | null;
   onChannelChangeSucceeded?: (channel: Channel) => void;
   onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
   bindToCurrentChannel: () => Channel | null;

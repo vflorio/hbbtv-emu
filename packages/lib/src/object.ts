@@ -6,11 +6,10 @@ import * as O from "fp-ts/Option";
 
 export class ObjectStyleMirror {
   observerRef: IORef.IORef<O.Option<MutationObserver>>;
+  source: Element;
+  target: Element;
 
-  constructor(
-    readonly source: Element,
-    readonly target: Element,
-  ) {
+  constructor(source: Element, target: Element) {
     this.observerRef = IORef.newIORef(O.none)();
     this.source = source;
     this.target = target;

@@ -8,7 +8,7 @@ type Level = "debug" | "info" | "warning" | "error";
 
 interface Entry {
   message: string;
-  args: readonly unknown[];
+  args: unknown[];
   time: Date;
   level: Level;
   section: string;
@@ -21,12 +21,12 @@ const browserStyles = {
   message: "color: #8be9fd;",
 } as const;
 
-const formatBackgroundScriptLog = (entry: Entry): readonly [string, ...unknown[]] => {
+const formatBackgroundScriptLog = (entry: Entry): [string, ...unknown[]] => {
   const timestamp = entry.time.toISOString().split("T")[1].split("Z")[0];
   return [`${timestamp} [hbbtv-emu] ${entry.section} ${entry.message}`, ...entry.args];
 };
 
-const formatBrowserLog = (entry: Entry): readonly [string, ...unknown[]] => {
+const formatBrowserLog = (entry: Entry): [string, ...unknown[]] => {
   const timestamp = entry.time.toISOString().split("T")[1].split("Z")[0];
   return [
     `%c${timestamp}%c [hbbtv-emu]%c ${entry.section}%c ${entry.message}`,
@@ -64,25 +64,25 @@ const consoleLogger: L.LoggerIO<Entry> = (entry) =>
   );
 
 export const createLogger = (section: string) => {
-  const debug = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+  const debug = (message: string, ...args: unknown[]): IO.IO<void> =>
     pipe(
       D.create,
       IO.flatMap((time) => consoleLogger({ level: "debug", message, args, time, section })),
     );
 
-  const info = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+  const info = (message: string, ...args: unknown[]): IO.IO<void> =>
     pipe(
       D.create,
       IO.flatMap((time) => consoleLogger({ level: "info", message, args, time, section })),
     );
 
-  const warn = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+  const warn = (message: string, ...args: unknown[]): IO.IO<void> =>
     pipe(
       D.create,
       IO.flatMap((time) => consoleLogger({ level: "warning", message, args, time, section })),
     );
 
-  const error = (message: string, ...args: readonly unknown[]): IO.IO<void> =>
+  const error = (message: string, ...args: unknown[]): IO.IO<void> =>
     pipe(
       D.create,
       IO.flatMap((time) => consoleLogger({ level: "error", message, args, time, section })),

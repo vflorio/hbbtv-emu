@@ -22,9 +22,9 @@ export interface AVComponent {
 }
 
 export interface Components {
-  readonly COMPONENT_TYPE_VIDEO: ComponentType;
-  readonly COMPONENT_TYPE_AUDIO: ComponentType;
-  readonly COMPONENT_TYPE_SUBTITLE: ComponentType;
+  COMPONENT_TYPE_VIDEO: ComponentType;
+  COMPONENT_TYPE_AUDIO: ComponentType;
+  COMPONENT_TYPE_SUBTITLE: ComponentType;
 
   onSelectedComponentChanged?: (componentType?: ComponentType) => void;
   onComponentChanged?: (componentType?: ComponentType) => void;
@@ -40,9 +40,9 @@ const logger = createLogger("VideoBroadcast/Components");
 
 export const WithComponents = <T extends ClassType<Playback>>(Base: T) =>
   class extends Base implements Components {
-    readonly COMPONENT_TYPE_VIDEO = ComponentType.VIDEO;
-    readonly COMPONENT_TYPE_AUDIO = ComponentType.AUDIO;
-    readonly COMPONENT_TYPE_SUBTITLE = ComponentType.SUBTITLE;
+    COMPONENT_TYPE_VIDEO = ComponentType.VIDEO;
+    COMPONENT_TYPE_AUDIO = ComponentType.AUDIO;
+    COMPONENT_TYPE_SUBTITLE = ComponentType.SUBTITLE;
 
     onSelectedComponentChanged?: (componentType?: ComponentType) => void;
     onComponentChanged?: (componentType?: ComponentType) => void;

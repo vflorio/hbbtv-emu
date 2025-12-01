@@ -29,7 +29,7 @@ export const notImplementedError = (message: string): NotImplementedError => ({
 });
 
 export interface Collection<T> {
-  readonly length: number;
+  length: number;
   item(index: number): T | null;
   [index: number]: T;
 }

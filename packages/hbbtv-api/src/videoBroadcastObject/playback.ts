@@ -13,7 +13,7 @@ export enum PlayState {
 }
 
 export interface Playback {
-  readonly playState: PlayState;
+  playState: PlayState;
   onPlayStateChange?: (state: PlayState, error?: number) => void;
   dispatchPlayStateChange: (newState: PlayState, error?: number) => IO.IO<void>;
   isPlayStateValid: (validStates: PlayState[]) => boolean;

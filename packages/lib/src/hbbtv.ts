@@ -139,15 +139,15 @@ export interface Programme {
 }
 
 export interface ChannelList {
-  readonly length: number;
+  length: number;
   item(index: number): Channel | null;
   getChannel(ccid: string): Channel | null;
   getChannelByTriplet(onid: number, tsid: number, sid: number, nid?: number): Channel | null;
 }
 
 export interface ChannelConfig {
-  channelList: { readonly length: number; item(index: number): Channel | null };
-  readonly favouriteLists?: unknown;
+  channelList: { length: number; item(index: number): Channel | null };
+  favouriteLists?: unknown;
 }
 // Keyset
 

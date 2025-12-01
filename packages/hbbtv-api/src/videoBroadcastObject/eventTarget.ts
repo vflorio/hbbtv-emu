@@ -16,7 +16,7 @@ export interface EventDispatcher {
 }
 
 export interface EventTarget extends EventDispatcher {
-  readonly eventTarget: EventDispatcher;
+  eventTarget: EventDispatcher;
 }
 
 export const WithEventTarget = <T extends ClassType<VideoElement>>(Base: T) =>

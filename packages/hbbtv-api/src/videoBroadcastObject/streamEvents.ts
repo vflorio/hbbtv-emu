@@ -10,10 +10,10 @@ import { PlayState } from "./playback";
 import type { VideoElement } from "./videoElement";
 
 export interface StreamEventDetail {
-  readonly name: string;
-  readonly data: string;
-  readonly text: string;
-  readonly status: string;
+  name: string;
+  data: string;
+  text: string;
+  status: string;
 }
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}

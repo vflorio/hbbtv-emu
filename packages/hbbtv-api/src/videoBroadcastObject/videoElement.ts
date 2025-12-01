@@ -10,7 +10,7 @@ import { PlayState } from "./playback";
 export type VideoElementEventType = "PlayStateChange" | "ChannelLoadSuccess" | "ChannelLoadError";
 
 export interface VideoElement {
-  readonly videoElement: HTMLVideoElement;
+  videoElement: HTMLVideoElement;
   loadVideo: (channel: Channel) => IO.IO<void>;
   stopVideo: IO.IO<void>;
   releaseVideo: IO.IO<void>;
@@ -29,7 +29,7 @@ const createVideoElement: IO.IO<HTMLVideoElement> = () => {
 
 export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base: T) =>
   class extends Base implements VideoElement {
-    readonly videoElement: HTMLVideoElement;
+    videoElement: HTMLVideoElement;
     currentVideoChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 
     constructor(...args: any[]) {
