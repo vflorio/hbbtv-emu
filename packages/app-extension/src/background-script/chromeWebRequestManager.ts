@@ -6,15 +6,13 @@ import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import type { ChromeScriptInject } from "./chromeScriptInject";
 
-export namespace WebRequestHandler {
-  export interface Contract {
-    tabs: Set<number>;
-    onHeadersReceivedListener: OnHeadersReceivedListener;
-  }
+export type OnHeadersReceivedListener = (
+  details: chrome.webRequest.OnHeadersReceivedDetails,
+) => chrome.webRequest.BlockingResponse | undefined;
 
-  export type OnHeadersReceivedListener = (
-    details: chrome.webRequest.OnHeadersReceivedDetails,
-  ) => chrome.webRequest.BlockingResponse | undefined;
+export interface WebRequestHandler {
+  tabs: Set<number>;
+  onHeadersReceivedListener: OnHeadersReceivedListener;
 }
 
 const logger = createLogger("ChromeWebRequestManager");
@@ -41,8 +39,8 @@ const normalizeContentType = (header: chrome.webRequest.HttpHeader): chrome.webR
   value: "application/xhtml+xml",
 });
 
-export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject.Contract>>(Base: T) =>
-  class extends Base implements WebRequestHandler.Contract {
+export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject>>(Base: T) =>
+  class extends Base implements WebRequestHandler {
     tabs: Set<number>;
 
     constructor(...args: any[]) {
@@ -63,7 +61,7 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       });
     }
 
-    onHeadersReceivedListener: WebRequestHandler.OnHeadersReceivedListener = (details) =>
+    onHeadersReceivedListener: OnHeadersReceivedListener = (details) =>
       pipe(
         details.responseHeaders,
         O.fromNullable,

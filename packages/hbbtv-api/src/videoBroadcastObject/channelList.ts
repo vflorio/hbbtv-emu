@@ -11,16 +11,18 @@ import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 
-export namespace ChannelList {
-  export interface Contract extends ChannelListType {}
+export type Item = (index: number) => Channel | null;
+export type GetChannel = (ccid: string) => Channel | null;
+export type GetChannelByTriplet = (onid: number, tsid: number, sid: number, nid?: number) => Channel | null;
 
-  export type Item = (index: number) => Channel | null;
-  export type GetChannel = (ccid: string) => Channel | null;
-  export type GetChannelByTriplet = (onid: number, tsid: number, sid: number, nid?: number) => Channel | null;
+export interface ChannelList extends ChannelListType {
+  item: Item;
+  getChannel: GetChannel;
+  getChannelByTriplet: GetChannelByTriplet;
 }
 
-export const WithChannelList = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
-  class extends Base implements ChannelList.Contract {
+export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
+  class extends Base implements ChannelList {
     channelListRef = IORef.newIORef<Channel[]>([])();
 
     constructor(...args: any[]) {
@@ -47,16 +49,16 @@ export const WithChannelList = <T extends ClassType<MessageBus.Contract>>(Base: 
       return this.channelListRef.read().length;
     }
 
-    item: ChannelList.Item = (index) => pipe(this.channelListRef.read(), A.lookup(index), O.toNullable);
+    item: Item = (index) => pipe(this.channelListRef.read(), A.lookup(index), O.toNullable);
 
-    getChannel: ChannelList.GetChannel = (ccid) =>
+    getChannel: GetChannel = (ccid) =>
       pipe(
         this.channelListRef.read(),
         A.findFirst((channel) => channel.ccid === ccid),
         O.toNullable,
       );
 
-    getChannelByTriplet: ChannelList.GetChannelByTriplet = (onid, tsid, sid, _nid?) =>
+    getChannelByTriplet: GetChannelByTriplet = (onid, tsid, sid, _nid?) =>
       pipe(
         this.channelListRef.read(),
         A.findFirst((channel) => channel.onid === onid && channel.tsid === tsid && channel.sid === sid),

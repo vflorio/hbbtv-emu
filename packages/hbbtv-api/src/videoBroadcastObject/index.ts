@@ -12,7 +12,7 @@ import { WithProgrammes } from "./programmes";
 import { WithStreamEvents } from "./streamEvents";
 import { WithVideoElement } from "./videoElement";
 
-export const WithVideoBroadcastObject = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
+export const WithVideoBroadcastObject = <T extends ClassType<MessageBus>>(Base: T) =>
   compose(
     Base,
     WithChannelStreamAdapter,

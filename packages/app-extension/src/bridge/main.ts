@@ -31,7 +31,7 @@ const postMessage =
 const isMessageEvent = (event: any): event is MessageEvent =>
   event && typeof event === "object" && "data" in event && typeof event.data === "object";
 
-const WithBridge = <T extends ClassType<MessageAdapter.Contract & MessageBus.Contract>>(Base: T) =>
+const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),

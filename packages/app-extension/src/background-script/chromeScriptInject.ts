@@ -4,12 +4,10 @@ import * as IO from "fp-ts/IO";
 
 const logger = createLogger("ChromeScriptInject");
 
-export namespace ChromeScriptInject {
-  export interface Contract {
-    inject: Inject;
-  }
+export type Inject = (tabId: number) => IO.IO<void>;
 
-  export type Inject = (tabId: number) => IO.IO<void>;
+export interface ChromeScriptInject {
+  inject: Inject;
 }
 
 const executeScript =
@@ -26,8 +24,8 @@ const mainScripts = ["content-script.js"];
 const bridgeScripts = ["bridge.js"];
 
 export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
-  class extends Base implements ChromeScriptInject.Contract {
-    inject: ChromeScriptInject.Inject = (tabId) =>
+  class extends Base implements ChromeScriptInject {
+    inject: Inject = (tabId) =>
       pipe(
         logger.info(`Script injection for tab ${tabId}`, {
           main: mainScripts,

@@ -7,26 +7,22 @@ import type { MessageEnvelope } from "../messageEnvelope";
 
 const logger = createLogger("DebugMessageAdapter");
 
-export namespace DebugMessageAdapter {
-  export interface Contract extends MessageAdapter.Contract {
-    sendMessage: SendMessage;
-  }
+export type DebugMessageError = Readonly<{
+  type: "DebugMessageError";
+  message: string;
+}>;
 
-  export type Error = DebugMessageError;
-
-  export type SendMessage = <T extends Message>(
-    envelope: MessageEnvelope<T>,
-  ) => TE.TaskEither<MessageAdapter.Error | DebugMessageError, void>;
-
-  export type DebugMessageError = Readonly<{
-    type: "DebugMessageError";
-    message: string;
-  }>;
+export interface DebugMessageAdapter extends MessageAdapter {
+  sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
 }
 
-const WithDebugMessage = <T extends ClassType<MessageAdapter.Contract>>(Base: T) =>
-  class extends Base implements DebugMessageAdapter.Contract {
-    sendMessage: DebugMessageAdapter.SendMessage = <T extends Message>(envelope: MessageEnvelope<T>) =>
+const WithDebugMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
+  class extends Base implements DebugMessageAdapter {
+    sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = <
+      T extends Message,
+    >(
+      envelope: MessageEnvelope<T>,
+    ) =>
       TE.tryCatch(
         async () => logger.info("sendMessage", envelope)(),
         (error) => debugMessageError(`Debug message failed: ${error}`),
@@ -41,9 +37,9 @@ export const WithDebugMessageAdapter = <T extends ClassType>(Base: T) =>
     WithDebugMessage
 );
 
-// Errors
+// Error constructor
 
-export const debugMessageError = (message: string): DebugMessageAdapter.DebugMessageError => ({
+export const debugMessageError = (message: string): DebugMessageError => ({
   type: "DebugMessageError",
   message,
 });

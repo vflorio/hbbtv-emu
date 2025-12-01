@@ -9,7 +9,7 @@ import {
 import * as IORef from "fp-ts/IORef";
 import { pipe } from "fp-ts/lib/function";
 
-const WithCapabilities = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
+const WithCapabilities = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
     protected capabilitiesXMLRef = IORef.newIORef("")();
 

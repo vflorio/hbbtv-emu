@@ -7,46 +7,36 @@ import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAda
 
 const logger = createLogger("ChromeMessageListener");
 
-export namespace ChromeMessageAdapter {
-  export interface Contract extends MessageAdapter.Contract {
-    handleChromeMessage: HandleChromeMessage;
-    sendMessage: SendMessage;
-  }
+export type ChromeMessageError = Readonly<{
+  type: "ChromeMessageError";
+  message: string;
+}>;
 
-  export type Error = ChromeMessageAdapterError;
+export type ChromeNoMessageListenersError = Readonly<{
+  type: "NoMessageListenersError";
+  message: string;
+}>;
 
-  export type HandleChromeMessage = (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => void;
+export type ChromeMessageAdapterError = ChromeMessageError | ChromeNoMessageListenersError;
 
-  export type SendMessage = <T extends Message>(
-    envelope: MessageEnvelope<T>,
-  ) => TE.TaskEither<MessageAdapter.Error | ChromeMessageAdapterError, void>;
-
-  export type ChromeMessageAdapterError = ChromeMessageError | ChromeNoMessageListenersError;
-
-  export type ChromeMessageError = Readonly<{
-    type: "ChromeMessageError";
-    message: string;
-  }>;
-
-  export type ChromeNoMessageListenersError = Readonly<{
-    type: "NoMessageListenersError";
-    message: string;
-  }>;
+export interface ChromeMessageAdapter extends MessageAdapter {
+  handleChromeMessage: (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => void;
+  sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
 }
 
-const WithChromeMessage = <T extends ClassType<MessageAdapter.Contract>>(Base: T) =>
-  class extends Base implements ChromeMessageAdapter.Contract {
+const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
+  class extends Base implements ChromeMessageAdapter {
     constructor(...args: any[]) {
       super(...args);
       chrome.runtime.onMessage.addListener(this.handleChromeMessage);
     }
 
-    handleChromeMessage: ChromeMessageAdapter.HandleChromeMessage = (data, sender) => {
+    handleChromeMessage: (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => void = (data, sender) => {
       logger.info("Received message", data, sender)();
       this.handleMessage(data);
     };
 
-    sendMessage: ChromeMessageAdapter.SendMessage = (envelope) => {
+    sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = (envelope) => {
       logger.info("Sending message", envelope)();
 
       const sendToBackgroundScript = () =>
@@ -126,17 +116,17 @@ export const WithChromeMessageAdapter = <T extends ClassType>(Base: T) =>
 
 const hasNoListenersError = E.fromPredicate(
   (error: unknown): error is Error => error instanceof Error && error.message.includes("Receiving end does not exist"),
-  (error) => error as ChromeMessageAdapter.ChromeMessageError,
+  (error) => error as ChromeMessageError,
 );
 
-// Errors
+// Error constructors
 
-export const chromeMessageError = (message: string): ChromeMessageAdapter.ChromeMessageError => ({
+export const chromeMessageError = (message: string): ChromeMessageError => ({
   type: "ChromeMessageError",
   message,
 });
 
-export const chromeNoMessageListenersError = (message: string): ChromeMessageAdapter.ChromeNoMessageListenersError => ({
+export const chromeNoMessageListenersError = (message: string): ChromeNoMessageListenersError => ({
   type: "NoMessageListenersError",
   message,
 });

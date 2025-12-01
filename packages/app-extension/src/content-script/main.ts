@@ -19,11 +19,7 @@ import { type ObjectHandler, WithObjectHandler } from "./objectHandler";
 
 const logger = createLogger("ContentScript");
 
-export const WithContentScript = <
-  T extends ClassType<ObjectHandler.Contract & MessageAdapter.Contract & MessageBus.Contract>,
->(
-  Base: T,
-) =>
+export const WithContentScript = <T extends ClassType<ObjectHandler & MessageAdapter & MessageBus>>(Base: T) =>
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),

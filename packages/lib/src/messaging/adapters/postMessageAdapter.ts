@@ -10,34 +10,24 @@ import { validateMessageOrigin } from "../messageOrigin";
 
 const logger = createLogger("PostMessageAdapter");
 
-export namespace PostMessageAdapter {
-  export interface Contract extends MessageAdapter.Contract {
-    handlePostMessage: HandlePostMessage;
-    sendMessage: SendMessage;
-  }
+export type PostMessageError = Readonly<{
+  type: "PostMessageError";
+  message: string;
+}>;
 
-  export type Error = PostMessageError;
-
-  export type HandlePostMessage = (event: MessageEvent<MessageEnvelope>) => boolean;
-
-  export type SendMessage = <T extends Message>(
-    envelope: MessageEnvelope<T>,
-  ) => TE.TaskEither<MessageAdapter.Error | PostMessageError, void>;
-
-  export type PostMessageError = Readonly<{
-    type: "PostMessageError";
-    message: string;
-  }>;
+export interface PostMessageAdapter extends MessageAdapter {
+  handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean;
+  sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
 }
 
-const WithPostMessage = <T extends ClassType<MessageAdapter.Contract>>(Base: T) =>
-  class extends Base implements PostMessageAdapter.Contract {
+const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
+  class extends Base implements PostMessageAdapter {
     constructor(...args: any[]) {
       super(...args);
       window.addEventListener("message", this.handlePostMessage);
     }
 
-    handlePostMessage: PostMessageAdapter.HandlePostMessage = (event) =>
+    handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean = (event) =>
       pipe(
         validateMessageOrigin(event.origin),
         E.flatMap(() =>
@@ -57,7 +47,11 @@ const WithPostMessage = <T extends ClassType<MessageAdapter.Contract>>(Base: T) 
         E.getOrElse(() => true),
       );
 
-    sendMessage: PostMessageAdapter.SendMessage = <T extends Message>(envelope: MessageEnvelope<T>) =>
+    sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = <
+      T extends Message,
+    >(
+      envelope: MessageEnvelope<T>,
+    ) =>
       TE.tryCatch(
         async () => {
           logger.info("Sending message", envelope)();
@@ -78,9 +72,9 @@ export const WithPostMessageAdapter = <T extends ClassType>(Base: T) =>
     WithPostMessage
 );
 
-// Errors
+// Error constructor
 
-export const postMessageError = (message: string): PostMessageAdapter.PostMessageError => ({
+export const postMessageError = (message: string): PostMessageError => ({
   type: "PostMessageError",
   message,
 });

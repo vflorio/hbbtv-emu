@@ -50,7 +50,7 @@ const localSystemV2: LocalSystem = {
 const isGreaterThanOrEqual = Ord.geq(ordVersion);
 const isVersion2 = (version: Version) => isGreaterThanOrEqual(version, unsafeParseVersion("2.0.0"));
 
-const WithConfiguration = <T extends ClassType<MessageBus.Contract>>(Base: T) =>
+const WithConfiguration = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
     hbbtvVersionRef = IORef.newIORef("")();
     countryCodeRef = IORef.newIORef("")();

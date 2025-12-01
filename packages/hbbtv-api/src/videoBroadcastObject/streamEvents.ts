@@ -18,46 +18,42 @@ export interface StreamEventDetail {
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}
 
-export namespace StreamEvents {
-  export interface Contract {
-    addStreamEventListener: AddStreamEventListener;
-    removeStreamEventListener: RemoveStreamEventListener;
-    getStreamEventKey: GetStreamEventKey;
-    registerListener: RegisterListener;
-    unregisterListener: UnregisterListener;
-    hasListener: HasListener;
-    trackVersion: TrackVersion;
-    createStreamEvent: CreateStreamEvent;
-    clearAllStreamEventListeners: ClearAllStreamEventListeners;
-    dispatchStreamEvent: DispatchStreamEvent;
-    dispatchStreamEventError: DispatchStreamEventError;
-  }
+export type AddStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
+export type RemoveStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
+export type GetStreamEventKey = (targetURL: string, eventName: string) => string;
+export type RegisterListener = (key: string, listener: EventListener) => void;
+export type UnregisterListener = (key: string, listener: EventListener) => void;
+export type HasListener = (key: string) => boolean;
+export type TrackVersion = (key: string, version: number) => boolean;
+export type CreateStreamEvent = (detail: StreamEventDetail) => StreamEvent;
+export type ClearAllStreamEventListeners = () => void;
+export type DispatchStreamEvent = (
+  targetURL: string,
+  eventName: string,
+  data: string,
+  text?: string,
+  version?: number,
+) => void;
+export type DispatchStreamEventError = (targetURL: string, eventName: string, errorMessage?: string) => void;
 
-  export type AddStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
-  export type RemoveStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
-  export type GetStreamEventKey = (targetURL: string, eventName: string) => string;
-  export type RegisterListener = (key: string, listener: EventListener) => void;
-  export type UnregisterListener = (key: string, listener: EventListener) => void;
-  export type HasListener = (key: string) => boolean;
-  export type TrackVersion = (key: string, version: number) => boolean;
-  export type CreateStreamEvent = (detail: StreamEventDetail) => StreamEvent;
-  export type ClearAllStreamEventListeners = () => void;
-  export type DispatchStreamEvent = (
-    targetURL: string,
-    eventName: string,
-    data: string,
-    text?: string,
-    version?: number,
-  ) => void;
-  export type DispatchStreamEventError = (targetURL: string, eventName: string, errorMessage?: string) => void;
+export interface StreamEvents {
+  addStreamEventListener: AddStreamEventListener;
+  removeStreamEventListener: RemoveStreamEventListener;
+  getStreamEventKey: GetStreamEventKey;
+  registerListener: RegisterListener;
+  unregisterListener: UnregisterListener;
+  hasListener: HasListener;
+  trackVersion: TrackVersion;
+  createStreamEvent: CreateStreamEvent;
+  clearAllStreamEventListeners: ClearAllStreamEventListeners;
+  dispatchStreamEvent: DispatchStreamEvent;
+  dispatchStreamEventError: DispatchStreamEventError;
 }
 
 const logger = createLogger("VideoBroadcast/StreamEvents");
 
-export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTarget.Contract & VideoElement.Contract>>(
-  Base: T,
-) =>
-  class extends Base implements StreamEvents.Contract {
+export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & VideoElement>>(Base: T) =>
+  class extends Base implements StreamEvents {
     streamEventMetadataRef = IORef.newIORef<Map<string, Set<EventListener>>>(new Map())();
     streamEventVersionsRef = IORef.newIORef<Map<string, Set<number>>>(new Map())();
 
@@ -71,9 +67,9 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
       });
     }
 
-    getStreamEventKey: StreamEvents.GetStreamEventKey = (targetURL, eventName) => `${targetURL}:${eventName}`;
+    getStreamEventKey: GetStreamEventKey = (targetURL, eventName) => `${targetURL}:${eventName}`;
 
-    registerListener: StreamEvents.RegisterListener = (key, listener) => {
+    registerListener: RegisterListener = (key, listener) => {
       const metadata = this.streamEventMetadataRef.read();
       if (!metadata.has(key)) {
         metadata.set(key, new Set());
@@ -82,7 +78,7 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
       this.streamEventMetadataRef.write(metadata);
     };
 
-    unregisterListener: StreamEvents.UnregisterListener = (key, listener) => {
+    unregisterListener: UnregisterListener = (key, listener) => {
       const metadata = this.streamEventMetadataRef.read();
       if (!metadata.has(key)) return;
 
@@ -98,9 +94,9 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
       this.streamEventMetadataRef.write(metadata);
     };
 
-    hasListener: StreamEvents.HasListener = (key) => this.streamEventMetadataRef.read().has(key);
+    hasListener: HasListener = (key) => this.streamEventMetadataRef.read().has(key);
 
-    trackVersion: StreamEvents.TrackVersion = (key, version) => {
+    trackVersion: TrackVersion = (key, version) => {
       const versions = this.streamEventVersionsRef.read();
 
       if (!versions.has(key)) {
@@ -117,12 +113,12 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
       return true;
     };
 
-    createStreamEvent: StreamEvents.CreateStreamEvent = (detail) =>
+    createStreamEvent: CreateStreamEvent = (detail) =>
       new CustomEvent<StreamEventDetail>("StreamEvent", {
         detail,
       });
 
-    addStreamEventListener: StreamEvents.AddStreamEventListener = (targetURL, eventName, listener) =>
+    addStreamEventListener: AddStreamEventListener = (targetURL, eventName, listener) =>
       pipe(
         logger.info(`addStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
@@ -137,7 +133,7 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
         }),
       )();
 
-    removeStreamEventListener: StreamEvents.RemoveStreamEventListener = (targetURL, eventName, listener) =>
+    removeStreamEventListener: RemoveStreamEventListener = (targetURL, eventName, listener) =>
       pipe(
         logger.info(`removeStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
@@ -147,7 +143,7 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
         }),
       )();
 
-    clearAllStreamEventListeners: StreamEvents.ClearAllStreamEventListeners = () =>
+    clearAllStreamEventListeners: ClearAllStreamEventListeners = () =>
       pipe(
         logger.info("clearAllStreamEventListeners"),
         IO.flatMap(() => () => {
@@ -167,7 +163,7 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
         }),
       )();
 
-    dispatchStreamEvent: StreamEvents.DispatchStreamEvent = (targetURL, eventName, data, text = "", version?) => {
+    dispatchStreamEvent: DispatchStreamEvent = (targetURL, eventName, data, text = "", version?) => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
       if (!this.hasListener(key)) return;
@@ -187,7 +183,7 @@ export const WithStreamEvents = <T extends ClassType<Playback.Contract & EventTa
       this.dispatchEvent(event);
     };
 
-    dispatchStreamEventError: StreamEvents.DispatchStreamEventError = (targetURL, eventName, errorMessage = "") => {
+    dispatchStreamEventError: DispatchStreamEventError = (targetURL, eventName, errorMessage = "") => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
       if (!this.hasListener(key)) return;

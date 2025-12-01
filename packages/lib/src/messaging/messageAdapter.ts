@@ -1,6 +1,7 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 import { createLogger } from "../logger";
@@ -11,61 +12,52 @@ import type { InvalidMessageEnvelopeError, InvalidTargetError, MessageEnvelope }
 import { validateEnvelope } from "./messageEnvelope";
 import type { MessageOrigin } from "./messageOrigin";
 
-export namespace MessageAdapter {
-  export interface Contract {
-    registerMessageHandler: RegisterMessageHandler;
-    sendMessage: SendMessage;
-    handleMessage: HandleMessage;
-  }
+export type Handler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => IO.IO<void>;
 
-  export type Error =
-    | NoMessageHandlerRegisteredError
-    | MessageHandlingError
-    | NotImplementedError
-    | InvalidMessageEnvelopeError
-    | InvalidTargetError;
+export type NoMessageHandlerRegisteredError = Readonly<{
+  type: "NoMessageHandlerRegisteredError";
+  message: string;
+}>;
 
-  export type Handler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => IO.IO<void>;
-  export type RegisterMessageHandler = (origin: MessageOrigin) => (handler: Handler) => IO.IO<void>;
-  export type SendMessage = <T extends Message = Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
-  export type HandleMessage = (data: unknown) => E.Either<unknown, void>;
+export type MessageHandlingError = Readonly<{
+  type: "MessageHandlingError";
+  message: string;
+}>;
 
-  export type NoMessageHandlerRegisteredError = Readonly<{
-    type: "NoMessageHandlerRegisteredError";
-    message: string;
-  }>;
+export type MessageAdapterError =
+  | NoMessageHandlerRegisteredError
+  | MessageHandlingError
+  | NotImplementedError
+  | InvalidMessageEnvelopeError
+  | InvalidTargetError;
 
-  export type MessageHandlingError = Readonly<{
-    type: "MessageHandlingError";
-    message: string;
-  }>;
+export interface MessageAdapter {
+  registerMessageHandler: (origin: MessageOrigin) => (handler: Handler) => IO.IO<void>;
+  sendMessage: <T extends Message = Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
+  handleMessage: (data: unknown) => E.Either<unknown, void>;
 }
 
 const logger = createLogger("MessageAdapter");
 
 export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
-  class extends Base implements MessageAdapter.Contract {
-    messageOrigin: O.Option<MessageOrigin> = O.none;
-    messageHandler: O.Option<MessageAdapter.Handler> = O.none;
+  class extends Base implements MessageAdapter {
+    messageOrigin = IORef.newIORef<O.Option<MessageOrigin>>(O.none)();
+    messageHandler = IORef.newIORef<O.Option<Handler>>(O.none)();
 
-    registerMessageHandler: MessageAdapter.RegisterMessageHandler = (origin) => (handler) =>
+    registerMessageHandler: (origin: MessageOrigin) => (handler: Handler) => IO.IO<void> = (origin) => (handler) =>
       pipe(
         IO.of({ origin, handler }),
-        IO.tap(({ origin }) => () => {
-          this.messageOrigin = O.some(origin);
-        }),
-        IO.tap(({ handler }) => () => {
-          this.messageHandler = O.some(handler);
-        }),
+        IO.tap(({ origin }) => this.messageOrigin.write(O.some(origin))),
+        IO.tap(({ handler }) => this.messageHandler.write(O.some(handler))),
         IO.tap(() => logger.info(`Registered message bus for origin: ${origin}`)),
       );
 
-    handleMessage: MessageAdapter.HandleMessage = (data) =>
+    handleMessage: (data: unknown) => E.Either<unknown, void> = (data) =>
       pipe(
         validateEnvelope(data),
         E.flatMap((envelope) =>
           pipe(
-            this.messageHandler,
+            this.messageHandler.read(),
             E.fromOption(() => noMessageHandlerRegisteredError("No message handler registered")),
             E.flatMap((handler) =>
               E.tryCatch(
@@ -79,17 +71,19 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
         ),
       );
 
-    sendMessage: MessageAdapter.SendMessage = (_envelope) => TE.left(notImplementedError("Method not implemented."));
+    sendMessage: <T extends Message = Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = (
+      _envelope,
+    ) => TE.left(notImplementedError("Method not implemented."));
   };
 
-//  Errors
+// Error constructors
 
-export const noMessageHandlerRegisteredError = (message: string): MessageAdapter.NoMessageHandlerRegisteredError => ({
+export const noMessageHandlerRegisteredError = (message: string): NoMessageHandlerRegisteredError => ({
   type: "NoMessageHandlerRegisteredError",
   message,
 });
 
-export const messageHandlingError = (message: string): MessageAdapter.MessageHandlingError => ({
+export const messageHandlingError = (message: string): MessageHandlingError => ({
   type: "MessageHandlingError",
   message,
 });

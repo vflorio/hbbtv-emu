@@ -26,11 +26,7 @@ import { type WebRequestHandler, WithChromeWebRequestManager } from "./chromeWeb
 
 const logger = createLogger("BackgroundScript");
 
-const WithBackgroundScript = <
-  T extends ClassType<
-    MessageAdapter.Contract & MessageBus.Contract & WebRequestHandler.Contract & UserAgentManager.Contract
-  >,
->(
+const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & WebRequestHandler & UserAgentManager>>(
   Base: T,
 ) =>
   class extends Base implements App {

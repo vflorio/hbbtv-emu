@@ -6,21 +6,15 @@ import * as O from "fp-ts/Option";
 import { addEventListener } from "fp-ts-std/DOM";
 import type { ChannelStreamAdapter } from "./channelStreamAdapter";
 import { PlayState } from "./playback";
+
 export type VideoElementEventType = "PlayStateChange" | "ChannelLoadSuccess" | "ChannelLoadError";
 
-export namespace VideoElement {
-  export interface Contract {
-    readonly videoElement: HTMLVideoElement;
-    loadVideo: LoadVideo;
-    stopVideo: StopVideo;
-    releaseVideo: ReleaseVideo;
-    dispatchVideoEvent: DispatchVideoEvent;
-  }
-
-  export type LoadVideo = (channel: Channel) => IO.IO<void>;
-  export type StopVideo = IO.IO<void>;
-  export type ReleaseVideo = IO.IO<void>;
-  export type DispatchVideoEvent = <T>(eventType: VideoElementEventType, payload: T) => IO.IO<boolean>;
+export interface VideoElement {
+  readonly videoElement: HTMLVideoElement;
+  loadVideo: (channel: Channel) => IO.IO<void>;
+  stopVideo: IO.IO<void>;
+  releaseVideo: IO.IO<void>;
+  dispatchVideoEvent: <T>(eventType: VideoElementEventType, payload: T) => IO.IO<boolean>;
 }
 
 const logger = createLogger("VideoBroadcast/VideoElement");
@@ -33,8 +27,8 @@ const createVideoElement: IO.IO<HTMLVideoElement> = () => {
   return video;
 };
 
-export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter.Contract>>(Base: T) =>
-  class extends Base implements VideoElement.Contract {
+export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base: T) =>
+  class extends Base implements VideoElement {
     readonly videoElement: HTMLVideoElement;
     currentVideoChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 
@@ -91,10 +85,11 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter.Contra
       )();
     }
 
-    dispatchVideoEvent: VideoElement.DispatchVideoEvent = (eventType, payload) => () =>
-      this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
+    dispatchVideoEvent: <T>(eventType: VideoElementEventType, payload: T) => IO.IO<boolean> =
+      (eventType, payload) => () =>
+        this.videoElement.dispatchEvent(new CustomEvent(eventType, { detail: payload }));
 
-    loadVideo: VideoElement.LoadVideo = (channel) =>
+    loadVideo: (channel: Channel) => IO.IO<void> = (channel) =>
       pipe(
         logger.info("loadVideo", channel),
         IO.tap(() =>
@@ -116,13 +111,13 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter.Contra
         ),
       );
 
-    stopVideo: VideoElement.StopVideo = pipe(
+    stopVideo: IO.IO<void> = pipe(
       logger.info("stop"),
       IO.tap(() => this.dispatchVideoEvent("PlayStateChange", PlayState.STOPPED)),
       IO.tap(() => this.cleanupVideoElement),
     );
 
-    releaseVideo: VideoElement.ReleaseVideo = pipe(
+    releaseVideo: IO.IO<void> = pipe(
       logger.info("release"),
       IO.tap(() => this.dispatchVideoEvent("PlayStateChange", PlayState.UNREALIZED)),
       IO.tap(() => this.cleanupVideoElement),
