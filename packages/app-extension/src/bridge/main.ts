@@ -35,8 +35,8 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),
-      // IO.tap(() => this.registerMessageHandler("BRIDGE_SCRIPT")(this.forwardToBackgroundScript)),
       IO.tap(() => addEventListener("message")(this.forwardToBackgroundScript)(window)),
+      IO.tap(() => this.subscribe),
       IO.tap(() =>
         pipe(
           this.messageOrigin.read,
@@ -47,20 +47,14 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
       IO.tap(() => logger.info("Initialized")),
     );
 
-    forwardToContentScript =
-      (envelope: MessageEnvelope): IO.IO<void> =>
-      () =>
+    subscribe: IO.IO<void> = () => {
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
         pipe(
-          IO.of(envelope),
-          validateEnvelope,
-          E.flatMap(validateTarget("CONTENT_SCRIPT")),
-          E.match(IO.of(undefined), (envelope) =>
-            pipe(
-              logForwardedMessage(envelope),
-              IO.flatMap(() => postMessage(envelope)),
-            ),
-          ),
-        );
+          logForwardedMessage(envelope),
+          IO.flatMap(() => postMessage(envelope)),
+        ),
+      );
+    };
 
     forwardToBackgroundScript =
       (event: Event): IO.IO<void> =>

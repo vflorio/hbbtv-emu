@@ -1,4 +1,17 @@
-import { type Application, type ApplicationPrivateData, type ClassType, compose, createLogger } from "@hbb-emu/lib";
+import {
+  type Application,
+  type ApplicationPrivateData,
+  type Channel,
+  ChannelIdType,
+  type ClassType,
+  compose,
+  createLogger,
+  isValidChannelTriplet,
+  type MessageBus,
+  WithMessageBus,
+  WithPostMessageAdapter,
+} from "@hbb-emu/lib";
+import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
@@ -15,11 +28,13 @@ class ApplicationBase {
   constructor(protected documentRef: Document) {}
 }
 
-const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
+const WithPrivateData = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base {
+    currentChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
+
     privateData: ApplicationPrivateData = {
       keyset: createKeyset(),
-      currentChannel: null, // TODO
+      currentChannel: null,
       getFreeMem: () => {
         const perf = performance as Performance & { memory?: PerformanceMemory };
         if (typeof performance !== "undefined" && perf.memory) {
@@ -28,6 +43,31 @@ const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
         return 0;
       },
     };
+
+    constructor(...args: any[]) {
+      super(...args);
+
+      Object.defineProperty(this.privateData, "currentChannel", {
+        get: () => pipe(this.currentChannelRef.read(), O.toNullable),
+        enumerable: true,
+        configurable: true,
+      });
+
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
+        pipe(
+          IO.of(envelope.message.payload.channels),
+          IO.map(A.filter(isValidChannelTriplet)),
+          IO.map(
+            A.map((channel) => ({
+              idType: ChannelIdType.ID_DVB_T,
+              ...channel,
+            })),
+          ),
+          IO.map(A.head),
+          IO.flatMap((firstChannel) => this.currentChannelRef.write(firstChannel)),
+        ),
+      );
+    }
   };
 
 interface Visibility {
@@ -90,6 +130,13 @@ const WithLifecycle = <T extends ClassType<ApplicationBase>>(Base: T) =>
     destroyApplication = (): void => logger.info("destroyApplication")();
   };
 
-const ApplicationClass = compose(ApplicationBase, WithPrivateData, WithVisibility, WithLifecycle);
+const ApplicationClass = compose(
+  ApplicationBase,
+  WithPostMessageAdapter,
+  WithMessageBus("CONTENT_SCRIPT"),
+  WithPrivateData,
+  WithVisibility,
+  WithLifecycle,
+);
 
 export const createApplication = (document: Document): Application => new ApplicationClass(document);

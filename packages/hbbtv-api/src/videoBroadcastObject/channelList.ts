@@ -39,9 +39,9 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
         configurable: true,
       });
 
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
+      this.bus.on("UPDATE_CONFIG", (envelope) =>
         pipe(
-          payload.channels,
+          envelope.message.payload.channels,
           A.filter(isValidChannelTriplet),
           A.map((channel) => ({
             idType: ChannelIdType.ID_DVB_T,

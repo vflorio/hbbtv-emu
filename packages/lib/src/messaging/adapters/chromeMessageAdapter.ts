@@ -40,39 +40,15 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       logger.info("Sending message", envelope)();
 
       const sendToBackgroundScript = () =>
-        pipe(
-          TE.tryCatch(
-            () => chrome.runtime.sendMessage(envelope),
-            (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
-          ),
-          TE.flatMap((result) =>
-            pipe(
-              result,
-              hasNoListenersError,
-              E.match(
-                () => TE.left(chromeNoMessageListenersError("No message listeners registered in service worker")),
-                () => TE.right(undefined),
-              ),
-            ),
-          ),
+        TE.tryCatch(
+          () => chrome.runtime.sendMessage(envelope),
+          (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
         );
 
       const sendToContentScript = (tabId: number) =>
-        pipe(
-          TE.tryCatch(
-            () => chrome.tabs.sendMessage(tabId, envelope),
-            (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
-          ),
-          TE.flatMap((result) =>
-            pipe(
-              result,
-              hasNoListenersError,
-              E.match(
-                () => TE.left(chromeNoMessageListenersError(`No message listeners registered in tab ${tabId}`)),
-                () => TE.right(undefined),
-              ),
-            ),
-          ),
+        TE.tryCatch(
+          () => chrome.tabs.sendMessage(tabId, envelope),
+          (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
         );
 
       const sendByTarget = () =>
@@ -97,11 +73,12 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
                 ),
             })[target](),
           ),
+          TE.map(() => undefined),
         );
 
       return pipe(
         sendByTarget(),
-        TE.tapError((error) => TE.fromIO(logger.error("Failed to send message:", error))),
+        TE.tapError((error) => TE.fromIO(logger.error("Failed to send message:", error.type, error.message))),
       );
     };
   };
@@ -112,11 +89,6 @@ export const WithChromeMessageAdapter = <T extends ClassType>(Base: T) =>
     Base, 
     WithMessageAdapter, 
     WithChromeMessage
-);
-
-const hasNoListenersError = E.fromPredicate(
-  (error: unknown): error is Error => error instanceof Error && error.message.includes("Receiving end does not exist"),
-  (error) => error as ChromeMessageError,
 );
 
 // Error constructors

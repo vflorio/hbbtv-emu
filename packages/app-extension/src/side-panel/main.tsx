@@ -19,6 +19,8 @@ import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
+import * as T from "fp-ts/Task";
+import * as TE from "fp-ts/TaskEither";
 import { querySelector } from "fp-ts-std/DOM";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -55,27 +57,35 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     );
 
     subscribe: IO.IO<void> = () =>
-      this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) => pipe(payload, this.stateRef.write));
+      this.bus.on("UPDATE_CONFIG", (envelope) => pipe(envelope.message.payload, this.stateRef.write));
 
-    updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): IO.IO<void> =>
+    updateState = (updater: (state: ExtensionConfig.State) => ExtensionConfig.State): T.Task<void> =>
       pipe(
-        IO.of(this.stateRef.read()),
-        IO.map(updater),
-        IO.tap((newState) => this.stateRef.write(newState)),
-        IO.tap(() => this.notify),
+        T.fromIO(this.stateRef.read),
+        T.map(updater),
+        T.tap((newState) => T.fromIO(this.stateRef.write(newState))),
+        T.flatMap(() => this.notify),
       );
 
-    notify: IO.IO<void> = pipe(
-      IO.Do,
-      IO.bind("state", () => this.stateRef.read),
-      IO.bind("origin", () => this.messageOrigin.read),
-      IO.map(({ state, origin }) =>
+    notify: T.Task<void> = pipe(
+      T.Do,
+      T.bind("state", () => T.fromIO(this.stateRef.read)),
+      T.bind("origin", () => T.fromIO(this.messageOrigin.read)),
+      T.map(({ state, origin }) =>
         createEnvelope(origin, "BACKGROUND_SCRIPT", {
           type: "UPDATE_CONFIG",
           payload: state,
         }),
       ),
-      IO.tap((envelope) => this.sendMessage(envelope)),
+      T.flatMap((envelope) =>
+        pipe(
+          this.sendMessage(envelope),
+          TE.match(
+            () => undefined,
+            () => undefined,
+          ),
+        ),
+      ),
     );
 
     upsertInArray = <T extends { id: string }>(items: T[], item: T): T[] =>
