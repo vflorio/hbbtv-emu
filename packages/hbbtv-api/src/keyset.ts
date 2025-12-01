@@ -37,8 +37,15 @@ const WithKeysetValue = <T extends ClassType>(Base: T) =>
   class extends Base {
     currentValueRef = IORef.newIORef<O.Option<number>>(O.none)();
 
-    get value(): number | null {
-      return pipe(this.currentValueRef.read(), O.toNullable);
+    value: number | null = null;
+
+    constructor(...args: any[]) {
+      super(...args);
+      Object.defineProperty(this, "value", {
+        get: () => pipe(this.currentValueRef.read(), O.toNullable),
+        enumerable: true,
+        configurable: true,
+      });
     }
 
     setValue = (value: number): void => {

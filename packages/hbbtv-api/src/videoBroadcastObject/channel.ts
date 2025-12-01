@@ -57,11 +57,19 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
   class extends Base implements ChannelManager {
     currentChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 
+    currentChannel: Channel | null = null;
+
     onChannelChangeSucceeded?: (channel: Channel) => void;
     onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
 
     constructor(...args: any[]) {
       super(...args);
+
+      Object.defineProperty(this, "currentChannel", {
+        get: () => pipe(this.currentChannelRef.read(), O.toNullable),
+        enumerable: true,
+        configurable: true,
+      });
 
       this.videoElement.addEventListener("ChannelLoadSuccess", (event: Event) => {
         this.dispatchChannelSuccess((event as CustomEvent<Channel>).detail);
@@ -94,10 +102,6 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
           ),
         ),
       );
-    }
-
-    get currentChannel(): Channel | null {
-      return pipe(this.currentChannelRef.read(), O.toNullable);
     }
 
     dispatchChannelError = (channel: Channel | null, errorState: ChannelChangeError): void => {

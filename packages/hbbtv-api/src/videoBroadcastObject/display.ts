@@ -18,18 +18,32 @@ export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
     heightRef = IORef.newIORef(0)();
     fullScreenRef = IORef.newIORef(false)();
 
+    width = 0;
+    height = 0;
+    fullScreen = false;
+
     onFullScreenChange?: () => void;
 
-    get width(): number {
-      return this.widthRef.read();
-    }
+    constructor(...args: any[]) {
+      super(...args);
 
-    get height(): number {
-      return this.heightRef.read();
-    }
+      Object.defineProperty(this, "width", {
+        get: () => this.widthRef.read(),
+        enumerable: true,
+        configurable: true,
+      });
 
-    get fullScreen(): boolean {
-      return this.fullScreenRef.read();
+      Object.defineProperty(this, "height", {
+        get: () => this.heightRef.read(),
+        enumerable: true,
+        configurable: true,
+      });
+
+      Object.defineProperty(this, "fullScreen", {
+        get: () => this.fullScreenRef.read(),
+        enumerable: true,
+        configurable: true,
+      });
     }
 
     setFullScreen = (fullScreen: boolean): void => {

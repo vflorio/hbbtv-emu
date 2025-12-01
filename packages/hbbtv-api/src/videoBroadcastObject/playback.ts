@@ -32,14 +32,19 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
     constructor(...args: any[]) {
       super(...args);
 
+      Object.defineProperty(this, "playState", {
+        get: () => this.playStateRef.read(),
+        enumerable: true,
+        configurable: true,
+      });
+
       this.videoElement.addEventListener("PlayStateChange", (event: Event) => {
         this.playStateRef.write((event as CustomEvent).detail as PlayState);
       });
     }
 
-    get playState(): PlayState {
-      return this.playStateRef.read();
-    }
+    // Placeholder per soddisfare l'interfaccia, verrà sovrascritto nel costruttore
+    playState: PlayState = PlayState.UNREALIZED;
 
     dispatchPlayStateChange = (newState: PlayState, error?: number): IO.IO<void> =>
       pipe(

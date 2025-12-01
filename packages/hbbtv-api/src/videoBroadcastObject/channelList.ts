@@ -21,8 +21,23 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
   class extends Base implements ChannelList {
     channelListRef = IORef.newIORef<Channel[]>([])();
 
+    channelList: Channel[] = [];
+    length = 0;
+
     constructor(...args: any[]) {
       super(...args);
+
+      Object.defineProperty(this, "channelList", {
+        get: () => this.channelListRef.read(),
+        enumerable: true,
+        configurable: true,
+      });
+
+      Object.defineProperty(this, "length", {
+        get: () => this.channelListRef.read().length,
+        enumerable: true,
+        configurable: true,
+      });
 
       this.bus.on("UPDATE_CONFIG", ({ message: { payload } }) =>
         pipe(
@@ -35,14 +50,6 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
           this.channelListRef.write,
         ),
       );
-    }
-
-    get channelList(): Channel[] {
-      return this.channelListRef.read();
-    }
-
-    get length(): number {
-      return this.channelListRef.read().length;
     }
 
     item = (index: number): Channel | null => pipe(this.channelListRef.read(), A.lookup(index), O.toNullable);

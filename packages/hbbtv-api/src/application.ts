@@ -17,23 +17,17 @@ class ApplicationBase {
 
 const WithPrivateData = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base {
-    getFreeMem = () => {
-      const perf = performance as Performance & { memory?: PerformanceMemory };
-      if (typeof performance !== "undefined" && perf.memory) {
-        return perf.memory.usedJSHeapSize || 0;
-      }
-      return 0;
+    privateData: ApplicationPrivateData = {
+      keyset: createKeyset(),
+      currentChannel: null, // TODO
+      getFreeMem: () => {
+        const perf = performance as Performance & { memory?: PerformanceMemory };
+        if (typeof performance !== "undefined" && perf.memory) {
+          return perf.memory.usedJSHeapSize || 0;
+        }
+        return 0;
+      },
     };
-
-    get privateData(): ApplicationPrivateData {
-      return {
-        keyset: createKeyset(),
-        get currentChannel() {
-          return null;
-        },
-        getFreeMem: this.getFreeMem,
-      };
-    }
   };
 
 interface Visibility {
@@ -46,8 +40,15 @@ const WithVisibility = <T extends ClassType<ApplicationBase>>(Base: T) =>
   class extends Base implements Visibility {
     visibleRef = IORef.newIORef<O.Option<boolean>>(O.none)();
 
-    get visible(): boolean | undefined {
-      return pipe(this.visibleRef.read(), O.toUndefined);
+    visible: boolean | undefined = undefined;
+
+    constructor(...args: any[]) {
+      super(...args);
+      Object.defineProperty(this, "visible", {
+        get: () => pipe(this.visibleRef.read(), O.toUndefined),
+        enumerable: true,
+        configurable: true,
+      });
     }
 
     show = (): boolean =>
