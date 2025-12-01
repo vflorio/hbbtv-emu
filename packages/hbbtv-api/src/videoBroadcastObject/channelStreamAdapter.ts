@@ -11,10 +11,8 @@ import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 
-export type GetChannelStreamUrl = (channel: Channel) => O.Option<string>;
-
 export interface ChannelStreamAdapter {
-  getChannelStreamUrl: GetChannelStreamUrl;
+  getChannelStreamUrl: (channel: Channel) => O.Option<string>;
 }
 
 export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: T) =>
@@ -41,7 +39,7 @@ export const WithChannelStreamAdapter = <T extends ClassType<MessageBus>>(Base: 
       );
     }
 
-    getChannelStreamUrl: GetChannelStreamUrl = (channel) =>
+    getChannelStreamUrl = (channel: Channel): O.Option<string> =>
       pipe(
         channel,
         O.fromPredicate(isValidChannelTriplet),

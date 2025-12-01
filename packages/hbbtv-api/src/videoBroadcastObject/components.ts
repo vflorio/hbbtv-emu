@@ -21,27 +21,19 @@ export interface AVComponent {
   language?: string;
 }
 
-export type OnSelectedComponentChanged = (componentType?: ComponentType) => void;
-export type OnComponentChanged = (componentType?: ComponentType) => void;
-export type GetComponents = (componentType?: ComponentType) => Collection<AVComponent> | null;
-export type GetCurrentActiveComponents = (componentType?: ComponentType) => Collection<AVComponent> | null;
-export type SelectComponent = (component: AVComponent | ComponentType) => void;
-export type UnselectComponent = (component: AVComponent | ComponentType) => void;
-export type DispatchComponentChange = (componentType?: ComponentType) => void;
-
 export interface Components {
   readonly COMPONENT_TYPE_VIDEO: ComponentType;
   readonly COMPONENT_TYPE_AUDIO: ComponentType;
   readonly COMPONENT_TYPE_SUBTITLE: ComponentType;
 
-  onSelectedComponentChanged?: OnSelectedComponentChanged;
-  onComponentChanged?: OnComponentChanged;
+  onSelectedComponentChanged?: (componentType?: ComponentType) => void;
+  onComponentChanged?: (componentType?: ComponentType) => void;
 
-  getComponents: GetComponents;
-  getCurrentActiveComponents: GetCurrentActiveComponents;
-  selectComponent: SelectComponent;
-  unselectComponent: UnselectComponent;
-  dispatchComponentChange: DispatchComponentChange;
+  getComponents: (componentType?: ComponentType) => Collection<AVComponent> | null;
+  getCurrentActiveComponents: (componentType?: ComponentType) => Collection<AVComponent> | null;
+  selectComponent: (component: AVComponent | ComponentType) => void;
+  unselectComponent: (component: AVComponent | ComponentType) => void;
+  dispatchComponentChange: (componentType?: ComponentType) => void;
 }
 
 const logger = createLogger("VideoBroadcast/Components");
@@ -52,26 +44,26 @@ export const WithComponents = <T extends ClassType<Playback>>(Base: T) =>
     readonly COMPONENT_TYPE_AUDIO = ComponentType.AUDIO;
     readonly COMPONENT_TYPE_SUBTITLE = ComponentType.SUBTITLE;
 
-    onSelectedComponentChanged?: OnSelectedComponentChanged;
-    onComponentChanged?: OnComponentChanged;
+    onSelectedComponentChanged?: (componentType?: ComponentType) => void;
+    onComponentChanged?: (componentType?: ComponentType) => void;
 
-    dispatchComponentChange: DispatchComponentChange = (componentType?) => {
+    dispatchComponentChange = (componentType?: ComponentType): void => {
       this.onSelectedComponentChanged?.(componentType);
     };
 
-    getComponents: GetComponents = (_componentType?) =>
+    getComponents = (_componentType?: ComponentType): Collection<AVComponent> | null =>
       pipe(
         logger.info("getComponents"),
         IO.map(() => (this.playState === PlayState.PRESENTING ? createEmptyCollection<AVComponent>() : null)),
       )();
 
-    getCurrentActiveComponents: GetCurrentActiveComponents = (_componentType?) =>
+    getCurrentActiveComponents = (_componentType?: ComponentType): Collection<AVComponent> | null =>
       pipe(
         logger.info("getCurrentActiveComponents"),
         IO.map(() => (this.playState === PlayState.PRESENTING ? createEmptyCollection<AVComponent>() : null)),
       )();
 
-    selectComponent: SelectComponent = (component) => {
+    selectComponent = (component: AVComponent | ComponentType): void => {
       const componentType = typeof component === "number" ? component : component.type;
 
       pipe(
@@ -80,7 +72,7 @@ export const WithComponents = <T extends ClassType<Playback>>(Base: T) =>
       )();
     };
 
-    unselectComponent: UnselectComponent = (component) => {
+    unselectComponent = (component: AVComponent | ComponentType): void => {
       const componentType = typeof component === "number" ? component : component.type;
 
       pipe(

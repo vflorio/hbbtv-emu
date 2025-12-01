@@ -12,15 +12,11 @@ export enum PlayState {
   STOPPED = 3,
 }
 
-export type OnPlayStateChange = (state: PlayState, error?: number) => void;
-export type DispatchPlayStateChange = (newState: PlayState, error?: number) => IO.IO<void>;
-export type IsPlayStateValid = (validStates: PlayState[]) => boolean;
-
 export interface Playback {
   readonly playState: PlayState;
-  onPlayStateChange?: OnPlayStateChange;
-  dispatchPlayStateChange: DispatchPlayStateChange;
-  isPlayStateValid: IsPlayStateValid;
+  onPlayStateChange?: (state: PlayState, error?: number) => void;
+  dispatchPlayStateChange: (newState: PlayState, error?: number) => IO.IO<void>;
+  isPlayStateValid: (validStates: PlayState[]) => boolean;
   stop: () => void;
   release: () => void;
 }
@@ -31,7 +27,7 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
   class extends Base implements Playback {
     playStateRef = IORef.newIORef(PlayState.UNREALIZED)();
 
-    onPlayStateChange?: OnPlayStateChange;
+    onPlayStateChange?: (state: PlayState, error?: number) => void;
 
     constructor(...args: any[]) {
       super(...args);
@@ -45,7 +41,7 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
       return this.playStateRef.read();
     }
 
-    dispatchPlayStateChange: DispatchPlayStateChange = (newState, error?) =>
+    dispatchPlayStateChange = (newState: PlayState, error?: number): IO.IO<void> =>
       pipe(
         logger.info(`dispatchPlayStateChange`, { newState }),
         IO.flatMap(() => () => {
@@ -55,7 +51,7 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
         }),
       );
 
-    isPlayStateValid: IsPlayStateValid = (validStates) =>
+    isPlayStateValid = (validStates: PlayState[]) =>
       pipe(this.playStateRef.read(), (currentState) => validStates.includes(currentState));
 
     stop: () => void = () =>

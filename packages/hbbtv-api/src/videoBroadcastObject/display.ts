@@ -2,15 +2,12 @@ import { type ClassType, createLogger } from "@hbb-emu/lib";
 import * as IORef from "fp-ts/IORef";
 import type { EventTarget } from "./eventTarget";
 
-export type OnFullScreenChange = () => void;
-export type SetFullScreen = (fullScreen: boolean) => void;
-
 export interface Display {
   readonly width: number;
   readonly height: number;
   readonly fullScreen: boolean;
-  onFullScreenChange?: OnFullScreenChange;
-  setFullScreen: SetFullScreen;
+  onFullScreenChange?: () => void;
+  setFullScreen: (fullScreen: boolean) => void;
 }
 
 const logger = createLogger("VideoBroadcast/Display");
@@ -21,7 +18,7 @@ export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
     heightRef = IORef.newIORef(0)();
     fullScreenRef = IORef.newIORef(false)();
 
-    onFullScreenChange?: OnFullScreenChange;
+    onFullScreenChange?: () => void;
 
     get width(): number {
       return this.widthRef.read();
@@ -35,7 +32,7 @@ export const WithDisplay = <T extends ClassType<EventTarget>>(Base: T) =>
       return this.fullScreenRef.read();
     }
 
-    setFullScreen: SetFullScreen = (fullScreen) => {
+    setFullScreen = (fullScreen: boolean): void => {
       logger.info(`setFullScreen(${fullScreen})`);
 
       const currentFullScreen = this.fullScreenRef.read();

@@ -19,13 +19,10 @@ import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as R from "fp-ts/Record";
 
-export type AttachObject = (element: Element) => IO.IO<void>;
-export type OnVideoBroadcastCreated = (obj: VideoBroadcast) => void;
-
 export interface ObjectHandler {
-  attachObject: AttachObject;
+  attachObject: (element: Element) => IO.IO<void>;
   videoBroadcastObject: O.Option<VideoBroadcast>;
-  onVideoBroadcastCreated?: OnVideoBroadcastCreated;
+  onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 }
 
 const VideoBroadcastObject = compose(
@@ -49,10 +46,10 @@ const objectFactoryMap: Record<OipfObjectType, () => unknown> = {
 export const WithObjectHandler = <T extends ClassType>(Base: T) =>
   class extends Base implements ObjectHandler {
     videoBroadcastObject: O.Option<VideoBroadcast> = O.none;
-    onVideoBroadcastCreated?: OnVideoBroadcastCreated;
+    onVideoBroadcastCreated?: (obj: VideoBroadcast) => void;
 
     // biome-ignore format: ack
-    attachObject: AttachObject = (element) =>
+    attachObject = (element: Element): IO.IO<void> =>
       pipe(
         O.fromNullable(element.getAttribute("type")),
         O.match(() => IO.of(undefined), (type) =>

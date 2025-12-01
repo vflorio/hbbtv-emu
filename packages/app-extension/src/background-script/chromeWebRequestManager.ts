@@ -6,13 +6,11 @@ import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import type { ChromeScriptInject } from "./chromeScriptInject";
 
-export type OnHeadersReceivedListener = (
-  details: chrome.webRequest.OnHeadersReceivedDetails,
-) => chrome.webRequest.BlockingResponse | undefined;
-
 export interface WebRequestHandler {
   tabs: Set<number>;
-  onHeadersReceivedListener: OnHeadersReceivedListener;
+  onHeadersReceivedListener: (
+    details: chrome.webRequest.OnHeadersReceivedDetails,
+  ) => chrome.webRequest.BlockingResponse | undefined;
 }
 
 const logger = createLogger("ChromeWebRequestManager");
@@ -61,7 +59,9 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
       });
     }
 
-    onHeadersReceivedListener: OnHeadersReceivedListener = (details) =>
+    onHeadersReceivedListener = (
+      details: chrome.webRequest.OnHeadersReceivedDetails,
+    ): chrome.webRequest.BlockingResponse | undefined =>
       pipe(
         details.responseHeaders,
         O.fromNullable,

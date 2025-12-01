@@ -18,36 +18,18 @@ export interface StreamEventDetail {
 
 export interface StreamEvent extends CustomEvent<StreamEventDetail> {}
 
-export type AddStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
-export type RemoveStreamEventListener = (targetURL: string, eventName: string, listener: EventListener) => void;
-export type GetStreamEventKey = (targetURL: string, eventName: string) => string;
-export type RegisterListener = (key: string, listener: EventListener) => void;
-export type UnregisterListener = (key: string, listener: EventListener) => void;
-export type HasListener = (key: string) => boolean;
-export type TrackVersion = (key: string, version: number) => boolean;
-export type CreateStreamEvent = (detail: StreamEventDetail) => StreamEvent;
-export type ClearAllStreamEventListeners = () => void;
-export type DispatchStreamEvent = (
-  targetURL: string,
-  eventName: string,
-  data: string,
-  text?: string,
-  version?: number,
-) => void;
-export type DispatchStreamEventError = (targetURL: string, eventName: string, errorMessage?: string) => void;
-
 export interface StreamEvents {
-  addStreamEventListener: AddStreamEventListener;
-  removeStreamEventListener: RemoveStreamEventListener;
-  getStreamEventKey: GetStreamEventKey;
-  registerListener: RegisterListener;
-  unregisterListener: UnregisterListener;
-  hasListener: HasListener;
-  trackVersion: TrackVersion;
-  createStreamEvent: CreateStreamEvent;
-  clearAllStreamEventListeners: ClearAllStreamEventListeners;
-  dispatchStreamEvent: DispatchStreamEvent;
-  dispatchStreamEventError: DispatchStreamEventError;
+  addStreamEventListener: (targetURL: string, eventName: string, listener: EventListener) => void;
+  removeStreamEventListener: (targetURL: string, eventName: string, listener: EventListener) => void;
+  getStreamEventKey: (targetURL: string, eventName: string) => string;
+  registerListener: (key: string, listener: EventListener) => void;
+  unregisterListener: (key: string, listener: EventListener) => void;
+  hasListener: (key: string) => boolean;
+  trackVersion: (key: string, version: number) => boolean;
+  createStreamEvent: (detail: StreamEventDetail) => StreamEvent;
+  clearAllStreamEventListeners: () => void;
+  dispatchStreamEvent: (targetURL: string, eventName: string, data: string, text?: string, version?: number) => void;
+  dispatchStreamEventError: (targetURL: string, eventName: string, errorMessage?: string) => void;
 }
 
 const logger = createLogger("VideoBroadcast/StreamEvents");
@@ -67,9 +49,9 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       });
     }
 
-    getStreamEventKey: GetStreamEventKey = (targetURL, eventName) => `${targetURL}:${eventName}`;
+    getStreamEventKey = (targetURL: string, eventName: string): string => `${targetURL}:${eventName}`;
 
-    registerListener: RegisterListener = (key, listener) => {
+    registerListener = (key: string, listener: EventListener): void => {
       const metadata = this.streamEventMetadataRef.read();
       if (!metadata.has(key)) {
         metadata.set(key, new Set());
@@ -78,7 +60,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       this.streamEventMetadataRef.write(metadata);
     };
 
-    unregisterListener: UnregisterListener = (key, listener) => {
+    unregisterListener = (key: string, listener: EventListener): void => {
       const metadata = this.streamEventMetadataRef.read();
       if (!metadata.has(key)) return;
 
@@ -94,9 +76,9 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       this.streamEventMetadataRef.write(metadata);
     };
 
-    hasListener: HasListener = (key) => this.streamEventMetadataRef.read().has(key);
+    hasListener = (key: string): boolean => this.streamEventMetadataRef.read().has(key);
 
-    trackVersion: TrackVersion = (key, version) => {
+    trackVersion = (key: string, version: number): boolean => {
       const versions = this.streamEventVersionsRef.read();
 
       if (!versions.has(key)) {
@@ -113,12 +95,12 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       return true;
     };
 
-    createStreamEvent: CreateStreamEvent = (detail) =>
+    createStreamEvent = (detail: StreamEventDetail): StreamEvent =>
       new CustomEvent<StreamEventDetail>("StreamEvent", {
         detail,
       });
 
-    addStreamEventListener: AddStreamEventListener = (targetURL, eventName, listener) =>
+    addStreamEventListener = (targetURL: string, eventName: string, listener: EventListener): void =>
       pipe(
         logger.info(`addStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
@@ -133,7 +115,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
         }),
       )();
 
-    removeStreamEventListener: RemoveStreamEventListener = (targetURL, eventName, listener) =>
+    removeStreamEventListener = (targetURL: string, eventName: string, listener: EventListener): void =>
       pipe(
         logger.info(`removeStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
@@ -143,7 +125,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
         }),
       )();
 
-    clearAllStreamEventListeners: ClearAllStreamEventListeners = () =>
+    clearAllStreamEventListeners = (): void =>
       pipe(
         logger.info("clearAllStreamEventListeners"),
         IO.flatMap(() => () => {
@@ -163,7 +145,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
         }),
       )();
 
-    dispatchStreamEvent: DispatchStreamEvent = (targetURL, eventName, data, text = "", version?) => {
+    dispatchStreamEvent = (targetURL: string, eventName: string, data: string, text = "", version?: number): void => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
       if (!this.hasListener(key)) return;
@@ -183,7 +165,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       this.dispatchEvent(event);
     };
 
-    dispatchStreamEventError: DispatchStreamEventError = (targetURL, eventName, errorMessage = "") => {
+    dispatchStreamEventError = (targetURL: string, eventName: string, errorMessage = ""): void => {
       const key = this.getStreamEventKey(targetURL, eventName);
 
       if (!this.hasListener(key)) return;

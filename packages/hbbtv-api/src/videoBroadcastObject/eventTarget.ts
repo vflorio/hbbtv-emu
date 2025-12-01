@@ -1,22 +1,18 @@
 import type { ClassType } from "@hbb-emu/lib";
 import type { VideoElement } from "./videoElement";
 
-export type DispatchEvent = (event: Event) => boolean;
-export type AddEventListener = (
-  type: string,
-  listener: EventListenerOrEventListenerObject,
-  options?: boolean | AddEventListenerOptions,
-) => void;
-export type RemoveEventListener = (
-  type: string,
-  listener: EventListenerOrEventListenerObject,
-  options?: boolean | EventListenerOptions,
-) => void;
-
 export interface EventDispatcher {
-  dispatchEvent: DispatchEvent;
-  addEventListener: AddEventListener;
-  removeEventListener: RemoveEventListener;
+  dispatchEvent: (event: Event) => boolean;
+  addEventListener: (
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ) => void;
+  removeEventListener: (
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+  ) => void;
 }
 
 export interface EventTarget extends EventDispatcher {
@@ -29,13 +25,21 @@ export const WithEventTarget = <T extends ClassType<VideoElement>>(Base: T) =>
       return this.videoElement;
     }
 
-    dispatchEvent: DispatchEvent = (event) => this.eventTarget.dispatchEvent(event);
+    dispatchEvent = (event: Event): boolean => this.eventTarget.dispatchEvent(event);
 
-    addEventListener: AddEventListener = (type, listener, options) => {
+    addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ): void => {
       this.eventTarget.addEventListener(type, listener, options);
     };
 
-    removeEventListener: RemoveEventListener = (type, listener, options) => {
+    removeEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | EventListenerOptions,
+    ): void => {
       this.eventTarget.removeEventListener(type, listener, options);
     };
   };

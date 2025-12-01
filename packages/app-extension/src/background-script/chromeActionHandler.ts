@@ -3,10 +3,8 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 
-export type OnActionClicked = (tab: chrome.tabs.Tab) => TE.TaskEither<Error, void>;
-
 export interface ActionHandler {
-  onActionClicked: OnActionClicked;
+  onActionClicked: (tab: chrome.tabs.Tab) => TE.TaskEither<Error, void>;
 }
 
 export const WithChromeActionHandler = <T extends ClassType>(Base: T) =>
@@ -19,7 +17,7 @@ export const WithChromeActionHandler = <T extends ClassType>(Base: T) =>
       });
     }
 
-    onActionClicked: OnActionClicked = (tab) =>
+    onActionClicked = (tab: chrome.tabs.Tab): TE.TaskEither<Error, void> =>
       pipe(
         E.Do,
         E.bind("tabId", () => E.fromNullable(new Error("Tab ID is missing"))(tab.id)),

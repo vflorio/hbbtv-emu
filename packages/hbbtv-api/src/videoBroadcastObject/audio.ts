@@ -9,19 +9,16 @@ const logger = createLogger("VideoBroadcast/Audio");
 const validateVolume = (volume: number): E.Either<string, number> =>
   volume >= 0 && volume <= 100 ? E.right(volume) : E.left(`Volume out of range: ${volume}`);
 
-export type SetVolume = (volume: number) => boolean;
-export type GetVolume = () => number;
-
 export interface Audio {
-  setVolume: SetVolume;
-  getVolume: GetVolume;
+  setVolume: (volume: number) => boolean;
+  getVolume: () => number;
 }
 
 export const WithAudio = <T extends ClassType>(Base: T) =>
   class extends Base implements Audio {
     volumeRef = IORef.newIORef(100)();
 
-    setVolume: SetVolume = (volume) =>
+    setVolume = (volume: number): boolean =>
       pipe(
         logger.info(`Validating volume: ${volume}`),
         IO.map(() =>
@@ -38,7 +35,7 @@ export const WithAudio = <T extends ClassType>(Base: T) =>
         ),
       )();
 
-    getVolume: GetVolume = () =>
+    getVolume = (): number =>
       pipe(
         logger.info("getVolume"),
         IO.map(() => this.volumeRef.read()),

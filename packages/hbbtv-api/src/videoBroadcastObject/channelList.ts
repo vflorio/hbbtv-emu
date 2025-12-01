@@ -11,14 +11,10 @@ import { pipe } from "fp-ts/function";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 
-export type Item = (index: number) => Channel | null;
-export type GetChannel = (ccid: string) => Channel | null;
-export type GetChannelByTriplet = (onid: number, tsid: number, sid: number, nid?: number) => Channel | null;
-
 export interface ChannelList extends ChannelListType {
-  item: Item;
-  getChannel: GetChannel;
-  getChannelByTriplet: GetChannelByTriplet;
+  item: (index: number) => Channel | null;
+  getChannel: (ccid: string) => Channel | null;
+  getChannelByTriplet: (onid: number, tsid: number, sid: number, nid?: number) => Channel | null;
 }
 
 export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
@@ -49,16 +45,16 @@ export const WithChannelList = <T extends ClassType<MessageBus>>(Base: T) =>
       return this.channelListRef.read().length;
     }
 
-    item: Item = (index) => pipe(this.channelListRef.read(), A.lookup(index), O.toNullable);
+    item = (index: number): Channel | null => pipe(this.channelListRef.read(), A.lookup(index), O.toNullable);
 
-    getChannel: GetChannel = (ccid) =>
+    getChannel = (ccid: string): Channel | null =>
       pipe(
         this.channelListRef.read(),
         A.findFirst((channel) => channel.ccid === ccid),
         O.toNullable,
       );
 
-    getChannelByTriplet: GetChannelByTriplet = (onid, tsid, sid, _nid?) =>
+    getChannelByTriplet = (onid: number, tsid: number, sid: number, _nid?: number): Channel | null =>
       pipe(
         this.channelListRef.read(),
         A.findFirst((channel) => channel.onid === onid && channel.tsid === tsid && channel.sid === sid),

@@ -19,44 +19,33 @@ import type { Playback } from "./playback";
 import { PlayState } from "./playback";
 import type { VideoElement } from "./videoElement";
 
-export type OnChannelChangeSucceeded = (channel: Channel) => void;
-export type OnChannelChangeError = (channel: Channel, errorState: ChannelChangeError) => void;
-export type BindToCurrentChannel = () => Channel | null;
-export type SetChannel = (
-  channel: Channel | null,
-  trickplay?: boolean,
-  contentAccessDescriptorURL?: string,
-  quiet?: number,
-) => void;
-export type NextChannel = () => void;
-export type PrevChannel = () => void;
-export type GetChannelConfig = () => ChannelConfig | null;
-export type CreateChannelObject = {
-  (idType: ChannelIdType, dsd: string, sid: number): Channel | null;
-  (
-    idType: ChannelIdType,
-    onid?: number,
-    tsid?: number,
-    sid?: number,
-    sourceID?: number,
-    ipBroadcastID?: string,
-  ): Channel | null;
-};
-export type DispatchChannelError = (channel: Channel | null, errorState: ChannelChangeError) => void;
-export type DispatchChannelSuccess = (channel: Channel) => void;
-
 export interface ChannelManager {
   readonly currentChannel: Channel | null;
-  onChannelChangeSucceeded?: OnChannelChangeSucceeded;
-  onChannelChangeError?: OnChannelChangeError;
-  bindToCurrentChannel: BindToCurrentChannel;
-  setChannel: SetChannel;
-  nextChannel: NextChannel;
-  prevChannel: PrevChannel;
-  getChannelConfig: GetChannelConfig;
-  createChannelObject: CreateChannelObject;
-  dispatchChannelError: DispatchChannelError;
-  dispatchChannelSuccess: DispatchChannelSuccess;
+  onChannelChangeSucceeded?: (channel: Channel) => void;
+  onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
+  bindToCurrentChannel: () => Channel | null;
+  setChannel: (
+    channel: Channel | null,
+    trickplay?: boolean,
+    contentAccessDescriptorURL?: string,
+    quiet?: number,
+  ) => void;
+  nextChannel: () => void;
+  prevChannel: () => void;
+  getChannelConfig: () => ChannelConfig | null;
+  createChannelObject: {
+    (idType: ChannelIdType, dsd: string, sid: number): Channel | null;
+    (
+      idType: ChannelIdType,
+      onid?: number,
+      tsid?: number,
+      sid?: number,
+      sourceID?: number,
+      ipBroadcastID?: string,
+    ): Channel | null;
+  };
+  dispatchChannelError: (channel: Channel | null, errorState: ChannelChangeError) => void;
+  dispatchChannelSuccess: (channel: Channel) => void;
 }
 
 const logger = createLogger("VideoBroadcast/Channel");
@@ -68,8 +57,8 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
   class extends Base implements ChannelManager {
     currentChannelRef = IORef.newIORef<O.Option<Channel>>(O.none)();
 
-    onChannelChangeSucceeded?: OnChannelChangeSucceeded;
-    onChannelChangeError?: OnChannelChangeError;
+    onChannelChangeSucceeded?: (channel: Channel) => void;
+    onChannelChangeError?: (channel: Channel, errorState: ChannelChangeError) => void;
 
     constructor(...args: any[]) {
       super(...args);
@@ -111,17 +100,17 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
       return pipe(this.currentChannelRef.read(), O.toNullable);
     }
 
-    dispatchChannelError: DispatchChannelError = (channel, errorState) => {
+    dispatchChannelError = (channel: Channel | null, errorState: ChannelChangeError): void => {
       this.onChannelChangeError?.(channel || ({} as Channel), errorState);
       this.dispatchEvent(new CustomEvent("ChannelChangeError", { detail: { channel, errorState } }));
     };
 
-    dispatchChannelSuccess: DispatchChannelSuccess = (channel) => {
+    dispatchChannelSuccess = (channel: Channel): void => {
       this.onChannelChangeSucceeded?.(channel);
       this.dispatchEvent(new CustomEvent("ChannelChangeSucceeded", { detail: { channel } }));
     };
 
-    bindToCurrentChannel: BindToCurrentChannel = () =>
+    bindToCurrentChannel = (): Channel | null =>
       pipe(
         logger.info("bindToCurrentChannel"),
         IO.flatMap(() => () => {
@@ -140,7 +129,12 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         }),
       )();
 
-    setChannel: SetChannel = (channel, _trickplay?, _contentAccessDescriptorURL?, _quiet?) =>
+    setChannel = (
+      channel: Channel | null,
+      _trickplay?: boolean,
+      _contentAccessDescriptorURL?: string,
+      _quiet?: number,
+    ): void =>
       pipe(
         logger.info("setChannel", channel),
         IO.map(() =>
@@ -180,7 +174,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         ),
       )();
 
-    nextChannel: NextChannel = () =>
+    nextChannel = (): void =>
       pipe(
         logger.info("nextChannel"),
         IO.flatMap(
@@ -196,7 +190,7 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         ),
       )();
 
-    prevChannel: PrevChannel = () =>
+    prevChannel = (): void =>
       pipe(
         logger.info("prevChannel"),
         IO.flatMap(
@@ -208,13 +202,13 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
         ),
       )();
 
-    getChannelConfig: GetChannelConfig = () =>
+    getChannelConfig = (): ChannelConfig | null =>
       pipe(
         logger.info("getChannelConfig"),
         IO.map(() => null),
       )();
 
-    createChannelObject: CreateChannelObject = (idType: ChannelIdType, ...args: unknown[]): Channel | null => {
+    createChannelObject = (idType: ChannelIdType, ...args: unknown[]): Channel | null => {
       return pipe(
         args as [number?, number?, number?, number?, string?],
         ([onid, tsid, sid, sourceID, ipBroadcastID]) => ({
