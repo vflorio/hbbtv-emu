@@ -39,13 +39,13 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = (envelope) => {
       logger.info("Sending message", envelope)();
 
-      const sendToBackgroundScript = () =>
+      const sendToExtensionContext = () =>
         TE.tryCatch(
           () => chrome.runtime.sendMessage(envelope),
           (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
         );
 
-      const sendToContentScript = (tabId: number) =>
+      const sendToContentContext = (tabId: number) =>
         TE.tryCatch(
           () => chrome.tabs.sendMessage(tabId, envelope),
           (error) => chromeMessageError(error instanceof Error ? error.message : String(error)),
@@ -55,15 +55,14 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
         pipe(
           envelope.target,
           E.fromPredicate(
-            (target) =>
-              target === "BACKGROUND_SCRIPT" || target === "CONTENT_SCRIPT" || target === "SIDE_PANEL",
+            (target) => target === "BACKGROUND_SCRIPT" || target === "CONTENT_SCRIPT" || target === "SIDE_PANEL",
             (target) => chromeMessageError(`Cannot send message: invalid target ${target}`),
           ),
           TE.fromEither,
           TE.flatMap((target) =>
             ({
-              BACKGROUND_SCRIPT: sendToBackgroundScript,
-              SIDE_PANEL: sendToBackgroundScript, // Side panel uses same mechanism as background script
+              BACKGROUND_SCRIPT: sendToExtensionContext,
+              SIDE_PANEL: sendToExtensionContext,
               CONTENT_SCRIPT: () =>
                 pipe(
                   envelope.context?.tabId,
@@ -71,7 +70,7 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
                     chromeMessageError("Cannot send message to content script: tabId is missing in context"),
                   ),
                   TE.fromEither,
-                  TE.flatMap(sendToContentScript),
+                  TE.flatMap(sendToContentContext),
                 ),
             })[target](),
           ),
