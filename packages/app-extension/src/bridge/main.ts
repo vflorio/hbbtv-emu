@@ -39,8 +39,9 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
       IO.tap(() => addEventListener("message")(this.forwardToBackgroundScript)(window)),
       IO.tap(() =>
         pipe(
-          createEnvelope(this.messageOrigin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null }),
-          postMessage,
+          this.messageOrigin.read,
+          IO.map((origin) => createEnvelope(origin, "CONTENT_SCRIPT", { type: "BRIDGE_READY", payload: null })),
+          IO.flatMap((envelope) => postMessage(envelope)),
         ),
       ),
       IO.tap(() => logger.info("Initialized")),

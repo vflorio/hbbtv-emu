@@ -1,5 +1,6 @@
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IORef from "fp-ts/IORef";
 import * as RA from "fp-ts/ReadonlyArray";
 import type { ClassType } from "../mixin";
 import type { Message } from "./message";
@@ -17,20 +18,20 @@ export interface Bus {
 }
 
 export interface MessageBus {
-  readonly messageOrigin: MessageOrigin;
-  readonly bus: Bus;
+  messageOrigin: IORef.IORef<MessageOrigin>;
+  bus: Bus;
 }
 
 export const WithMessageBus =
   (messageOrigin: MessageOrigin) =>
   <T extends ClassType<MessageAdapter>>(Base: T) =>
     class extends Base implements MessageBus {
-      readonly messageOrigin: MessageOrigin = messageOrigin;
+      messageOrigin: IORef.IORef<MessageOrigin> = IORef.newIORef(messageOrigin)();
       handlers: Map<string, ReadonlyArray<Handler>> = new Map();
 
       constructor(...args: any[]) {
         super(...args);
-        this.registerMessageHandler(messageOrigin)(this.bus.dispatch)();
+        this.registerMessageHandler(this.bus.dispatch)();
       }
 
       updateHandlers = (

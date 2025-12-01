@@ -10,7 +10,6 @@ import type { ClassType } from "../mixin";
 import type { Message } from "./message";
 import type { InvalidMessageEnvelopeError, InvalidTargetError, MessageEnvelope } from "./messageEnvelope";
 import { validateEnvelope } from "./messageEnvelope";
-import type { MessageOrigin } from "./messageOrigin";
 
 export type Handler<T extends Message = Message> = (envelope: MessageEnvelope<T>) => IO.IO<void>;
 
@@ -32,7 +31,7 @@ export type MessageAdapterError =
   | InvalidTargetError;
 
 export interface MessageAdapter {
-  registerMessageHandler: (origin: MessageOrigin) => (handler: Handler) => IO.IO<void>;
+  registerMessageHandler: (handler: Handler) => IO.IO<void>;
   sendMessage: <T extends Message = Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
   handleMessage: (data: unknown) => E.Either<unknown, void>;
 }
@@ -41,15 +40,13 @@ const logger = createLogger("MessageAdapter");
 
 export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
   class extends Base implements MessageAdapter {
-    messageOrigin = IORef.newIORef<O.Option<MessageOrigin>>(O.none)();
     messageHandler = IORef.newIORef<O.Option<Handler>>(O.none)();
 
-    registerMessageHandler: (origin: MessageOrigin) => (handler: Handler) => IO.IO<void> = (origin) => (handler) =>
+    registerMessageHandler: (handler: Handler) => IO.IO<void> = (handler) =>
       pipe(
-        IO.of({ origin, handler }),
-        IO.tap(({ origin }) => this.messageOrigin.write(O.some(origin))),
+        IO.of({ handler }),
         IO.tap(({ handler }) => this.messageHandler.write(O.some(handler))),
-        IO.tap(() => logger.info(`Registered message bus for origin: ${origin}`)),
+        IO.tap(() => logger.info(`Registered message handler`)),
       );
 
     handleMessage: (data: unknown) => E.Either<unknown, void> = (data) =>

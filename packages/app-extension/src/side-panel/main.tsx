@@ -66,9 +66,11 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
       );
 
     notify: IO.IO<void> = pipe(
-      IO.of(this.stateRef.read()),
-      IO.map((state) =>
-        createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
+      IO.Do,
+      IO.bind("state", () => this.stateRef.read),
+      IO.bind("origin", () => this.messageOrigin.read),
+      IO.map(({ state, origin }) =>
+        createEnvelope(origin, "BACKGROUND_SCRIPT", {
           type: "UPDATE_CONFIG",
           payload: state,
         }),

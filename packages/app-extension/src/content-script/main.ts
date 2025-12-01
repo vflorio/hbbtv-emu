@@ -37,8 +37,9 @@ export const WithContentScript = <T extends ClassType<ObjectHandler & MessageAda
               logger.info("Bridge is ready"),
               IO.tap(() =>
                 pipe(
-                  IO.of(
-                    createEnvelope(this.messageOrigin, "BACKGROUND_SCRIPT", {
+                  this.messageOrigin.read,
+                  IO.map((origin) =>
+                    createEnvelope(origin, "BACKGROUND_SCRIPT", {
                       type: "CONTENT_SCRIPT_READY",
                       payload: null,
                     }),

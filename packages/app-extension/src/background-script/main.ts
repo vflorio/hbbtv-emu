@@ -14,7 +14,6 @@ import {
   WithMessageBus,
 } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
-import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
@@ -61,7 +60,7 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
       this.bus.on("UPDATE_USER_AGENT", ({ message: { payload } }) =>
         pipe(
           logger.info("Updating user agent", payload),
-          IO.bind("currentState", () => IO.of(this.stateRef.read())),
+          IO.bind("currentState", () => this.stateRef.read),
           IO.tap(({ currentState }) => this.stateRef.write({ ...currentState, userAgent: payload })),
           IO.tap(({ currentState }) => this.store.save({ ...currentState, userAgent: payload })),
           IO.tap(() => this.updateUserAgent(payload)),
@@ -71,13 +70,11 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
 
     sendToTab = (tabId: number): IO.IO<void> =>
       pipe(
-        IO.of(
-          createEnvelope(
-            this.messageOrigin,
-            "CONTENT_SCRIPT",
-            { type: "UPDATE_CONFIG", payload: this.stateRef.read() },
-            { tabId },
-          ),
+        IO.Do,
+        IO.bind("messageOrigin", () => this.messageOrigin.read),
+        IO.bind("state", () => this.stateRef.read),
+        IO.map(({ messageOrigin, state }) =>
+          createEnvelope(messageOrigin, "CONTENT_SCRIPT", { type: "UPDATE_CONFIG", payload: state }, { tabId }),
         ),
         IO.flatMap((envelope) =>
           pipe(
