@@ -21,22 +21,34 @@ export interface PostMessageAdapter extends MessageAdapter {
 
 const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
   class extends Base implements PostMessageAdapter {
+    processedMessageIds = new Set<string>();
+    readonly MAX_PROCESSED_IDS = 100;
+
     constructor(...args: any[]) {
       super(...args);
       window.addEventListener("message", this.handlePostMessage);
     }
 
-    handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean = (event) => {
-      // Log all incoming messages for debugging
-      if (event.data && typeof event.data === "object" && "source" in event.data) {
-        logger.info("Received postMessage event", event.data)();
+    markAsProcessed(id: string): void {
+      this.processedMessageIds.add(id);
+      // Prevent memory leak by limiting the size of the set
+      if (this.processedMessageIds.size > this.MAX_PROCESSED_IDS) {
+        const firstId = this.processedMessageIds.values().next().value;
+        if (firstId) this.processedMessageIds.delete(firstId);
       }
+    }
 
+    handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean = (event) => {
       return pipe(
         event.data,
         E.fromPredicate(
           (data): data is MessageEnvelope =>
-            data && typeof data === "object" && "source" in data && "target" in data && "message" in data,
+            data &&
+            typeof data === "object" &&
+            "source" in data &&
+            "target" in data &&
+            "message" in data &&
+            "id" in data,
           () => true,
         ),
         E.flatMap((envelope) =>
@@ -48,7 +60,17 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
             ),
           ),
         ),
+        E.flatMap((envelope) =>
+          pipe(
+            envelope,
+            E.fromPredicate(
+              (env) => !this.processedMessageIds.has(env.id),
+              () => true, // Already processed, ignore
+            ),
+          ),
+        ),
         E.map((envelope) => {
+          this.markAsProcessed(envelope.id);
           logger.info("Processing message", envelope.message.type)();
           this.handleMessage(envelope);
           return true;

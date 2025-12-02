@@ -7,7 +7,8 @@ export type MessageType =
   | "CONTENT_SCRIPT_READY"
   | "UPDATE_USER_AGENT"
   | "UPDATE_CONFIG"
-  | "GET_CONFIG";
+  | "GET_CONFIG"
+  | "DISPATCH_STREAM_EVENT";
 
 export const MessageTypeCodec = t.union([
   t.literal("BRIDGE_READY"),
@@ -15,6 +16,7 @@ export const MessageTypeCodec = t.union([
   t.literal("UPDATE_USER_AGENT"),
   t.literal("UPDATE_CONFIG"),
   t.literal("GET_CONFIG"),
+  t.literal("DISPATCH_STREAM_EVENT"),
 ]);
 
 export const validateMessageType = (data: unknown): E.Either<InvalidMessageTypeError, MessageType> =>

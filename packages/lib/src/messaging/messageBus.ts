@@ -51,9 +51,20 @@ export const WithMessageBus =
 
         dispatch: (envelope) =>
           pipe(
-            this.handlers.get(envelope.message.type) ?? RA.empty,
-            RA.map((handler) => handler(envelope)),
-            IO.sequenceArray,
+            IO.Do,
+            IO.bind("origin", () => this.messageOrigin.read),
+            IO.flatMap(({ origin }) => {
+              // Only dispatch if this message is targeted at us
+              if (envelope.target !== origin) {
+                return IO.of(undefined);
+              }
+              return pipe(
+                this.handlers.get(envelope.message.type) ?? RA.empty,
+                RA.map((handler) => handler(envelope)),
+                IO.sequenceArray,
+                IO.map(() => undefined),
+              );
+            }),
           ),
       };
     };

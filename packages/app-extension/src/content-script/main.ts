@@ -8,6 +8,7 @@ import {
   initApp,
   type MessageAdapter,
   type MessageBus,
+  type StreamEventPayload,
   WithMessageBus,
   WithPostMessageAdapter,
 } from "@hbb-emu/lib";
@@ -60,7 +61,33 @@ export const WithContentScript = <T extends ClassType<MessageAdapter & MessageBu
           ),
         ),
       ),
+      IO.tap(() =>
+        this.bus.on("DISPATCH_STREAM_EVENT", (envelope) =>
+          pipe(
+            logger.info("Received stream event dispatch", envelope.message.payload),
+            IO.flatMap(() => () => this.dispatchStreamEventToVideoBroadcast(envelope.message.payload)),
+          ),
+        ),
+      ),
     );
+
+    dispatchStreamEventToVideoBroadcast = (event: StreamEventPayload): void => {
+      pipe(
+        this.videoBroadcastRef.read,
+        IO.map((vbOpt) =>
+          pipe(
+            vbOpt,
+            O.map((vb) => {
+              logger.info(`Dispatching stream event to VideoBroadcast: ${event.eventName}`)();
+              vb.dispatchStreamEvent(event.targetURL, event.eventName, event.data, event.text);
+            }),
+            O.getOrElse(() => {
+              logger.warn("No VideoBroadcast object available to dispatch stream event")();
+            }),
+          ),
+        ),
+      )();
+    };
   };
 
 // biome-ignore format: ack

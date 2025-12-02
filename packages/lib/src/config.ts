@@ -102,7 +102,7 @@ export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
           eventName: "event1",
           targetURL: "dvb://current.ait",
           enabled: true,
-          cronSchedule: "*/5 * * * *", // Every 5 minutes
+          cronSchedule: "*/1 * * * *", // Every 5 minutes
           text: sampleDasPayload,
           data: textToHex(sampleDasPayload),
         },

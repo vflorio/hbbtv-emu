@@ -1,15 +1,13 @@
-import { type ClassType, createLogger, DEFAULT_HBBTV_CONFIG, type ExtensionConfig } from "@hbb-emu/lib";
+import { type ClassType, createLogger } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { flow, pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type { ChromeScriptInject } from "./chromeScriptInject";
+import type { State } from "./state";
 
 export interface WebRequestHandler {
-  tabs: Set<number>;
-  stateRef: IORef.IORef<ExtensionConfig.State>;
   onHeadersReceivedListener: (
     details: chrome.webRequest.OnHeadersReceivedDetails,
   ) => chrome.webRequest.BlockingResponse | undefined;
@@ -39,14 +37,10 @@ const normalizeContentType = (header: chrome.webRequest.HttpHeader): chrome.webR
   value: "application/xhtml+xml",
 });
 
-export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject>>(Base: T) =>
+export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject & State>>(Base: T) =>
   class extends Base implements WebRequestHandler {
-    tabs: Set<number>;
-    stateRef: IORef.IORef<ExtensionConfig.State> = IORef.newIORef<ExtensionConfig.State>(DEFAULT_HBBTV_CONFIG)();
-
     constructor(...args: any[]) {
       super(...args);
-      this.tabs = new Set<number>();
 
       chrome.webRequest.onHeadersReceived.addListener(
         this.onHeadersReceivedListener,

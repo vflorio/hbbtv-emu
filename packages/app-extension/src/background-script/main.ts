@@ -17,27 +17,32 @@ import {
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as IORef from "fp-ts/IORef";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { WithChromeScriptInject } from "./chromeScriptInject";
 import { type UserAgentManager, WithChromeUserAgentManager } from "./chromeUserAgentManager";
 import { type WebRequestHandler, WithChromeWebRequestManager } from "./chromeWebRequestManager";
+import { type State, WithState } from "./state";
+import { type StreamEventScheduler, WithStreamEventScheduler } from "./streamEventScheduler";
 
 const logger = createLogger("BackgroundScript");
 
-const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & WebRequestHandler & UserAgentManager>>(
+const WithBackgroundScript = <
+  T extends ClassType<
+    MessageAdapter & MessageBus & State & WebRequestHandler & UserAgentManager & StreamEventScheduler
+  >,
+>(
   Base: T,
 ) =>
   class extends Base implements App {
     store = new Storage<ExtensionConfig.State>("state");
-    // Note: stateRef is inherited from WebRequestHandler mixin
 
     init: IO.IO<void> = () =>
       pipe(
         this.store.load(),
         TE.getOrElse(() => T.of(DEFAULT_HBBTV_CONFIG)),
         T.flatMap((state) => T.fromIO(this.stateRef.write(state))),
+        T.tapIO(() => this.scheduleStreamEvents(this.stateRef.read())),
         T.tapIO(() => this.subscribe),
       )();
 
@@ -167,12 +172,14 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
 
 // biome-ignore format: ack
 const BackgroundScript = compose(
-  class {}, 
+  class {},
+  WithState,
   WithChromeScriptInject,
   WithChromeWebRequestManager,
   WithChromeUserAgentManager,
-  WithChromeMessageAdapter, 
+  WithChromeMessageAdapter,
   WithMessageBus("BACKGROUND_SCRIPT"),
+  WithStreamEventScheduler,
   WithBackgroundScript
 );
 

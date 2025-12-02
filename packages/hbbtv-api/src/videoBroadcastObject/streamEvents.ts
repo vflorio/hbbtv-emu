@@ -26,7 +26,7 @@ export interface StreamEvents {
   unregisterListener: (key: string, listener: EventListener) => void;
   hasListener: (key: string) => boolean;
   trackVersion: (key: string, version: number) => boolean;
-  createStreamEvent: (detail: StreamEventDetail) => StreamEvent;
+  createStreamEvent: (eventName: string, detail: StreamEventDetail) => StreamEvent;
   clearAllStreamEventListeners: () => void;
   dispatchStreamEvent: (targetURL: string, eventName: string, data: string, text?: string, version?: number) => void;
   dispatchStreamEventError: (targetURL: string, eventName: string, errorMessage?: string) => void;
@@ -95,8 +95,8 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       return true;
     };
 
-    createStreamEvent = (detail: StreamEventDetail): StreamEvent =>
-      new CustomEvent<StreamEventDetail>("StreamEvent", {
+    createStreamEvent = (eventName: string, detail: StreamEventDetail): StreamEvent =>
+      new CustomEvent<StreamEventDetail>(eventName, {
         detail,
       });
 
@@ -104,10 +104,11 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
       pipe(
         logger.info(`addStreamEventListener(${targetURL}, ${eventName})`),
         IO.flatMap(() => () => {
-          if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
-            logger.info("addStreamEventListener: ignored - invalid state")();
-            return;
-          }
+          // TODO FIXME
+          //  if (!this.isPlayStateValid([PlayState.PRESENTING, PlayState.STOPPED])) {
+          //    logger.info("addStreamEventListener: ignored - invalid state")();
+          //    return;
+          //  }
 
           const key = this.getStreamEventKey(targetURL, eventName);
           this.registerListener(key, listener);
@@ -155,7 +156,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
         return;
       }
 
-      const event = this.createStreamEvent({
+      const event = this.createStreamEvent(eventName, {
         name: eventName,
         data,
         text,
@@ -170,7 +171,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
 
       if (!this.hasListener(key)) return;
 
-      const errorEvent = this.createStreamEvent({
+      const errorEvent = this.createStreamEvent(eventName, {
         name: eventName,
         data: "",
         text: errorMessage,
