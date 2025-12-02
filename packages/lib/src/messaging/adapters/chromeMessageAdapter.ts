@@ -33,7 +33,15 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
 
     handleChromeMessage: (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => void = (data, sender) => {
       logger.info("Received message", data, sender)();
-      this.handleMessage(data);
+      // Inject tabId from sender into envelope context if available
+      const tabId = sender.tab?.id ?? data.context?.tabId;
+      const enrichedEnvelope: MessageEnvelope = tabId
+        ? {
+            ...data,
+            context: { tabId },
+          }
+        : data;
+      this.handleMessage(enrichedEnvelope);
     };
 
     sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = (envelope) => {

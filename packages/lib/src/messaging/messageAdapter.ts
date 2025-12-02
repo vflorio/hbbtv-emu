@@ -52,16 +52,28 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
     handleMessage: (data: unknown) => E.Either<unknown, void> = (data) =>
       pipe(
         validateEnvelope(data),
+        E.mapLeft((error) => {
+          logger.error("Envelope validation failed", error)();
+          return error;
+        }),
         E.flatMap((envelope) =>
           pipe(
             this.messageHandler.read(),
-            E.fromOption(() => noMessageHandlerRegisteredError("No message handler registered")),
+            E.fromOption(() => {
+              const error = noMessageHandlerRegisteredError("No message handler registered");
+              logger.error("No handler registered")();
+              return error;
+            }),
             E.flatMap((handler) =>
               E.tryCatch(
                 () => {
+                  logger.info("Dispatching message", envelope.message.type)();
                   handler(envelope)();
                 },
-                (error) => messageHandlingError(error instanceof Error ? error.message : String(error)),
+                (error) => {
+                  logger.error("Handler error", error)();
+                  return messageHandlingError(error instanceof Error ? error.message : String(error));
+                },
               ),
             ),
           ),

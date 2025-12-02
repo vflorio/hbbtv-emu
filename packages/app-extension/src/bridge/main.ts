@@ -16,7 +16,6 @@ import {
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { addEventListener } from "fp-ts-std/DOM";
 
 const logger = createLogger("BridgeScript");
 
@@ -35,7 +34,7 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
   class extends Base implements App {
     init: IO.IO<void> = pipe(
       logger.info("Initializing"),
-      IO.tap(() => addEventListener("message")(this.forwardToBackgroundScript)(window)),
+      IO.tap(() => () => window.addEventListener("message", this.forwardToBackgroundScript)),
       IO.tap(() => this.subscribe),
       IO.tap(() =>
         pipe(
@@ -47,29 +46,33 @@ const WithBridge = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T) =
       IO.tap(() => logger.info("Initialized")),
     );
 
-    subscribe: IO.IO<void> = () => {
-      this.bus.on("UPDATE_CONFIG", (envelope) =>
-        pipe(
-          logForwardedMessage(envelope),
-          IO.flatMap(() => postMessage(envelope)),
+    subscribe: IO.IO<void> = pipe(
+      logger.info("Subscribing to UPDATE_CONFIG"),
+      IO.tap(() =>
+        this.bus.on("UPDATE_CONFIG", (envelope) =>
+          pipe(
+            logForwardedMessage(envelope),
+            IO.flatMap(() => postMessage(envelope)),
+          ),
+        ),
+      ),
+    );
+
+    forwardToBackgroundScript = (event: Event): void => {
+      if (!isMessageEvent(event)) return;
+
+      pipe(
+        validateEnvelope(event.data),
+        E.flatMap(validateTarget("BACKGROUND_SCRIPT")),
+        E.match(
+          () => undefined,
+          (envelope) => {
+            logger.info(`Forwarding to background: ${envelope.message.type}`)();
+            this.sendMessage(envelope)();
+          },
         ),
       );
     };
-
-    forwardToBackgroundScript =
-      (event: Event): IO.IO<void> =>
-      () =>
-        pipe(
-          IO.of(isMessageEvent(event) ? event.data : undefined),
-          validateEnvelope,
-          E.flatMap(validateTarget("BACKGROUND_SCRIPT")),
-          E.match(IO.of(undefined), (envelope) =>
-            pipe(
-              logForwardedMessage(envelope),
-              IO.flatMap(() => this.sendMessage(envelope)),
-            ),
-          ),
-        );
   };
 
 // biome-ignore format: ack

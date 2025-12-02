@@ -39,29 +39,28 @@ export const WithContentScript = <T extends ClassType<MessageAdapter & MessageBu
       IO.tap(() => logger.info("Initialized")),
     );
 
-    subscribe: IO.IO<void> = () =>
-      pipe(
-        logger.info("Subscribing to bridge ready message"),
-        IO.tap(() => () => {
-          this.bus.on("BRIDGE_READY", () =>
-            pipe(
-              logger.info("Bridge is ready"),
-              IO.tap(() =>
-                pipe(
-                  this.messageOrigin.read,
-                  IO.map((origin) =>
-                    createEnvelope(origin, "BACKGROUND_SCRIPT", {
-                      type: "CONTENT_SCRIPT_READY",
-                      payload: null,
-                    }),
-                  ),
-                  IO.flatMap((envelope) => this.sendMessage(envelope)),
+    subscribe: IO.IO<void> = pipe(
+      logger.info("Subscribing to bridge ready message"),
+      IO.tap(() =>
+        this.bus.on("BRIDGE_READY", () =>
+          pipe(
+            logger.info("Bridge is ready, requesting config"),
+            IO.flatMap(() =>
+              pipe(
+                this.messageOrigin.read,
+                IO.map((origin) =>
+                  createEnvelope(origin, "BACKGROUND_SCRIPT", {
+                    type: "GET_CONFIG",
+                    payload: null,
+                  }),
                 ),
+                IO.flatMap((envelope) => () => this.sendMessage(envelope)()),
               ),
             ),
-          );
-        }),
-      );
+          ),
+        ),
+      ),
+    );
   };
 
 // biome-ignore format: ack

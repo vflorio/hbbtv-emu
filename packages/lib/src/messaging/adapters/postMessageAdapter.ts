@@ -6,7 +6,6 @@ import { type ClassType, compose } from "../../mixin";
 import type { Message } from "../message";
 import { type MessageAdapter, WithMessageAdapter } from "../messageAdapter";
 import type { MessageEnvelope } from "../messageEnvelope";
-import { validateMessageOrigin } from "../messageOrigin";
 
 const logger = createLogger("PostMessageAdapter");
 
@@ -27,25 +26,36 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       window.addEventListener("message", this.handlePostMessage);
     }
 
-    handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean = (event) =>
-      pipe(
-        validateMessageOrigin(event.origin),
-        E.flatMap(() =>
+    handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean = (event) => {
+      // Log all incoming messages for debugging
+      if (event.data && typeof event.data === "object" && "source" in event.data) {
+        logger.info("Received postMessage event", event.data)();
+      }
+
+      return pipe(
+        event.data,
+        E.fromPredicate(
+          (data): data is MessageEnvelope =>
+            data && typeof data === "object" && "source" in data && "target" in data && "message" in data,
+          () => true,
+        ),
+        E.flatMap((envelope) =>
           pipe(
-            event.data,
+            envelope,
             E.fromPredicate(
-              (envelope) => envelope.source !== envelope.target,
+              (env) => env.source !== env.target,
               () => true,
             ),
           ),
         ),
         E.map((envelope) => {
-          logger.info("Received message", envelope)();
+          logger.info("Processing message", envelope.message.type)();
           this.handleMessage(envelope);
           return true;
         }),
         E.getOrElse(() => true),
       );
+    };
 
     sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = <
       T extends Message,

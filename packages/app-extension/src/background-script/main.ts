@@ -42,17 +42,33 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
       )();
 
     subscribe: IO.IO<void> = () => {
-      this.bus.on("CONTENT_SCRIPT_READY", () =>
+      this.bus.on("CONTENT_SCRIPT_READY", (envelope) =>
         pipe(
-          logger.info("Content script ready, sending config"),
+          logger.info(`Content script ready from tab ${envelope.context?.tabId}`),
+          IO.tap(() => () => {
+            if (envelope.context?.tabId) {
+              this.tabs.add(envelope.context.tabId);
+              logger.info(`Tab ${envelope.context.tabId} added to tabs set`)();
+            }
+          }),
           IO.flatMap(() => () => this.notifyTabs()),
         ),
       );
 
       this.bus.on("GET_CONFIG", (envelope) =>
         pipe(
-          logger.info("Get config request from", envelope.source),
-          IO.flatMap(() => () => this.sendConfigTo(envelope.source)()),
+          logger.info(`Get config request from ${envelope.source}, tabId: ${envelope.context?.tabId}`),
+          IO.flatMap(() => () => {
+            const tabId = envelope.context?.tabId;
+            if (tabId) {
+              // Request from content script - respond to specific tab
+              this.tabs.add(tabId);
+              this.sendToTab(tabId)();
+            } else {
+              // Request from side panel or other extension context
+              this.sendConfigTo(envelope.source)();
+            }
+          }),
         ),
       );
 
@@ -134,11 +150,16 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
         ),
       );
 
-    notifyTabs: T.Task<void> = pipe(
-      Array.from(this.tabs),
-      A.traverse(T.ApplicativeSeq)(this.sendToTab),
-      T.map(() => undefined),
-    );
+    notifyTabs: T.Task<void> = () =>
+      pipe(
+        Array.from(this.tabs),
+        (tabs) => {
+          logger.info(`Notifying ${tabs.length} tabs: ${tabs.join(", ")}`)();
+          return tabs;
+        },
+        A.traverse(T.ApplicativeSeq)(this.sendToTab),
+        T.map(() => undefined),
+      )();
 
     notify: IO.IO<void> = () => this.notifyTabs();
   };

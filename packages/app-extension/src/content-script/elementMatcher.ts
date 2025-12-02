@@ -87,7 +87,7 @@ export const WithElementMatcherRegistry = <T extends ClassType<DomObserver>>(Bas
 
     registerMatcher = <E extends Element, T>(matcher: ElementMatcher<E, T>): IO.IO<void> =>
       pipe(
-        logger.info(`registering matcher: ${matcher.name}`),
+        IO.Do,
         IO.flatMap(() =>
           pipe(
             this.matchersRef.read,
