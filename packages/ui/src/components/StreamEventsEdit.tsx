@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/lib";
+import { type ExtensionConfig, hexToText, isValidHex, textToHex } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
@@ -21,6 +21,16 @@ import { useConfig } from "../context/config";
 
 interface EventFormData extends Omit<ExtensionConfig.StreamEvent, "id"> {}
 
+const defaultEventFormData: EventFormData = {
+  name: "",
+  eventName: "",
+  data: "",
+  text: "",
+  targetURL: "dvb://current.ait",
+  cronSchedule: "*/5 * * * *",
+  enabled: true,
+};
+
 export default function StreamEventsEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -29,15 +39,7 @@ export default function StreamEventsEdit() {
   const [events, setEvents] = useState<ExtensionConfig.StreamEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEvent | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<EventFormData>({
-    name: "",
-    eventName: "",
-    data: "",
-    text: "",
-    targetURL: "dvb://current.ait",
-    cronSchedule: "*/5 * * * *",
-    enabled: true,
-  });
+  const [formData, setFormData] = useState<EventFormData>(defaultEventFormData);
 
   useEffect(() => {
     if (id) {
@@ -53,15 +55,7 @@ export default function StreamEventsEdit() {
 
   const handleAddEvent = () => {
     setEditingEvent(null);
-    setFormData({
-      name: "",
-      eventName: "",
-      data: "",
-      text: "",
-      targetURL: "dvb://current.ait",
-      cronSchedule: "*/5 * * * *",
-      enabled: true,
-    });
+    setFormData(defaultEventFormData);
     setShowForm(true);
   };
 
@@ -137,9 +131,8 @@ export default function StreamEventsEdit() {
             </Button>
           </Toolbar>
         </AppBar>
-
         <Box sx={{ p: 2 }}>
-          <Stack spacing={2}>
+          <Stack gap={2}>
             <TextField
               label="Event Name (Display)"
               value={formData.name}
@@ -156,13 +149,41 @@ export default function StreamEventsEdit() {
               helperText="e.g., 'now', 'next', custom event name"
             />
             <TextField
-              label="Data Payload"
-              value={formData.data}
-              onChange={(e) => setFormData((prev) => ({ ...prev, data: e.target.value }))}
+              label="Text Payload (UTF-8)"
+              value={formData.text}
+              onChange={(e) => {
+                const newText = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  text: newText,
+                  data: textToHex(newText),
+                }));
+              }}
               fullWidth
-              required
+              multiline
+              rows={4}
+              helperText="UTF-8 text payload. Editing this will update the hex data automatically."
+            />
+            <TextField
+              label="Data Payload (Hexadecimal)"
+              value={formData.data}
+              onChange={(e) => {
+                const newData = e.target.value.toUpperCase();
+                setFormData((prev) => ({
+                  ...prev,
+                  data: newData,
+                  text: isValidHex(newData) ? hexToText(newData) : prev.text,
+                }));
+              }}
+              fullWidth
               multiline
               rows={2}
+              error={formData.data.length > 0 && !isValidHex(formData.data)}
+              helperText={
+                formData.data.length > 0 && !isValidHex(formData.data)
+                  ? "Invalid hexadecimal format"
+                  : "Hex-encoded payload. Editing this will update the text automatically."
+              }
             />
             <TextField
               label="Cron Schedule"
@@ -181,14 +202,6 @@ export default function StreamEventsEdit() {
               value={formData.targetURL}
               onChange={(e) => setFormData((prev) => ({ ...prev, targetURL: e.target.value }))}
               fullWidth
-            />
-            <TextField
-              label="Text (optional)"
-              value={formData.text}
-              onChange={(e) => setFormData((prev) => ({ ...prev, text: e.target.value }))}
-              fullWidth
-              multiline
-              rows={2}
             />
           </Stack>
         </Box>

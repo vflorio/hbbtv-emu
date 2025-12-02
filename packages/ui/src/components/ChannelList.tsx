@@ -1,19 +1,6 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PlayArrow as PlayIcon } from "@mui/icons-material";
-import {
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Box, Button, IconButton, List, ListItem, ListItemText, Paper, Tooltip, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfig } from "../context/config";
@@ -55,79 +42,60 @@ export default function ChannelList() {
           mb: 2,
         }}
       >
-        <Typography variant="h5" component="h2">
-          Channel Configuration
+        <Typography variant="h6" component="h2">
+          Channels
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddChannel}>
-          Add Channel
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleAddChannel}>
+          Add
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>MP4 Source</TableCell>
-              <TableCell>ONID</TableCell>
-              <TableCell>TSID</TableCell>
-              <TableCell>SID</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {channels.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    No channel configured. Click "Add Channel" to get started.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              channels.map((channel) => (
-                <TableRow key={channel.id} hover>
-                  <TableCell>{channel.name}</TableCell>
-                  <TableCell>
-                    <Tooltip title={channel.mp4Source}>
-                      <Typography
-                        sx={{
-                          maxWidth: 200,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {channel.mp4Source}
-                      </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>{channel.onid}</TableCell>
-                  <TableCell>{channel.tsid}</TableCell>
-                  <TableCell>{channel.sid}</TableCell>
-                  <TableCell align="right">
+      <Paper variant="outlined">
+        {channels.length === 0 ? (
+          <Box sx={{ py: 4, textAlign: "center" }}>
+            <Typography color="text.secondary" variant="body2">
+              No channels configured.
+            </Typography>
+          </Box>
+        ) : (
+          <List dense disablePadding>
+            {channels.map((ch, index) => (
+              <ListItem
+                key={ch.id}
+                divider={index < channels.length - 1}
+                secondaryAction={
+                  <Box>
                     <Tooltip title="Play">
-                      <IconButton size="small" color="success" onClick={() => handlePlayChannel(channel)}>
-                        <PlayIcon />
+                      <IconButton size="small" color="success" onClick={() => handlePlayChannel(ch)}>
+                        <PlayIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit">
-                      <IconButton size="small" color="primary" onClick={() => handleEditChannel(channel.id)}>
-                        <EditIcon />
+                      <IconButton size="small" color="primary" onClick={() => handleEditChannel(ch.id)}>
+                        <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDeleteChannel(channel.id)}>
-                        <DeleteIcon />
+                      <IconButton size="small" color="error" onClick={() => handleDeleteChannel(ch.id)}>
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  </Box>
+                }
+              >
+                <ListItemText
+                  primary={ch.name}
+                  secondary={`${ch.onid}-${ch.tsid}-${ch.sid}`}
+                  slotProps={{
+                    primary: { noWrap: true },
+                    secondary: { variant: "caption" },
+                  }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        )}
+      </Paper>
     </Box>
   );
 }

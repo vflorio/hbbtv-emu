@@ -1,7 +1,6 @@
 import * as D from "fp-ts/Date";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as O from "fp-ts/Option";
 import type * as L from "logging-ts/lib/IO";
 
 type Level = "debug" | "info" | "warning" | "error";
@@ -21,9 +20,22 @@ const browserStyles = {
   message: "color: #8be9fd;",
 } as const;
 
+const serializeArg = (arg: unknown): unknown => {
+  if (arg === null || arg === undefined) return arg;
+  if (typeof arg === "object") {
+    try {
+      return JSON.stringify(arg, null, 2);
+    } catch {
+      return String(arg);
+    }
+  }
+  return arg;
+};
+
 const formatBackgroundScriptLog = (entry: Entry): [string, ...unknown[]] => {
   const timestamp = entry.time.toISOString().split("T")[1].split("Z")[0];
-  return [`${timestamp} [hbbtv-emu] ${entry.section} ${entry.message}`, ...entry.args];
+  const prefix = `${timestamp} [hbbtv-emu] ${entry.section} ${entry.message}`;
+  return [prefix, ...entry.args.map(serializeArg)];
 };
 
 const formatBrowserLog = (entry: Entry): [string, ...unknown[]] => {
@@ -43,23 +55,15 @@ const isBackgroundScript: IO.IO<boolean> = () => typeof self !== "undefined" && 
 const consoleLogger: L.LoggerIO<Entry> = (entry) =>
   pipe(
     isBackgroundScript,
-    IO.flatMap((isBackgroundScript) => () => {
-      const formatted = isBackgroundScript ? formatBackgroundScriptLog(entry) : formatBrowserLog(entry);
-
-      pipe(
-        O.fromNullable(
-          {
-            debug: console.debug,
-            info: console.info,
-            warning: console.warn,
-            error: console.error,
-          }[entry.level],
-        ),
-        O.match(
-          () => undefined,
-          (fn) => fn(...formatted),
-        ),
-      );
+    IO.flatMap((isBg) => () => {
+      const formatted = isBg ? formatBackgroundScriptLog(entry) : formatBrowserLog(entry);
+      const logFn = {
+        debug: console.debug,
+        info: console.info,
+        warning: console.warn,
+        error: console.error,
+      }[entry.level];
+      logFn(...formatted);
     }),
   );
 

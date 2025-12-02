@@ -10,6 +10,8 @@ import { createStorageAdapter, type StorageAdapter } from "./storageAdapter";
 
 const logger = createLogger("Storage");
 
+const isDataNotFoundError = (error: StorageError): boolean => error.type === "DataNotFoundError";
+
 export class Storage<T> {
   key: string;
   storageAdapter: StorageAdapter;
@@ -33,7 +35,11 @@ export class Storage<T> {
             )
           : E.right(data as T),
       ),
-      TE.tapError((error) => TE.fromIO(logger.error("Failed to load entry:", error))),
+      TE.tapError((error) =>
+        isDataNotFoundError(error)
+          ? TE.fromIO(logger.debug("No saved data found, using defaults"))
+          : TE.fromIO(logger.error("Failed to load entry:", error)),
+      ),
     );
 
   save = (entry: T): TE.TaskEither<StorageError, void> =>

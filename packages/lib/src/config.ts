@@ -3,6 +3,7 @@ import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as t from "io-ts";
 import { ChannelIdType, ChannelTripletCodec, type Channel as FullChannel, isValidChannelTriplet } from "./hbbtv";
+import { textToHex } from "./hex";
 
 export namespace ExtensionConfig {
   const StreamEventCodec = t.intersection([
@@ -67,9 +68,47 @@ export namespace ExtensionConfig {
     );
 }
 
+const sampleDasPayload = JSON.stringify({
+  value: {
+    text: JSON.stringify({
+      p: "DAS", // Protocol: tipo di protocollo (Dynamic Ad Substitution)
+      v: "1.1", // Version: versione del protocollo DAS
+      t: "1", // Type: tipo di evento (1 = inizio spot, 2 = fine spot, etc.)
+      dI: "20241007RTIT000022100", // DAI ID: identificatore univoco della sessione DAI (data + broadcaster + ID)
+      c: "RTIT", // Channel: codice del canale/broadcaster (RTIT = RAI Italia)
+      bI: "000022100", // Break ID: identificatore del break pubblicitario
+      mI: "EHD/552396B", // Media ID: identificatore del contenuto media/spot
+      st: "1728325527000", // Start Time: timestamp di inizio in millisecondi (Unix epoch)
+      du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
+    }),
+  },
+});
+
 export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
   currentChannel: null,
-  channels: [],
+  channels: [
+    {
+      id: "channel-1",
+      name: "Channel 1",
+      mp4Source: "https://www.w3schools.com/html/mov_bbb.mp4",
+      onid: 1,
+      tsid: 1,
+      sid: 1,
+      enableStreamEvents: true,
+      streamEvents: [
+        {
+          id: "stream-event-1",
+          name: "Stream Event 1",
+          eventName: "event1",
+          targetURL: "dvb://current.ait",
+          enabled: true,
+          cronSchedule: "*/5 * * * *", // Every 5 minutes
+          text: sampleDasPayload,
+          data: textToHex(sampleDasPayload),
+        },
+      ],
+    },
+  ],
   version: "1.5.0",
   countryCode: "ITA",
   userAgent: "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",

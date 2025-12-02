@@ -187,7 +187,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
               fullWidth
               required
               multiline
-              rows={2}
+              rows={8}
             />
             <TextField
               label="Cron Schedule"

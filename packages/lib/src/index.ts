@@ -2,6 +2,7 @@ export * from "./app";
 export * from "./config";
 export * from "./domObserver";
 export * from "./hbbtv";
+export * from "./hex";
 export * from "./json";
 export * from "./logger";
 export * from "./messaging";
