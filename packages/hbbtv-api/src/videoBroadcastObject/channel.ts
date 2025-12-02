@@ -170,8 +170,8 @@ export const WithChannel = <T extends ClassType<VideoElement & EventTarget & Pla
                   return;
                 }
 
-                this.currentChannelRef.write(O.some(channel));
-                this.loadVideo(channel);
+                this.currentChannelRef.write(O.some(channel))();
+                this.loadVideo(channel)();
               },
             ),
           ),

@@ -33,7 +33,6 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
 
     handleChromeMessage: (data: MessageEnvelope, sender: chrome.runtime.MessageSender) => void = (data, sender) => {
       logger.info("Received message", data, sender)();
-      // Inject tabId from sender into envelope context if available
       const tabId = sender.tab?.id ?? data.context?.tabId;
       const enrichedEnvelope: MessageEnvelope = tabId
         ? {
@@ -87,7 +86,12 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
 
       return pipe(
         sendByTarget(),
-        TE.tapError((error) => TE.fromIO(logger.error("Failed to send message:", error.type, error.message))),
+        TE.tapError((error) => {
+          if (error.message?.includes("Receiving end does not exist")) {
+            return TE.of(undefined);
+          }
+          return TE.fromIO(logger.error("Failed to send message:", error.type, error.message));
+        }),
       );
     };
   };

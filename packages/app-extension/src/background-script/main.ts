@@ -61,11 +61,9 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
           IO.flatMap(() => () => {
             const tabId = envelope.context?.tabId;
             if (tabId) {
-              // Request from content script - respond to specific tab
               this.tabs.add(tabId);
               this.sendToTab(tabId)();
             } else {
-              // Request from side panel or other extension context
               this.sendConfigTo(envelope.source)();
             }
           }),
@@ -143,7 +141,7 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
           pipe(
             this.sendMessage(envelope),
             TE.match(
-              () => logger.info(`Failed to send config to tab ${tabId}`)(),
+              () => undefined,
               () => logger.info(`Config sent to tab ${tabId}`)(),
             ),
           ),
@@ -152,13 +150,16 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
 
     notifyTabs: T.Task<void> = () =>
       pipe(
-        Array.from(this.tabs),
-        (tabs) => {
-          logger.info(`Notifying ${tabs.length} tabs: ${tabs.join(", ")}`)();
-          return tabs;
-        },
-        A.traverse(T.ApplicativeSeq)(this.sendToTab),
-        T.map(() => undefined),
+        () => chrome.tabs.query({}),
+        T.chain((tabs) => {
+          const tabIds = tabs.map((t) => t.id).filter((id): id is number => id !== undefined);
+          logger.info(`Notifying ${tabIds.length} tabs: ${tabIds.join(", ")}`)();
+          return pipe(
+            tabIds,
+            A.traverse(T.ApplicativeSeq)(this.sendToTab),
+            T.map(() => undefined),
+          );
+        }),
       )();
 
     notify: IO.IO<void> = () => this.notifyTabs();

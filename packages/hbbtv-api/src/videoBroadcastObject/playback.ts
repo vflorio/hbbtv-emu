@@ -25,6 +25,7 @@ const logger = createLogger("VideoBroadcast/Playback");
 
 export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Base: T) =>
   class extends Base implements Playback {
+    playState: PlayState = PlayState.UNREALIZED;
     playStateRef = IORef.newIORef(PlayState.UNREALIZED)();
 
     onPlayStateChange?: (state: PlayState, error?: number) => void;
@@ -42,9 +43,6 @@ export const WithPlayback = <T extends ClassType<VideoElement & EventTarget>>(Ba
         this.playStateRef.write((event as CustomEvent).detail as PlayState);
       });
     }
-
-    // Placeholder per soddisfare l'interfaccia, verrà sovrascritto nel costruttore
-    playState: PlayState = PlayState.UNREALIZED;
 
     dispatchPlayStateChange = (newState: PlayState, error?: number): IO.IO<void> =>
       pipe(

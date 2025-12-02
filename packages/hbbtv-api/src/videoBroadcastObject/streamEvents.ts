@@ -127,7 +127,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
 
     clearAllStreamEventListeners = (): void =>
       pipe(
-        logger.info("clearAllStreamEventListeners"),
+        IO.Do,
         IO.flatMap(() => () => {
           const metadata = this.streamEventMetadataRef.read();
 
@@ -137,7 +137,7 @@ export const WithStreamEvents = <T extends ClassType<Playback & EventTarget & Vi
               const [_targetURL, eventName] = key.split(":", 2);
               return Array.from(listeners).map((listener) => () => this.removeEventListener(eventName, listener));
             }),
-            RA.map((io) => io()), // eseguo gli IO side‑effect
+            RA.map((io) => io()),
           );
 
           this.streamEventMetadataRef.write(new Map());
