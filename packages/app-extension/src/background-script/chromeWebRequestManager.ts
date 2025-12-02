@@ -1,13 +1,15 @@
-import { type ClassType, createLogger } from "@hbb-emu/lib";
+import { type ClassType, createLogger, DEFAULT_HBBTV_CONFIG, type ExtensionConfig } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { flow, pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type { ChromeScriptInject } from "./chromeScriptInject";
 
 export interface WebRequestHandler {
   tabs: Set<number>;
+  stateRef: IORef.IORef<ExtensionConfig.State>;
   onHeadersReceivedListener: (
     details: chrome.webRequest.OnHeadersReceivedDetails,
   ) => chrome.webRequest.BlockingResponse | undefined;
@@ -40,6 +42,7 @@ const normalizeContentType = (header: chrome.webRequest.HttpHeader): chrome.webR
 export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInject>>(Base: T) =>
   class extends Base implements WebRequestHandler {
     tabs: Set<number>;
+    stateRef: IORef.IORef<ExtensionConfig.State> = IORef.newIORef<ExtensionConfig.State>(DEFAULT_HBBTV_CONFIG)();
 
     constructor(...args: any[]) {
       super(...args);
@@ -72,6 +75,8 @@ export const WithChromeWebRequestManager = <T extends ClassType<ChromeScriptInje
             IO.Do,
             IO.tap(() => () => this.tabs.add(details.tabId)),
             IO.tap(() => logger.info(`Tab added: ${details.tabId}`)),
+            IO.bind("state", () => this.stateRef.read),
+            IO.tap(({ state }) => this.injectUserAgent(details.tabId, state.userAgent)),
             IO.tap(() => this.inject(details.tabId)),
           )();
 

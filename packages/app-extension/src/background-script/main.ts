@@ -31,7 +31,7 @@ const WithBackgroundScript = <T extends ClassType<MessageAdapter & MessageBus & 
 ) =>
   class extends Base implements App {
     store = new Storage<ExtensionConfig.State>("state");
-    stateRef = IORef.newIORef<ExtensionConfig.State>(DEFAULT_HBBTV_CONFIG)();
+    // Note: stateRef is inherited from WebRequestHandler mixin
 
     init: IO.IO<void> = () =>
       pipe(

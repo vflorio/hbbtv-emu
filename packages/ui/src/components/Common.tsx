@@ -1,5 +1,5 @@
 import type { ExtensionConfig } from "@hbb-emu/lib";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useConfig } from "../context/config";
 
@@ -87,6 +87,9 @@ export default function Settings() {
           placeholder="Mozilla/5.0 (SmartTV; HbbTV/1.5.1...)"
           fullWidth
         />
+        <Alert severity="warning" sx={{ mt: -2 }}>
+          Changing the User-Agent may require a page reload to take effect.
+        </Alert>
 
         <TextField
           label="Capabilities XML"
