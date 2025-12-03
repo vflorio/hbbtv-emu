@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/lib";
+import { type ExtensionConfig, randomUUID } from "@hbb-emu/lib";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
@@ -67,7 +67,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
   const handleSubmit = () => {
     const channelData: ExtensionConfig.Channel = {
       ...formData,
-      id: channel?.id || crypto.randomUUID(),
+      id: channel?.id || randomUUID(),
       onid: Number(formData.onid),
       tsid: Number(formData.tsid),
       sid: Number(formData.sid),

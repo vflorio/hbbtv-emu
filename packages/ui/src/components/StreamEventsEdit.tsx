@@ -1,4 +1,4 @@
-import { type ExtensionConfig, hexToText, isValidHex, textToHex } from "@hbb-emu/lib";
+import { type ExtensionConfig, hexToText, isValidHex, randomUUID, textToHex } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
@@ -27,7 +27,7 @@ const defaultEventFormData: EventFormData = {
   data: "",
   text: "",
   targetURL: "dvb://current.ait",
-  cronSchedule: "*/5 * * * *",
+  delaySeconds: 10,
   enabled: true,
 };
 
@@ -67,7 +67,7 @@ export default function StreamEventsEdit() {
       data: event.data,
       text: event.text || "",
       targetURL: event.targetURL || "dvb://current.ait",
-      cronSchedule: event.cronSchedule || "*/5 * * * *",
+      delaySeconds: event.delaySeconds,
       enabled: event.enabled !== false,
     });
     setShowForm(true);
@@ -79,7 +79,7 @@ export default function StreamEventsEdit() {
 
   const handleSaveEvent = () => {
     const eventData: ExtensionConfig.StreamEvent = {
-      id: editingEvent?.id || crypto.randomUUID(),
+      id: editingEvent?.id || randomUUID(),
       ...formData,
     };
 
@@ -186,16 +186,18 @@ export default function StreamEventsEdit() {
               }
             />
             <TextField
-              label="Cron Schedule"
-              value={formData.cronSchedule}
+              label="Delay (seconds)"
+              type="number"
+              value={formData.delaySeconds}
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  cronSchedule: e.target.value,
+                  delaySeconds: Number.parseInt(e.target.value, 10) || 0,
                 }))
               }
               fullWidth
-              helperText="Cron expression (e.g., '*/5 * * * *' = every 5 minutes)"
+              inputProps={{ min: 0 }}
+              helperText="Delay in seconds before this event fires"
             />
             <TextField
               label="Target URL"
@@ -261,7 +263,7 @@ export default function StreamEventsEdit() {
               >
                 <ListItemText
                   primary={event.name}
-                  secondary={`Event: ${event.eventName} | Schedule: ${event.cronSchedule || "Manual"} | ${event.enabled ? "Enabled" : "Disabled"}`}
+                  secondary={`Event: ${event.eventName} | Delay: ${event.delaySeconds}s | ${event.enabled ? "Enabled" : "Disabled"}`}
                 />
               </ListItem>
             ))}

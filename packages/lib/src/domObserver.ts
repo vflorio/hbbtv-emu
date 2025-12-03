@@ -1,9 +1,10 @@
-import { type ClassType, createLogger } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
+import { createLogger } from "./logger";
+import type { ClassType } from "./mixin";
 
 const logger = createLogger("DomObserver");
 

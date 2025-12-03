@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/lib";
+import { type ExtensionConfig, randomUUID } from "@hbb-emu/lib";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import {
   Box,
@@ -37,7 +37,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
     data: "",
     text: "",
     targetURL: "dvb://current.ait",
-    cronSchedule: "*/5 * * * *",
+    delaySeconds: 10,
     enabled: true,
   });
 
@@ -49,7 +49,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
       data: "",
       text: "",
       targetURL: "dvb://current.ait",
-      cronSchedule: "*/5 * * * *",
+      delaySeconds: 10,
       enabled: true,
     });
     setFormOpen(true);
@@ -63,7 +63,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
       data: event.data,
       text: event.text || "",
       targetURL: event.targetURL || "dvb://current.ait",
-      cronSchedule: event.cronSchedule || "*/5 * * * *",
+      delaySeconds: event.delaySeconds,
       enabled: event.enabled !== false,
     });
     setFormOpen(true);
@@ -75,7 +75,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
 
   const handleSaveEvent = () => {
     const eventData: ExtensionConfig.StreamEvent = {
-      id: editingEvent?.id || crypto.randomUUID(),
+      id: editingEvent?.id || randomUUID(),
       ...formData,
     };
 
@@ -144,7 +144,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
                   >
                     <ListItemText
                       primary={event.name}
-                      secondary={`Event: ${event.eventName} | Schedule: ${event.cronSchedule || "Manual"} | ${event.enabled ? "Enabled" : "Disabled"}`}
+                      secondary={`Event: ${event.eventName} | Delay: ${event.delaySeconds}s | ${event.enabled ? "Enabled" : "Disabled"}`}
                     />
                   </ListItem>
                 ))}
@@ -190,16 +190,18 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
               rows={8}
             />
             <TextField
-              label="Cron Schedule"
-              value={formData.cronSchedule}
+              label="Delay (seconds)"
+              type="number"
+              value={formData.delaySeconds}
               onChange={(event) =>
                 setFormData((current) => ({
                   ...current,
-                  cronSchedule: event.target.value,
+                  delaySeconds: Number.parseInt(event.target.value, 10) || 0,
                 }))
               }
               fullWidth
-              helperText="Cron expression (e.g., '*/5 * * * *' = every 5 minutes)"
+              inputProps={{ min: 0 }}
+              helperText="Delay in seconds before this event fires"
             />
             <TextField
               label="Target URL"

@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/lib";
+import { type ExtensionConfig, randomUUID } from "@hbb-emu/lib";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
@@ -59,7 +59,7 @@ export default function ChannelEdit() {
 
   const handleSubmit = async () => {
     const channelData: ExtensionConfig.Channel = {
-      id: id && id !== "new" ? id : crypto.randomUUID(),
+      id: id && id !== "new" ? id : randomUUID(),
       ...formData,
     };
     await channel.upsert(channelData);

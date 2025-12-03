@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/lib";
+import { type ExtensionConfig, randomUUID } from "@hbb-emu/lib";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
@@ -72,7 +72,7 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
 
   const handleSubmit = () => {
     const eventData: ExtensionConfig.StreamEvent = {
-      id: event?.id || crypto.randomUUID(),
+      id: event?.id || randomUUID(),
       name: formData.name,
       eventName: formData.eventName,
       data: formData.data,

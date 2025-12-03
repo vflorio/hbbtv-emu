@@ -4,6 +4,7 @@ import * as O from "fp-ts/Option";
 import * as t from "io-ts";
 import { ChannelIdType, ChannelTripletCodec, type Channel as FullChannel, isValidChannelTriplet } from "./hbbtv";
 import { textToHex } from "./hex";
+import { randomUUID } from "./misc";
 
 export namespace ExtensionConfig {
   const StreamEventCodec = t.intersection([
@@ -82,7 +83,7 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
   });
 
 const streamEvent = (eventName: string, payload: string, delaySeconds: number): ExtensionConfig.StreamEvent => ({
-  id: crypto.randomUUID(),
+  id: randomUUID(),
   name: `DAS Event ${eventName}`,
   eventName,
   targetURL: "http://localhost:8000",
