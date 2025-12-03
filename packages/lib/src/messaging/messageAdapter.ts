@@ -67,7 +67,7 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
             E.flatMap((handler) =>
               E.tryCatch(
                 () => {
-                  logger.info("Dispatching message", envelope.message.type)();
+                  //  logger.info("Dispatching message", envelope.message.type)();
                   handler(envelope)();
                 },
                 (error) => {

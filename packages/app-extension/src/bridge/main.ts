@@ -19,8 +19,8 @@ import * as IO from "fp-ts/IO";
 
 const logger = createLogger("BridgeScript");
 
-const logForwardedMessage = (envelope: MessageEnvelope): IO.IO<void> =>
-  logger.info(`Forwarded ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
+const logForwardedMessage = (envelope: MessageEnvelope): IO.IO<void> => IO.Do;
+//logger.info(`Forwarded ${envelope.source} → ${envelope.target}: ${envelope.message.type}`);
 
 const postMessage =
   (envelope: MessageEnvelope): IO.IO<void> =>

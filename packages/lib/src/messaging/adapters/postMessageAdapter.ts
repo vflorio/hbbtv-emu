@@ -71,7 +71,7 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
         ),
         E.map((envelope) => {
           this.markAsProcessed(envelope.id);
-          logger.info("Processing message", envelope.message.type)();
+          //logger.info("Processing message", envelope.message.type)();
           this.handleMessage(envelope);
           return true;
         }),
@@ -86,7 +86,7 @@ const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
     ) =>
       TE.tryCatch(
         async () => {
-          logger.info("Sending message", envelope)();
+          // logger.info("Sending message", envelope)();
           window.postMessage(envelope, "*");
         },
         (error) => {
