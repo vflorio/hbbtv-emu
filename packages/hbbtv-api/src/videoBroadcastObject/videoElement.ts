@@ -1,9 +1,8 @@
-import { type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
+import { addEventListenerIO, type Channel, type ClassType, createLogger } from "@hbb-emu/lib";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
-import { addEventListener } from "fp-ts-std/DOM";
 import type { ChannelStreamAdapter } from "./channelStreamAdapter";
 import { PlayState } from "./playback";
 
@@ -37,13 +36,13 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
 
       this.videoElement = createVideoElement();
 
-      const onLoadStart = () =>
+      const onLoadStart = (_event: Event) =>
         pipe(
           logger.info("loadstart"),
           IO.tap(() => this.dispatchVideoEvent("PlayStateChange", PlayState.CONNECTING)),
         );
 
-      const onCanPlay = () =>
+      const onCanPlay = (_event: Event) =>
         pipe(
           logger.info("canplay"),
           IO.tap(() =>
@@ -79,9 +78,9 @@ export const WithVideoElement = <T extends ClassType<ChannelStreamAdapter>>(Base
 
       pipe(
         IO.Do,
-        IO.tap(() => addEventListener("loadstart")(onLoadStart)(this.videoElement)),
-        IO.tap(() => addEventListener("canplay")(onCanPlay)(this.videoElement)),
-        IO.tap(() => addEventListener("error")(onError)(this.videoElement)),
+        IO.tap(() => addEventListenerIO("loadstart")(onLoadStart)(this.videoElement)),
+        IO.tap(() => addEventListenerIO("canplay")(onCanPlay)(this.videoElement)),
+        IO.tap(() => addEventListenerIO("error")(onError)(this.videoElement)),
       )();
     }
 

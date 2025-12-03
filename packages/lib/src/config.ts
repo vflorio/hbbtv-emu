@@ -12,11 +12,11 @@ export namespace ExtensionConfig {
       name: t.string,
       eventName: t.string,
       data: t.string,
+      delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
     }),
     t.partial({
       text: t.string,
       targetURL: t.string,
-      cronSchedule: t.string,
       enabled: t.boolean,
     }),
   ]);
@@ -68,20 +68,28 @@ export namespace ExtensionConfig {
     );
 }
 
-const sampleDasPayload = JSON.stringify({
-  value: {
-    text: JSON.stringify({
-      p: "DAS", // Protocol: tipo di protocollo (Dynamic Ad Substitution)
-      v: "1.1", // Version: versione del protocollo DAS
-      t: "1", // Type: tipo di evento (1 = inizio spot, 2 = fine spot, etc.)
-      dI: "20241007RTIT000022100", // DAI ID: identificatore univoco della sessione DAI (data + broadcaster + ID)
-      c: "RTIT", // Channel: codice del canale/broadcaster (RTIT = RAI Italia)
-      bI: "000022100", // Break ID: identificatore del break pubblicitario
-      mI: "EHD/552396B", // Media ID: identificatore del contenuto media/spot
-      st: "1728325527000", // Start Time: timestamp di inizio in millisecondi (Unix epoch)
-      du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
-    }),
-  },
+const dasEventPayload = (t: "1" | "2" | "3") =>
+  JSON.stringify({
+    p: "DAS", // Protocol: tipo di protocollo (Dynamic Ad Substitution)
+    v: "1.1", // Version: versione del protocollo DAS
+    t, // Type: tipo di evento (1 = inizio spot, 2 = fine spot, etc.)
+    dI: "20241007RTIT000022100", // DAI ID: identificatore univoco della sessione DAI (data + broadcaster + ID)
+    c: "RTIT", // Channel: codice del canale/broadcaster (RTIT = RAI Italia)
+    bI: "000022100", // Break ID: identificatore del break pubblicitario
+    mI: "EHD/552396B", // Media ID: identificatore del contenuto media/spot
+    st: "1728325527000", // Start Time: timestamp di inizio in millisecondi (Unix epoch)
+    du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
+  });
+
+const streamEvent = (eventName: string, payload: string, delaySeconds: number): ExtensionConfig.StreamEvent => ({
+  id: crypto.randomUUID(),
+  name: `DAS Event ${eventName}`,
+  eventName,
+  targetURL: "http://localhost:8000",
+  enabled: true,
+  delaySeconds,
+  text: payload,
+  data: textToHex(payload),
 });
 
 export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
@@ -96,16 +104,10 @@ export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
       sid: 1,
       enableStreamEvents: true,
       streamEvents: [
-        {
-          id: "stream-event-1",
-          name: "Stream Event 1",
-          eventName: "event1",
-          targetURL: "dvb://current.ait",
-          enabled: true,
-          cronSchedule: "*/1 * * * *", // Every 5 minutes
-          text: sampleDasPayload,
-          data: textToHex(sampleDasPayload),
-        },
+        // Ciclo: PREP -> (10s) -> GO -> (10s) -> END -> (10s) -> PREP...
+        streamEvent("PREP", dasEventPayload("1"), 10), // Dopo 10s dall'inizio/fine ciclo
+        streamEvent("GO", dasEventPayload("2"), 10), // Dopo 10s da PREP
+        streamEvent("END", dasEventPayload("3"), 10), // Dopo 10s da GO, poi ricomincia
       ],
     },
   ],

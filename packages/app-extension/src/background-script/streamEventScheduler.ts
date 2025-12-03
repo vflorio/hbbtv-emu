@@ -1,16 +1,16 @@
 import type { MessageAdapter } from "@hbb-emu/lib";
 import {
   type ClassType,
-  type CronScheduler,
-  createCronScheduler,
+  type CyclicScheduler,
+  createCyclicScheduler,
   createEnvelope,
   createLogger,
   type ExtensionConfig,
   type MessageBus,
+  type ScheduledEvent,
   type StreamEventPayload,
 } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
-import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as T from "fp-ts/Task";
@@ -20,16 +20,16 @@ import type { State } from "./state";
 const logger = createLogger("StreamEventScheduler");
 
 export interface StreamEventScheduler {
-  cronScheduler: CronScheduler;
+  scheduler: CyclicScheduler<ExtensionConfig.StreamEvent>;
   scheduleStreamEvents: (state: ExtensionConfig.State) => IO.IO<void>;
   dispatchStreamEventToTabs: (event: StreamEventPayload) => T.Task<void>;
 }
 
 export const WithStreamEventScheduler = <T extends ClassType<MessageBus & MessageAdapter & State>>(Base: T) =>
   class extends Base implements StreamEventScheduler {
-    cronScheduler: CronScheduler = createCronScheduler();
+    scheduler: CyclicScheduler<ExtensionConfig.StreamEvent> = createCyclicScheduler();
 
-    constructor(...args: unknown[]) {
+    constructor(...args: any[]) {
       super(...args);
 
       this.bus.on("UPDATE_CONFIG", (envelope) =>
@@ -44,7 +44,7 @@ export const WithStreamEventScheduler = <T extends ClassType<MessageBus & Messag
     scheduleStreamEvents =
       (state: ExtensionConfig.State): IO.IO<void> =>
       () => {
-        this.cronScheduler.unscheduleAll();
+        this.scheduler.stop();
 
         const currentChannel = state.currentChannel;
         if (!currentChannel) {
@@ -60,34 +60,34 @@ export const WithStreamEventScheduler = <T extends ClassType<MessageBus & Messag
         const streamEvents = currentChannel.streamEvents || [];
         const enabledEvents = streamEvents.filter((e) => e.enabled !== false);
 
+        if (enabledEvents.length === 0) {
+          logger.info("No enabled stream events to schedule")();
+          return;
+        }
+
         logger.info(`Scheduling ${enabledEvents.length} stream events for channel ${currentChannel.name}`)();
 
-        pipe(
-          enabledEvents,
-          A.filter((event) => !!event.cronSchedule),
-          A.map((event) => {
-            const result = this.cronScheduler.schedule(event.id, event.cronSchedule!, () => {
-              logger.info(`Triggering stream event: ${event.name} (${event.eventName})`)();
+        // Convert to ScheduledEvent format
+        const scheduledEvents: ScheduledEvent<ExtensionConfig.StreamEvent>[] = enabledEvents.map((event) => ({
+          id: event.id,
+          delaySeconds: event.delaySeconds,
+          data: event,
+        }));
 
-              const payload: StreamEventPayload = {
-                targetURL: event.targetURL || "dvb://current.ait",
-                eventName: event.eventName,
-                data: event.data,
-                text: event.text || "",
-              };
+        // Start the cyclic scheduler
+        this.scheduler.start(scheduledEvents, (scheduledEvent) => {
+          const event = scheduledEvent.data;
+          logger.info(`Triggering stream event: ${event.name} (${event.eventName})`)();
 
-              this.dispatchStreamEventToTabs(payload)();
-            });
+          const payload: StreamEventPayload = {
+            targetURL: event.targetURL || "dvb://current.ait",
+            eventName: event.eventName,
+            data: event.data,
+            text: event.text || "",
+          };
 
-            pipe(
-              result,
-              E.match(
-                (error) => logger.error(`Failed to schedule event ${event.name}: ${error.message}`)(),
-                () => logger.info(`Scheduled event ${event.name} with cron: ${event.cronSchedule}`)(),
-              ),
-            );
-          }),
-        );
+          this.dispatchStreamEventToTabs(payload)();
+        });
       };
 
     dispatchStreamEventToTabs = (event: StreamEventPayload): T.Task<void> =>

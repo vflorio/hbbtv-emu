@@ -9,7 +9,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -25,10 +27,12 @@ interface StreamEventFormProps {
 export default function StreamEventForm({ open, event, onClose, onSave }: StreamEventFormProps) {
   const [formData, setFormData] = useState<Omit<ExtensionConfig.StreamEvent, "id">>({
     name: "",
-    targetURL: "dvb://current.ait",
     eventName: "",
     data: "",
+    delaySeconds: 10,
+    targetURL: "dvb://current.ait",
     text: "",
+    enabled: true,
   });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <need investigate>
@@ -36,31 +40,46 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
     if (event) {
       setFormData({
         name: event.name,
-        targetURL: event.targetURL,
         eventName: event.eventName,
         data: event.data,
-        text: event.text,
+        delaySeconds: event.delaySeconds,
+        targetURL: event.targetURL ?? "dvb://current.ait",
+        text: event.text ?? "",
+        enabled: event.enabled ?? true,
       });
     } else {
       setFormData({
         name: "",
-        targetURL: "dvb://current.ait",
         eventName: "",
         data: "",
+        delaySeconds: 10,
+        targetURL: "dvb://current.ait",
         text: "",
+        enabled: true,
       });
     }
   }, [event, open]);
 
   const handleChange =
     (field: keyof Omit<ExtensionConfig.StreamEvent, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+      const value = field === "delaySeconds" ? Number.parseInt(e.target.value, 10) || 0 : e.target.value;
+      setFormData((prev) => ({ ...prev, [field]: value }));
     };
+
+  const handleToggleEnabled = () => {
+    setFormData((prev) => ({ ...prev, enabled: !prev.enabled }));
+  };
 
   const handleSubmit = () => {
     const eventData: ExtensionConfig.StreamEvent = {
       id: event?.id || crypto.randomUUID(),
-      ...formData,
+      name: formData.name,
+      eventName: formData.eventName,
+      data: formData.data,
+      delaySeconds: formData.delaySeconds,
+      targetURL: formData.targetURL,
+      text: formData.text,
+      enabled: formData.enabled,
     };
     onSave(eventData);
     onClose();
@@ -71,6 +90,10 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
       <DialogTitle>{event ? "Edit Stream Event" : "New Stream Event"}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <FormControlLabel
+            control={<Switch checked={formData.enabled} onChange={handleToggleEnabled} />}
+            label="Enabled"
+          />
           <TextField
             label="Event Name (UI)"
             value={formData.name}
@@ -85,17 +108,27 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
             onChange={handleChange("eventName")}
             fullWidth
             required
-            helperText="The actual stream event name (e.g., 'now', 'next')"
+            helperText="The actual stream event name (e.g., 'PREP', 'GO', 'END')"
           />
           <TextField
-            label="Data"
+            label="Delay (seconds)"
+            type="number"
+            value={formData.delaySeconds}
+            onChange={handleChange("delaySeconds")}
+            fullWidth
+            required
+            inputProps={{ min: 0 }}
+            helperText="Delay in seconds before this event fires (relative to previous event in sequence)"
+          />
+          <TextField
+            label="Data (hex)"
             value={formData.data}
             onChange={handleChange("data")}
             fullWidth
             required
             multiline
             rows={2}
-            helperText="Event data payload"
+            helperText="Event data payload in hexadecimal format"
           />
 
           <Accordion>
@@ -109,7 +142,7 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
                   value={formData.targetURL}
                   onChange={handleChange("targetURL")}
                   fullWidth
-                  helperText="Target URL for the stream event"
+                  helperText="Target URL for the stream event (e.g., 'dvb://current.ait')"
                 />
                 <TextField
                   label="Text"
@@ -118,7 +151,7 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
                   fullWidth
                   multiline
                   rows={2}
-                  helperText="Optional text data"
+                  helperText="Optional text data (human-readable version of data)"
                 />
               </Stack>
             </AccordionDetails>

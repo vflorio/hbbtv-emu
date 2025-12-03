@@ -9,6 +9,7 @@ import {
   initApp,
   type MessageAdapter,
   type MessageBus,
+  querySelector,
   WithChromeMessageAdapter,
   WithMessageBus,
 } from "@hbb-emu/lib";
@@ -16,12 +17,10 @@ import { Settings } from "@hbb-emu/ui";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as IOO from "fp-ts/IOOption";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
-import { querySelector } from "fp-ts-std/DOM";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
@@ -48,21 +47,22 @@ const WithSidePanel = <T extends ClassType<MessageAdapter & MessageBus>>(Base: T
     );
 
     initializeRoot: IO.IO<void> = pipe(
-      document,
-      querySelector("#root"),
-      IOO.matchE(
-        () => logger.error("Root element not found"),
-        (rootElement) =>
-          pipe(
-            logger.info("Creating React root"),
-            IO.flatMap(() =>
-              pipe(
-                IO.of(createRoot(rootElement)),
-                IO.tap((root) => this.rootRef.write(root)),
-                IO.flatMap((root) => this.render(root)),
+      querySelector("#root")(document),
+      IO.flatMap(
+        O.match(
+          () => logger.error("Root element not found"),
+          (rootElement) =>
+            pipe(
+              logger.info("Creating React root"),
+              IO.flatMap(() =>
+                pipe(
+                  IO.of(createRoot(rootElement as HTMLElement)),
+                  IO.tap((root) => this.rootRef.write(root)),
+                  IO.flatMap((root) => this.render(root)),
+                ),
               ),
             ),
-          ),
+        ),
       ),
     );
 

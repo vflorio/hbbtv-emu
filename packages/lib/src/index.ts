@@ -1,6 +1,6 @@
 export * from "./app";
 export * from "./config";
-export * from "./cron";
+export * from "./dom";
 export * from "./domObserver";
 export * from "./hbbtv";
 export * from "./hex";
@@ -10,5 +10,6 @@ export * from "./messaging";
 export * from "./misc";
 export * from "./mixin";
 export * from "./object";
+export * from "./scheduler";
 export * from "./storage";
 export * from "./version";

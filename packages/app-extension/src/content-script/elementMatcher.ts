@@ -1,12 +1,10 @@
-import { type ClassType, createLogger } from "@hbb-emu/lib";
+import { type ClassType, createLogger, querySelectorAll } from "@hbb-emu/lib";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as IOO from "fp-ts/IOOption";
 import * as IORef from "fp-ts/IORef";
 import * as NEA from "fp-ts/NonEmptyArray";
 import * as O from "fp-ts/Option";
-import { querySelectorAll } from "fp-ts-std/DOM";
 import type { DomObserver, MutationHandler } from "../../../lib/src/domObserver";
 
 const logger = createLogger("ElementMatcher");
@@ -49,30 +47,34 @@ const createMutationHandler =
 
 const scanExistingElements = <E extends Element, T>(
   matcher: ElementMatcher<E, T>,
-): IOO.IOOption<NEA.NonEmptyArray<T>> =>
+): IO.IO<O.Option<NEA.NonEmptyArray<T>>> =>
   pipe(
     querySelectorAll(matcher.selector)(document),
-    IOO.map(A.filter(matcher.predicate)),
-    IOO.flatMap((elements) => pipe(elements, NEA.fromArray, IOO.fromOption)),
-    IOO.map(NEA.map(matcher.transform)),
+    IO.map((elements) => [...elements] as Element[]),
+    IO.map(A.filter(matcher.predicate)),
+    IO.map(NEA.fromArray),
+    IO.map(O.map(NEA.map(matcher.transform))),
   );
 
 const processExistingElements = <E extends Element, T>(matcher: ElementMatcher<E, T>): IO.IO<void> =>
   pipe(
     scanExistingElements(matcher),
-    IOO.flatMap((items) =>
-      pipe(
-        items,
-        A.traverse(IO.Applicative)((item) =>
+    IO.flatMap(
+      O.match(
+        () => IO.of(undefined),
+        (items) =>
           pipe(
-            logger.info(`existing ${matcher.name} found`),
-            IO.flatMap(() => matcher.onDetected(item)),
+            items,
+            A.traverse(IO.Applicative)((item) =>
+              pipe(
+                logger.info(`existing ${matcher.name} found`),
+                IO.flatMap(() => matcher.onDetected(item)),
+              ),
+            ),
+            IO.map(() => undefined),
           ),
-        ),
-        IO.map(() => O.some(undefined)),
       ),
     ),
-    IOO.getOrElse(() => IO.of(undefined)),
   );
 
 export interface ElementMatcherRegistry {

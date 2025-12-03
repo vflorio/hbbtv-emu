@@ -1,8 +1,16 @@
 import { createLogger } from "@hbb-emu/lib";
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Send as SendIcon } from "@mui/icons-material";
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Pause as PauseIcon,
+  PlayArrow as PlayIcon,
+  Send as SendIcon,
+} from "@mui/icons-material";
 import {
   Box,
   Button,
+  Chip,
   IconButton,
   Paper,
   Table,
@@ -63,8 +71,20 @@ export default function StreamEventList() {
     });
   };
 
+  const handleToggleEnabled = async (event: ExtensionConfig.StreamEvent) => {
+    const updated = { ...event, enabled: !(event.enabled ?? true) };
+    await handleSaveEvent(updated);
+  };
+
   const handleDispatchEvent = async (event: ExtensionConfig.StreamEvent) => {
     logger.info("TODO Dispatching stream event:", event);
+  };
+
+  const formatDelay = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   };
 
   return (
@@ -85,65 +105,92 @@ export default function StreamEventList() {
         </Button>
       </Box>
 
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Events are dispatched in sequence with the specified delay between each event. After the last event, the cycle
+        repeats.
+      </Typography>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell width={60}>#</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Event Name</TableCell>
-              <TableCell>Target URL</TableCell>
-              <TableCell>Data</TableCell>
+              <TableCell>Delay</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {events.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     No stream events configured. Click "Add Stream Event" to get started.
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              events.map((event) => (
-                <TableRow key={event.id} hover>
-                  <TableCell>{event.name}</TableCell>
-                  <TableCell>{event.eventName}</TableCell>
-                  <TableCell>{event.targetURL}</TableCell>
-                  <TableCell>
-                    <Tooltip title={event.data}>
-                      <Typography
-                        sx={{
-                          maxWidth: 200,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {event.data}
+              events.map((event, index) => {
+                const isEnabled = event.enabled ?? true;
+                return (
+                  <TableRow key={event.id} hover sx={{ opacity: isEnabled ? 1 : 0.5 }}>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {index + 1}
                       </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Dispatch Event">
-                      <IconButton size="small" color="success" onClick={() => handleDispatchEvent(event)}>
-                        <SendIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" color="primary" onClick={() => handleEditEvent(event)}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDeleteEvent(event.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <Typography fontWeight="medium">{event.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {event.targetURL}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={event.eventName} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{formatDelay(event.delaySeconds)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={isEnabled ? "Enabled" : "Disabled"}
+                        size="small"
+                        color={isEnabled ? "success" : "default"}
+                        variant={isEnabled ? "filled" : "outlined"}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={isEnabled ? "Disable" : "Enable"}>
+                        <IconButton size="small" onClick={() => handleToggleEnabled(event)}>
+                          {isEnabled ? <PauseIcon /> : <PlayIcon />}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Dispatch Event">
+                        <IconButton
+                          size="small"
+                          color="success"
+                          onClick={() => handleDispatchEvent(event)}
+                          disabled={!isEnabled}
+                        >
+                          <SendIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" color="primary" onClick={() => handleEditEvent(event)}>
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" color="error" onClick={() => handleDeleteEvent(event.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
