@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/hbbtv-api": "workspace:*",
-    "@hbb-emu/lib": "workspace:*",
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/chrome-runtime": "workspace:*",
     "@hbb-emu/ui": "workspace:*",
     "react": "19.2.0",
     "react-dom": "19.2.0"

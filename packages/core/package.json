@@ -11,9 +11,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./app": {
-      "types": "./dist/app.d.ts",
-      "import": "./dist/app.js"
+    "./lib": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js"
     }
   },
   "files": [

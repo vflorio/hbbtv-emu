@@ -2,8 +2,12 @@
   "name": "@hbb-emu/chrome-runtime",
   "version": "1.0.0",
   "devDependencies": {
+    "@types/chrome": "0.1.32",
     "fp-ts": "2.16.11",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*"
   },
   "exports": {
     ".": {
