@@ -1,5 +1,8 @@
 packages:
   - packages/*
+  - packages_new/*
+  - packages_new/extensions/*
+  - packages_new/runtimes/*
 
 onlyBuiltDependencies:
   - esbuild

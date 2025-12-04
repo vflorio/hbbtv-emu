@@ -170,6 +170,76 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages_new/core:
+    devDependencies:
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      io-ts:
+        specifier: 2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages_new/extensions/chrome-v3:
+    dependencies:
+      '@hbb-emu/hbbtv-api':
+        specifier: workspace:*
+        version: link:../../../packages/hbbtv-api
+      '@hbb-emu/lib':
+        specifier: workspace:*
+        version: link:../../../packages/lib
+      '@hbb-emu/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/chrome':
+        specifier: 0.1.29
+        version: 0.1.29
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
+      '@types/react':
+        specifier: 19.2.2
+        version: 19.2.2
+      '@types/react-dom':
+        specifier: 19.2.2
+        version: 19.2.2(@types/react@19.2.2)
+      '@vitejs/plugin-react':
+        specifier: 5.1.0
+        version: 5.1.0(vite@7.2.2(@types/node@24.10.0))
+      babel-plugin-react-compiler:
+        specifier: 1.0.0
+        version: 1.0.0
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      globals:
+        specifier: 16.5.0
+        version: 16.5.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.2.2
+        version: 7.2.2(@types/node@24.10.0)
+
+  packages_new/runtimes/chrome:
+    devDependencies:
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
 packages:
 
   '@babel/code-frame@7.27.1':

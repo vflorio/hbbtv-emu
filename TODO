@@ -1,7 +1,42 @@
+packages
+    extensions
+        chrome-v3 
+        chrome-v2
+        chrome-v1
+        firefox-v3
+    runtimes
+        chrome
+        firefox
+        web
+    core
+        message-bus
+        storage
+        scheduler
+        logger
+    hbbtv 
+    demos
+    hbbtv-api
+    ui
 
-ui 
-    - capabilities picker
-    - api version picker
-    - streamevents emu config & dispatch
-    - virtual tv-remote
 
+HBBTV
+    - il pacchetto hbbtv deve esportare una classe composta per ogni versione
+        1.7.1
+        1.6.1
+        1.5.1
+        1.4.1
+        1.3.1
+        1.2.1
+        1.1.1
+
+    - il codice che integra l'interfaccia di hbbtv con il resto del codice dovrebbe essere isolato
+
+Runtimes 
+    Una runtime deve isolare tutto quello che funziona dietro un contesto specifico
+
+Extensions
+    L'estensione implementa tutto il necessario per far passare i dati fra UI, API, Storage, etc, sfruttando la runtime
+
+
+    Chrome V3 
+        - bisogna combinare il content-script con user-agent-inject, quindi il chrome script inject, non serve più 

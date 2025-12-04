@@ -1,10 +1,8 @@
 {
-  "name": "@hbb-emu/lib",
+  "name": "@hbb-emu/chrome-runtime",
   "version": "1.0.0",
   "devDependencies": {
-    "@types/chrome": "0.1.29",
     "fp-ts": "2.16.11",
-    "io-ts": "2.2.22",
     "typescript": "5.9.3"
   },
   "exports": {
@@ -24,8 +22,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "dev": "tsc --watch",
-    "generate-exports": "npx tsx scripts/generate-exports.ts"
+    "dev": "tsc --watch"
   },
   "type": "module",
   "types": "./dist/index.d.ts",
