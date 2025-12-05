@@ -1,4 +1,3 @@
-import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
@@ -53,22 +52,8 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
     handleMessage = (data: unknown): IOE.IOEither<MessageAdapterError, void> =>
       pipe(
         IOE.Do,
-        IOE.apS(
-          "envelope",
-          pipe(
-            validateEnvelope(data),
-            IOE.fromEither,
-            IOE.mapLeft((error): MessageAdapterError => error),
-          ),
-        ),
-        IOE.bind("handler", () =>
-          pipe(
-            IOE.fromIO(this.messageHandler.read),
-            IOE.flatMap(IOE.fromOption(() => noMessageHandlerRegisteredError("No message handler registered."))),
-            IOE.tapError((error) => IOE.fromIO(logger.error("error: ", error))),
-            IOE.mapLeft((error): MessageAdapterError => error),
-          ),
-        ),
+        IOE.apS("envelope", getEnvelope(data)),
+        IOE.bind("handler", () => getHandler(this.messageHandler)),
         IOE.flatMap(({ envelope, handler }) =>
           IOE.tryCatch(
             () => handler(envelope)(),
@@ -83,6 +68,21 @@ export const WithMessageAdapter = <T extends ClassType>(Base: T) =>
       _envelope,
     ) => TE.left(notImplementedError("Method not implemented."));
   };
+
+const getHandler = (messageHandler: IORef.IORef<O.Option<Handler>>): IOE.IOEither<MessageAdapterError, Handler> =>
+  pipe(
+    IOE.fromIO(messageHandler.read),
+    IOE.flatMap(IOE.fromOption(() => noMessageHandlerRegisteredError("No message handler registered."))),
+    IOE.tapError((error) => IOE.fromIO(logger.error("error: ", error))),
+    IOE.mapLeft((error) => error),
+  );
+
+const getEnvelope = (data: unknown): IOE.IOEither<MessageAdapterError, MessageEnvelope> =>
+  pipe(
+    validateEnvelope(data),
+    IOE.fromEither,
+    IOE.mapLeft((error) => error),
+  );
 
 // Error constructors
 

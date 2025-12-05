@@ -55,7 +55,7 @@ const modifyTabs = (f: (tabs: ReadonlySet<number>) => ReadonlySet<number>): S.St
   pipe(
     S.get<State>(),
     S.map((state) => state.tabs),
-    S.chain((tabs) =>
+    S.flatMap((tabs) =>
       S.modify((state) => ({
         ...state,
         tabs: f(tabs),
