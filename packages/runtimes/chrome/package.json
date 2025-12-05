@@ -13,10 +13,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./app": {
-      "types": "./dist/app.d.ts",
-      "import": "./dist/app.js"
     }
   },
   "files": [
@@ -29,12 +25,5 @@
     "dev": "tsc --watch"
   },
   "type": "module",
-  "types": "./dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "app": [
-        "./dist/app.d.ts"
-      ]
-    }
-  }
+  "types": "./dist/index.d.ts"
 }

@@ -11,9 +11,17 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./dom": {
+      "types": "./dist/dom/index.d.ts",
+      "import": "./dist/dom/index.js"
+    },
     "./lib": {
       "types": "./dist/lib/index.d.ts",
       "import": "./dist/lib/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
     }
   },
   "files": [
@@ -29,8 +37,14 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
-      "app": [
-        "./dist/app.d.ts"
+      "dom": [
+        "./dist/dom/index.d.ts"
+      ],
+      "lib": [
+        "./dist/lib/index.d.ts"
+      ],
+      "storage": [
+        "./dist/storage/index.d.ts"
       ]
     }
   }

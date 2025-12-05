@@ -22,6 +22,7 @@ dist-ssr
 *.sw?
 
 *.old.*
+*.old
 .turbo
 
 *:Zone.Identifier
