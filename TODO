@@ -40,3 +40,22 @@ Extensions
 
     Chrome V3 
         - bisogna combinare il content-script con user-agent-inject, quindi il chrome script inject, non serve più 
+
+
+Message Bus 
+    UI (produce: UPDATE_CONFIG)
+    Bridge (produce: BRIDGE_READY)
+    Background Script (consume: BRIDGE_READY)
+    Content Script (produce: CONTENT_SCRIPT_READY, consume: [tutto per tenere lo storage all'allineato])
+        HBBTV-API 
+            ChannelManager (produce: UPDATE_CONFIG) via setChannel
+            StreamAdapter (consume: UPDATE_CONFIG) 
+
+
+Sequenze di inizializzazione:
+    - Estensione (Background script e UI) all'apertura del browser
+    - Il Background script controlla lo storage permantente per inizializzare lo stato
+    - Quando ha finito, il Background script inietta il bridge, 
+    - Il bridge imposta il forwarding dal contesto di chrome a postmessage e poi invia il BRIDGE_READY
+    - Il Background script riceve il BRIDGE_READY e inietta il content-script
+    - Quando il content-script viene caricato, idealmentemte aspetta di riceve la config sincronamente dal Background script, inizializzare l'api e poi caricare il resto del contenuto ( in questo modo evitiamo codice che bisogno della disponibilità  dell'api prima che essa finisca di caricare)
