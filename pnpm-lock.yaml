@@ -108,6 +108,19 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/runtimes/web:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../core
+    devDependencies:
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages_old/app-extension:
     dependencies:
       '@hbb-emu/hbbtv-api':

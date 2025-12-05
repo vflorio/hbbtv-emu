@@ -15,6 +15,10 @@
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"
     },
+    "./message-bus": {
+      "types": "./dist/message-bus/index.d.ts",
+      "import": "./dist/message-bus/index.js"
+    },
     "./lib": {
       "types": "./dist/lib/index.d.ts",
       "import": "./dist/lib/index.js"
@@ -39,6 +43,9 @@
     "*": {
       "dom": [
         "./dist/dom/index.d.ts"
+      ],
+      "message-bus": [
+        "./dist/message-bus/index.d.ts"
       ],
       "lib": [
         "./dist/lib/index.d.ts"
