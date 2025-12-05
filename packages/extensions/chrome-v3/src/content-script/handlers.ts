@@ -12,7 +12,7 @@ const logger = createLogger("ContentScript:Handlers");
 export const requestAndWaitForConfig = (app: Instance): T.Task<void> =>
   pipe(
     T.fromIO(logger.debug("Requesting config from background")),
-    T.flatMap(() => T.fromIO(app.send("BACKGROUND_SCRIPT", { type: "GET_CONFIG", payload: null }))),
+    T.flatMap(() => app.send("BACKGROUND_SCRIPT", { type: "GET_CONFIG", payload: null })),
     T.flatMap(() =>
       pipe(
         app.once("UPDATE_CONFIG", 3000),
@@ -52,11 +52,11 @@ export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
     ),
   );
 
-export const notifyReady = (app: Instance): IO.IO<void> =>
+export const notifyReady = (app: Instance): T.Task<void> =>
   pipe(
-    logger.debug("Notifying background that content script is ready"),
-    IO.flatMap(() => app.send("BACKGROUND_SCRIPT", { type: "CONTENT_SCRIPT_READY", payload: null })),
-    IO.flatMap(() => app.runState(setReady)),
+    T.fromIO(logger.debug("Notifying background that content script is ready")),
+    T.flatMap(() => app.send("BACKGROUND_SCRIPT", { type: "CONTENT_SCRIPT_READY", payload: null })),
+    T.flatMap(() => T.fromIO(app.runState(setReady))),
   );
 
 export const initializeHbbTVApi = (app: Instance): IO.IO<void> =>

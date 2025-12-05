@@ -1,4 +1,4 @@
-import { createLogger, type DataNotFoundError, dataNotFoundError } from "@hbb-emu/core/";
+import { createLogger, type DataNotFoundError, dataNotFoundError } from "@hbb-emu/core";
 import {
   type LocalStorageGetItemError,
   type LocalStorageSetItemError,

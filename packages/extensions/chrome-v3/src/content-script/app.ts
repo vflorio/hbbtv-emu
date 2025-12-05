@@ -1,14 +1,14 @@
 import { compose } from "@hbb-emu/core";
-import { WithPostMessageAdapter } from "./postMessageAdapter";
-import { WithPostMessageClient } from "./postMessageClient";
+import { WithMessageClient } from "@hbb-emu/core/message-bus";
+import { WithPostMessageAdapter } from "@hbb-emu/web-runtime";
 import { WithAppState } from "./state";
 
 // biome-ignore format: composition
 export const App = compose(
   class {},
-  WithPostMessageAdapter,
   WithAppState,
-  WithPostMessageClient,
+  WithPostMessageAdapter,
+  WithMessageClient("CONTENT_SCRIPT"),
 );
 
 export type Instance = InstanceType<typeof App>;

@@ -125,7 +125,7 @@ const logSendError = (error: ChromeMessageError): TE.TaskEither<ChromeMessageErr
     ),
   );
 
-// biome-ignore format: ack
+// biome-ignore format: composition
 export const WithChromeMessageAdapter = <T extends ClassType>(Base: T) =>
   compose(
     Base, 

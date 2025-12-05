@@ -1,15 +1,15 @@
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
+import * as T from "fp-ts/Task";
 import { App, type Instance } from "./app";
 
 const logger = createLogger("Bridge");
 
-const initialize = (app: Instance): IO.IO<void> =>
+const initialize = (app: Instance): T.Task<void> =>
   pipe(
-    logger.info("Initializing"),
-    IO.flatMap(() => app.notifyReady),
-    IO.flatMap(() => logger.info("Initialized")),
+    T.fromIO(logger.info("Initializing")),
+    T.flatMap(() => app.notifyReady),
+    T.flatMap(() => T.fromIO(logger.info("Initialized"))),
   );
 
 const app = new App();

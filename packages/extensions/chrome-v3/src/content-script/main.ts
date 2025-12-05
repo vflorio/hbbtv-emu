@@ -11,8 +11,8 @@ const initialize = (app: Instance): T.Task<void> =>
     T.fromIO(logger.info("Initializing")),
     T.flatMap(() => requestAndWaitForConfig(app)),
     T.flatMap(() => T.fromIO(setupConfigSubscription(app))),
-    T.flatMap(() => T.fromIO(notifyReady(app))),
     T.flatMap(() => T.fromIO(initializeHbbTVApi(app))),
+    T.flatMap(() => notifyReady(app)),
     T.flatMap(() => T.fromIO(logger.info("Initialized"))),
   );
 

@@ -3,6 +3,7 @@ import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
 import { App, type Instance } from "./app";
 import { loadInitialConfig, setupConfigSubscription } from "./handlers";
+import { renderApp } from "./render";
 
 const logger = createLogger("SidePanel");
 
@@ -11,6 +12,7 @@ const initialize = (app: Instance): T.Task<void> =>
     T.fromIO(logger.info("Side Panel loading")),
     T.flatMap(() => loadInitialConfig(app)),
     T.flatMap(() => T.fromIO(setupConfigSubscription(app))),
+    T.flatMap(() => T.fromIO(renderApp)),
     T.flatMap(() => T.fromIO(logger.info("Side Panel initialized"))),
   );
 

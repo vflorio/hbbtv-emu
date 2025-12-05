@@ -5,6 +5,7 @@
     "@hbb-emu/hbbtv-api": "workspace:*",
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/chrome-runtime": "workspace:*",
+    "@hbb-emu/web-runtime": "workspace:*",
     "@hbb-emu/ui": "workspace:*",
     "react": "19.2.0",
     "react-dom": "19.2.0"
@@ -23,12 +24,11 @@
   },
   "main": "./dist/index.js",
   "scripts": {
-    "build": "pnpm build:ui && pnpm build:background-script && pnpm build:bridge && pnpm build:content-script && pnpm build:user-agent-inject && pnpm build:assets",
+    "build": "pnpm build:ui && pnpm build:background-script && pnpm build:bridge && pnpm build:content-script && pnpm build:assets",
     "build:assets": "cp -r public/* dist/",
     "build:background-script": "vite build --config vite.background-script.config.ts",
     "build:bridge": "vite build --config vite.bridge.config.ts",
     "build:content-script": "vite build --config vite.content-script.config.ts",
-    "build:user-agent-inject": "vite build --config vite.user-agent-inject.config.ts",
     "build:ui": "vite build",
     "clean": "rm -rf dist",
     "dev:app": "vite",

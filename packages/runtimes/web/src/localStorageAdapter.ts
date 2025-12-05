@@ -1,14 +1,14 @@
-import { pipe } from "fp-ts/function";
-import * as O from "fp-ts/Option";
-import * as TE from "fp-ts/TaskEither";
-import { createLogger, type DataNotFoundError, dataNotFoundError } from "../lib";
+import { createLogger, type DataNotFoundError, dataNotFoundError } from "@hbb-emu/core";
 import {
   type LocalStorageGetItemError,
   type LocalStorageSetItemError,
   localStorageGetItemError,
   localStorageSetItemError,
-} from "./errors";
-import type { StorageAdapter } from "./storageAdapter";
+  type StorageAdapter,
+} from "@hbb-emu/core/storage";
+import { pipe } from "fp-ts/function";
+import * as O from "fp-ts/Option";
+import * as TE from "fp-ts/TaskEither";
 
 const logger = createLogger("LocalStorageAdapter");
 

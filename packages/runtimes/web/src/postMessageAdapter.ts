@@ -1,7 +1,19 @@
 import { type ClassType, compose, createLogger } from "@hbb-emu/core";
-import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "@hbb-emu/core/message-bus";
-import * as E from "fp-ts/Either";
-import { pipe } from "fp-ts/lib/function";
+import {
+  isMessageEnvelope,
+  type Message,
+  type MessageAdapter,
+  type MessageEnvelope,
+  WithMessageAdapter,
+} from "@hbb-emu/core/message-bus";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
+import * as O from "fp-ts/Option";
+import * as RA from "fp-ts/ReadonlyArray";
+import * as RS from "fp-ts/ReadonlySet";
+import * as S from "fp-ts/State";
+import * as Str from "fp-ts/string";
 import * as TE from "fp-ts/TaskEither";
 
 const logger = createLogger("PostMessageAdapter");
@@ -11,99 +23,108 @@ export type PostMessageError = Readonly<{
   message: string;
 }>;
 
+export const postMessageError = (message: string): PostMessageError => ({
+  type: "PostMessageError",
+  message,
+});
+
+type AdapterState = Readonly<{
+  processedIds: ReadonlySet<string>;
+}>;
+
 export interface PostMessageAdapter extends MessageAdapter {
-  handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean;
-  sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
+  sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<PostMessageError, void>;
 }
 
 const WithPostMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
   class extends Base implements PostMessageAdapter {
-    processedMessageIds = new Set<string>();
-    readonly MAX_PROCESSED_IDS = 100;
+    adapterState: AdapterState = {
+      processedIds: RS.empty,
+    };
 
     constructor(...args: any[]) {
       super(...args);
       window.addEventListener("message", this.handlePostMessage);
     }
 
-    markAsProcessed(id: string): void {
-      this.processedMessageIds.add(id);
-      // Prevent memory leak by limiting the size of the set
-      if (this.processedMessageIds.size > this.MAX_PROCESSED_IDS) {
-        const firstId = this.processedMessageIds.values().next().value;
-        if (firstId) this.processedMessageIds.delete(firstId);
-      }
-    }
-
-    handlePostMessage: (event: MessageEvent<MessageEnvelope>) => boolean = (event) => {
-      return pipe(
-        event.data,
-        E.fromPredicate(
-          (data): data is MessageEnvelope =>
-            data &&
-            typeof data === "object" &&
-            "source" in data &&
-            "target" in data &&
-            "message" in data &&
-            "id" in data,
-          () => true,
-        ),
-        E.flatMap((envelope) =>
+    handlePostMessage = (event: MessageEvent) =>
+      pipe(
+        IOO.fromPredicate(isFromWindow)(event),
+        IOO.flatMap((e) => IOO.fromOption(extractEnvelope(e))),
+        IOO.filter(isNotSelfMessage),
+        IOO.flatMap((envelope) =>
           pipe(
-            envelope,
-            E.fromPredicate(
-              (env) => env.source !== env.target,
-              () => true,
-            ),
+            IOO.fromIO(runState(this, isAlreadyProcessed(envelope.id))),
+            IOO.filter((alreadyProcessed) => !alreadyProcessed),
+            IOO.map(() => envelope),
           ),
         ),
-        E.flatMap((envelope) =>
+        IOO.flatMapIO((envelope) =>
           pipe(
-            envelope,
-            E.fromPredicate(
-              (env) => !this.processedMessageIds.has(env.id),
-              () => true, // Already processed, ignore
-            ),
+            runState(this, addProcessedId(envelope.id)),
+            IO.flatMap(() => () => this.handleMessage(envelope)),
           ),
         ),
-        E.map((envelope) => {
-          this.markAsProcessed(envelope.id);
-          //logger.info("Processing message", envelope.message.type)();
-          this.handleMessage(envelope);
-          return true;
-        }),
-        E.getOrElse(() => true),
-      );
-    };
+      )();
 
-    sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void> = <
-      T extends Message,
-    >(
-      envelope: MessageEnvelope<T>,
-    ) =>
-      TE.tryCatch(
-        async () => {
-          // logger.info("Sending message", envelope)();
-          window.postMessage(envelope, "*");
-        },
-        (error) => {
-          logger.error("Failed to send message", error)();
-          return postMessageError(`PostMessage failed: ${error}`);
-        },
+    override sendMessage = <TMsg extends Message>(
+      envelope: MessageEnvelope<TMsg>,
+    ): TE.TaskEither<PostMessageError, void> =>
+      pipe(
+        TE.tryCatch(
+          () => Promise.resolve(sendViaPostMessage(envelope)()),
+          (error): PostMessageError => postMessageError(error instanceof Error ? error.message : String(error)),
+        ),
+        TE.tapIO(() => logger.debug("Sent message via postMessage:", envelope.message.type)),
       );
   };
 
-// biome-ignore format: ack
+const MAX_PROCESSED_IDS = 1024;
+
+const runState =
+  <A>(holder: { adapterState: AdapterState }, op: S.State<AdapterState, A>): IO.IO<A> =>
+  () => {
+    const [result, nextState] = op(holder.adapterState);
+    holder.adapterState = nextState;
+    return result;
+  };
+
+const isAlreadyProcessed = (id: string): S.State<AdapterState, boolean> =>
+  S.gets((s) => RS.elem(Str.Eq)(id)(s.processedIds));
+
+const addProcessedId = (id: string): S.State<AdapterState, void> =>
+  S.modify((s) => ({
+    ...s,
+    processedIds: pipe(
+      s.processedIds,
+      RS.insert(Str.Eq)(id),
+      // Prevent memory leak
+      (ids) =>
+        RS.size(ids) > MAX_PROCESSED_IDS
+          ? pipe(ids, RS.toReadonlyArray(Str.Ord), RA.dropLeft(1), RS.fromReadonlyArray(Str.Eq))
+          : ids,
+    ),
+  }));
+
+const isFromWindow = (event: MessageEvent): boolean => event.source === window;
+
+const extractEnvelope = (event: MessageEvent): O.Option<MessageEnvelope> =>
+  pipe(
+    O.fromPredicate(isMessageEnvelope)(event.data),
+    O.map((data) => data as MessageEnvelope),
+  );
+
+const isNotSelfMessage = (envelope: MessageEnvelope): boolean => envelope.source !== envelope.target;
+
+const sendViaPostMessage =
+  <T extends Message>(envelope: MessageEnvelope<T>): IO.IO<void> =>
+  () =>
+    window.postMessage(envelope, "*");
+
+// biome-ignore format: composition
 export const WithPostMessageAdapter = <T extends ClassType>(Base: T) =>
   compose(
-    Base, 
-    WithMessageAdapter, 
-    WithPostMessage
-);
-
-// Error constructor
-
-export const postMessageError = (message: string): PostMessageError => ({
-  type: "PostMessageError",
-  message,
-});
+    Base,
+    WithMessageAdapter,
+    WithPostMessage,
+  );
