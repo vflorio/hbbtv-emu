@@ -2,14 +2,14 @@ import { type ClassType, createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
-const logger = createLogger("ScriptInject");
+const logger = createLogger("ChromeScriptInject");
 
-export interface ScriptInject {
+export interface ChromeScriptInject {
   inject: (tabId: number) => IO.IO<void>;
 }
 
-export const WithScriptInject = <T extends ClassType>(Base: T) =>
-  class extends Base implements ScriptInject {
+export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
+  class extends Base implements ChromeScriptInject {
     inject = (tabId: number): IO.IO<void> =>
       pipe(
         logger.info(`Starting script injection for tab ${tabId}`),

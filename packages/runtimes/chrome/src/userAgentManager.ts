@@ -2,14 +2,14 @@ import { type ClassType, createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
-const logger = createLogger("UserAgentManager");
+const logger = createLogger("ChromeUserAgentManager");
 
-export interface UserAgentManager {
+export interface ChromeUserAgentManager {
   updateUserAgent: (userAgent: string) => IO.IO<void>;
 }
 
-export const WithUserAgentManager = <T extends ClassType>(Base: T) =>
-  class extends Base implements UserAgentManager {
+export const WithChromeUserAgentManager = <T extends ClassType>(Base: T) =>
+  class extends Base implements ChromeUserAgentManager {
     updateUserAgent = (userAgent: string): IO.IO<void> =>
       pipe(
         updateSessionRules(userAgent),

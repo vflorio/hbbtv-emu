@@ -7,15 +7,15 @@ import * as N from "fp-ts/number";
 import * as O from "fp-ts/Option";
 import * as RS from "fp-ts/ReadonlySet";
 import * as S from "fp-ts/State";
-import type { ScriptInject } from "./scriptInject";
+import type { ChromeScriptInject } from "./scriptInject";
 
-const logger = createLogger("WebRequestManager");
+const logger = createLogger("ChromeWebRequestManager");
 
 interface State {
   tabs: ReadonlySet<number>;
 }
 
-export const WithWebRequestManager = <T extends ClassType<State & ScriptInject>>(Base: T) =>
+export const WithChromeWebRequestManager = <T extends ClassType<State & ChromeScriptInject>>(Base: T) =>
   class extends Base {
     constructor(...args: any[]) {
       super(...args);
