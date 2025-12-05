@@ -1,21 +1,19 @@
-import { type App, type ClassType, compose, initApp } from "@hbb-emu/core";
-import type * as IO from "fp-ts/IO";
+import { createLogger } from "@hbb-emu/core";
+import { pipe } from "fp-ts/function";
+import * as T from "fp-ts/Task";
+import { App, type Instance } from "./app";
+import { registerHandlers } from "./handlers";
+import { loadConfigFromStorage } from "./storage";
 
-export interface AppState {
-  tabs: Set<number>;
-}
+const logger = createLogger("BackgroundScript");
 
-const WithApp = <T extends ClassType>(Base: T) =>
-  class extends Base implements App, AppState {
-    tabs: Set<number> = new Set<number>();
+const initialize = (app: Instance): T.Task<void> =>
+  pipe(
+    T.fromIO(logger.info("Initializing")),
+    T.flatMap(() => loadConfigFromStorage(app)),
+    T.flatMap(() => T.fromIO(registerHandlers(app))),
+    T.flatMap(() => T.fromIO(logger.info("Initialized"))),
+  );
 
-    init: IO.IO<void> = () => {};
-  };
-
-// biome-ignore format: ack
-const BackgroundScript = compose(
-  class {},
-  WithApp
-);
-
-initApp(new BackgroundScript())();
+const app = new App();
+initialize(app)();

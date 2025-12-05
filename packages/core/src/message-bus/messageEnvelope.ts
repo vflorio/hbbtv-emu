@@ -40,6 +40,9 @@ export const validateEnvelope = (data: unknown): E.Either<InvalidMessageEnvelope
     E.mapLeft(() => invalidMessageEnvelopeError(`Invalid message envelope: ${JSON.stringify(data)}`)),
   );
 
+export const isMessageEnvelope = (data: unknown): data is MessageEnvelope => E.isRight(validateEnvelope(data));
+
+// questo serve più che altro al service worker
 const generateId = (): string => `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
 export const createEnvelope = <T extends Message>(

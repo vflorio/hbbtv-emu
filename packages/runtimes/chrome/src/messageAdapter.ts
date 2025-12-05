@@ -63,7 +63,7 @@ const getTabId = (data: MessageEnvelope, sender: chrome.runtime.MessageSender): 
 const enrichEnvelope = (data: MessageEnvelope, tabId: O.Option<number>): MessageEnvelope =>
   pipe(
     tabId,
-    O.fold(
+    O.match(
       () => data,
       (id) => ({
         ...data,
