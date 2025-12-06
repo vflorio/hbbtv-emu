@@ -15,6 +15,10 @@
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"
     },
+    "./hbbtv": {
+      "types": "./dist/hbbtv/index.d.ts",
+      "import": "./dist/hbbtv/index.js"
+    },
     "./message-bus": {
       "types": "./dist/message-bus/index.d.ts",
       "import": "./dist/message-bus/index.js"
@@ -43,6 +47,9 @@
     "*": {
       "dom": [
         "./dist/dom/index.d.ts"
+      ],
+      "hbbtv": [
+        "./dist/hbbtv/index.d.ts"
       ],
       "message-bus": [
         "./dist/message-bus/index.d.ts"

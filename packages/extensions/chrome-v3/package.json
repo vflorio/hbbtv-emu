@@ -2,11 +2,10 @@
   "name": "@hbb-emu/chrome-v3-extension",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/hbbtv-api": "workspace:*",
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/chrome-runtime": "workspace:*",
-    "@hbb-emu/web-runtime": "workspace:*",
-    "@hbb-emu/ui": "workspace:*",
+    "@hbb-emu/hbbtv-api": "workspace:*",
+    "@hbb-emu/runtime-chrome": "workspace:*",
+    "@hbb-emu/runtime-web": "workspace:*",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

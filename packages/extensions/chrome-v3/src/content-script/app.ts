@@ -1,6 +1,6 @@
 import { compose } from "@hbb-emu/core";
 import { WithMessageClient } from "@hbb-emu/core/message-bus";
-import { WithPostMessageAdapter } from "@hbb-emu/web-runtime";
+import { WithPostMessageAdapter } from "@hbb-emu/runtime-web";
 import { WithAppState } from "./state";
 
 // biome-ignore format: composition

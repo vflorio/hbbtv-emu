@@ -1,5 +1,5 @@
-import { ChromeStorageAdapter } from "@hbb-emu/chrome-runtime";
 import { createLogger, DEFAULT_HBBTV_CONFIG, ExtensionConfig, Storage } from "@hbb-emu/core";
+import { ChromeStorageAdapter } from "@hbb-emu/runtime-chrome";
 import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";

@@ -1,12 +1,12 @@
 {
-  "name": "@hbb-emu/web-runtime",
+  "name": "@hbb-emu/runtime-web",
   "version": "1.0.0",
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*"
+  },
   "devDependencies": {
     "fp-ts": "2.16.11",
     "typescript": "5.9.3"
-  },
-  "dependencies": {
-    "@hbb-emu/core": "workspace:*"
   },
   "exports": {
     ".": {

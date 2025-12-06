@@ -48,3 +48,32 @@ Flusso:
     - il content-script invia il CONTENT_SCRIPT_READY sia al background, ed esso invia un messaggio "UPDATE_BRIDGE_CONTEXT"
       con il tabID da impostare per i futuri messaggi.
      - a questo punto si il content inizializza dom observer + element matchers
+
+
+Matcher = {querySelector}
+
+HBBTV Version -> matchers[] 
+
+oipf = [
+    ApplicationManager: <object type=application/oipfApplicationManager />
+    Configuration: <object type=application/oipfConfiguration />
+    Capabilities: <object type=application/oipfCapabilities />
+]
+
+av = [
+    VideoBroadcast: <object type=video/broadcast />s
+    VideoMp4: <object type=video/mp4 />
+    VideoDash: <object type=video/dash+xml />
+]
+
+HTMLDashSource <video><source type="video/dash+xml"></video>
+
+HBBTV 1.6.1 -> matchers [ ...oipf, ...av, HTMLDashSource ]
+HBBTV 1.3.1 -> matchers [ ...oipf, ...av, HTMLDashSource ]
+HBBTV 1.2.1 -> matchers [ ...oipf, ...av ]
+
+
+HbbtvObject: 
+    - trovare un nome migliore
+    - deve essere implementato come classe instanziabile senza dipendenze (quindi anche facendo window.oipf.createObject)
+    - l'interfaccia deve essere esplicita in ogni modulo

@@ -1,6 +1,6 @@
-import { WithChromeMessageAdapter } from "@hbb-emu/chrome-runtime";
 import { compose } from "@hbb-emu/core";
 import { WithMessageClient } from "@hbb-emu/core/message-bus";
+import { WithChromeMessageAdapter } from "@hbb-emu/runtime-chrome";
 import { WithAppState } from "./state";
 
 // biome-ignore format: composition
