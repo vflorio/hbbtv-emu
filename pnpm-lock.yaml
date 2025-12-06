@@ -42,15 +42,15 @@ importers:
 
   packages/extensions/chrome-v3:
     dependencies:
-      '@hbb-emu/runtime-chrome':
-        specifier: workspace:*
-        version: link:../../runtimes/chrome
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../../core
       '@hbb-emu/hbbtv-api':
         specifier: workspace:*
         version: link:../../hbbtv-api
+      '@hbb-emu/runtime-chrome':
+        specifier: workspace:*
+        version: link:../../runtimes/chrome
       '@hbb-emu/runtime-web':
         specifier: workspace:*
         version: link:../../runtimes/web
@@ -97,6 +97,22 @@ importers:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/provider:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../core
+      '@hbb-emu/hbbtv-api':
+        specifier: workspace:*
+        version: link:../hbbtv-api
     devDependencies:
       fp-ts:
         specifier: 2.16.11
