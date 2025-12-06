@@ -1,4 +1,3 @@
-export * from "../hbbtv/api";
 export * from "./config";
 export * from "./domObserver";
 export * from "./json";

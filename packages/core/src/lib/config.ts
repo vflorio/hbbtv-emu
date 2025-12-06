@@ -2,7 +2,8 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as t from "io-ts";
-import { ChannelIdType, ChannelTripletCodec, type Channel as FullChannel, isValidChannelTriplet } from "../hbbtv/api";
+import { type Channel, ChannelTripletCodec, isValidChannelTriplet } from "../hbbtv";
+import { ChannelIdType } from "../hbbtv/api/avBroadcast/constants";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
 
@@ -22,7 +23,7 @@ export namespace ExtensionConfig {
     }),
   ]);
 
-  export type StreamEvent = t.TypeOf<typeof StreamEventCodec>;
+  export type StreamEventConfig = t.TypeOf<typeof StreamEventCodec>;
 
   const ChannelConfigCodec = t.intersection([
     ChannelTripletCodec,
@@ -37,7 +38,7 @@ export namespace ExtensionConfig {
     }),
   ]);
 
-  export type Channel = t.TypeOf<typeof ChannelConfigCodec>;
+  export type ChannelConfig = t.TypeOf<typeof ChannelConfigCodec>;
 
   export const StateCodec = t.type({
     version: t.string,
@@ -56,7 +57,7 @@ export namespace ExtensionConfig {
       E.mapLeft(() => invalidExtensionConfigStateError(`Invalid ExtensionConfig.State: ${JSON.stringify(data)}`)),
     );
 
-  export const toChannel = (channel: O.Option<ExtensionConfig.Channel>): O.Option<FullChannel> =>
+  export const toChannel = (channel: O.Option<ExtensionConfig.ChannelConfig>): O.Option<Channel> =>
     pipe(
       channel,
       O.filter(isValidChannelTriplet),
@@ -82,7 +83,7 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
     du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
   });
 
-const streamEvent = (eventName: string, payload: string, delaySeconds: number): ExtensionConfig.StreamEvent => ({
+const streamEvent = (eventName: string, payload: string, delaySeconds: number): ExtensionConfig.StreamEventConfig => ({
   id: randomUUID(),
   name: `DAS Event ${eventName}`,
   eventName,
