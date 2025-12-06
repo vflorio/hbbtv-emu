@@ -276,6 +276,21 @@ export enum ChannelType {
   TYPE_OTHER = 2,
 }
 
+// ============================================================================
+// Stream Event Status
+// ============================================================================
+
+/**
+ * Status values for DSM-CC StreamEvent events.
+ *
+ * Indicates whether the event was dispatched due to an actual trigger
+ * in the stream or due to an error condition.
+ *
+ * @see StreamEvent
+ * @since HbbTV 1.0
+ */
+export type StreamEventStatus = "trigger" | "error";
+
 /**
  * MIME type for the video/broadcast embedded object.
  */

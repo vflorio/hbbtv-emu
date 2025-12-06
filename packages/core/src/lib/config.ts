@@ -7,8 +7,9 @@ import { ChannelIdType } from "../hbbtv/api/avBroadcast/constants";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
 
+// TODO Riffattorizzare eliminando il namespace
 export namespace ExtensionConfig {
-  const StreamEventCodec = t.intersection([
+  export const StreamEventConfigCodec = t.intersection([
     t.type({
       id: t.string,
       name: t.string,
@@ -23,7 +24,7 @@ export namespace ExtensionConfig {
     }),
   ]);
 
-  export type StreamEventConfig = t.TypeOf<typeof StreamEventCodec>;
+  export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
 
   const ChannelConfigCodec = t.intersection([
     ChannelTripletCodec,
@@ -33,7 +34,7 @@ export namespace ExtensionConfig {
       mp4Source: t.string,
     }),
     t.partial({
-      streamEvents: t.array(StreamEventCodec),
+      streamEvents: t.array(StreamEventConfigCodec),
       enableStreamEvents: t.boolean,
     }),
   ]);

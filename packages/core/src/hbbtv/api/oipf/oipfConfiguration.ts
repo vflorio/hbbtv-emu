@@ -29,3 +29,5 @@ export interface Configuration {
   getValue?(key: string): unknown;
   setValue?(key: string, value: unknown): void;
 }
+
+export const OIPF_CONFIGURATION_MIME_TYPE = "application/oipfConfiguration" as const;

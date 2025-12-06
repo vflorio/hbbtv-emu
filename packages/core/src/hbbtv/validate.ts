@@ -2,6 +2,10 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
 import { ChannelIdType } from "./api/avBroadcast/constants";
+import { OIPF_APPLICATION_MANAGER_MIME_TYPE } from "./api/oipf/oipfApplicationManager";
+import { OIPF_CAPABILITIES_MIME_TYPE } from "./api/oipf/oipfCapabilities";
+import { OIPF_CONFIGURATION_MIME_TYPE } from "./api/oipf/oipfConfiguration";
+
 export const ChannelTripletCodec = t.type({
   onid: t.number,
   tsid: t.number,
@@ -83,3 +87,12 @@ export const validateChannel = (data: unknown): E.Either<InvalidChannelError, Ch
     ChannelCodec.decode(data),
     E.mapLeft(() => invalidChannelError(`Invalid channel: ${JSON.stringify(data)}`)),
   );
+
+export const isOipfConfiguration = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === OIPF_CONFIGURATION_MIME_TYPE;
+
+export const isOipfCapabilities = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === OIPF_CAPABILITIES_MIME_TYPE;
+
+export const isOipfApplicationManager = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === OIPF_APPLICATION_MANAGER_MIME_TYPE;

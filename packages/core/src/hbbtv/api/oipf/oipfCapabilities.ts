@@ -24,3 +24,5 @@ export interface Capabilities {
   /** Query method for capability strings. */
   hasCapability?(capability: string): boolean;
 }
+
+export const OIPF_CAPABILITIES_MIME_TYPE = "application/oipfCapabilities" as const;

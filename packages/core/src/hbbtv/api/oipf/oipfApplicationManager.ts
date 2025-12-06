@@ -105,3 +105,5 @@ export enum KeysetMask {
   PLAYBACK = 0x04,
   ALL = 0xff,
 }
+
+export const OIPF_APPLICATION_MANAGER_MIME_TYPE = "application/oipfApplicationManager" as const;

@@ -12,7 +12,8 @@
  * @since HbbTV 1.0
  */
 
-import type { ErrorCode, PlayState } from "./constants";
+import { AV_CONTROL_MIME_TYPES } from ".";
+import type { AVControlMimeType, ErrorCode, PlayState } from "./constants";
 import type {
   OnFullScreenChangeHandler,
   OnPlayPositionChangedHandler,
@@ -208,6 +209,15 @@ export interface AVControlAudio extends AVControlBase {
  * Union type representing either a video or audio A/V Control object.
  */
 export type AVControlObject = AVControlVideo | AVControlAudio;
+
+/**
+ * Type guard to check if an element is an A/V Control object.
+ *
+ * @param element - The element to check
+ * @returns `true` if the element is an A/V Control object
+ */
+export const isAVControlObject = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && AV_CONTROL_MIME_TYPES.includes(element.type as AVControlMimeType);
 
 // ============================================================================
 // Subtitle Support (A.2.5.3)

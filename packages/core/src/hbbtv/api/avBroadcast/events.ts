@@ -311,3 +311,96 @@ export interface ComponentChangedEvent extends Event {
   readonly type: "ComponentChanged";
   readonly componentType?: ComponentType;
 }
+
+// ============================================================================
+// DSM-CC Stream Events
+// ============================================================================
+
+/**
+ * DSM-CC StreamEvent event interface.
+ *
+ * Dispatched when a DSM-CC stream event is received from the broadcast stream,
+ * or when an error occurs in monitoring the stream event.
+ *
+ * Stream events provide a mechanism for broadcasters to signal applications
+ * at specific points in the broadcast, enabling synchronized interactive content.
+ *
+ * @event StreamEvent
+ * @bubbles No
+ * @cancelable No
+ *
+ * @example
+ * ```typescript
+ * const vb = document.getElementById('video') as VideoBroadcast;
+ *
+ * vb.addStreamEventListener(
+ *   'dvb://current.ait/streamevents',
+ *   'myEvent',
+ *   (event: StreamEvent) => {
+ *     if (event.status === 'trigger') {
+ *       console.log('Event triggered:', event.name);
+ *       console.log('Data (hex):', event.data);
+ *       console.log('Text:', event.text);
+ *     } else {
+ *       console.error('Stream event error');
+ *     }
+ *   }
+ * );
+ * ```
+ *
+ * @see HbbTV Specification Clause 7.2.4
+ * @since HbbTV 1.0
+ */
+export interface StreamEvent extends Event {
+  /**
+   * The name of the DSM-CC StreamEvent's event.
+   *
+   * This is the event name specified in the DSM-CC stream event descriptor.
+   */
+  readonly name: string;
+
+  /**
+   * Data of the DSM-CC StreamEvent's event encoded in hexadecimal.
+   *
+   * The raw binary payload of the stream event is encoded as a hexadecimal string.
+   *
+   * @example "0A10B81033" (for a 5-byte payload)
+   */
+  readonly data: string;
+
+  /**
+   * Text data of the DSM-CC StreamEvent's event as a UTF-8 string.
+   *
+   * The binary payload is interpreted as UTF-8 encoded text.
+   * Characters that cannot be transcoded are skipped.
+   *
+   * @security Application developers should be aware that in some circumstances
+   * an attacker may be able to modify the broadcast signalling from which this
+   * data is derived. Applications shall not use this data in a way that would
+   * result in it being executed by the browser. Applications should be written
+   * to be tolerant of incorrectly formatted data or values outside the expected
+   * range without hanging up or crashing.
+   */
+  readonly text: string;
+
+  /**
+   * Status indicating how this event was dispatched.
+   *
+   * - `"trigger"`: The event was dispatched in response to a trigger in the stream.
+   * - `"error"`: An error occurred. Possible causes include:
+   *   - The StreamEvent object pointed to by targetURL is not found in the carousel or via broadband
+   *   - The StreamEvent object does not contain the event specified by eventName
+   *   - The carousel cannot be mounted
+   *   - The elementary stream containing the StreamEvent descriptor is no longer being monitored
+   *
+   * Once an error is dispatched, the listener is automatically unregistered by the terminal.
+   */
+  readonly status: "trigger" | "error";
+}
+
+/**
+ * Type for stream event listener callback function.
+ *
+ * @param event - The StreamEvent dispatched by the terminal
+ */
+export type StreamEventListener = (event: StreamEvent) => void;

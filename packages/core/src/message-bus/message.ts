@@ -1,7 +1,6 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import { type StreamEventPayload, StreamEventPayloadCodec } from "../lib";
 import { ExtensionConfig } from "../lib/config";
 
 export type BridgeContextPayload = Readonly<{
@@ -18,7 +17,7 @@ export type Message =
   | { type: "UPDATE_BRIDGE_CONTEXT"; payload: BridgeContextPayload }
   | { type: "GET_STATE"; payload: null }
   | { type: "STATE_UPDATED"; payload: ExtensionConfig.State }
-  | { type: "DISPATCH_STREAM_EVENT"; payload: StreamEventPayload };
+  | { type: "DISPATCH_STREAM_EVENT"; payload: ExtensionConfig.StreamEventConfig };
 
 export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("BRIDGE_SCRIPT_READY"), payload: t.null }),
@@ -26,7 +25,7 @@ export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("UPDATE_BRIDGE_CONTEXT"), payload: BridgeContextPayloadCodec }),
   t.type({ type: t.literal("GET_STATE"), payload: t.null }),
   t.type({ type: t.literal("STATE_UPDATED"), payload: ExtensionConfig.StateCodec }),
-  t.type({ type: t.literal("DISPATCH_STREAM_EVENT"), payload: StreamEventPayloadCodec }),
+  t.type({ type: t.literal("DISPATCH_STREAM_EVENT"), payload: ExtensionConfig.StreamEventConfigCodec }),
 ]);
 
 export type InvalidMessageError = Readonly<{

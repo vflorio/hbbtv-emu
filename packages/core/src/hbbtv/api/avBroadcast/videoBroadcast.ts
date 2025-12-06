@@ -37,6 +37,7 @@ import type {
   OnPlayStateChangeHandler,
   OnProgrammesChangedHandler,
   OnSelectedComponentChangedHandler,
+  StreamEventListener,
 } from "./events";
 import type { ProgrammeCollection } from "./programme";
 
@@ -376,13 +377,68 @@ export interface VideoBroadcast extends VideoBroadcastBase {
    * @param fullScreen - `true` to enter full screen, `false` to exit
    */
   setFullScreen(fullScreen: boolean): void;
+
+  // ==========================================================================
+  // DSM-CC Stream Events (HbbTV 1.0+)
+  // ==========================================================================
+
+  /**
+   * Adds a listener for the specified DSM-CC stream event.
+   *
+   * When a broadcaster transmits an identical instance of the MPEG private data
+   * section carrying a stream event descriptor (including the version number),
+   * only one StreamEvent event shall be dispatched.
+   *
+   * When a broadcaster transmits different events using the same event name id
+   * (i.e. with different version numbers), one StreamEvent event shall be
+   * dispatched for each different stream event descriptor received.
+   *
+   * An event shall also be dispatched in case of error.
+   *
+   * ## State Requirements
+   *
+   * Listeners can only be added while the video/broadcast object is in the
+   * **Presenting** or **Stopped** states. Calls to this function when the
+   * object is in other states shall have no effect.
+   *
+   * ## Automatic Unregistration
+   *
+   * The terminal shall automatically unregister all listeners in the following cases:
+   * - A transition to the **Unrealized** state (e.g. when becoming broadcast-independent)
+   * - A transition to the **Connecting** state due to a channel change
+   *
+   * Listeners are **not** unregistered when transitioning to the Connecting state
+   * due to a transient error that does not result in a change of channel.
+   *
+   * @param targetURL - The URL of the DSM-CC StreamEvent object, or an HTTP/HTTPS URL
+   *                    referring to an XML event description file (as defined in
+   *                    ETSI TS 102 809 clause 8.2 and profiled in HbbTV clause 7.2.4)
+   * @param eventName - The name of the event (of the DSM-CC StreamEvent object)
+   *                    that shall be subscribed to
+   * @param listener - The listener callback for the event
+   *
+   * @see StreamEvent
+   * @see removeStreamEventListener
+   * @since HbbTV 1.0
+   */
+  addStreamEventListener(targetURL: string, eventName: string, listener: StreamEventListener): void;
+
+  /**
+   * Removes a stream event listener for the specified stream event name.
+   *
+   * @param targetURL - The URL of the DSM-CC StreamEvent object or an HTTP/HTTPS URL
+   *                    referring to an event description file describing the event
+   * @param eventName - The name of the event (of the DSM-CC StreamEvent object)
+   *                    whose subscription shall be removed
+   * @param listener - The listener to remove
+   *
+   * @see addStreamEventListener
+   * @since HbbTV 1.0
+   */
+  removeStreamEventListener(targetURL: string, eventName: string, listener: StreamEventListener): void;
 }
 
-/**
- * Type guard to check if an element is a VideoBroadcast object.
- *
- * @param element - The element to check
- * @returns `true` if the element is a video/broadcast object
- */
+export const VIDEO_BROADCAST_MIME_TYPE = "video/broadcast" as const;
+
 export const isVideoBroadcast = (element: Element | null | undefined): element is VideoBroadcast =>
-  element instanceof HTMLObjectElement && element.type === "video/broadcast";
+  element instanceof HTMLObjectElement && element.type === VIDEO_BROADCAST_MIME_TYPE;

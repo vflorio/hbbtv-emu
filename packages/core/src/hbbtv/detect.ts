@@ -1,6 +1,7 @@
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
+// FIXME: duplicato
 const HBBTV_OBJECT_TYPES = [
   "application/oipfApplicationManager",
   "application/oipfConfiguration",
@@ -8,7 +9,7 @@ const HBBTV_OBJECT_TYPES = [
 ] as const;
 
 const HBBTV_META_SELECTOR = 'meta[http-equiv="Content-Type"][content*="hbbtv"]';
-const HBBTV_OBJECT_SELECTOR = HBBTV_OBJECT_TYPES.map((t) => `object[type="${t}"]`).join(",");
+const HBBTV_OBJECT_SELECTOR = HBBTV_OBJECT_TYPES.map((t) => `object[type="${t}"]`).join(","); // FIXME: duplicato
 
 const hasHbbTVObjects = (doc: Document): IO.IO<boolean> =>
   pipe(
