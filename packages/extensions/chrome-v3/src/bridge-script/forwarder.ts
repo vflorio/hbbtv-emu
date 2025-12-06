@@ -44,8 +44,8 @@ export const WithBridgeForwarder = <T extends ClassType>(Base: T) =>
     notifyReady: T.Task<void> = pipe(
       sendBridgeReady,
       TE.matchE(
-        (error) => T.fromIO(logger.error("Failed to send BRIDGE_READY:", error.message)),
-        () => T.fromIO(logger.debug("BRIDGE_READY sent successfully")),
+        (error) => T.fromIO(logger.error("Failed to send BRIDGE_SCRIPT_READY:", error.message)),
+        () => T.fromIO(logger.debug("BRIDGE_SCRIPT_READY sent successfully")),
       ),
     );
   };
@@ -73,7 +73,9 @@ const sendBridgeReady: TE.TaskEither<BridgeForwardError, void> = pipe(
   TE.tryCatch(
     () =>
       chrome.runtime
-        .sendMessage(createEnvelope("BRIDGE_SCRIPT", "BACKGROUND_SCRIPT", { type: "BRIDGE_READY", payload: null }))
+        .sendMessage(
+          createEnvelope("BRIDGE_SCRIPT", "BACKGROUND_SCRIPT", { type: "BRIDGE_SCRIPT_READY", payload: null }),
+        )
         .then(() => undefined),
     (error): BridgeForwardError => bridgeForwardError(error instanceof Error ? error.message : String(error)),
   ),

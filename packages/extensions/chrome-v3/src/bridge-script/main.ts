@@ -8,6 +8,7 @@ const logger = createLogger("Bridge");
 const initialize = (app: Instance): T.Task<void> =>
   pipe(
     T.fromIO(logger.info("Initializing")),
+    // TODO: termina in caso non siamo in una pagina HbbTV
     T.flatMap(() => app.notifyReady),
     T.flatMap(() => T.fromIO(logger.info("Initialized"))),
   );
