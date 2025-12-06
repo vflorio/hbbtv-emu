@@ -11,7 +11,7 @@ const logger = createLogger("SidePanel:Handlers");
 export const loadInitialConfig = (app: Instance): T.Task<void> =>
   pipe(
     T.fromIO(logger.debug("Requesting initial config from background")),
-    T.flatMap(() => T.fromIO(app.send("BACKGROUND_SCRIPT", { type: "GET_CONFIG", payload: null }))),
+    T.flatMap(() => T.fromIO(app.send("BACKGROUND_SCRIPT", { type: "GET_STATE", payload: null }))),
     T.flatMap(() =>
       pipe(
         app.once("STATE_UPDATED", 3000),

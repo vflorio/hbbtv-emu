@@ -18,7 +18,7 @@ export interface MessageEnvelope<T extends Message = Message> {
   message: T;
   source: MessageOrigin;
   target: MessageOrigin;
-  context?: BackgroundScriptMessageContext;
+  context?: BackgroundScriptMessageContext; // TODO: Gestire come uknown, fare validazione dinamica da runtime
 }
 
 const MessageEnvelopeCodec = t.intersection([

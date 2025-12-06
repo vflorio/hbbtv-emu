@@ -12,10 +12,10 @@ const logger = createLogger("ContentScript:Handlers");
 export const requestAndWaitForConfig = (app: Instance): T.Task<void> =>
   pipe(
     T.fromIO(logger.debug("Requesting config from background")),
-    T.flatMap(() => app.send("BACKGROUND_SCRIPT", { type: "GET_CONFIG", payload: null })),
+    T.flatMap(() => app.send("BACKGROUND_SCRIPT", { type: "GET_STATE", payload: null })),
     T.flatMap(() =>
       pipe(
-        app.once("UPDATE_CONFIG", 3000),
+        app.once("STATE_UPDATED", 3000),
         TE.matchE(
           (error) =>
             pipe(
@@ -39,7 +39,7 @@ export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
   pipe(
     logger.debug("Setting up config subscription"),
     IO.flatMap(() =>
-      app.on("UPDATE_CONFIG", (envelope) =>
+      app.on("STATE_UPDATED", (envelope) =>
         pipe(
           logger.info("Config update received"),
           IO.flatMap(() => {

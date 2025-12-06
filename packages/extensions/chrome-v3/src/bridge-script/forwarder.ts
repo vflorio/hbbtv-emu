@@ -1,11 +1,20 @@
 import type { ClassType } from "@hbb-emu/core";
 import { createLogger } from "@hbb-emu/core";
-import { createEnvelope, type MessageEnvelope, validateEnvelope } from "@hbb-emu/core/message-bus";
+import {
+  type BridgeContextPayload,
+  createEnvelope,
+  type MessageEnvelope,
+  validateEnvelope,
+} from "@hbb-emu/core/message-bus";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
+import * as IOO from "fp-ts/IOOption";
+import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
+import * as TO from "fp-ts/TaskOption";
+import { type AppState, getTabId, setTabId } from "./state";
 
 const logger = createLogger("Bridge:Forwarder");
 
@@ -17,7 +26,7 @@ export interface BridgeForwarder {
  * Content Script → postMessage → Bridge → chrome.runtime → Background
  * Background → chrome.runtime → Bridge → postMessage → Content Script
  */
-export const WithBridgeForwarder = <T extends ClassType>(Base: T) =>
+export const WithBridgeForwarder = <T extends ClassType<AppState>>(Base: T) =>
   class extends Base implements BridgeForwarder {
     constructor(...args: any[]) {
       super(...args);
@@ -27,19 +36,41 @@ export const WithBridgeForwarder = <T extends ClassType>(Base: T) =>
 
     handlePostMessage = (event: MessageEvent): void => {
       pipe(
-        TE.fromIO(() => event),
-        TE.filterOrElse(
-          (e) => e.source === window,
-          () => bridgeForwardError("Message source is not window"),
+        event,
+        TO.fromPredicate(isFromWindow),
+        TO.flatMap((e) => TO.fromOption(O.fromEither(validateEnvelope(e.data)))),
+        TO.flatMap((envelope) =>
+          pipe(
+            T.fromIO(this.runState(getTabId)),
+            T.map(enrichEnvelopeWithContext),
+            T.map((enrich) => enrich(envelope)),
+            T.flatMap(forwardToBackground),
+            T.map(() => O.some(undefined)),
+          ),
         ),
-        TE.flatMapEither((event) => validateEnvelope(event.data)),
-        TE.flatMapTask(forwardToBackground),
+        TO.getOrElse(() => T.of(undefined)),
       )();
     };
 
-    handleChromeMessage = (message: unknown): void => {
-      pipe(IOE.fromEither(validateEnvelope(message)), IOE.flatMapIO(forwardToContentScript))();
-    };
+    handleChromeMessage = (message: unknown): void =>
+      pipe(
+        IOE.fromEither(validateEnvelope(message)),
+        IOE.flatMapIO((envelope) =>
+          pipe(
+            extractBridgeContextTabId(envelope),
+            IOO.fromOption,
+            IOO.flatMapIO((tabId) =>
+              pipe(
+                logger.info(`Received bridge context with tabId: ${tabId}`),
+                IO.flatMap(() => this.runState(setTabId(tabId))),
+              ),
+            ),
+            IOO.getOrElse(() => forwardToContentScript(envelope)),
+            IO.map(() => undefined),
+          ),
+        ),
+        IOE.getOrElse(() => IO.of(undefined)),
+      )();
 
     notifyReady: T.Task<void> = pipe(
       sendBridgeReady,
@@ -63,23 +94,42 @@ const forwardToBackground = (envelope: MessageEnvelope): T.Task<void> =>
 
 const forwardToContentScript = (envelope: MessageEnvelope): IO.IO<void> =>
   pipe(
-    IO.of(envelope),
-    IO.tap((env) => () => window.postMessage(env, "*")),
-    IO.tap((env) => logger.debug("Forwarded to content script:", env.message.type)),
-    IO.map(() => undefined),
+    logger.debug("Forwarding to content script:", envelope.message.type),
+    IO.tap(() => () => window.postMessage(envelope, "*")),
   );
 
-const sendBridgeReady: TE.TaskEither<BridgeForwardError, void> = pipe(
-  TE.tryCatch(
-    () =>
-      chrome.runtime
-        .sendMessage(
-          createEnvelope("BRIDGE_SCRIPT", "BACKGROUND_SCRIPT", { type: "BRIDGE_SCRIPT_READY", payload: null }),
-        )
-        .then(() => undefined),
-    (error): BridgeForwardError => bridgeForwardError(error instanceof Error ? error.message : String(error)),
-  ),
+const sendBridgeReady: TE.TaskEither<BridgeForwardError, void> = TE.tryCatch(
+  () =>
+    chrome.runtime
+      .sendMessage(createEnvelope("BRIDGE_SCRIPT", "BACKGROUND_SCRIPT", { type: "BRIDGE_SCRIPT_READY", payload: null }))
+      .then(() => undefined),
+  (error): BridgeForwardError => bridgeForwardError(error instanceof Error ? error.message : String(error)),
 );
+
+const isFromWindow = (event: MessageEvent): boolean => event.source === window;
+
+const enrichEnvelopeWithContext =
+  (tabId: O.Option<number>) =>
+  (envelope: MessageEnvelope): MessageEnvelope =>
+    pipe(
+      tabId,
+      O.match(
+        () => envelope,
+        (id): MessageEnvelope => ({ ...envelope, context: { tabId: id } }),
+      ),
+    );
+
+const isUpdateBridgeContext = (
+  envelope: MessageEnvelope,
+): envelope is MessageEnvelope<{ type: "UPDATE_BRIDGE_CONTEXT"; payload: BridgeContextPayload }> =>
+  envelope.message.type === "UPDATE_BRIDGE_CONTEXT";
+
+const extractBridgeContextTabId = (envelope: MessageEnvelope): O.Option<number> =>
+  pipe(
+    envelope,
+    O.fromPredicate(isUpdateBridgeContext),
+    O.map((e) => (e.message.payload as BridgeContextPayload).tabId),
+  );
 
 export type BridgeForwardError = Readonly<{
   type: "BridgeForwardError";

@@ -1,5 +1,12 @@
 import { type ClassType, compose, createLogger } from "@hbb-emu/core";
-import { type Message, type MessageAdapter, type MessageEnvelope, WithMessageAdapter } from "@hbb-emu/core/message-bus";
+import {
+  type InvalidMessageOriginError,
+  type Message,
+  type MessageAdapter,
+  type MessageEnvelope,
+  validateMessageOrigin,
+  WithMessageAdapter,
+} from "@hbb-emu/core/message-bus";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -7,18 +14,6 @@ import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 
 const logger = createLogger("ChromeMessageListener");
-
-export type ChromeMessageError = Readonly<{
-  type: "ChromeMessageError";
-  message: string;
-}>;
-
-export type ChromeNoMessageListenersError = Readonly<{
-  type: "NoMessageListenersError";
-  message: string;
-}>;
-
-export type ChromeMessageAdapterError = ChromeMessageError | ChromeNoMessageListenersError;
 
 export interface ChromeMessageAdapter extends MessageAdapter {
   sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;
@@ -49,7 +44,7 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       pipe(
         determineTarget(envelope),
         TE.fromEither,
-        TE.flatMap((target) => sendToTarget(target, envelope)),
+        TE.flatMap((target) => (target === "EXTENSION" ? sendToExtension(envelope) : sendToTab(envelope))),
         TE.tapError(logSendError),
       );
   };
@@ -72,24 +67,16 @@ const enrichEnvelope = (data: MessageEnvelope, tabId: O.Option<number>): Message
     ),
   );
 
-type SendTarget = "EXTENSION" | "CONTENT_SCRIPT";
+type SendTarget = "EXTENSION" | "TAB";
 
-const determineTarget = (envelope: MessageEnvelope): E.Either<ChromeMessageError, SendTarget> =>
+const determineTarget = (
+  envelope: MessageEnvelope,
+): E.Either<ChromeMessageError | InvalidMessageOriginError, SendTarget> =>
   pipe(
     envelope.target,
-    E.fromPredicate(
-      (target): target is "BACKGROUND_SCRIPT" | "CONTENT_SCRIPT" | "SIDE_PANEL" =>
-        target === "BACKGROUND_SCRIPT" || target === "CONTENT_SCRIPT" || target === "SIDE_PANEL",
-      (target) => chromeMessageError(`Cannot send message: invalid target ${target}`),
-    ),
-    E.map((target): SendTarget => (target === "CONTENT_SCRIPT" ? "CONTENT_SCRIPT" : "EXTENSION")),
+    validateMessageOrigin,
+    E.map((target): SendTarget => (target === "CONTENT_SCRIPT" || target === "BRIDGE_SCRIPT" ? "TAB" : "EXTENSION")),
   );
-
-const sendToTarget = <T extends Message>(
-  target: SendTarget,
-  envelope: MessageEnvelope<T>,
-): TE.TaskEither<ChromeMessageError, void> =>
-  target === "EXTENSION" ? sendToExtension(envelope) : sendToContentScript(envelope);
 
 const sendToExtension = <T extends Message>(envelope: MessageEnvelope<T>): TE.TaskEither<ChromeMessageError, void> =>
   pipe(
@@ -100,12 +87,10 @@ const sendToExtension = <T extends Message>(envelope: MessageEnvelope<T>): TE.Ta
     TE.map(() => undefined),
   );
 
-const sendToContentScript = <T extends Message>(
-  envelope: MessageEnvelope<T>,
-): TE.TaskEither<ChromeMessageError, void> =>
+const sendToTab = <T extends Message>(envelope: MessageEnvelope<T>): TE.TaskEither<ChromeMessageError, void> =>
   pipe(
     O.fromNullable(envelope.context?.tabId),
-    TE.fromOption(() => chromeMessageError("Cannot send message to content script: tabId is missing in context")),
+    TE.fromOption(() => chromeMessageError("Cannot send message to tab: tabId is missing in context")),
     TE.flatMap((tabId) =>
       TE.tryCatch(
         () => chrome.tabs.sendMessage(tabId, envelope),
@@ -115,7 +100,7 @@ const sendToContentScript = <T extends Message>(
     TE.map(() => undefined),
   );
 
-const logSendError = (error: ChromeMessageError): TE.TaskEither<ChromeMessageError, void> =>
+const logSendError = (error: ChromeMessageAdapterError): TE.TaskEither<ChromeMessageError, void> =>
   pipe(
     error.message,
     O.fromPredicate((msg) => !msg?.includes("Receiving end does not exist")),
@@ -133,7 +118,19 @@ export const WithChromeMessageAdapter = <T extends ClassType>(Base: T) =>
     WithChromeMessage
 );
 
-// Error constructors
+// Error
+
+export type ChromeMessageError = Readonly<{
+  type: "ChromeMessageError";
+  message: string;
+}>;
+
+export type ChromeNoMessageListenersError = Readonly<{
+  type: "NoMessageListenersError";
+  message: string;
+}>;
+
+export type ChromeMessageAdapterError = ChromeMessageError | ChromeNoMessageListenersError | InvalidMessageOriginError;
 
 export const chromeMessageError = (message: string): ChromeMessageError => ({
   type: "ChromeMessageError",

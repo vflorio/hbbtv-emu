@@ -3,19 +3,19 @@ import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
 
 export type MessageType =
-  | "BRIDGE_READY"
+  | "BRIDGE_SCRIPT_READY"
   | "CONTENT_SCRIPT_READY"
-  | "UPDATE_USER_AGENT"
-  | "UPDATE_CONFIG"
-  | "GET_CONFIG"
+  | "UPDATE_BRIDGE_CONTEXT"
+  | "STATE_UPDATED"
+  | "GET_STATE"
   | "DISPATCH_STREAM_EVENT";
 
 export const MessageTypeCodec = t.union([
-  t.literal("BRIDGE_READY"),
+  t.literal("BRIDGE_SCRIPT_READY"),
   t.literal("CONTENT_SCRIPT_READY"),
-  t.literal("UPDATE_USER_AGENT"),
-  t.literal("UPDATE_CONFIG"),
-  t.literal("GET_CONFIG"),
+  t.literal("UPDATE_BRIDGE_CONTEXT"),
+  t.literal("STATE_UPDATED"),
+  t.literal("GET_STATE"),
   t.literal("DISPATCH_STREAM_EVENT"),
 ]);
 

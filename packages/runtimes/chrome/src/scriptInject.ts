@@ -5,19 +5,12 @@ import * as IO from "fp-ts/IO";
 const logger = createLogger("ChromeScriptInject");
 
 export interface ChromeScriptInject {
-  injectBridge: (tabId: number) => IO.IO<void>;
-  injectContentScript: (tabId: number) => IO.IO<void>;
+  inject: (tabId: number) => IO.IO<void>;
 }
 
 export const WithChromeScriptInject = <T extends ClassType>(Base: T) =>
   class extends Base implements ChromeScriptInject {
-    injectBridge = (tabId: number): IO.IO<void> =>
-      pipe(
-        logger.info(`Starting bridge injection for tab ${tabId}`),
-        IO.tap(() => executeScript(tabId, ["bridge.js"], "ISOLATED")),
-      );
-
-    injectContentScript = (tabId: number): IO.IO<void> =>
+    inject = (tabId: number): IO.IO<void> =>
       pipe(
         logger.info(`Starting content script injection for tab ${tabId}`),
         IO.tap(() => executeScript(tabId, ["content-script.js"], "MAIN")),

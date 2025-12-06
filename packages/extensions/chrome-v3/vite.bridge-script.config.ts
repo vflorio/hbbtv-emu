@@ -4,10 +4,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, "src/bridge/main.ts"),
-      name: "Bridge",
+      entry: resolve(__dirname, "src/bridge-script/main.ts"),
+      name: "BridgeScript",
       formats: ["iife"],
-      fileName: () => "bridge.js",
+      fileName: () => "bridge-script.js",
     },
     rollupOptions: {
       output: {

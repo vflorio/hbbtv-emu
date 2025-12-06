@@ -9,7 +9,7 @@ import { createLogger } from "../lib/logger";
 import type { ClassType } from "../lib/mixin";
 import type { Message } from "./message";
 import type { Handler, MessageAdapter } from "./messageAdapter";
-import { createEnvelope, type MessageEnvelope } from "./messageEnvelope";
+import { type BackgroundScriptMessageContext, createEnvelope, type MessageEnvelope } from "./messageEnvelope";
 import type { MessageOrigin } from "./messageOrigin";
 import type { MessageType } from "./messageType";
 
@@ -36,14 +36,22 @@ export type RequestTimeoutError = Readonly<{
 export type MessageBrokerError = RequestTimeoutError;
 
 export interface MessageBroker extends Pick<BrokerState, "origin" | "handlers"> {
-  publish: <T extends Message>(target: MessageOrigin, message: T) => TE.TaskEither<unknown, void>;
+  // Fire-and-forget message (context is optional for targeting specific tabs)
+  publish: <T extends Message>(
+    target: MessageOrigin,
+    message: T,
+    context?: BackgroundScriptMessageContext,
+  ) => TE.TaskEither<unknown, void>;
+  // Request-response message
   request: <TReq extends Message, TRes extends Message>(
     target: MessageOrigin,
     message: TReq,
     timeout?: number,
   ) => TE.TaskEither<MessageBrokerError, MessageEnvelope<TRes>>;
+  // Subscription management
   subscribe: <T extends MessageType>(type: T, handler: Handler<Extract<Message, { type: T }>>) => IO.IO<void>;
   unsubscribe: <T extends MessageType>(type: T, handler: Handler<Extract<Message, { type: T }>>) => IO.IO<void>;
+  // Reply to a message
   reply: <T extends Message>(originalEnvelope: MessageEnvelope, message: T) => TE.TaskEither<unknown, void>;
 }
 
@@ -133,10 +141,14 @@ export const WithMessageBroker =
         );
 
       // Public API
-      publish = <TMsg extends Message>(target: MessageOrigin, message: TMsg): TE.TaskEither<unknown, void> =>
+      publish = <TMsg extends Message>(
+        target: MessageOrigin,
+        message: TMsg,
+        context?: BackgroundScriptMessageContext,
+      ): TE.TaskEither<unknown, void> =>
         pipe(
           TE.fromIO(this.getBrokerState),
-          TE.map((state) => createEnvelope(state.origin, target, message)),
+          TE.map((state) => createEnvelope(state.origin, target, message, context)),
           TE.flatMap((envelope) => this.sendMessage(envelope)),
           TE.tapIO(() => logger.debug("Published message", message.type, "to", target)),
         );
