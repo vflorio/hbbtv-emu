@@ -206,9 +206,9 @@ export const WithMessageBroker =
         pipe(
           TE.fromIO(this.getBrokerState),
           TE.map((state) =>
-            // Use original envelope ID for correlation
+            // Use original envelope ID for correlation, preserve context for routing
             ({
-              ...createEnvelope(state.origin, originalEnvelope.source, message),
+              ...createEnvelope(state.origin, originalEnvelope.source, message, originalEnvelope.context),
               id: originalEnvelope.id,
             }),
           ),

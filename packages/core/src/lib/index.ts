@@ -1,6 +1,7 @@
 export * from "./config";
 export * from "./domObserver";
 export * from "./hbbtv";
+export * from "./hbbtvDetector";
 export * from "./json";
 export * from "./logger";
 export * from "./misc";
