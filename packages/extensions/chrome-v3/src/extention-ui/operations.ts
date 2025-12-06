@@ -28,7 +28,7 @@ export const sendConfigUpdate =
   (config: ExtensionConfig.State): TE.TaskEither<ConfigUpdateError, void> =>
     pipe(
       TE.tryCatch(
-        () => app.send("BACKGROUND_SCRIPT", { type: "UPDATE_CONFIG", payload: config })(),
+        () => app.send("BACKGROUND_SCRIPT", { type: "STATE_UPDATED", payload: config })(),
         (error): ConfigUpdateError => configUpdateError(String(error)),
       ),
       TE.flatMap((result) =>

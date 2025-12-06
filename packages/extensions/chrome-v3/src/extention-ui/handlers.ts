@@ -14,7 +14,7 @@ export const loadInitialConfig = (app: Instance): T.Task<void> =>
     T.flatMap(() => T.fromIO(app.send("BACKGROUND_SCRIPT", { type: "GET_CONFIG", payload: null }))),
     T.flatMap(() =>
       pipe(
-        app.once("UPDATE_CONFIG", 3000),
+        app.once("STATE_UPDATED", 3000),
         TE.matchE(
           (error) =>
             pipe(
@@ -38,7 +38,7 @@ export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
   pipe(
     logger.debug("Setting up config subscription"),
     IO.flatMap(() =>
-      app.on("UPDATE_CONFIG", (envelope) =>
+      app.on("STATE_UPDATED", (envelope) =>
         pipe(
           logger.info("Config update received from background"),
           IO.flatMap(() => {
