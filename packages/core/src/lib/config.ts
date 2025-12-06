@@ -2,7 +2,7 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as t from "io-ts";
-import { ChannelIdType, ChannelTripletCodec, type Channel as FullChannel, isValidChannelTriplet } from "./hbbtv";
+import { ChannelIdType, ChannelTripletCodec, type Channel as FullChannel, isValidChannelTriplet } from "../hbbtv/api";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
 

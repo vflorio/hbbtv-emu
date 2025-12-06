@@ -112,6 +112,16 @@ export const validateChannel = (data: unknown): E.Either<InvalidChannelError, Ch
     E.mapLeft(() => invalidChannelError(`Invalid channel: ${JSON.stringify(data)}`)),
   );
 
+// HBBTV DSM-CC Stream events
+export const StreamEventPayloadCodec = t.type({
+  targetURL: t.string,
+  eventName: t.string,
+  data: t.string,
+  text: t.string,
+});
+
+export type StreamEventPayload = t.TypeOf<typeof StreamEventPayloadCodec>;
+
 export enum ChannelChangeError {
   CHANNEL_NOT_SUPPORTED = 0,
   CANNOT_TUNE = 1,

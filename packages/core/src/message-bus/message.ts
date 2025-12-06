@@ -1,18 +1,8 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
+import { type StreamEventPayload, StreamEventPayloadCodec } from "../lib";
 import { ExtensionConfig } from "../lib/config";
-
-// TODO: Spostare
-// HBBTV DSM-CC Stream events
-export const StreamEventPayloadCodec = t.type({
-  targetURL: t.string,
-  eventName: t.string,
-  data: t.string,
-  text: t.string,
-});
-
-export type StreamEventPayload = t.TypeOf<typeof StreamEventPayloadCodec>;
 
 export type BridgeContextPayload = Readonly<{
   tabId: number;
