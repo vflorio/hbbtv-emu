@@ -5,22 +5,23 @@ import { avVideoBroadcastMatcher } from "./apis/avVideoBroadcast";
 import { avVideoDashMatcher } from "./apis/avVideoDash";
 import { avVideoMp4Matcher } from "./apis/avVideoMp4";
 import { oipfApplicationManagerMatcher } from "./apis/oipfApplicationManager";
-import { oipfCapabilitiesMatcher } from "./apis/oipfCapabilities";
+import { createOipfCapabilitiesMatcher } from "./apis/oipfCapabilities";
 import { oipfConfigurationMatcher } from "./apis/oipfConfiguration";
 import { initializeOipfObjectFactory } from "./apis/oipfObjectFactory";
 import { type ElementMatcherRegistry, WithElementMatcherRegistry } from "./elementMatcher";
+import { type StateManager, WithStateManager } from "./stateManager";
 
 const logger = createLogger("Provider");
 
-export const WithApp = <T extends ClassType<ElementMatcherRegistry>>(Base: T) =>
-  class extends Base implements ElementMatcherRegistry {
+export const WithApp = <T extends ClassType<ElementMatcherRegistry & StateManager>>(Base: T) =>
+  class extends Base implements ElementMatcherRegistry, StateManager {
     initialize = (config: ExtensionState) =>
       pipe(
         logger.info("Initializing", config),
         // TODO: connetti la config agli oggetti
         IO.tap(() => initializeOipfObjectFactory),
         IO.tap(() => this.registerMatcher(oipfApplicationManagerMatcher)),
-        IO.tap(() => this.registerMatcher(oipfCapabilitiesMatcher)),
+        IO.tap(() => this.registerMatcher(createOipfCapabilitiesMatcher(this))),
         IO.tap(() => this.registerMatcher(oipfConfigurationMatcher)),
         IO.tap(() => this.registerMatcher(avVideoBroadcastMatcher)),
         IO.tap(() => this.registerMatcher(avVideoMp4Matcher)),
@@ -32,9 +33,9 @@ export const WithApp = <T extends ClassType<ElementMatcherRegistry>>(Base: T) =>
 // biome-ignore format: composition
 export const Provider = compose(
   class {},
-
   WithDomObserver,
   WithElementMatcherRegistry,
+  WithStateManager,
   WithApp,
 );
 

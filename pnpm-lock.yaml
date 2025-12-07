@@ -107,6 +107,9 @@ importers:
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
+      io-ts:
+        specifier: 2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
       typescript:
         specifier: 5.9.3
         version: 5.9.3

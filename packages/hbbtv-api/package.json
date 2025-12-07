@@ -6,6 +6,7 @@
   },
   "devDependencies": {
     "fp-ts": "2.16.11",
+    "io-ts": "2.2.22",
     "typescript": "5.9.3"
   },
   "exports": {
