@@ -40,10 +40,7 @@ export const WithElementMatcherRegistry = <T extends ClassType<DomObserver>>(Bas
         IO.flatMap(() => processExistingElements(matcher)),
       );
 
-    initMatchers: IO.IO<void> = pipe(
-      logger.info("initializing element matchers"),
-      IO.flatMap(() => this.startObserver),
-    );
+    initMatchers: IO.IO<void> = this.startObserver;
   };
 
 const extractAddedElements =

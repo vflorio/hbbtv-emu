@@ -23,11 +23,16 @@ import {
   stateChangeListenerOrd,
 } from "./state";
 
-const logger = createLogger("SidePanel");
+const logger = createLogger("ExtensionUI:Render");
 
 export interface Render {
   render: IO.IO<void>;
   notifyStateUpdate: (state: ExtensionState) => IO.IO<void>;
+  subscribe: (callback: StateChangeListener) => () => void;
+  // overrides
+  loadState: () => Promise<ExtensionState>;
+  saveState: (state: ExtensionState) => Promise<void>;
+  playChannel: (channel: ChannelConfig) => Promise<void>;
 }
 
 export const WithRender = <T extends ClassType<AppStateManager>>(Base: T) =>
@@ -61,7 +66,7 @@ export const WithRender = <T extends ClassType<AppStateManager>>(Base: T) =>
       );
 
     render: IO.IO<void> = pipe(
-      logger.info("Initializing React app"),
+      IO.Do,
       IO.flatMap(() => querySelector("#root")(document)),
       IO.flatMap(
         O.match(

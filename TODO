@@ -73,7 +73,7 @@ HBBTV 1.3.1 -> matchers [ ...oipf, ...av, HTMLDashSource ]
 HBBTV 1.2.1 -> matchers [ ...oipf, ...av ]
 
 
-HbbtvObject: 
-    - trovare un nome migliore
-    - deve essere implementato come classe instanziabile senza dipendenze (quindi anche facendo window.oipf.createObject)
-    - l'interfaccia deve essere esplicita in ogni modulo
+REFACTOR TODO:
+    - A/V Control Objects
+    - Video Backend
+    - Connettere il provider alla config 

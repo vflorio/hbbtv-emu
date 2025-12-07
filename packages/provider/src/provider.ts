@@ -18,6 +18,7 @@ export const WithApp = <T extends ClassType<ElementMatcherRegistry>>(Base: T) =>
     initialize = (config: ExtensionState) =>
       pipe(
         logger.info("Initializing", config),
+        // TODO: connetti la config agli oggetti
         IO.tap(() => initializeOipfObjectFactory),
         IO.tap(() => this.registerMatcher(oipfApplicationManagerMatcher)),
         IO.tap(() => this.registerMatcher(oipfCapabilitiesMatcher)),
