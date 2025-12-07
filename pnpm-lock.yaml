@@ -57,6 +57,9 @@ importers:
       '@hbb-emu/runtime-web':
         specifier: workspace:*
         version: link:../../runtimes/web
+      '@hbb-emu/settings-ui':
+        specifier: workspace:*
+        version: link:../../settings-ui
       react:
         specifier: 19.2.0
         version: 19.2.0

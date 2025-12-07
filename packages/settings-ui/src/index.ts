@@ -1,2 +1,2 @@
 export * from "./App";
-export * from "./context/config";
+export * from "./context/state";

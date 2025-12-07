@@ -17,15 +17,20 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useConfig } from "../context/config";
+import { useAppState } from "../context/state";
+import { useChannelActions } from "../hooks/useChannelActions";
 import { generateRandomChannel } from "../misc";
 
 export default function ChannelEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { channel } = useConfig();
+  const { upsert } = useChannelActions();
+  const {
+    config: { channels },
+  } = useAppState();
+
   const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
     ...generateRandomChannel(),
     name: "",
@@ -34,21 +39,18 @@ export default function ChannelEdit() {
     enableStreamEvents: false,
   });
 
+  const channel = useMemo(() => channels.find((ch) => ch.id === id), [channels, id]);
+
   useEffect(() => {
-    if (id && id !== "new") {
-      channel.load().then((channels) => {
-        const channel = channels.find((ch) => ch.id === id);
-        if (channel) {
-          setFormData({
-            name: channel.name,
-            onid: channel.onid,
-            tsid: channel.tsid,
-            sid: channel.sid,
-            mp4Source: channel.mp4Source,
-            streamEvents: channel.streamEvents || [],
-            enableStreamEvents: channel.enableStreamEvents || false,
-          });
-        }
+    if (id && id !== "new" && channel) {
+      setFormData({
+        name: channel.name,
+        onid: channel.onid,
+        tsid: channel.tsid,
+        sid: channel.sid,
+        mp4Source: channel.mp4Source,
+        streamEvents: channel.streamEvents || [],
+        enableStreamEvents: channel.enableStreamEvents || false,
       });
     }
   }, [id, channel]);
@@ -61,7 +63,8 @@ export default function ChannelEdit() {
       id: id && id !== "new" ? id : randomUUID(),
       ...formData,
     };
-    await channel.upsert(channelData);
+
+    await upsert(channelData);
     navigate("/");
   };
 

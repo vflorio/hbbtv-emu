@@ -1,51 +1,52 @@
-import type { ExtensionState } from "@hbb-emu/core";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
-import { useConfig } from "../context/config";
+import { useAppState } from "../context/state";
+import { useCommonActions } from "../hooks/useCommonActions";
 
 export default function Settings() {
-  const { common } = useConfig();
+  const { config, isLoading } = useAppState();
+  const { save } = useCommonActions();
 
-  const [config, setConfig] = useState<Omit<ExtensionState, "channels"> | null>(null);
-
-  const [version, setVersion] = useState(config?.version || "1.5.0");
-  const [countryCode, setCountryCode] = useState(config?.countryCode || "ITA");
-  const [userAgent, setUserAgent] = useState(
-    config?.userAgent ||
-      "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
-  );
-  const [capabilities, setCapabilities] = useState(config?.capabilities || "");
+  const [version, setVersion] = useState(config.version);
+  const [countryCode, setCountryCode] = useState(config.countryCode);
+  const [userAgent, setUserAgent] = useState(config.userAgent);
+  const [capabilities, setCapabilities] = useState(config.capabilities);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    common.load().then(setConfig);
-  }, [common.load]);
+    setVersion(config.version);
+    setCountryCode(config.countryCode);
+    setUserAgent(config.userAgent);
+    setCapabilities(config.capabilities);
+    setIsEditing(false);
+  }, [config.version, config.countryCode, config.userAgent, config.capabilities]);
 
   const handleSave = async () => {
-    const newConfig = {
-      currentChannel: config?.currentChannel || null,
+    await save({
+      currentChannel: config.currentChannel,
       version,
       countryCode,
       userAgent,
       capabilities,
-    };
-
-    await common.save(newConfig);
-    setConfig(newConfig);
-    console.log("Settings saved:", newConfig);
+    });
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setVersion(config?.version || "1.5.0");
-    setCountryCode(config?.countryCode || "ITA");
-    setUserAgent(
-      config?.userAgent ||
-        "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
-    );
-    setCapabilities(config?.capabilities || "");
+    setVersion(config.version);
+    setCountryCode(config.countryCode);
+    setUserAgent(config.userAgent);
+    setCapabilities(config.capabilities);
     setIsEditing(false);
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ p: 3, textAlign: "center" }}>
+        <Typography color="text.secondary">Loading...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>

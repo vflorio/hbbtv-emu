@@ -1,7 +1,14 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import { ExtensionConfig } from "../lib/extension";
+import {
+  type ChannelConfig,
+  ChannelConfigCodec,
+  type ExtensionState,
+  ExtensionStateCodec,
+  type StreamEventConfig,
+  StreamEventConfigCodec,
+} from "../lib/extension";
 
 export type BridgeContextPayload = Readonly<{
   tabId: number;
@@ -18,6 +25,7 @@ export type Message =
   | { type: "UPDATE_BRIDGE_CONTEXT"; payload: BridgeContextPayload }
   | { type: "GET_STATE"; payload: null }
   | { type: "STATE_UPDATED"; payload: ExtensionState }
+  | { type: "PLAY_CHANNEL"; payload: ChannelConfig }
   | { type: "DISPATCH_STREAM_EVENT"; payload: StreamEventConfig };
 
 export const MessageCodec: t.Type<Message> = t.union([
@@ -27,6 +35,7 @@ export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("UPDATE_BRIDGE_CONTEXT"), payload: BridgeContextPayloadCodec }),
   t.type({ type: t.literal("GET_STATE"), payload: t.null }),
   t.type({ type: t.literal("STATE_UPDATED"), payload: ExtensionStateCodec }),
+  t.type({ type: t.literal("PLAY_CHANNEL"), payload: ChannelConfigCodec }),
   t.type({ type: t.literal("DISPATCH_STREAM_EVENT"), payload: StreamEventConfigCodec }),
 ]);
 

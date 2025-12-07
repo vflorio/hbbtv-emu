@@ -22,9 +22,10 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useConfig } from "../context/config";
+import { useAppState } from "../context/state";
+import { useChannelActions } from "../hooks/useChannelActions";
 
 interface EventFormData extends Omit<StreamEventConfig, "id"> {}
 
@@ -41,24 +42,21 @@ const defaultEventFormData: EventFormData = {
 export default function StreamEventsEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const config = useConfig();
-  const [channel, setChannel] = useState<ChannelConfig | null>(null);
+  const {
+    config: { channels },
+  } = useAppState();
+  const { upsert } = useChannelActions();
   const [events, setEvents] = useState<StreamEventConfig[]>([]);
   const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<EventFormData>(defaultEventFormData);
 
+  const channel = useMemo(() => channels.find((ch) => ch.id === id), [channels, id]);
+
   useEffect(() => {
-    if (id) {
-      config.channel.load().then((channels) => {
-        const ch = channels.find((c) => c.id === id);
-        if (ch) {
-          setChannel(ch);
-          setEvents(ch.streamEvents || []);
-        }
-      });
-    }
-  }, [id, config.channel]);
+    if (!channel) return;
+    setEvents(channel.streamEvents || []);
+  }, [channel]);
 
   const handleAddEvent = () => {
     setEditingEvent(null);
@@ -109,7 +107,7 @@ export default function StreamEventsEdit() {
         ...channel,
         streamEvents: events,
       };
-      await config.channel.upsert(updatedChannel);
+      await upsert(updatedChannel);
       navigate(`/channel/${id}`);
     }
   };

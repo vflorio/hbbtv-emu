@@ -1,14 +1,16 @@
-import type { ChannelConfig } from "@hbb-emu/core";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PlayArrow as PlayIcon } from "@mui/icons-material";
 import { Box, Button, IconButton, List, ListItem, ListItemText, Paper, Tooltip, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useConfig } from "../context/config";
+import { useAppState } from "../context/state";
+import { useChannelActions } from "../hooks/useChannelActions";
 
 export default function ChannelList() {
-  const { channel } = useConfig();
   const navigate = useNavigate();
-  const [channels, setChannels] = useState<ChannelConfig[]>([]);
+  const { remove, play } = useChannelActions();
+  const {
+    isLoading,
+    config: { channels },
+  } = useAppState();
 
   const handleAddChannel = () => {
     navigate("/channel/new");
@@ -19,18 +21,20 @@ export default function ChannelList() {
   };
 
   const handleDeleteChannel = async (id: string) => {
-    await channel.remove(id);
-    const updated = await channel.load();
-    setChannels(updated);
+    await remove(id);
   };
 
-  const handlePlayChannel = async (ch: ChannelConfig) => {
-    await channel.play(ch);
+  const handlePlayChannel = async (ch: (typeof channels)[number]) => {
+    await play(ch);
   };
 
-  useEffect(() => {
-    channel.load().then(setChannels);
-  }, [channel]);
+  if (isLoading) {
+    return (
+      <Box sx={{ p: 2, textAlign: "center" }}>
+        <Typography color="text.secondary">Loading...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box p={2}>

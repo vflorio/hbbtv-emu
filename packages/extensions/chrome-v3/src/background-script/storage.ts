@@ -1,4 +1,4 @@
-import { createLogger, DEFAULT_HBBTV_CONFIG, ExtensionConfig, Storage } from "@hbb-emu/core";
+import { createLogger, DEFAULT_HBBTV_CONFIG, type ExtensionState, ExtensionStateCodec, Storage } from "@hbb-emu/core";
 import { ChromeStorageAdapter } from "@hbb-emu/runtime-chrome";
 import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
@@ -10,7 +10,7 @@ const logger = createLogger("BackgroundScript:Storage");
 
 const storageAdapter = new ChromeStorageAdapter();
 
-export const configStorage = new Storage<State>("hbbtv-config", storageAdapter, StateCodec);
+export const configStorage = new Storage<ExtensionState>("hbbtv-config", storageAdapter, ExtensionStateCodec);
 
 export const loadConfigFromStorage = (app: Instance): T.Task<void> =>
   pipe(
@@ -30,7 +30,7 @@ export const loadConfigFromStorage = (app: Instance): T.Task<void> =>
     ),
   );
 
-export const saveConfigToStorage = (config: State): T.Task<void> =>
+export const saveConfigToStorage = (config: ExtensionState): T.Task<void> =>
   pipe(
     TE.fromIO(logger.debug("Saving config to storage")),
     TE.flatMap(() => configStorage.save(config)),

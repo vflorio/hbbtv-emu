@@ -20,7 +20,7 @@ export const StreamEventConfigCodec = t.intersection([
 
 export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
 
-const ChannelConfigCodec = t.intersection([
+export const ChannelConfigCodec = t.intersection([
   ChannelTripletCodec,
   t.type({
     id: t.string,

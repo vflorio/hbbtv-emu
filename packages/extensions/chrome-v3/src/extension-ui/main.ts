@@ -2,18 +2,17 @@ import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
 import { App, type Instance } from "./app";
-import { loadInitialConfig, setupConfigSubscription } from "./handlers";
-import { renderApp } from "./render";
+import { setupBridge, setupConfigSubscription } from "./handlers";
 
-const logger = createLogger("SidePanel");
+const logger = createLogger("ExtensionUI");
 
 const initialize = (app: Instance): T.Task<void> =>
   pipe(
-    T.fromIO(logger.info("Side Panel loading")),
-    T.flatMap(() => loadInitialConfig(app)),
+    T.fromIO(logger.info("Initializing")),
+    T.flatMap(() => T.fromIO(setupBridge(app))),
     T.flatMap(() => T.fromIO(setupConfigSubscription(app))),
-    T.flatMap(() => T.fromIO(renderApp)),
-    T.flatMap(() => T.fromIO(logger.info("Side Panel initialized"))),
+    T.flatMap(() => T.fromIO(app.render)),
+    T.flatMap(() => T.fromIO(logger.info("Initialized"))),
   );
 
 const app = new App();

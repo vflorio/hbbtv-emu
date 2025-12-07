@@ -5,7 +5,7 @@ import ChannelEdit from "./components/ChannelEdit";
 import ChannelList from "./components/ChannelList";
 import Common from "./components/Common";
 import StreamEventsEdit from "./components/StreamEventsEdit";
-import { ConfigProvider, type UIConfig } from "./context/config";
+import { type SideEffects, StateProvider } from "./context/state";
 
 const theme = createTheme({
   palette: {
@@ -36,9 +36,9 @@ function MainLayout() {
   );
 }
 
-export function Settings({ config }: { config: UIConfig }) {
+export function Settings({ sideEffects }: { sideEffects: SideEffects }) {
   return (
-    <ConfigProvider value={config}>
+    <StateProvider sideEffects={sideEffects}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <HashRouter>
@@ -50,6 +50,6 @@ export function Settings({ config }: { config: UIConfig }) {
           </Routes>
         </HashRouter>
       </ThemeProvider>
-    </ConfigProvider>
+    </StateProvider>
   );
 }

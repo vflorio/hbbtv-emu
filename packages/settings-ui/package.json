@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/ui",
+  "name": "@hbb-emu/settings-ui",
   "version": "1.0.0",
   "dependencies": {
     "@emotion/react": "11.14.0",

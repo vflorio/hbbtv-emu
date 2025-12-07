@@ -1,4 +1,4 @@
-import { type ClassType, DEFAULT_HBBTV_CONFIG, type ExtensionConfig } from "@hbb-emu/core";
+import { type ClassType, DEFAULT_HBBTV_CONFIG, type ExtensionState } from "@hbb-emu/core";
 import type { WebRequestManager } from "@hbb-emu/runtime-chrome";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -8,13 +8,13 @@ import * as S from "fp-ts/State";
 
 export interface AppState {
   tabs: ReadonlySet<number>;
-  config: State;
+  config: ExtensionState;
 }
 
 export const WithAppState = <T extends ClassType>(Base: T) =>
   class extends Base implements AppState, WebRequestManager {
     tabs: ReadonlySet<number> = RS.empty;
-    config: State = DEFAULT_HBBTV_CONFIG;
+    config: ExtensionState = DEFAULT_HBBTV_CONFIG;
 
     onTabAdded = (tabId: number): IO.IO<void> => this.runState(addTab(tabId));
 
@@ -45,9 +45,9 @@ export const WithAppState = <T extends ClassType>(Base: T) =>
       );
   };
 
-export const getConfig: S.State<AppState, State> = S.gets((s) => s.config);
+export const getConfig: S.State<AppState, ExtensionState> = S.gets((s) => s.config);
 
-export const setConfig = (config: State): S.State<AppState, void> => S.modify((s) => ({ ...s, config }));
+export const setConfig = (config: ExtensionState): S.State<AppState, void> => S.modify((s) => ({ ...s, config }));
 
 export const getTabs: S.State<AppState, ReadonlySet<number>> = S.gets((s) => s.tabs);
 
