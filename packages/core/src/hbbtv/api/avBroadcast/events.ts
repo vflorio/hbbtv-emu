@@ -9,9 +9,99 @@
  * @module hbbtv/api/avBroadcast/events
  */
 
+import type { ComponentType } from "../avComponent";
 import type { Channel } from "./channel";
-import type { ChannelChangeErrorCode, ComponentType, DRMRightsErrorState, PlayState } from "./constants";
 import type { ParentalRatingCollection } from "./parentalRating";
+import type { PlayState } from "./videoBroadcast";
+
+// ============================================================================
+// Error Codes and States
+// ============================================================================
+
+/**
+ * Error codes for channel change operations.
+ *
+ * These codes are passed to `onChannelChangeError` and indicate
+ * the reason why a channel change operation failed.
+ */
+export enum ChannelChangeErrorCode {
+  /** Channel not supported by tuner. */
+  CHANNEL_NOT_SUPPORTED = 0,
+
+  /** Cannot tune to given transport stream (e.g. no signal). */
+  CANNOT_TUNE = 1,
+
+  /** Tuner locked by other object. */
+  TUNER_LOCKED = 2,
+
+  /** Parental lock on channel. */
+  PARENTAL_LOCK = 3,
+
+  /** Encrypted channel, key/module missing. */
+  ENCRYPTED_NO_KEY = 4,
+
+  /** Unknown channel (e.g. can't resolve DVB triplet). */
+  UNKNOWN_CHANNEL = 5,
+
+  /** Channel switch interrupted (e.g. another channel switch was activated). */
+  SWITCH_INTERRUPTED = 6,
+
+  /** Channel cannot be changed because it is currently being recorded. */
+  RECORDING_IN_PROGRESS = 7,
+
+  /** Cannot resolve URI of referenced IP channel. */
+  CANNOT_RESOLVE_URI = 8,
+
+  /** Insufficient bandwidth. */
+  INSUFFICIENT_BANDWIDTH = 9,
+
+  /**
+   * Channel cannot be changed by nextChannel()/prevChannel() methods.
+   *
+   * Either because the terminal does not maintain a favourites or channel list
+   * or because the video/broadcast object is in the Unrealized state.
+   */
+  NO_CHANNEL_LIST = 10,
+
+  /**
+   * Insufficient resources are available to present the given channel.
+   * (e.g. a lack of available codec resources).
+   */
+  INSUFFICIENT_RESOURCES = 11,
+
+  /** Specified channel not found in transport stream. */
+  CHANNEL_NOT_IN_TS = 12,
+
+  /** Unidentified error. */
+  UNIDENTIFIED_ERROR = 100,
+}
+
+/**
+ * DRM rights error states for `onDRMRightsError` callback.
+ *
+ * @note Only supported on terminals that support CI Plus.
+ */
+export enum DRMRightsErrorState {
+  /** No license, consumption of the content is blocked. */
+  NO_LICENSE = 0,
+
+  /** Invalid license, consumption of the content is blocked. */
+  INVALID_LICENSE = 1,
+
+  /** Valid license, consumption of the content is unblocked. */
+  VALID_LICENSE = 2,
+}
+
+/**
+ * Status values for DSM-CC StreamEvent events.
+ *
+ * Indicates whether the event was dispatched due to an actual trigger
+ * in the stream or due to an error condition.
+ *
+ * @see StreamEvent
+ * @since HbbTV 1.0
+ */
+export type StreamEventStatus = "trigger" | "error";
 
 // ============================================================================
 // Event Handler Types

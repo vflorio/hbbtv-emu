@@ -1,19 +1,19 @@
-import { isOipfConfiguration } from "@hbb-emu/core";
-import { type OipfObject, toOipfObject } from "@hbb-emu/hbbtv-api";
-import type * as IO from "fp-ts/IO";
-import type { ElementMatcher } from "../matcher";
-
-export class OipfCapabilities {}
+import { OIPF } from "@hbb-emu/core";
+import { OipfCapabilities } from "@hbb-emu/hbbtv-api";
+import * as IO from "fp-ts/IO";
+import { pipe } from "fp-ts/lib/function";
+import { type OipfObject, toOipfObject } from "..";
+import { copyStrategy } from "../attachStrategy";
+import type { ElementMatcher } from "../elementMatcher";
 
 export const oipfCapabilitiesMatcher: ElementMatcher<HTMLObjectElement, OipfObject> = {
   name: "OipfCapabilities",
-  selector: 'object[type="application/oipfCapabilities"]',
-  predicate: isOipfConfiguration,
+  selector: `object[type="${OIPF.Capabilities.MIME_TYPE}"]`,
+  predicate: OIPF.Capabilities.isValidElement,
   transform: toOipfObject,
-  onDetected:
-    (oipf: OipfObject): IO.IO<void> =>
-    () => {
-      console.log("Detected OIPF Application Manager object:", oipf);
-      new OipfCapabilities();
-    },
+  onDetected: (oipfObject): IO.IO<void> =>
+    pipe(
+      IO.of(new OipfCapabilities()),
+      IO.flatMap((oipfApplicationManager) => copyStrategy(oipfObject, oipfApplicationManager)),
+    ),
 };

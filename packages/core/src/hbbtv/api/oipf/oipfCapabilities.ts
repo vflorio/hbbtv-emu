@@ -25,4 +25,7 @@ export interface Capabilities {
   hasCapability?(capability: string): boolean;
 }
 
-export const OIPF_CAPABILITIES_MIME_TYPE = "application/oipfCapabilities" as const;
+export const MIME_TYPE = "application/oipfCapabilities" as const;
+
+export const isValidElement = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === MIME_TYPE;

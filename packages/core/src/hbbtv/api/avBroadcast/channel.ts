@@ -8,7 +8,78 @@
  * @see HbbTV Specification
  */
 
-import type { ChannelIdType, ChannelType } from "./constants";
+// ============================================================================
+// Channel ID Types
+// ============================================================================
+
+/**
+ * Channel identification type constants.
+ *
+ * These constants identify the type of channel and determine which
+ * properties are used for channel identification.
+ */
+export enum ChannelIdType {
+  /** DVB-C (Cable) channel identified by DVB triplet */
+  ID_DVB_C = 0,
+
+  /** DVB-S (Satellite) channel identified by DVB triplet */
+  ID_DVB_S = 1,
+
+  /** DVB-T (Terrestrial) channel identified by DVB triplet */
+  ID_DVB_T = 2,
+
+  /** DVB-C2 (Cable second generation) channel */
+  ID_DVB_C2 = 3,
+
+  /** DVB-S2 (Satellite second generation) channel */
+  ID_DVB_S2 = 4,
+
+  /** DVB-T2 (Terrestrial second generation) channel */
+  ID_DVB_T2 = 5,
+
+  /** ATSC-T channel identified by source_ID */
+  ID_ATSC_T = 10,
+
+  /** Analogue channel */
+  ID_ANALOG = 11,
+
+  /** IPTV channel via SDS (Service Discovery and Selection) */
+  ID_IPTV_SDS = 12,
+
+  /**
+   * DVB-SI direct channel.
+   *
+   * Channel identified by delivery system descriptor and service ID.
+   * Created via createChannelObject() with tuning parameters.
+   */
+  ID_DVB_SI_DIRECT = 13,
+
+  /** IPTV channel via URI */
+  ID_IPTV_URI = 14,
+
+  /** ISDB-C channel */
+  ID_ISDB_C = 20,
+
+  /** ISDB-S channel */
+  ID_ISDB_S = 21,
+
+  /** ISDB-T channel */
+  ID_ISDB_T = 22,
+}
+
+/**
+ * Channel type constants indicating the nature of the channel content.
+ */
+export enum ChannelType {
+  /** Television channel */
+  TYPE_TV = 0,
+
+  /** Radio channel */
+  TYPE_RADIO = 1,
+
+  /** Other/data channel */
+  TYPE_OTHER = 2,
+}
 
 // ============================================================================
 // Channel Interface

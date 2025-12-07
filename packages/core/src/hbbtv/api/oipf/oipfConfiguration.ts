@@ -30,4 +30,7 @@ export interface Configuration {
   setValue?(key: string, value: unknown): void;
 }
 
-export const OIPF_CONFIGURATION_MIME_TYPE = "application/oipfConfiguration" as const;
+export const MIME_TYPE = "application/oipfConfiguration" as const;
+
+export const isValidElement = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === MIME_TYPE;

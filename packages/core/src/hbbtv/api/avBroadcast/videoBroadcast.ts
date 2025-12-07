@@ -21,9 +21,8 @@
  * @module hbbtv/api/avBroadcast
  */
 
-import type { AVComponent, AVComponentCollection } from "../avComponent";
-import type { Channel, ChannelConfig } from "./channel";
-import type { ChannelIdType, ComponentType, PlayState, QuietMode } from "./constants";
+import type { AVComponent, AVComponentCollection, ComponentType } from "../avComponent";
+import type { Channel, ChannelConfig, ChannelIdType } from "./channel";
 import type {
   OnBlurHandler,
   OnChannelChangeErrorHandler,
@@ -40,6 +39,107 @@ import type {
   StreamEventListener,
 } from "./events";
 import type { ProgrammeCollection } from "./programme";
+
+// ============================================================================
+// Play State
+// ============================================================================
+
+/**
+ * Play state values for the video/broadcast object.
+ *
+ * The video/broadcast object transitions between these states based on
+ * application actions, terminal events, and error conditions.
+ */
+export enum PlayState {
+  /**
+   * Unrealized state.
+   *
+   * The application has not made a request to start presenting a channel
+   * or has stopped presenting a channel and released any resources.
+   *
+   * The content of the video/broadcast object should be transparent but
+   * if not it will be an opaque black rectangle.
+   *
+   * Control of media presentation is under the control of the terminal.
+   */
+  UNREALIZED = 0,
+
+  /**
+   * Connecting state.
+   *
+   * The terminal is connecting to the media source in order to begin playback.
+   * Objects in this state may be buffering data in order to start playback.
+   *
+   * Control of media presentation is under the control of the application.
+   * The content of the video/broadcast object is implementation dependent.
+   */
+  CONNECTING = 1,
+
+  /**
+   * Presenting state.
+   *
+   * The media is currently being presented to the user. The object is in this
+   * state regardless of whether the media is playing at normal speed, paused,
+   * or playing in a trick mode (e.g. at a speed other than normal speed).
+   *
+   * Control of media presentation is under the control of the application.
+   * The video/broadcast object contains the video being presented.
+   */
+  PRESENTING = 2,
+
+  /**
+   * Stopped state.
+   *
+   * The terminal is not presenting media, either inside the video/broadcast
+   * object or in the logical video plane. The logical video plane is disabled.
+   *
+   * The content of the video/broadcast object will be an opaque black rectangle.
+   * Control of media presentation is under the control of the application.
+   */
+  STOPPED = 3,
+}
+
+// ============================================================================
+// Quiet Mode
+// ============================================================================
+
+/**
+ * Quiet mode values for `setChannel()` method.
+ *
+ * Controls how the terminal presents channel change information to the user.
+ */
+export enum QuietMode {
+  /**
+   * Normal channel change.
+   *
+   * The viewer experience is exactly as if they had initiated a standard
+   * channel change operation using the terminal's inherent channel navigation
+   * mechanisms (e.g. Ch+ or Ch- keys or numeric entry).
+   */
+  NORMAL = 0,
+
+  /**
+   * Normal channel change with no UI displayed.
+   *
+   * The terminal executes the channel change operation but does not present
+   * any channel banner that is usually displayed by the terminal.
+   */
+  NO_BANNER = 1,
+
+  /**
+   * Quiet channel change.
+   *
+   * The terminal suppresses the presentation of all information usually
+   * presented during a channel change operation. The channel selected by
+   * the last normal channel change operation is used for all relevant
+   * interaction with the viewer.
+   */
+  QUIET = 2,
+}
+
+// ============================================================================
+// VideoBroadcast Interface
+// ============================================================================
 
 /**
  * Base type for VideoBroadcast that omits properties with incompatible types.
@@ -440,5 +540,10 @@ export interface VideoBroadcast extends VideoBroadcastBase {
 
 export const VIDEO_BROADCAST_MIME_TYPE = "video/broadcast" as const;
 
+export const MIME_TYPE = VIDEO_BROADCAST_MIME_TYPE;
+
 export const isVideoBroadcast = (element: Element | null | undefined): element is VideoBroadcast =>
+  element instanceof HTMLObjectElement && element.type === VIDEO_BROADCAST_MIME_TYPE;
+
+export const isValidElement = (element: Element | null | undefined): element is HTMLObjectElement =>
   element instanceof HTMLObjectElement && element.type === VIDEO_BROADCAST_MIME_TYPE;

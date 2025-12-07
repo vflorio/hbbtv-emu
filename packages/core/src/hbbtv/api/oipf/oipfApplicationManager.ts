@@ -106,4 +106,7 @@ export enum KeysetMask {
   ALL = 0xff,
 }
 
-export const OIPF_APPLICATION_MANAGER_MIME_TYPE = "application/oipfApplicationManager" as const;
+export const MIME_TYPE = "application/oipfApplicationManager" as const;
+
+export const isValidElement = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === MIME_TYPE;

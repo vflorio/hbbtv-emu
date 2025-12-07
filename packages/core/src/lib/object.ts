@@ -1,8 +1,9 @@
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
+import * as RA from "fp-ts/ReadonlyArray";
 
 export class ObjectStyleMirror {
   observerRef: IORef.IORef<O.Option<MutationObserver>>;
@@ -59,68 +60,104 @@ export class ObjectStyleMirror {
   };
 }
 
-export const copyProperties = (source: object, target: Element) => {
-  Object.keys(source).forEach((key) => {
-    const descriptor = Object.getOwnPropertyDescriptor(source, key);
-    if (descriptor) Object.defineProperty(target, key, descriptor);
-  });
+const getPropertyDescriptor = (obj: object, key: string): O.Option<PropertyDescriptor> =>
+  pipe(
+    O.fromNullable(Object.getOwnPropertyDescriptor(obj, key)),
+    O.alt(() =>
+      pipe(
+        O.fromNullable(Object.getPrototypeOf(obj)),
+        O.flatMap((proto) => O.fromNullable(Object.getOwnPropertyDescriptor(proto, key))),
+      ),
+    ),
+  );
 
-  const proto = Object.getPrototypeOf(source);
-  if (!proto) return;
+const collectPropertyKeys = (obj: object): ReadonlyArray<string> =>
+  pipe(
+    [
+      ...Object.keys(obj),
+      ...pipe(
+        O.fromNullable(Object.getPrototypeOf(obj)),
+        O.map(Object.getOwnPropertyNames),
+        O.getOrElse((): string[] => []),
+      ),
+    ],
+    RA.uniq({ equals: (a, b) => a === b }),
+    RA.filter((key) => key !== "constructor"),
+  );
 
-  Object.getOwnPropertyNames(proto).forEach((key) => {
-    if (key !== "constructor" && !(key in target)) {
-      const descriptor = Object.getOwnPropertyDescriptor(proto, key);
-      if (descriptor) Object.defineProperty(target, key, descriptor);
-    }
-  });
-};
-
-const proxyProperty = (target: object, source: object, key: string) => {
-  const getPropertyDescriptor = (source: object, key: string): PropertyDescriptor | undefined => {
-    return (
-      Object.getOwnPropertyDescriptor(source, key) ||
-      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), key)
-    );
-  };
-
-  const proxyMethod = (target: object, source: object, key: string) => {
+const defineProxyMethod =
+  (target: object, source: object) =>
+  (key: string): IO.IO<void> =>
+  () => {
     Object.defineProperty(target, key, {
-      value: (...args: unknown[]) => (source as any)[key](...args),
+      value: (...args: unknown[]) => {
+        const method = (source as Record<string, unknown>)[key];
+        return typeof method === "function" ? method.apply(source, args) : undefined;
+      },
       writable: true,
       configurable: true,
     });
   };
 
-  const proxyAccessor = (target: object, source: object, key: string) => {
+const defineProxyAccessor =
+  (target: object, source: object) =>
+  (key: string): IO.IO<void> =>
+  () => {
     Object.defineProperty(target, key, {
-      get: () => (source as any)[key],
+      get: () => (source as Record<string, unknown>)[key],
       set: (value: unknown) => {
-        (source as any)[key] = value;
+        (source as Record<string, unknown>)[key] = value;
       },
       configurable: true,
     });
   };
 
-  if (key === "constructor" || key in target) return;
+const definePropertyCopy =
+  (target: object) =>
+  (key: string, descriptor: PropertyDescriptor): IO.IO<void> =>
+  () => {
+    Object.defineProperty(target, key, descriptor);
+  };
 
-  const descriptor = getPropertyDescriptor(source, key);
-  if (!descriptor) return;
+const proxyProperty =
+  (target: object, source: object) =>
+  (key: string): IO.IO<void> =>
+    pipe(
+      // Skip if key already exists on target
+      O.fromPredicate((k: string) => !(k in target))(key),
+      O.flatMap(() => getPropertyDescriptor(source, key)),
+      O.match(
+        () => IO.of(undefined),
+        (descriptor) =>
+          typeof descriptor.value === "function"
+            ? defineProxyMethod(target, source)(key)
+            : defineProxyAccessor(target, source)(key),
+      ),
+    );
 
-  if (typeof descriptor.value === "function") {
-    proxyMethod(target, source, key);
-  } else {
-    proxyAccessor(target, source, key);
-  }
-};
+const copyProperty =
+  (target: object, source: object) =>
+  (key: string): IO.IO<void> =>
+    pipe(
+      // Skip constructor and existing keys
+      O.fromPredicate((k: string) => k !== "constructor" && !(k in target))(key),
+      O.flatMap(() => getPropertyDescriptor(source, key)),
+      O.match(
+        () => IO.of(undefined),
+        (descriptor) => definePropertyCopy(target)(key, descriptor),
+      ),
+    );
 
-export const proxyProperties = (target: object, source: object) => {
-  const propertyNames = new Set<string>([
-    ...Object.keys(source),
-    ...Object.getOwnPropertyNames(Object.getPrototypeOf(source)),
-  ]);
+export const copyProperties = (source: object, target: object): IO.IO<void> =>
+  pipe(
+    collectPropertyKeys(source),
+    RA.traverse(IO.Applicative)(copyProperty(target, source)),
+    IO.map(() => undefined),
+  );
 
-  for (const key of propertyNames) {
-    proxyProperty(target, source, key);
-  }
-};
+export const proxyProperties = (target: object, source: object): IO.IO<void> =>
+  pipe(
+    collectPropertyKeys(source),
+    RA.traverse(IO.Applicative)(proxyProperty(target, source)),
+    IO.map(() => undefined),
+  );

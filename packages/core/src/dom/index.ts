@@ -3,6 +3,7 @@ export * from "./class";
 export * from "./content";
 export * from "./element";
 export * from "./event";
+export * from "./manipulation";
 export * from "./misc";
 export * from "./predicates";
 export * from "./query";
