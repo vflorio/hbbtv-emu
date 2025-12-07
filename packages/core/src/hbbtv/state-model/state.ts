@@ -13,6 +13,7 @@
  */
 
 import * as t from "io-ts";
+import { ApplicationManagerStateCodec, DEFAULT_APPLICATION_MANAGER } from "./applicationManager";
 import { AVControlStateCodec } from "./avControl";
 import { ChannelConfigStateCodec, DEFAULT_CHANNEL_CONFIG } from "./channel";
 import { DEFAULT_OIPF_CAPABILITIES, OipfCapabilitiesStateCodec } from "./oipfCapabilities";
@@ -27,6 +28,9 @@ import { DEFAULT_VIDEO_BROADCAST, VideoBroadcastStateCodec } from "./videoBroadc
  * Complete HbbTV API state container.
  */
 export const HbbTVStateCodec = t.partial({
+  /** OIPF Application Manager state */
+  applicationManager: ApplicationManagerStateCodec,
+
   /** OIPF Configuration object state */
   oipfConfiguration: OipfConfigurationStateCodec,
 
@@ -49,10 +53,13 @@ export type HbbTVState = t.TypeOf<typeof HbbTVStateCodec>;
 // Default Values
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DEFAULT_HBBTV_STATE: HbbTVState = {
+export const DEFAULT_AV_CONTROLS: NonNullable<HbbTVState["avControls"]> = {};
+
+export const DEFAULT_HBBTV_STATE: NonNullable<HbbTVState> = {
+  applicationManager: DEFAULT_APPLICATION_MANAGER,
   oipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
   oipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
   channelConfig: DEFAULT_CHANNEL_CONFIG,
   videoBroadcast: DEFAULT_VIDEO_BROADCAST,
-  avControls: {},
+  avControls: DEFAULT_AV_CONTROLS,
 };

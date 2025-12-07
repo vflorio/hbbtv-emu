@@ -1,4 +1,4 @@
-import { createLogger, type OIPF } from "@hbb-emu/core";
+import { createLogger, DEFAULT_APPLICATION, DEFAULT_KEYSET, type OIPF } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -10,7 +10,7 @@ const logger = createLogger("OipfApplicationManager");
 // ─────────────────────────────────────────────────────────────────────────────
 
 class KeysetImpl implements OIPF.ApplicationManager.Keyset {
-  currentValue = 0;
+  currentValue = DEFAULT_KEYSET.value ?? 0;
 
   setValue = (mask: number): void => {
     this.currentValue = mask;
@@ -34,7 +34,7 @@ export const createKeyset = (): OIPF.ApplicationManager.Keyset => new KeysetImpl
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ApplicationImpl implements OIPF.ApplicationManager.Application {
-  privateData: OIPF.ApplicationManager.ApplicationPrivateData = {};
+  privateData: OIPF.ApplicationManager.ApplicationPrivateData = DEFAULT_APPLICATION.privateData ?? {};
   keyset: KeysetImpl;
 
   constructor(private readonly document: Document) {

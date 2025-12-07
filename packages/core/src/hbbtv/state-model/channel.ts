@@ -169,7 +169,11 @@ export type ChannelConfigState = t.TypeOf<typeof ChannelConfigStateCodec>;
 // Default Values
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DEFAULT_CHANNEL_CONFIG: ChannelConfigState = {
-  channels: [],
-  favouriteLists: [],
+export const DEFAULT_CHANNELS: NonNullable<ChannelConfigState["channels"]> = [];
+
+export const DEFAULT_FAVOURITE_LISTS: NonNullable<ChannelConfigState["favouriteLists"]> = [];
+
+export const DEFAULT_CHANNEL_CONFIG: NonNullable<ChannelConfigState> = {
+  channels: DEFAULT_CHANNELS,
+  favouriteLists: DEFAULT_FAVOURITE_LISTS,
 };

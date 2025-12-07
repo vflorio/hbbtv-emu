@@ -54,7 +54,7 @@ export const DEFAULT_PARENTAL_CONTROL: NonNullable<OIPF.Configuration.Configurat
   enabled: false,
 };
 
-export const DEFAULT_OIPF_CONFIGURATION: OipfConfigurationState = {
+export const DEFAULT_OIPF_CONFIGURATION: NonNullable<OipfConfigurationState> = {
   countryId: DEFAULT_COUNTRY_ID,
   language: DEFAULT_LANGUAGE,
   preferredAudioLanguage: [DEFAULT_LANGUAGE, "eng"],

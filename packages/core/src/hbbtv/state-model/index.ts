@@ -1,3 +1,4 @@
+export * from "./applicationManager";
 export * from "./avComponent";
 export * from "./avControl";
 export * from "./channel";

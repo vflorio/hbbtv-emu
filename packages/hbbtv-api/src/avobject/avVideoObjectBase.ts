@@ -1,4 +1,10 @@
-import { type Control, createLogger } from "@hbb-emu/core";
+import {
+  type Control,
+  createLogger,
+  DEFAULT_AV_CONTROL_FULL_SCREEN,
+  DEFAULT_AV_CONTROL_HEIGHT,
+  DEFAULT_AV_CONTROL_WIDTH,
+} from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { AVObjectBase } from "./avObjectBase";
@@ -22,9 +28,9 @@ export class AVVideoObjectBase extends AVObjectBase implements Control.AVControl
   // State
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected _width = "0";
-  protected _height = "0";
-  protected _fullScreen = false;
+  protected _width = String(DEFAULT_AV_CONTROL_WIDTH);
+  protected _height = String(DEFAULT_AV_CONTROL_HEIGHT);
+  protected _fullScreen = DEFAULT_AV_CONTROL_FULL_SCREEN;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Event Handlers

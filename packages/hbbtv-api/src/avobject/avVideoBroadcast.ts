@@ -1,4 +1,4 @@
-import { Broadcast, createLogger } from "@hbb-emu/core";
+import { Broadcast, createLogger, DEFAULT_BROADCAST_PLAY_STATE } from "@hbb-emu/core";
 import { AVVideoObjectBase } from "./avVideoObjectBase";
 
 const logger = createLogger("AvVideoBroadcast");
@@ -18,7 +18,7 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
   // Broadcast-specific State
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected _broadcastPlayState: Broadcast.VideoBroadcast.PlayState = Broadcast.VideoBroadcast.PlayState.UNREALIZED;
+  protected _broadcastPlayState: Broadcast.VideoBroadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Constants (COMPONENT_TYPE_*)

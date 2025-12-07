@@ -100,3 +100,40 @@ export const AVControlStateCodec = t.partial({
 });
 
 export type AVControlState = t.TypeOf<typeof AVControlStateCodec>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Values
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const DEFAULT_AV_CONTROL_PLAY_STATE: NonNullable<AVControlState["playState"]> = 0; // STOPPED
+
+export const DEFAULT_AV_CONTROL_DATA: NonNullable<AVControlState["data"]> = "";
+
+export const DEFAULT_AV_CONTROL_SPEED: NonNullable<AVControlState["speed"]> = 1;
+
+export const DEFAULT_AV_CONTROL_VOLUME: NonNullable<AVControlState["volume"]> = 100;
+
+export const DEFAULT_AV_CONTROL_MUTED: NonNullable<AVControlState["muted"]> = false;
+
+export const DEFAULT_AV_CONTROL_FULL_SCREEN: NonNullable<AVControlState["fullScreen"]> = false;
+
+export const DEFAULT_AV_CONTROL_WIDTH: NonNullable<AVControlState["width"]> = 0;
+
+export const DEFAULT_AV_CONTROL_HEIGHT: NonNullable<AVControlState["height"]> = 0;
+
+export const DEFAULT_AV_CONTROL_COMPONENTS: NonNullable<AVControlState["components"]> = [];
+
+export const DEFAULT_AV_CONTROL_SELECTED_COMPONENTS: NonNullable<AVControlState["selectedComponents"]> = {};
+
+export const DEFAULT_AV_CONTROL: NonNullable<AVControlState> = {
+  data: DEFAULT_AV_CONTROL_DATA,
+  playState: DEFAULT_AV_CONTROL_PLAY_STATE,
+  speed: DEFAULT_AV_CONTROL_SPEED,
+  volume: DEFAULT_AV_CONTROL_VOLUME,
+  muted: DEFAULT_AV_CONTROL_MUTED,
+  fullScreen: DEFAULT_AV_CONTROL_FULL_SCREEN,
+  width: DEFAULT_AV_CONTROL_WIDTH,
+  height: DEFAULT_AV_CONTROL_HEIGHT,
+  components: DEFAULT_AV_CONTROL_COMPONENTS,
+  selectedComponents: DEFAULT_AV_CONTROL_SELECTED_COMPONENTS,
+};

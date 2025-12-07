@@ -1,4 +1,10 @@
-import { Control, createLogger } from "@hbb-emu/core";
+import {
+  Control,
+  createLogger,
+  DEFAULT_AV_CONTROL_DATA,
+  DEFAULT_AV_CONTROL_PLAY_STATE,
+  DEFAULT_AV_CONTROL_SPEED,
+} from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -27,10 +33,10 @@ export class AVObjectBase implements Control.AVControlBase {
   // State
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected _data = "";
-  protected _playState: Control.PlayState = Control.PlayState.STOPPED;
+  protected _data = DEFAULT_AV_CONTROL_DATA;
+  protected _playState: Control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
   protected _error: Control.ErrorCode | undefined = undefined;
-  protected _speed = 1;
+  protected _speed = DEFAULT_AV_CONTROL_SPEED;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Event Handlers

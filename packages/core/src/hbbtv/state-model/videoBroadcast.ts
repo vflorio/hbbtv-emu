@@ -114,16 +114,36 @@ export type VideoBroadcastState = t.TypeOf<typeof VideoBroadcastStateCodec>;
 // Default Values
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DEFAULT_VIDEO_BROADCAST: VideoBroadcastState = {
-  playState: 0, // UNREALIZED
+export const DEFAULT_BROADCAST_PLAY_STATE: NonNullable<VideoBroadcastState["playState"]> = 0; // UNREALIZED
+
+export const DEFAULT_PROGRAMMES: NonNullable<VideoBroadcastState["programmes"]> = [];
+
+export const DEFAULT_COMPONENTS: NonNullable<VideoBroadcastState["components"]> = [];
+
+export const DEFAULT_SELECTED_COMPONENTS: NonNullable<VideoBroadcastState["selectedComponents"]> = {};
+
+export const DEFAULT_VOLUME: NonNullable<VideoBroadcastState["volume"]> = 100;
+
+export const DEFAULT_MUTED: NonNullable<VideoBroadcastState["muted"]> = false;
+
+export const DEFAULT_FULL_SCREEN: NonNullable<VideoBroadcastState["fullScreen"]> = false;
+
+export const DEFAULT_VIDEO_WIDTH: NonNullable<VideoBroadcastState["width"]> = 1280;
+
+export const DEFAULT_VIDEO_HEIGHT: NonNullable<VideoBroadcastState["height"]> = 720;
+
+export const DEFAULT_STREAM_EVENT_LISTENERS: NonNullable<VideoBroadcastState["streamEventListeners"]> = [];
+
+export const DEFAULT_VIDEO_BROADCAST: NonNullable<VideoBroadcastState> = {
+  playState: DEFAULT_BROADCAST_PLAY_STATE,
   currentChannel: undefined,
-  programmes: [],
-  components: [],
-  selectedComponents: {},
-  volume: 100,
-  muted: false,
-  fullScreen: false,
-  width: 1280,
-  height: 720,
-  streamEventListeners: [],
+  programmes: DEFAULT_PROGRAMMES,
+  components: DEFAULT_COMPONENTS,
+  selectedComponents: DEFAULT_SELECTED_COMPONENTS,
+  volume: DEFAULT_VOLUME,
+  muted: DEFAULT_MUTED,
+  fullScreen: DEFAULT_FULL_SCREEN,
+  width: DEFAULT_VIDEO_WIDTH,
+  height: DEFAULT_VIDEO_HEIGHT,
+  streamEventListeners: DEFAULT_STREAM_EVENT_LISTENERS,
 };
