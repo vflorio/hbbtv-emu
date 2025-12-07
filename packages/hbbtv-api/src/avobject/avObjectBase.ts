@@ -1,0 +1,204 @@
+import { Control, createLogger } from "@hbb-emu/core";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
+
+const logger = createLogger("AVObjectBase");
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A/V Object Base Implementation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Base class for all A/V Control objects (video/mp4, video/broadcast, DASH, etc.)
+ *
+ * Provides common playback functionality shared across all A/V objects:
+ * - Playback state management
+ * - Play/pause/stop/seek controls
+ * - Volume control
+ * - Event handlers
+ * - Underlying HTMLVideoElement management
+ */
+export class AVObjectBase implements Control.AVControlBase {
+  /** The underlying HTML video element used for playback */
+  protected videoElement: HTMLVideoElement = document.createElement("video");
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // State
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  protected _data = "";
+  protected _playState: Control.PlayState = Control.PlayState.STOPPED;
+  protected _error: Control.ErrorCode | undefined = undefined;
+  protected _speed = 1;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Event Handlers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  onPlayStateChange: Control.OnPlayStateChangeHandler | null = null;
+  onPlayPositionChanged: Control.OnPlayPositionChangedHandler | null = null;
+  onPlaySpeedChanged: Control.OnPlaySpeedChangedHandler | null = null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Properties (readonly)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  get playPosition(): number | undefined {
+    return pipe(
+      O.fromNullable(this.videoElement.currentTime),
+      O.map((t) => Math.floor(t * 1000)),
+      O.toUndefined,
+    );
+  }
+
+  get playTime(): number | undefined {
+    return pipe(
+      O.fromNullable(this.videoElement.duration),
+      O.filter((d) => Number.isFinite(d)),
+      O.map((d) => Math.floor(d * 1000)),
+      O.toUndefined,
+    );
+  }
+
+  get playState(): Control.PlayState {
+    return this._playState;
+  }
+
+  get error(): Control.ErrorCode | undefined {
+    return this._error;
+  }
+
+  get speed(): number {
+    return this._speed;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Properties (read/write)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  get data(): string {
+    return this._data;
+  }
+
+  set data(url: string) {
+    pipe(
+      logger.debug("Setting data:", url),
+      IO.flatMap(() => {
+        // Stop current playback if data changes
+        if (this._data !== url && this._playState !== Control.PlayState.STOPPED) {
+          return IO.of(this.stop());
+        }
+        return IO.of(true);
+      }),
+      IO.tap(() =>
+        IO.of(() => {
+          this._data = url;
+          if (url) {
+            this.videoElement.src = url;
+          } else {
+            this.videoElement.removeAttribute("src");
+            this.videoElement.load();
+          }
+        }),
+      ),
+    )();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Playback Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  play = (speed = 1): boolean =>
+    pipe(
+      logger.debug("play:", speed),
+      IO.map(() => {
+        if (!this._data) {
+          return false;
+        }
+
+        this._speed = speed;
+        this.videoElement.playbackRate = Math.abs(speed);
+
+        if (speed === 0) {
+          this.videoElement.pause();
+          this.setPlayState(Control.PlayState.PAUSED);
+        } else {
+          this.setPlayState(Control.PlayState.CONNECTING);
+          this.videoElement.play().then(
+            () => this.setPlayState(Control.PlayState.PLAYING),
+            (err) => {
+              logger.error("Playback error:", err)();
+              this._error = Control.ErrorCode.UNIDENTIFIED;
+              this.setPlayState(Control.PlayState.ERROR);
+            },
+          );
+        }
+        return true;
+      }),
+    )();
+
+  stop = (): boolean =>
+    pipe(
+      logger.debug("stop"),
+      IO.map(() => {
+        this.videoElement.pause();
+        this.videoElement.currentTime = 0;
+        this.setPlayState(Control.PlayState.STOPPED);
+        return true;
+      }),
+    )();
+
+  seek = (pos: number): boolean =>
+    pipe(
+      logger.debug("seek:", pos),
+      IO.map(() => {
+        const posSeconds = pos / 1000;
+        if (posSeconds >= 0 && posSeconds <= (this.videoElement.duration || 0)) {
+          this.videoElement.currentTime = posSeconds;
+          this.onPlayPositionChanged?.(pos);
+          return true;
+        }
+        return false;
+      }),
+    )();
+
+  setVolume = (volume: number): boolean =>
+    pipe(
+      logger.debug("setVolume:", volume),
+      IO.map(() => {
+        const clampedVolume = Math.max(0, Math.min(100, volume));
+        this.videoElement.volume = clampedVolume / 100;
+        return true;
+      }),
+    )();
+
+  queue = (_url: string | null): boolean => {
+    logger.debug("queue: not implemented")();
+    return false;
+  };
+
+  setSource = (_id: string): boolean => {
+    logger.debug("setSource: not implemented")();
+    return false;
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Protected Helpers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  protected setPlayState = (newState: Control.PlayState): void => {
+    if (this._playState !== newState) {
+      const oldState = this._playState;
+      this._playState = newState;
+      logger.debug("PlayState changed:", oldState, "->", newState)();
+      this.onPlayStateChange?.(newState);
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Video Element Access (for subclasses)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  getVideoElement = (): HTMLVideoElement => this.videoElement;
+}
