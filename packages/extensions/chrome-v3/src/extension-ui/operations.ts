@@ -10,14 +10,14 @@ import { getConfig } from "./state";
 const logger = createLogger("UI:Operations");
 
 export const updateChannelInConfig =
-  (channel: ExtensionConfig.Channel) =>
+  (channel: ExtensionConfig.ChannelConfig) =>
   (config: ExtensionConfig.State): ExtensionConfig.State => ({
     ...config,
     channels: config.channels.map((c) => (c.id === channel.id ? channel : c)),
   });
 
 export const setCurrentChannelInConfig =
-  (channel: ExtensionConfig.Channel | null) =>
+  (channel: ExtensionConfig.ChannelConfig | null) =>
   (config: ExtensionConfig.State): ExtensionConfig.State => ({
     ...config,
     currentChannel: channel,
@@ -44,7 +44,7 @@ export const updateConfig =
 
 export const updateChannel =
   (app: Instance) =>
-  (channel: ExtensionConfig.Channel): TE.TaskEither<OperationError, void> =>
+  (channel: ExtensionConfig.ChannelConfig): TE.TaskEither<OperationError, void> =>
     pipe(
       TE.fromIO(app.runState(getConfig)),
       TE.flatMap(
@@ -58,7 +58,7 @@ export const updateChannel =
 
 export const setCurrentChannel =
   (app: Instance) =>
-  (channel: ExtensionConfig.Channel | null): TE.TaskEither<OperationError, void> =>
+  (channel: ExtensionConfig.ChannelConfig | null): TE.TaskEither<OperationError, void> =>
     pipe(
       TE.fromIO(app.runState(getConfig)),
       TE.flatMap(

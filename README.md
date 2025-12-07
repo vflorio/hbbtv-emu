@@ -72,7 +72,7 @@ pnpm syncpack:fix
 
 ## Packages
 
-- `@hbb-emu/lib` - Shared utilities and types
+- `@hbb-emu/core` - Shared utilities and types
 - `@hbb-emu/hbbtv-api` - HbbTV API implementation
 - `@hbb-emu/message-bus` - Extension messaging system
 - `@hbb-emu/ui` - React UI components
