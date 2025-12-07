@@ -1,0 +1,55 @@
+sequenceDiagram
+    participant Page as Web Page
+    participant Bridge as Bridge Script<br/>(ISOLATED world)
+    participant BG as Background Script<br/>(Service Worker)
+    participant CS as Content Script<br/>(MAIN world)
+
+    Note over Page,CS: 1. Initialization Flow
+
+    Page->>Bridge: Page loads (document_start)
+    activate Bridge
+    Bridge->>Bridge: Detect HbbTV page
+    Bridge->>BG: BRIDGE_SCRIPT_READY<br/>(chrome.runtime.sendMessage)
+    activate BG
+    BG->>BG: Store tabId, register tab
+    BG->>Bridge: UPDATE_BRIDGE_CONTEXT<br/>{tabId}<br/>(chrome.tabs.sendMessage)
+    Bridge->>Bridge: Store tabId
+    Bridge->>BG: BRIDGE_CONTEXT_RECEIVED
+    BG->>CS: Inject content-script.js<br/>(chrome.scripting.executeScript)
+    deactivate BG
+    activate CS
+    CS->>CS: Initialize PostMessageAdapter
+    
+    Note over Page,CS: 2. Config Request Flow
+    
+    CS->>CS: once("STATE_UPDATED") - register listener
+    CS->>Bridge: GET_STATE<br/>(window.postMessage)
+    Note right of CS: MAIN → ISOLATED<br/>via shared DOM
+    Bridge->>Bridge: Enrich with tabId context
+    Bridge->>BG: GET_STATE + {tabId}<br/>(chrome.runtime.sendMessage)
+    activate BG
+    BG->>BG: Lookup handlers for GET_STATE
+    BG->>BG: Get config from state
+    BG->>Bridge: STATE_UPDATED + config<br/>(chrome.tabs.sendMessage)
+    Note right of BG: Uses tabId from<br/>original context
+    deactivate BG
+    Bridge->>CS: STATE_UPDATED<br/>(window.postMessage)
+    Note right of Bridge: ISOLATED → MAIN<br/>via shared DOM
+    CS->>CS: Dispatch to handler
+    CS->>CS: Config received, store in state
+    CS->>Bridge: CONTENT_SCRIPT_READY<br/>(window.postMessage)
+    Bridge->>BG: CONTENT_SCRIPT_READY
+    deactivate CS
+    deactivate Bridge
+
+    Note over Page,CS: 3. Config Update Flow (from UI)
+
+    participant UI as Extension UI<br/>(Side Panel)
+    
+    UI->>BG: STATE_UPDATED + new config
+    activate BG
+    BG->>BG: Save to chrome.storage
+    BG->>Bridge: STATE_UPDATED<br/>(broadcast to all tabs)
+    deactivate BG
+    Bridge->>CS: STATE_UPDATED
+    CS->>CS: Update local config

@@ -2,36 +2,44 @@ import { createLogger, type ExtensionConfig } from "@hbb-emu/core";
 import { Provider } from "@hbb-emu/provider";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { Instance } from "./app";
 import { getConfig, setConfig, setReady } from "./state";
+import { responseError, sendGetState, waitForState } from "./utils";
 
 const logger = createLogger("ContentScript:Handlers");
 
 export const requestAndWaitForConfig = (app: Instance): T.Task<void> =>
   pipe(
-    T.fromIO(logger.debug("Requesting config from background")),
-    T.flatMap(() => app.send("BACKGROUND_SCRIPT", { type: "GET_STATE", payload: null })),
-    T.flatMap(() =>
+    TE.Do,
+    TE.tap(() => TE.rightIO(logger.debug("Requesting config from background"))),
+    TE.flatMap(() =>
       pipe(
-        app.once("STATE_UPDATED", 3000),
-        TE.matchE(
-          (error) =>
-            pipe(
-              T.fromIO(logger.warn("Failed to get initial config:", error)),
-              T.map(() => undefined),
-            ),
-          (envelope) =>
-            pipe(
-              T.fromIO(logger.info("Config received")),
-              T.flatMap(() => {
-                const config = envelope.message.payload as ExtensionConfig.State;
-                return T.fromIO(app.runState(setConfig(config)));
-              }),
-            ),
+        sendGetState(app),
+        TE.mapError((error) => responseError(String(error))),
+      ),
+    ),
+    TE.bind("config", () => waitForState(app)),
+    TE.tap(({ config }) =>
+      TE.rightIO(
+        pipe(
+          logger.info("Config received"),
+          IO.flatMap(() => app.runState(setConfig(config))),
         ),
       ),
+    ),
+    TE.tapError((error) =>
+      TE.fromIO(
+        error.type === "TimeoutError"
+          ? logger.warn("Failed to get initial config:", error.message)
+          : logger.error("Config error:", error.message),
+      ),
+    ),
+    TE.match(
+      () => undefined,
+      () => undefined,
     ),
   );
 
@@ -63,14 +71,14 @@ export const initializeHbbTVApi = (app: Instance): IO.IO<void> =>
   pipe(
     app.runState(getConfig),
     IO.flatMap(
-      //O.match(
-      //  () => logger.warn("No config available, skipping HbbTV provider initialization"),
-      (config) =>
-        pipe(
-          IO.of(new Provider()),
-          IO.tap(() => logger.info("Initializing HbbTV Provider with config", config)),
-          IO.flatMap((provider) => provider.initialize(config)),
-        ),
-      //   ),
+      O.match(
+        () => logger.error("No config available, skipping HbbTV provider initialization"),
+        (config) =>
+          pipe(
+            IO.of(new Provider()),
+            IO.tap(() => logger.info("Initializing HbbTV Provider with config", config)),
+            IO.flatMap((provider) => provider.initialize(config)),
+          ),
+      ),
     ),
   );

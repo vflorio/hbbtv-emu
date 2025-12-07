@@ -4,6 +4,7 @@ import * as t from "io-ts";
 
 export type MessageType =
   | "BRIDGE_SCRIPT_READY"
+  | "BRIDGE_CONTEXT_RECEIVED"
   | "CONTENT_SCRIPT_READY"
   | "UPDATE_BRIDGE_CONTEXT"
   | "STATE_UPDATED"
@@ -12,6 +13,7 @@ export type MessageType =
 
 export const MessageTypeCodec = t.union([
   t.literal("BRIDGE_SCRIPT_READY"),
+  t.literal("BRIDGE_CONTEXT_RECEIVED"),
   t.literal("CONTENT_SCRIPT_READY"),
   t.literal("UPDATE_BRIDGE_CONTEXT"),
   t.literal("STATE_UPDATED"),

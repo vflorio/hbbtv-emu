@@ -80,10 +80,15 @@ export const WithMessageClient =
 
       dispatch = (envelope: MessageEnvelope): IO.IO<void> =>
         pipe(
-          this.runClientState(
-            pipe(
-              S.gets((s: ClientState) => s.origin),
-              S.flatMap((origin) => (origin !== envelope.target ? S.of(RA.empty) : getHandlers(envelope.message.type))),
+          IO.Do,
+          IO.flatMap(() =>
+            this.runClientState(
+              pipe(
+                S.gets((s: ClientState) => s.origin),
+                S.flatMap((origin) =>
+                  origin !== envelope.target ? S.of(RA.empty) : getHandlers(envelope.message.type),
+                ),
+              ),
             ),
           ),
           IO.flatMap((handlers) =>

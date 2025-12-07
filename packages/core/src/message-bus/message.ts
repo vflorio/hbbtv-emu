@@ -13,6 +13,7 @@ const BridgeContextPayloadCodec = t.type({
 
 export type Message =
   | { type: "BRIDGE_SCRIPT_READY"; payload: null }
+  | { type: "BRIDGE_CONTEXT_RECEIVED"; payload: null }
   | { type: "CONTENT_SCRIPT_READY"; payload: null }
   | { type: "UPDATE_BRIDGE_CONTEXT"; payload: BridgeContextPayload }
   | { type: "GET_STATE"; payload: null }
@@ -21,6 +22,7 @@ export type Message =
 
 export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("BRIDGE_SCRIPT_READY"), payload: t.null }),
+  t.type({ type: t.literal("BRIDGE_CONTEXT_RECEIVED"), payload: t.null }),
   t.type({ type: t.literal("CONTENT_SCRIPT_READY"), payload: t.null }),
   t.type({ type: t.literal("UPDATE_BRIDGE_CONTEXT"), payload: BridgeContextPayloadCodec }),
   t.type({ type: t.literal("GET_STATE"), payload: t.null }),

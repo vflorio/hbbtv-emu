@@ -1,11 +1,12 @@
-import type { ClassType } from "@hbb-emu/core";
-import { createLogger } from "@hbb-emu/core";
 import {
   type BridgeContextPayload,
+  type ClassType,
   createEnvelope,
+  createLogger,
   type MessageEnvelope,
   validateEnvelope,
-} from "@hbb-emu/core/message-bus";
+} from "@hbb-emu/core";
+import { isFromSamePage } from "@hbb-emu/runtime-web";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
@@ -34,10 +35,10 @@ export const WithBridgeForwarder = <T extends ClassType<AppState>>(Base: T) =>
       chrome.runtime.onMessage.addListener(this.handleChromeMessage);
     }
 
-    handlePostMessage = (event: MessageEvent): void => {
+    handlePostMessage = (event: MessageEvent) =>
       pipe(
         event,
-        TO.fromPredicate(isFromWindow),
+        TO.fromPredicate(isFromSamePage),
         TO.flatMap((e) => TO.fromOption(O.fromEither(validateEnvelope(e.data)))),
         TO.flatMap((envelope) =>
           pipe(
@@ -50,7 +51,6 @@ export const WithBridgeForwarder = <T extends ClassType<AppState>>(Base: T) =>
         ),
         TO.getOrElse(() => T.of(undefined)),
       )();
-    };
 
     handleChromeMessage = (message: unknown): void =>
       pipe(
@@ -63,6 +63,7 @@ export const WithBridgeForwarder = <T extends ClassType<AppState>>(Base: T) =>
               pipe(
                 logger.info(`Received bridge context with tabId: ${tabId}`),
                 IO.flatMap(() => this.runState(setTabId(tabId))),
+                IO.tap(() => sendBridgeContextReceived),
               ),
             ),
             IOO.getOrElse(() => forwardToContentScript(envelope)),
@@ -106,7 +107,12 @@ const sendBridgeReady: TE.TaskEither<BridgeForwardError, void> = TE.tryCatch(
   (error): BridgeForwardError => bridgeForwardError(error instanceof Error ? error.message : String(error)),
 );
 
-const isFromWindow = (event: MessageEvent): boolean => event.source === window;
+const sendBridgeContextReceived: IO.IO<void> = () =>
+  chrome.runtime
+    .sendMessage(
+      createEnvelope("BRIDGE_SCRIPT", "BACKGROUND_SCRIPT", { type: "BRIDGE_CONTEXT_RECEIVED", payload: null }),
+    )
+    .catch(() => undefined);
 
 const enrichEnvelopeWithContext =
   (tabId: O.Option<number>) =>

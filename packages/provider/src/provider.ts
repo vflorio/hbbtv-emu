@@ -1,7 +1,6 @@
 import { type ClassType, compose, createLogger, type ExtensionConfig, WithDomObserver } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type * as O from "fp-ts/Option";
 import { avVideoBroadcastMatcher } from "./apis/avVideoBroadcast";
 import { avVideoDashMatcher } from "./apis/avVideoDash";
 import { avVideoMp4Matcher } from "./apis/avVideoMp4";
@@ -16,7 +15,7 @@ const logger = createLogger("Provider");
 
 export const WithApp = <T extends ClassType<ElementMatcherRegistry>>(Base: T) =>
   class extends Base implements ElementMatcherRegistry {
-    initialize = (config: O.Option<ExtensionConfig.State>) =>
+    initialize = (config: ExtensionConfig.State) =>
       pipe(
         logger.info("Initializing", config),
         IO.tap(() => initializeOipfObjectFactory),

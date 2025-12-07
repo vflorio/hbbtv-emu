@@ -30,7 +30,6 @@ const WithChromeMessage = <T extends ClassType<MessageAdapter>>(Base: T) =>
       ) =>
         pipe(
           IO.Do,
-          IO.tap(() => logger.debug("Received chrome message:", data?.message?.type)),
           IO.bind("tabId", () => IO.of(getTabId(data, sender))),
           IO.map(({ tabId }) => enrichEnvelope(data, tabId)),
           IO.flatMap((envelope) => this.handleMessage(envelope)),

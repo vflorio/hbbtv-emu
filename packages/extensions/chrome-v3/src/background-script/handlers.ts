@@ -21,16 +21,28 @@ export const onBridgeScriptReady =
     runTask(
       pipe(
         TE.fromEither(validateTabId("BRIDGE_SCRIPT_READY envelope")(envelope)),
-        TE.tapIO((tabId) => logger.info(`Bridge ready for tab ${tabId}, injecting content script`)),
         TE.tapIO((tabId) => app.runState(addTab(tabId))),
-        TE.tapIO((tabId) => app.inject(tabId)),
         TE.flatMap((tabId) =>
           pipe(
             sendBridgeContext(app, tabId),
             TE.mapLeft((error) => missingTabIdError(String(error))),
           ),
         ),
-        TE.tapIO(() => logger.debug("Content script injected and bridge context sent")),
+        TE.matchE(
+          (error: MissingTabIdError) => T.fromIO(logger.warn(error.message)),
+          () => T.of(undefined),
+        ),
+      ),
+    );
+
+export const onBridgeContextReceived =
+  (app: Instance): Handler<{ type: "BRIDGE_CONTEXT_RECEIVED"; payload: null }> =>
+  (envelope) =>
+    runTask(
+      pipe(
+        TE.fromEither(validateTabId("BRIDGE_CONTEXT_RECEIVED envelope")(envelope)),
+        TE.tapIO((tabId) => logger.info(`Bridge context received for tab ${tabId}, injecting content script`)),
+        TE.tapIO((tabId) => app.inject(tabId)),
         TE.matchE(
           (error: MissingTabIdError) => T.fromIO(logger.warn(error.message)),
           () => T.of(undefined),
