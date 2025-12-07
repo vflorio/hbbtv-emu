@@ -1,6 +1,7 @@
-import { type ClassType, compose, createLogger, WithDomObserver } from "@hbb-emu/core";
+import { type ClassType, compose, createLogger, type ExtensionConfig, WithDomObserver } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import type * as O from "fp-ts/Option";
 import { avVideoBroadcastMatcher } from "./apis/avVideoBroadcast";
 import { avVideoDashMatcher } from "./apis/avVideoDash";
 import { avVideoMp4Matcher } from "./apis/avVideoMp4";
@@ -15,17 +16,18 @@ const logger = createLogger("Provider");
 
 export const WithApp = <T extends ClassType<ElementMatcherRegistry>>(Base: T) =>
   class extends Base implements ElementMatcherRegistry {
-    start = pipe(
-      logger.info("Initializing"),
-      IO.tap(() => initializeOipfObjectFactory),
-      IO.tap(() => this.registerMatcher(oipfApplicationManagerMatcher)),
-      IO.tap(() => this.registerMatcher(oipfCapabilitiesMatcher)),
-      IO.tap(() => this.registerMatcher(oipfConfigurationMatcher)),
-      IO.tap(() => this.registerMatcher(avVideoBroadcastMatcher)),
-      IO.tap(() => this.registerMatcher(avVideoMp4Matcher)),
-      IO.tap(() => this.registerMatcher(avVideoDashMatcher)),
-      IO.tap(() => this.initMatchers),
-    );
+    initialize = (config: O.Option<ExtensionConfig.State>) =>
+      pipe(
+        logger.info("Initializing", config),
+        IO.tap(() => initializeOipfObjectFactory),
+        IO.tap(() => this.registerMatcher(oipfApplicationManagerMatcher)),
+        IO.tap(() => this.registerMatcher(oipfCapabilitiesMatcher)),
+        IO.tap(() => this.registerMatcher(oipfConfigurationMatcher)),
+        IO.tap(() => this.registerMatcher(avVideoBroadcastMatcher)),
+        IO.tap(() => this.registerMatcher(avVideoMp4Matcher)),
+        IO.tap(() => this.registerMatcher(avVideoDashMatcher)),
+        IO.tap(() => this.initMatchers),
+      );
   };
 
 // biome-ignore format: composition
