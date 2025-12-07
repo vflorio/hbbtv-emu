@@ -1,7 +1,16 @@
 import * as t from "io-ts";
 import { ChannelTripletCodec } from "../hbbtv";
+import { HbbTVStateCodec } from "../hbbtv/state-model/index";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
+
+// Re-export HbbTV state types for convenience
+export type { HbbTVState, OipfCapabilitiesState, OipfConfigurationState } from "../hbbtv/state-model/index";
+export { DEFAULT_HBBTV_STATE, HbbTVStateCodec } from "../hbbtv/state-model/index";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream Event Config
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const StreamEventConfigCodec = t.intersection([
   t.type({
@@ -20,6 +29,10 @@ export const StreamEventConfigCodec = t.intersection([
 
 export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel Config
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const ChannelConfigCodec = t.intersection([
   ChannelTripletCodec,
   t.type({
@@ -35,14 +48,23 @@ export const ChannelConfigCodec = t.intersection([
 
 export type ChannelConfig = t.TypeOf<typeof ChannelConfigCodec>;
 
-export const ExtensionStateCodec = t.type({
-  version: t.string,
-  countryCode: t.string,
-  capabilities: t.string,
-  userAgent: t.string,
-  channels: t.array(ChannelConfigCodec),
-  currentChannel: t.union([ChannelConfigCodec, t.null]),
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// Extension State
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ExtensionStateCodec = t.intersection([
+  t.type({
+    version: t.string,
+    countryCode: t.string,
+    capabilities: t.string,
+    userAgent: t.string,
+    channels: t.array(ChannelConfigCodec),
+    currentChannel: t.union([ChannelConfigCodec, t.null]),
+  }),
+  t.partial({
+    hbbtv: HbbTVStateCodec,
+  }),
+]);
 
 export type ExtensionState = t.TypeOf<typeof ExtensionStateCodec>;
 

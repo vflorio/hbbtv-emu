@@ -6,7 +6,6 @@
  *
  * @see OIPF DAE Specification Section 7.10
  * @see HbbTV Specification
- * @module hbbtv/api/programme
  */
 
 import type { ParentalRatingCollection } from "./parentalRating";

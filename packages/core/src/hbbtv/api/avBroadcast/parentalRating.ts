@@ -6,7 +6,6 @@
  *
  * @see OIPF DAE Specification Section 7.9
  * @see HbbTV Specification
- * @module hbbtv/api/parentalRating
  */
 
 // ============================================================================

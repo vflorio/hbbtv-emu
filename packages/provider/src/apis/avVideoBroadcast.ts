@@ -8,8 +8,8 @@ import type { ElementMatcher } from "../elementMatcher";
 
 export const avVideoBroadcastMatcher: ElementMatcher<HTMLObjectElement, OipfObject> = {
   name: "AvVideoBroadcast",
-  selector: `object[type="${Broadcast.videoBroadcast.MIME_TYPE}"]`,
-  predicate: Broadcast.videoBroadcast.isValidElement,
+  selector: `object[type="${Broadcast.VideoBroadcast.MIME_TYPE}"]`,
+  predicate: Broadcast.VideoBroadcast.isValidElement,
   transform: toOipfObject,
   onDetected: (oipfObject): IO.IO<void> =>
     pipe(

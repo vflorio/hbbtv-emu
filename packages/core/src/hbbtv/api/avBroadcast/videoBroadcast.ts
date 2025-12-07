@@ -18,7 +18,6 @@
  *
  * @see OIPF DAE Specification
  * @see HbbTV Specification
- * @module hbbtv/api/avBroadcast
  */
 
 import type { AVComponent, AVComponentCollection, ComponentType } from "../avComponent";

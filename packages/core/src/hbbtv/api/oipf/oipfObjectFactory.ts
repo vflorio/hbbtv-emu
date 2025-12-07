@@ -30,7 +30,6 @@
  * @see OIPF DAE Specification Clause 7.1
  * @see HbbTV 1.0 (ETSI TS 102 796 V1.1.1)
  * @since HbbTV 1.0
- * @module hbbtv/api/oipf/objectFactory
  */
 
 import type { ChannelConfig } from "../avBroadcast/channel";

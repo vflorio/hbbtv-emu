@@ -5,7 +5,6 @@
  *
  * @see OIPF DAE V1.1 Clause 7.14
  * @see HbbTV Specification
- * @module hbbtv/api/avControl/events
  */
 
 import type { PlayState } from "./avControl";

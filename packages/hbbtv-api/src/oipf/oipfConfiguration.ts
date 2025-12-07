@@ -1,27 +1,17 @@
-import { createLogger, type OIPF } from "@hbb-emu/core";
+import {
+  createLogger,
+  DEFAULT_COUNTRY_ID,
+  DEFAULT_LANGUAGE,
+  DEFAULT_NETWORK,
+  DEFAULT_PARENTAL_CONTROL,
+  type OIPF,
+} from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as RR from "fp-ts/ReadonlyRecord";
 
 const logger = createLogger("OipfConfiguration");
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Default Configuration Values
-// ─────────────────────────────────────────────────────────────────────────────
-
-const DEFAULT_COUNTRY_ID = "IT";
-const DEFAULT_LANGUAGE = "ita";
-
-const DEFAULT_NETWORK: NonNullable<OIPF.Configuration.Configuration["network"]> = {
-  interfaces: [],
-  online: true,
-};
-
-const DEFAULT_PARENTAL_CONTROL: NonNullable<OIPF.Configuration.Configuration["parentalControl"]> = {
-  rating: 0,
-  enabled: false,
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration Implementation

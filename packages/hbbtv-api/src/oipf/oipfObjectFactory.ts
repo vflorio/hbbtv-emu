@@ -112,7 +112,7 @@ export class OipfObjectFactory implements OIPF.ObjectFactory.OipfObjectFactory {
     return new OipfCapabilities();
   };
 
-  createChannelConfig = (): Broadcast.channel.ChannelConfig => {
+  createChannelConfig = (): Broadcast.Channel.ChannelConfig => {
     logger.debug("createChannelConfig")();
     // Return a stub ChannelConfig - full implementation requires ChannelList etc.
     return {
@@ -120,7 +120,7 @@ export class OipfObjectFactory implements OIPF.ObjectFactory.OipfObjectFactory {
       favouriteLists: { length: 0, getFavouriteList: () => null },
       currentFavouriteList: null,
       getChannelByTriplet: () => null,
-    } as unknown as Broadcast.channel.ChannelConfig;
+    } as unknown as Broadcast.Channel.ChannelConfig;
   };
 
   createConfigurationObject = (): OIPF.Configuration.Configuration => {

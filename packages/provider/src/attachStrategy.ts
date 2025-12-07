@@ -57,8 +57,8 @@ export const injectStrategy = (instance: OipfObjectFactory, key: string): IO.IO<
  * All AV objects (VideoBroadcast, VideoMp4, VideoDash) share this structure.
  */
 export interface AvObjectWithVideoBackend {
-  /** The underlying HTML video element for playback */
-  readonly videoElement: HTMLVideoElement;
+  /** Get the underlying HTML video element for playback */
+  getVideoElement(): HTMLVideoElement;
 }
 
 /**
@@ -75,11 +75,12 @@ export type AvObject = (AvVideoBroadcast | AvVideoMp4 | AvVideoDash) & AvObjectW
  * - application/dash+xml
  */
 export const proxyStrategy = (oipfObject: OipfObject, instance: AvObject): IO.IO<void> => {
-  const styleMirror = new ObjectStyleMirror(oipfObject.element, instance.videoElement);
+  const videoElement = instance.getVideoElement();
+  const styleMirror = new ObjectStyleMirror(oipfObject.element, videoElement);
 
   return pipe(
     logger.debug("Applying proxy strategy to:", oipfObject.type),
-    IO.flatMap(() => insertAfter(instance.videoElement)(oipfObject.element)),
+    IO.flatMap(() => insertAfter(videoElement)(oipfObject.element)),
     IO.flatMap(() => styleMirror.start),
     IO.flatMap(() => proxyProperties(oipfObject.element, instance)),
     IO.tap(() => logger.debug("Proxy strategy complete for:", oipfObject.type)),
