@@ -9,7 +9,6 @@ import { oipfCapabilitiesMatcher } from "./apis/oipfCapabilities";
 import { oipfConfigurationMatcher } from "./apis/oipfConfiguration";
 import { initializeOipfObjectFactory } from "./apis/oipfObjectFactory";
 import { type ElementMatcherRegistry, WithElementMatcherRegistry } from "./elementMatcher";
-import { WithAppState } from "./state";
 
 const logger = createLogger("Provider");
 
@@ -33,7 +32,7 @@ export const WithApp = <T extends ClassType<ElementMatcherRegistry>>(Base: T) =>
 // biome-ignore format: composition
 export const Provider = compose(
   class {},
-  WithAppState,
+
   WithDomObserver,
   WithElementMatcherRegistry,
   WithApp,

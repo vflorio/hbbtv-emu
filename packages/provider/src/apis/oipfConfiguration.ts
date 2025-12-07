@@ -2,9 +2,9 @@ import { OIPF } from "@hbb-emu/core";
 import { OipfConfiguration } from "@hbb-emu/hbbtv-api";
 import * as IO from "fp-ts/IO";
 import { pipe } from "fp-ts/lib/function";
+import { type OipfObject, toOipfObject } from "..";
 import { copyStrategy } from "../attachStrategy";
 import type { ElementMatcher } from "../elementMatcher";
-import { type OipfObject, toOipfObject } from "../oipfObject";
 
 export const oipfConfigurationMatcher: ElementMatcher<HTMLObjectElement, OipfObject> = {
   name: "OipfConfiguration",
