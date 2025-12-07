@@ -5,8 +5,7 @@ import { injectStrategy } from "../attachStrategy";
 
 const WINDOW_KEY = "oipfObjectFactory" as const;
 
-export const initializeOipfObjectFactory = (): IO.IO<void> =>
-  pipe(
-    IO.of(new OipfObjectFactory()),
-    IO.flatMap((factory) => injectStrategy(factory, WINDOW_KEY)),
-  );
+export const initializeOipfObjectFactory: IO.IO<void> = pipe(
+  IO.of(new OipfObjectFactory()),
+  IO.flatMap((factory) => injectStrategy(factory, WINDOW_KEY)),
+);

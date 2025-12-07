@@ -69,8 +69,7 @@ export const initializeHbbTVApi = (app: Instance): IO.IO<void> =>
           pipe(
             logger.info("Initializing HbbTV API with config"),
             IO.tap(() => () => {
-              // TODO: Initialize HbbTV API
-              // injectHbbTVApi(config);
+              // TODO: integrare il Provider
             }),
           ),
       ),

@@ -3,19 +3,16 @@ import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { flow, pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as N from "fp-ts/number";
 import * as O from "fp-ts/Option";
-import * as RS from "fp-ts/ReadonlySet";
-import * as S from "fp-ts/State";
-import type { ChromeScriptInject } from "./scriptInject";
 
 const logger = createLogger("ChromeWebRequestManager");
 
-interface State {
-  tabs: ReadonlySet<number>;
+export interface WebRequestManager {
+  onTabAdded: (tabId: number) => IO.IO<void>;
+  onTabRemoved: (tabId: number) => IO.IO<void>;
 }
 
-export const WithChromeWebRequestManager = <T extends ClassType<State & ChromeScriptInject>>(Base: T) =>
+export const WithChromeWebRequestManager = <T extends ClassType<WebRequestManager>>(Base: T) =>
   class extends Base {
     constructor(...args: any[]) {
       super(...args);
@@ -26,17 +23,15 @@ export const WithChromeWebRequestManager = <T extends ClassType<State & ChromeSc
         pipe(
           IO.Do,
           IO.tap(() => logger.info(`Found HbbTV tab: ${details.tabId}`)),
-          IO.map(() => addTab(details.tabId)(this)),
-          IO.of(() => processResponseHeaders(details)),
+          IO.tap(() => this.onTabAdded(details.tabId)),
+          IO.map(() => processResponseHeaders(details)),
         )();
 
-      const onTabsRemoved =
-        (tabId: number): IO.IO<void> =>
-        () =>
-          pipe(
-            logger.info(`Removing tab from HbbTV tabs set: ${tabId}`),
-            IO.map(() => removeTab(tabId)(this)),
-          )();
+      const onTabsRemoved = (tabId: number): void =>
+        pipe(
+          logger.info(`Removing tab from HbbTV tabs set: ${tabId}`),
+          IO.flatMap(() => this.onTabRemoved(tabId)),
+        )();
 
       chrome.webRequest.onHeadersReceived.addListener(
         onHeadersReceived,
@@ -50,22 +45,6 @@ export const WithChromeWebRequestManager = <T extends ClassType<State & ChromeSc
       chrome.tabs.onRemoved.addListener(onTabsRemoved);
     }
   };
-
-const modifyTabs = (f: (tabs: ReadonlySet<number>) => ReadonlySet<number>): S.State<State, void> =>
-  pipe(
-    S.get<State>(),
-    S.map((state) => state.tabs),
-    S.flatMap((tabs) =>
-      S.modify((state) => ({
-        ...state,
-        tabs: f(tabs),
-      })),
-    ),
-  );
-
-const addTab = (tabId: number): S.State<State, void> => modifyTabs(RS.insert(N.Eq)(tabId));
-
-const removeTab = (tabId: number): S.State<State, void> => modifyTabs(RS.remove(N.Eq)(tabId));
 
 const processResponseHeaders = (
   details: chrome.webRequest.OnHeadersReceivedDetails,

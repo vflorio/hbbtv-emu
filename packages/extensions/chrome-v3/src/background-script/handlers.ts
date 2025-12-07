@@ -1,7 +1,7 @@
 import { createLogger, type ExtensionConfig } from "@hbb-emu/core";
 import type { Handler, MessageEnvelope } from "@hbb-emu/core/message-bus";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
+import type * as IO from "fp-ts/IO";
 import * as N from "fp-ts/number";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
@@ -11,11 +11,11 @@ import * as TE from "fp-ts/TaskEither";
 import type { Instance } from "./app";
 import { addTab, getConfig, getTabs, setConfig } from "./state";
 import { saveConfigToStorage } from "./storage";
-import { extractTabId, isNotSourceTab, type MissingTabIdError, validateTabId } from "./tab";
+import { extractTabId, isNotSourceTab, type MissingTabIdError, missingTabIdError, validateTabId } from "./tab";
 
 const logger = createLogger("BackgroundScript:Handlers");
 
-const onBridgeScriptReady =
+export const onBridgeScriptReady =
   (app: Instance): Handler<{ type: "BRIDGE_SCRIPT_READY"; payload: null }> =>
   (envelope) =>
     runTask(
@@ -27,7 +27,7 @@ const onBridgeScriptReady =
         TE.flatMap((tabId) =>
           pipe(
             sendBridgeContext(app, tabId),
-            TE.mapLeft((e): MissingTabIdError => ({ type: "MissingTabIdError", message: String(e) })),
+            TE.mapLeft((error) => missingTabIdError(String(error))),
           ),
         ),
         TE.tapIO(() => logger.debug("Content script injected and bridge context sent")),
@@ -38,10 +38,7 @@ const onBridgeScriptReady =
       ),
     );
 
-const sendBridgeContext = (app: Instance, tabId: number): TE.TaskEither<unknown, void> =>
-  app.publish("BRIDGE_SCRIPT", { type: "UPDATE_BRIDGE_CONTEXT", payload: { tabId } }, { tabId });
-
-const onGetState =
+export const onGetState =
   (app: Instance): Handler<{ type: "GET_STATE"; payload: null }> =>
   (envelope) =>
     runTask(
@@ -60,7 +57,7 @@ const onGetState =
       ),
     );
 
-const onStateUpdated =
+export const onStateUpdated =
   (app: Instance): Handler<{ type: "STATE_UPDATED"; payload: ExtensionConfig.State }> =>
   (envelope) =>
     runTask(
@@ -72,7 +69,7 @@ const onStateUpdated =
       ),
     );
 
-const onContentScriptReady =
+export const onContentScriptReady =
   (_app: Instance): Handler<{ type: "CONTENT_SCRIPT_READY"; payload: null }> =>
   (envelope) =>
     pipe(
@@ -82,6 +79,9 @@ const onContentScriptReady =
         (tabId) => logger.info(`Content script ready for tab ${tabId}`),
       ),
     );
+
+const sendBridgeContext = (app: Instance, tabId: number): TE.TaskEither<unknown, void> =>
+  app.publish("BRIDGE_SCRIPT", { type: "UPDATE_BRIDGE_CONTEXT", payload: { tabId } }, { tabId });
 
 const broadcastConfigToTabs = (app: Instance, originalEnvelope: MessageEnvelope): T.Task<void> =>
   pipe(
@@ -105,20 +105,11 @@ const broadcastConfigToTabs = (app: Instance, originalEnvelope: MessageEnvelope)
               ),
             ),
             T.sequenceArray,
-            T.map(() => undefined),
+            T.asUnit,
           ),
         ),
       ),
     ),
-  );
-
-export const registerHandlers = (app: Instance): IO.IO<void> =>
-  pipe(
-    logger.info("Registering handlers"),
-    IO.flatMap(() => app.subscribe("CONTENT_SCRIPT_READY", onContentScriptReady(app))),
-    IO.flatMap(() => app.subscribe("BRIDGE_SCRIPT_READY", onBridgeScriptReady(app))),
-    IO.flatMap(() => app.subscribe("GET_STATE", onGetState(app))),
-    IO.flatMap(() => app.subscribe("STATE_UPDATED", onStateUpdated(app))),
   );
 
 // FIXME: Comporre le pipeline come IO o aggiungere il supporto agli handlers asincroni

@@ -9,3 +9,5 @@ export const toOipfObject = (element: HTMLObjectElement): OipfObject => ({
   type: OIPF.ApplicationManager.MIME_TYPE,
   element,
 });
+
+export * from "./provider";

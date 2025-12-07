@@ -4,6 +4,7 @@
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/hbbtv-api": "workspace:*",
+    "@hbb-emu/provider": "workspace:*",
     "@hbb-emu/runtime-chrome": "workspace:*",
     "@hbb-emu/runtime-web": "workspace:*",
     "react": "19.2.0",

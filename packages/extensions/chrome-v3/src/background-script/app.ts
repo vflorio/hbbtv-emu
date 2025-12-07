@@ -6,9 +6,9 @@ import { WithAppState } from "./state";
 export const App = compose(
   class {},
   WithAppState,
-  WithChromeMessageAdapter,
   WithChromeScriptInject,
   WithChromeWebRequestManager,
+  WithChromeMessageAdapter,
   WithMessageBroker("BACKGROUND_SCRIPT"),
 );
 

@@ -1,5 +1,4 @@
-import { compose } from "@hbb-emu/core";
-import { WithMessageClient } from "@hbb-emu/core/message-bus";
+import { compose, WithMessageClient } from "@hbb-emu/core";
 import { WithPostMessageAdapter } from "@hbb-emu/runtime-web";
 import { WithAppState } from "./state";
 
@@ -9,6 +8,6 @@ export const App = compose(
   WithAppState,
   WithPostMessageAdapter,
   WithMessageClient("CONTENT_SCRIPT"),
-);
+ );
 
 export type Instance = InstanceType<typeof App>;

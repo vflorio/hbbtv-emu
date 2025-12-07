@@ -3,7 +3,7 @@ import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
 import * as t from "io-ts";
 import { type Channel, ChannelTripletCodec, isValidChannelTriplet } from "../hbbtv";
-import { ChannelIdType } from "../hbbtv/api/avBroadcast/constants";
+import { ChannelIdType } from "../hbbtv/api/avBroadcast/channel";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
 

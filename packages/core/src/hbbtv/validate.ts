@@ -1,7 +1,7 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import { ChannelIdType } from "./api/avBroadcast/constants";
+import { ChannelIdType } from "./api/avBroadcast/channel";
 
 export const ChannelTripletCodec = t.type({
   onid: t.number,

@@ -48,6 +48,9 @@ importers:
       '@hbb-emu/hbbtv-api':
         specifier: workspace:*
         version: link:../../hbbtv-api
+      '@hbb-emu/provider':
+        specifier: workspace:*
+        version: link:../../provider
       '@hbb-emu/runtime-chrome':
         specifier: workspace:*
         version: link:../../runtimes/chrome

@@ -8,7 +8,7 @@
  * @module hbbtv/api/avControl/events
  */
 
-import type { PlayState } from "./constants";
+import type { PlayState } from "./avControl";
 
 /**
  * Play state change event handler.
