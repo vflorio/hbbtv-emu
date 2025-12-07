@@ -11,55 +11,38 @@ import {
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import {
-  createBidirectionalMethods,
-  deriveSchema,
-  type OnStateChangeCallback,
-  type StatefulBidirectional,
-} from "../lib/stateful";
+import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 
 const logger = createLogger("OipfCapabilities");
-
-export const OipfCapabilitiesStateSchema = deriveSchema<OipfCapabilitiesState, OipfCapabilities>(
-  OipfCapabilitiesStateCodec,
-);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OipfCapabilities Class
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class OipfCapabilities implements OIPF.Capabilities.Capabilities, StatefulBidirectional<OipfCapabilitiesState> {
+export class OipfCapabilities implements OIPF.Capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
   hbbtvVersion = DEFAULT_HBBTV_VERSION;
   uiProfiles = [...DEFAULT_UI_PROFILES];
   drmSystems = [...DEFAULT_DRM_SYSTEMS];
   mediaFormats = [...DEFAULT_MEDIA_FORMATS];
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // StatefulBidirectional Interface
+  // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createBidirectionalMethods(OipfCapabilitiesStateSchema, this);
+  readonly stateful = createBidirectionalMethods(
+    deriveSchema<OipfCapabilitiesState, OipfCapabilities>(OipfCapabilitiesStateCodec),
+    this,
+  );
 
-  applyState = (state: Partial<OipfCapabilitiesState>): IO.IO<void> =>
-    pipe(
-      logger.debug("applyState:", state),
-      IO.flatMap(() => this.stateful.applyState(state)),
-    );
+  applyState = (state: Partial<OipfCapabilitiesState>): IO.IO<void> => this.stateful.applyState(state);
 
-  getState = (): IO.IO<Partial<OipfCapabilitiesState>> =>
-    pipe(
-      logger.debug("getState"),
-      IO.flatMap(() => this.stateful.getState()),
-    );
+  getState = (): IO.IO<Partial<OipfCapabilitiesState>> => this.stateful.getState();
 
   subscribe = (callback: OnStateChangeCallback<OipfCapabilitiesState>): IO.IO<() => void> =>
     this.stateful.subscribe(callback);
 
   notifyStateChange = (changedKeys: ReadonlyArray<keyof OipfCapabilitiesState>): IO.IO<void> =>
-    pipe(
-      logger.debug("notifyStateChange:", changedKeys),
-      IO.flatMap(() => this.stateful.notifyStateChange(changedKeys)),
-    );
+    this.stateful.notifyStateChange(changedKeys);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Capabilities API

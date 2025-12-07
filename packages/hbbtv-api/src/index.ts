@@ -1,3 +1,3 @@
 export * from "./avobject";
-export * from "./lib";
 export * from "./oipf";
+export * from "./stateful";

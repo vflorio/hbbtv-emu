@@ -1,24 +1,58 @@
-import { Broadcast, createLogger, DEFAULT_BROADCAST_PLAY_STATE } from "@hbb-emu/core";
-import { AVVideoObjectBase } from "./avVideoObjectBase";
+import {
+  Broadcast,
+  createLogger,
+  DEFAULT_BROADCAST_PLAY_STATE,
+  DEFAULT_FULL_SCREEN,
+  DEFAULT_VIDEO_HEIGHT,
+  DEFAULT_VIDEO_WIDTH,
+  type VideoBroadcastState,
+  VideoBroadcastStateCodec,
+} from "@hbb-emu/core";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 
 const logger = createLogger("AvVideoBroadcast");
 
 /**
- * A/V Control object for broadcast video.
+ * Video/Broadcast embedded object implementation.
  *
  * Implements the video/broadcast MIME type for HbbTV applications.
  * Provides channel tuning, EPG access, and component selection.
- *
- * @see Broadcast.VideoBroadcast
  */
-export class AvVideoBroadcast extends AVVideoObjectBase {
+export class AvVideoBroadcast implements Broadcast.VideoBroadcast.VideoBroadcast, Stateful<VideoBroadcastState> {
   static readonly MIME_TYPE = Broadcast.VideoBroadcast.MIME_TYPE;
 
+  /** The underlying HTML video element used for broadcast presentation */
+  protected videoElement: HTMLVideoElement = document.createElement("video");
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // Broadcast-specific State
+  // State
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected _broadcastPlayState: Broadcast.VideoBroadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
+  _playState: Broadcast.VideoBroadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
+  _fullScreen = DEFAULT_FULL_SCREEN;
+  _width = DEFAULT_VIDEO_WIDTH;
+  _height = DEFAULT_VIDEO_HEIGHT;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Stateful Interface
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  readonly stateful = createBidirectionalMethods(
+    deriveSchema<VideoBroadcastState, AvVideoBroadcast>(VideoBroadcastStateCodec),
+    this,
+  );
+
+  applyState = (state: Partial<VideoBroadcastState>): IO.IO<void> => this.stateful.applyState(state);
+
+  getState = (): IO.IO<Partial<VideoBroadcastState>> => this.stateful.getState();
+
+  subscribe = (callback: OnStateChangeCallback<VideoBroadcastState>): IO.IO<() => void> =>
+    this.stateful.subscribe(callback);
+
+  notifyStateChange = (changedKeys: ReadonlyArray<keyof VideoBroadcastState>): IO.IO<void> =>
+    this.stateful.notifyStateChange(changedKeys);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Constants (COMPONENT_TYPE_*)
@@ -29,9 +63,13 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
   readonly COMPONENT_TYPE_SUBTITLE = 2 as const;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Broadcast-specific Event Handlers
+  // Event Handlers
   // ═══════════════════════════════════════════════════════════════════════════
 
+  onPlayStateChange: Broadcast.Events.OnPlayStateChangeHandler | null = null;
+  onFullScreenChange: Broadcast.Events.OnFullScreenChangeHandler | null = null;
+  onfocus: Broadcast.Events.OnFocusHandler | null = null;
+  onblur: Broadcast.Events.OnBlurHandler | null = null;
   onChannelChangeSucceeded: Broadcast.Events.OnChannelChangeSucceededHandler | null = null;
   onChannelChangeError: Broadcast.Events.OnChannelChangeErrorHandler | null = null;
   onProgrammesChanged: Broadcast.Events.OnProgrammesChangedHandler | null = null;
@@ -42,8 +80,46 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
   onComponentChanged: Broadcast.Events.OnComponentChangedHandler | null = null;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Broadcast-specific Properties
+  // Properties
   // ═══════════════════════════════════════════════════════════════════════════
+
+  get playState(): Broadcast.VideoBroadcast.PlayState {
+    return this._playState;
+  }
+
+  get fullScreen(): boolean {
+    return this._fullScreen;
+  }
+
+  get width(): number {
+    return this._width;
+  }
+
+  set width(value: number) {
+    if (!this._fullScreen) {
+      this._width = value;
+      this.videoElement.style.width = `${value}px`;
+    }
+  }
+
+  get height(): number {
+    return this._height;
+  }
+
+  set height(value: number) {
+    if (!this._fullScreen) {
+      this._height = value;
+      this.videoElement.style.height = `${value}px`;
+    }
+  }
+
+  get data(): string {
+    return "";
+  }
+
+  set data(_value: string) {
+    // Setting data property has no effect for video/broadcast
+  }
 
   get currentChannel(): Broadcast.Channel.Channel | null {
     // TODO: Implement channel management
@@ -55,10 +131,46 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
     return { length: 0, item: () => undefined };
   }
 
-  constructor() {
-    super();
-    logger.info("initialized")();
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Playback Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  setFullScreen = (fullscreen: boolean): void => {
+    pipe(
+      logger.debug("setFullScreen:", fullscreen),
+      IO.tap(() =>
+        IO.of(() => {
+          if (this._fullScreen !== fullscreen) {
+            this._fullScreen = fullscreen;
+
+            if (fullscreen) {
+              this.videoElement.requestFullscreen?.().catch((err) => {
+                logger.warn("Fullscreen request failed:", err)();
+              });
+            } else {
+              document.exitFullscreen?.().catch((err) => {
+                logger.warn("Exit fullscreen failed:", err)();
+              });
+            }
+
+            this.onFullScreenChange?.();
+          }
+        }),
+      ),
+    )();
+  };
+
+  stop = (): void => {
+    pipe(
+      logger.debug("stop"),
+      IO.tap(() =>
+        IO.of(() => {
+          this.videoElement.pause();
+          this.setPlayState(Broadcast.VideoBroadcast.PlayState.STOPPED);
+        }),
+      ),
+    )();
+  };
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Channel Methods
@@ -72,7 +184,7 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
 
   bindToCurrentChannel = (): Broadcast.Channel.Channel | null => {
     logger.debug("bindToCurrentChannel")();
-    this._broadcastPlayState = Broadcast.VideoBroadcast.PlayState.PRESENTING;
+    this.setPlayState(Broadcast.VideoBroadcast.PlayState.PRESENTING);
     // TODO: Implement
     return null;
   };
@@ -114,6 +226,12 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
   // Volume Methods
   // ═══════════════════════════════════════════════════════════════════════════
 
+  setVolume = (volume: number): boolean => {
+    const clampedVolume = Math.max(0, Math.min(100, volume));
+    this.videoElement.volume = clampedVolume / 100;
+    return true;
+  };
+
   getVolume = (): number => {
     return Math.round(this.videoElement.volume * 100);
   };
@@ -125,7 +243,7 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
   release = (): void => {
     logger.debug("release")();
     this.stop();
-    this._broadcastPlayState = Broadcast.VideoBroadcast.PlayState.UNREALIZED;
+    this.setPlayState(Broadcast.VideoBroadcast.PlayState.UNREALIZED);
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -174,5 +292,18 @@ export class AvVideoBroadcast extends AVVideoObjectBase {
   ): void => {
     logger.debug("removeStreamEventListener")();
     // TODO: Implement
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Protected Helpers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  protected setPlayState = (newState: Broadcast.VideoBroadcast.PlayState): void => {
+    if (this._playState !== newState) {
+      const oldState = this._playState;
+      this._playState = newState;
+      logger.debug("PlayState changed:", oldState, "->", newState)();
+      this.onPlayStateChange?.(newState);
+    }
   };
 }

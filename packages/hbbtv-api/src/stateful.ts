@@ -14,10 +14,6 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as t from "io-ts";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Descriptor for a single property mapping from state to instance.
  * Uses a simpler callback-based approach for flexibility.
@@ -46,6 +42,11 @@ export type PropertyDescriptor<S extends object, T extends object> = Readonly<{
 export type StateSchema<S extends object, T extends object> = ReadonlyArray<PropertyDescriptor<S, T>>;
 
 /**
+ * Callback type for state change notifications.
+ */
+export type OnStateChangeCallback<S> = (state: Partial<S>) => IO.IO<void>;
+
+/**
  * Interface for stateful objects that can receive state updates.
  *
  * @template S - State type
@@ -53,20 +54,7 @@ export type StateSchema<S extends object, T extends object> = ReadonlyArray<Prop
 export interface Stateful<S> {
   /** Apply a partial state update to this instance */
   applyState: (state: Partial<S>) => IO.IO<void>;
-}
 
-/**
- * Callback type for state change notifications.
- */
-export type OnStateChangeCallback<S> = (state: Partial<S>) => IO.IO<void>;
-
-/**
- * Interface for bidirectional stateful objects.
- * Extends Stateful with ability to read state and notify changes.
- *
- * @template S - State type
- */
-export interface StatefulBidirectional<S> extends Stateful<S> {
   /** Get current state from instance properties */
   getState: () => IO.IO<Partial<S>>;
 
@@ -182,7 +170,6 @@ export const propTransform = <S extends object, T extends object, V>(
  * Works with ArrayType, ReadonlyArrayType, and refinements.
  */
 const isArrayCodec = (codec: t.Mixed): boolean => {
-  // biome-ignore lint/suspicious/noExplicitAny: io-ts internal structure
   const tag = (codec as any)._tag;
   return tag === "ArrayType" || tag === "ReadonlyArrayType";
 };
@@ -380,7 +367,7 @@ export const notifyStateChange =
 
 /**
  * Create methods for bidirectional state management.
- * Returns an object with all StatefulBidirectional methods bound to the schema and instance.
+ * Returns an object with all Stateful methods bound to the schema and instance.
  *
  * @param schema - The state schema
  * @param instance - The instance to bind to
@@ -388,7 +375,7 @@ export const notifyStateChange =
  *
  * @example
  * ```ts
- * class OipfCapabilities implements StatefulBidirectional<OipfCapabilitiesState> {
+ * class OipfCapabilities implements Stateful<OipfCapabilitiesState> {
  *   private _stateful = createBidirectionalMethods(schema, this);
  *
  *   applyState = this._stateful.applyState;
