@@ -16,7 +16,7 @@ export const sendGetState = (app: Instance): TE.TaskEither<SendError, void> =>
     TE.mapError((error) => sendError(`Failed to send GET_STATE: ${String(error)}`)),
   );
 
-export const waitForState = (app: Instance): TE.TaskEither<ResponseError | TimeoutError, ExtensionConfig.State> =>
+export const waitForState = (app: Instance): TE.TaskEither<ResponseError | TimeoutError, State> =>
   pipe(
     TE.tryCatch(
       () => app.once("STATE_UPDATED", 3000)(),

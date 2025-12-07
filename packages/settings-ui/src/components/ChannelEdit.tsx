@@ -1,4 +1,4 @@
-import { type ExtensionConfig, randomUUID } from "@hbb-emu/core";
+import { type ChannelConfig, randomUUID } from "@hbb-emu/core";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
@@ -26,7 +26,7 @@ export default function ChannelEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { channel } = useConfig();
-  const [formData, setFormData] = useState<Omit<ExtensionConfig.ChannelConfig, "id">>({
+  const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
     ...generateRandomChannel(),
     name: "",
     mp4Source: "",
@@ -53,12 +53,11 @@ export default function ChannelEdit() {
     }
   }, [id, channel]);
 
-  const handleChange =
-    (field: keyof Omit<ExtensionConfig.ChannelConfig, "id">) => (event: React.ChangeEvent<HTMLInputElement>) =>
-      setFormData((prev) => ({ ...prev, [field]: event.target.value }));
+  const handleChange = (field: keyof Omit<ChannelConfig, "id">) => (event: React.ChangeEvent<HTMLInputElement>) =>
+    setFormData((prev) => ({ ...prev, [field]: event.target.value }));
 
   const handleSubmit = async () => {
-    const channelData: ExtensionConfig.ChannelConfig = {
+    const channelData: ChannelConfig = {
       id: id && id !== "new" ? id : randomUUID(),
       ...formData,
     };

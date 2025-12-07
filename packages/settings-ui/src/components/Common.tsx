@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/core";
+import type { ExtensionState } from "@hbb-emu/core";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useConfig } from "../context/config";
@@ -6,7 +6,7 @@ import { useConfig } from "../context/config";
 export default function Settings() {
   const { common } = useConfig();
 
-  const [config, setConfig] = useState<Omit<ExtensionConfig.State, "channels"> | null>(null);
+  const [config, setConfig] = useState<Omit<ExtensionState, "channels"> | null>(null);
 
   const [version, setVersion] = useState(config?.version || "1.5.0");
   const [countryCode, setCountryCode] = useState(config?.countryCode || "ITA");

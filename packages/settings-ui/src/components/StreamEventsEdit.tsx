@@ -1,4 +1,11 @@
-import { type ExtensionConfig, hexToText, isValidHex, randomUUID, textToHex } from "@hbb-emu/core";
+import {
+  type ChannelConfig,
+  hexToText,
+  isValidHex,
+  randomUUID,
+  type StreamEventConfig,
+  textToHex,
+} from "@hbb-emu/core";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
@@ -19,7 +26,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useConfig } from "../context/config";
 
-interface EventFormData extends Omit<ExtensionConfig.StreamEventConfig, "id"> {}
+interface EventFormData extends Omit<StreamEventConfig, "id"> {}
 
 const defaultEventFormData: EventFormData = {
   name: "",
@@ -35,9 +42,9 @@ export default function StreamEventsEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const config = useConfig();
-  const [channel, setChannel] = useState<ExtensionConfig.ChannelConfig | null>(null);
-  const [events, setEvents] = useState<ExtensionConfig.StreamEventConfig[]>([]);
-  const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEventConfig | null>(null);
+  const [channel, setChannel] = useState<ChannelConfig | null>(null);
+  const [events, setEvents] = useState<StreamEventConfig[]>([]);
+  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<EventFormData>(defaultEventFormData);
 
@@ -59,7 +66,7 @@ export default function StreamEventsEdit() {
     setShowForm(true);
   };
 
-  const handleEditEvent = (event: ExtensionConfig.StreamEventConfig) => {
+  const handleEditEvent = (event: StreamEventConfig) => {
     setEditingEvent(event);
     setFormData({
       name: event.name,
@@ -78,7 +85,7 @@ export default function StreamEventsEdit() {
   };
 
   const handleSaveEvent = () => {
-    const eventData: ExtensionConfig.StreamEventConfig = {
+    const eventData: StreamEventConfig = {
       id: editingEvent?.id || randomUUID(),
       ...formData,
     };
@@ -98,7 +105,7 @@ export default function StreamEventsEdit() {
 
   const handleSaveAll = async () => {
     if (channel) {
-      const updatedChannel: ExtensionConfig.ChannelConfig = {
+      const updatedChannel: ChannelConfig = {
         ...channel,
         streamEvents: events,
       };

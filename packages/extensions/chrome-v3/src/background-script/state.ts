@@ -8,13 +8,13 @@ import * as S from "fp-ts/State";
 
 export interface AppState {
   tabs: ReadonlySet<number>;
-  config: ExtensionConfig.State;
+  config: State;
 }
 
 export const WithAppState = <T extends ClassType>(Base: T) =>
   class extends Base implements AppState, WebRequestManager {
     tabs: ReadonlySet<number> = RS.empty;
-    config: ExtensionConfig.State = DEFAULT_HBBTV_CONFIG;
+    config: State = DEFAULT_HBBTV_CONFIG;
 
     onTabAdded = (tabId: number): IO.IO<void> => this.runState(addTab(tabId));
 
@@ -45,10 +45,9 @@ export const WithAppState = <T extends ClassType>(Base: T) =>
       );
   };
 
-export const getConfig: S.State<AppState, ExtensionConfig.State> = S.gets((s) => s.config);
+export const getConfig: S.State<AppState, State> = S.gets((s) => s.config);
 
-export const setConfig = (config: ExtensionConfig.State): S.State<AppState, void> =>
-  S.modify((s) => ({ ...s, config }));
+export const setConfig = (config: State): S.State<AppState, void> => S.modify((s) => ({ ...s, config }));
 
 export const getTabs: S.State<AppState, ReadonlySet<number>> = S.gets((s) => s.tabs);
 

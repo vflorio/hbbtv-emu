@@ -1,22 +1,22 @@
-import type { ExtensionConfig } from "@hbb-emu/core";
+import type { ChannelConfig, ExtensionState, StreamEventConfig } from "@hbb-emu/core";
 import { configContextError } from "@hbb-emu/core";
 import { createContext, useContext } from "react";
 
 export interface UIConfig {
   channel: {
-    load: () => Promise<ExtensionConfig.ChannelConfig[]>;
-    upsert: (channel: ExtensionConfig.ChannelConfig) => Promise<void>;
+    load: () => Promise<ChannelConfig[]>;
+    upsert: (channel: ChannelConfig) => Promise<void>;
     remove: (id: string) => Promise<void>;
-    play: (channel: ExtensionConfig.ChannelConfig) => Promise<void>;
+    play: (channel: ChannelConfig) => Promise<void>;
     streamEvent: {
-      load: () => Promise<ExtensionConfig.StreamEventConfig[]>;
-      upsert: (event: ExtensionConfig.StreamEventConfig) => Promise<void>;
+      load: () => Promise<StreamEventConfig[]>;
+      upsert: (event: StreamEventConfig) => Promise<void>;
       remove: (id: string) => Promise<void>;
     };
   };
   common: {
-    load: () => Promise<Omit<ExtensionConfig.State, "channels">>;
-    save: (config: Omit<ExtensionConfig.State, "channels">) => Promise<void>;
+    load: () => Promise<Omit<ExtensionState, "channels">>;
+    save: (config: Omit<ExtensionState, "channels">) => Promise<void>;
   };
 }
 

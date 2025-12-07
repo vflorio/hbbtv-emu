@@ -10,11 +10,7 @@ const logger = createLogger("BackgroundScript:Storage");
 
 const storageAdapter = new ChromeStorageAdapter();
 
-export const configStorage = new Storage<ExtensionConfig.State>(
-  "hbbtv-config",
-  storageAdapter,
-  ExtensionConfig.StateCodec,
-);
+export const configStorage = new Storage<State>("hbbtv-config", storageAdapter, StateCodec);
 
 export const loadConfigFromStorage = (app: Instance): T.Task<void> =>
   pipe(
@@ -34,7 +30,7 @@ export const loadConfigFromStorage = (app: Instance): T.Task<void> =>
     ),
   );
 
-export const saveConfigToStorage = (config: ExtensionConfig.State): T.Task<void> =>
+export const saveConfigToStorage = (config: State): T.Task<void> =>
   pipe(
     TE.fromIO(logger.debug("Saving config to storage")),
     TE.flatMap(() => configStorage.save(config)),

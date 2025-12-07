@@ -1,75 +1,50 @@
-import * as E from "fp-ts/Either";
-import { pipe } from "fp-ts/function";
-import * as O from "fp-ts/Option";
 import * as t from "io-ts";
-import { type Channel, ChannelTripletCodec, isValidChannelTriplet } from "../hbbtv";
-import { ChannelIdType } from "../hbbtv/api/avBroadcast/channel";
+import { ChannelTripletCodec } from "../hbbtv";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
 
-// TODO Riffattorizzare eliminando il namespace
-export namespace ExtensionConfig {
-  export const StreamEventConfigCodec = t.intersection([
-    t.type({
-      id: t.string,
-      name: t.string,
-      eventName: t.string,
-      data: t.string,
-      delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
-    }),
-    t.partial({
-      text: t.string,
-      targetURL: t.string,
-      enabled: t.boolean,
-    }),
-  ]);
+export const StreamEventConfigCodec = t.intersection([
+  t.type({
+    id: t.string,
+    name: t.string,
+    eventName: t.string,
+    data: t.string,
+    delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
+  }),
+  t.partial({
+    text: t.string,
+    targetURL: t.string,
+    enabled: t.boolean,
+  }),
+]);
 
-  export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
+export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
 
-  const ChannelConfigCodec = t.intersection([
-    ChannelTripletCodec,
-    t.type({
-      id: t.string,
-      name: t.string,
-      mp4Source: t.string,
-    }),
-    t.partial({
-      streamEvents: t.array(StreamEventConfigCodec),
-      enableStreamEvents: t.boolean,
-    }),
-  ]);
+const ChannelConfigCodec = t.intersection([
+  ChannelTripletCodec,
+  t.type({
+    id: t.string,
+    name: t.string,
+    mp4Source: t.string,
+  }),
+  t.partial({
+    streamEvents: t.array(StreamEventConfigCodec),
+    enableStreamEvents: t.boolean,
+  }),
+]);
 
-  export type ChannelConfig = t.TypeOf<typeof ChannelConfigCodec>;
+export type ChannelConfig = t.TypeOf<typeof ChannelConfigCodec>;
 
-  export const StateCodec = t.type({
-    version: t.string,
-    countryCode: t.string,
-    capabilities: t.string,
-    userAgent: t.string,
-    channels: t.array(ChannelConfigCodec),
-    currentChannel: t.union([ChannelConfigCodec, t.null]),
-  });
+export const ExtensionStateCodec = t.type({
+  version: t.string,
+  countryCode: t.string,
+  capabilities: t.string,
+  userAgent: t.string,
+  channels: t.array(ChannelConfigCodec),
+  currentChannel: t.union([ChannelConfigCodec, t.null]),
+});
 
-  export type State = t.TypeOf<typeof StateCodec>;
-
-  export const validateState = (data: unknown): E.Either<InvalidExtensionConfigStateError, State> =>
-    pipe(
-      StateCodec.decode(data),
-      E.mapLeft(() => invalidExtensionConfigStateError(`Invalid ExtensionConfig.State: ${JSON.stringify(data)}`)),
-    );
-
-  export const toChannel = (channel: O.Option<ExtensionConfig.ChannelConfig>): O.Option<Channel> =>
-    pipe(
-      channel,
-      O.filter(isValidChannelTriplet),
-      O.map(({ onid, tsid, sid }) => ({
-        idType: ChannelIdType.ID_DVB_T,
-        onid,
-        tsid,
-        sid,
-      })),
-    );
-}
+export type ExtensionState = t.TypeOf<typeof ExtensionStateCodec>;
 
 const dasEventPayload = (t: "1" | "2" | "3") =>
   JSON.stringify({
@@ -84,7 +59,7 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
     du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
   });
 
-const streamEvent = (eventName: string, payload: string, delaySeconds: number): ExtensionConfig.StreamEventConfig => ({
+const streamEvent = (eventName: string, payload: string, delaySeconds: number): StreamEventConfig => ({
   id: randomUUID(),
   name: `DAS Event ${eventName}`,
   eventName,
@@ -95,7 +70,7 @@ const streamEvent = (eventName: string, payload: string, delaySeconds: number): 
   data: textToHex(payload),
 });
 
-export const DEFAULT_HBBTV_CONFIG: ExtensionConfig.State = {
+export const DEFAULT_HBBTV_CONFIG: ExtensionState = {
   currentChannel: null,
   channels: [
     {

@@ -1,4 +1,4 @@
-import { createLogger, type ExtensionConfig } from "@hbb-emu/core";
+import { createLogger, type StreamEventConfig } from "@hbb-emu/core";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -30,9 +30,9 @@ const logger = createLogger("StreamEventList");
 
 export default function StreamEventList() {
   const { channel } = useConfig();
-  const [events, setEvents] = useState<ExtensionConfig.StreamEventConfig[]>([]);
+  const [events, setEvents] = useState<StreamEventConfig[]>([]);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEventConfig | null>(null);
+  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -47,7 +47,7 @@ export default function StreamEventList() {
     setFormOpen(true);
   };
 
-  const handleEditEvent = (event: ExtensionConfig.StreamEventConfig) => {
+  const handleEditEvent = (event: StreamEventConfig) => {
     setEditingEvent(event);
     setFormOpen(true);
   };
@@ -57,7 +57,7 @@ export default function StreamEventList() {
     setEvents((prev) => prev.filter((ev) => ev.id !== id));
   };
 
-  const handleSaveEvent = async (event: ExtensionConfig.StreamEventConfig) => {
+  const handleSaveEvent = async (event: StreamEventConfig) => {
     await channel.streamEvent.upsert(event);
     setEvents((prev) => {
       const index = prev.findIndex((ev) => ev.id === event.id);
@@ -70,12 +70,12 @@ export default function StreamEventList() {
     });
   };
 
-  const handleToggleEnabled = async (event: ExtensionConfig.StreamEventConfig) => {
+  const handleToggleEnabled = async (event: StreamEventConfig) => {
     const updated = { ...event, enabled: !(event.enabled ?? true) };
     await handleSaveEvent(updated);
   };
 
-  const handleDispatchEvent = async (event: ExtensionConfig.StreamEventConfig) => {
+  const handleDispatchEvent = async (event: StreamEventConfig) => {
     logger.info("TODO Dispatching stream event:", event);
   };
 

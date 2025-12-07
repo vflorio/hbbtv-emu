@@ -1,7 +1,7 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import { ExtensionConfig } from "../lib/config";
+import { ExtensionConfig } from "../lib/extension";
 
 export type BridgeContextPayload = Readonly<{
   tabId: number;
@@ -17,8 +17,8 @@ export type Message =
   | { type: "CONTENT_SCRIPT_READY"; payload: null }
   | { type: "UPDATE_BRIDGE_CONTEXT"; payload: BridgeContextPayload }
   | { type: "GET_STATE"; payload: null }
-  | { type: "STATE_UPDATED"; payload: ExtensionConfig.State }
-  | { type: "DISPATCH_STREAM_EVENT"; payload: ExtensionConfig.StreamEventConfig };
+  | { type: "STATE_UPDATED"; payload: ExtensionState }
+  | { type: "DISPATCH_STREAM_EVENT"; payload: StreamEventConfig };
 
 export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("BRIDGE_SCRIPT_READY"), payload: t.null }),
@@ -26,8 +26,8 @@ export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("CONTENT_SCRIPT_READY"), payload: t.null }),
   t.type({ type: t.literal("UPDATE_BRIDGE_CONTEXT"), payload: BridgeContextPayloadCodec }),
   t.type({ type: t.literal("GET_STATE"), payload: t.null }),
-  t.type({ type: t.literal("STATE_UPDATED"), payload: ExtensionConfig.StateCodec }),
-  t.type({ type: t.literal("DISPATCH_STREAM_EVENT"), payload: ExtensionConfig.StreamEventConfigCodec }),
+  t.type({ type: t.literal("STATE_UPDATED"), payload: ExtensionStateCodec }),
+  t.type({ type: t.literal("DISPATCH_STREAM_EVENT"), payload: StreamEventConfigCodec }),
 ]);
 
 export type InvalidMessageError = Readonly<{

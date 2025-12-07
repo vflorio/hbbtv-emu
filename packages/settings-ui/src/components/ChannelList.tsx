@@ -1,4 +1,4 @@
-import type { ExtensionConfig } from "@hbb-emu/core";
+import type { ChannelConfig } from "@hbb-emu/core";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PlayArrow as PlayIcon } from "@mui/icons-material";
 import { Box, Button, IconButton, List, ListItem, ListItemText, Paper, Tooltip, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import { useConfig } from "../context/config";
 export default function ChannelList() {
   const { channel } = useConfig();
   const navigate = useNavigate();
-  const [channels, setChannels] = useState<ExtensionConfig.ChannelConfig[]>([]);
+  const [channels, setChannels] = useState<ChannelConfig[]>([]);
 
   const handleAddChannel = () => {
     navigate("/channel/new");
@@ -24,7 +24,7 @@ export default function ChannelList() {
     setChannels(updated);
   };
 
-  const handlePlayChannel = async (ch: ExtensionConfig.ChannelConfig) => {
+  const handlePlayChannel = async (ch: ChannelConfig) => {
     await channel.play(ch);
   };
 

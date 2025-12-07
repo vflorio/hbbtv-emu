@@ -70,7 +70,7 @@ export const onGetState =
     );
 
 export const onStateUpdated =
-  (app: Instance): Handler<{ type: "STATE_UPDATED"; payload: ExtensionConfig.State }> =>
+  (app: Instance): Handler<{ type: "STATE_UPDATED"; payload: State }> =>
   (envelope) =>
     runTask(
       pipe(

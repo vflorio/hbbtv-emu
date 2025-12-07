@@ -5,17 +5,17 @@ import * as O from "fp-ts/Option";
 import * as S from "fp-ts/State";
 
 export interface AppState {
-  config: O.Option<ExtensionConfig.State>;
+  config: O.Option<State>;
   isLoading: boolean;
 }
 
 export const WithAppState = <T extends ClassType>(Base: T) =>
   class extends Base {
-    config: O.Option<ExtensionConfig.State> = O.none;
+    config: O.Option<State> = O.none;
     isLoading = true;
 
     // Callback for React re-render
-    onConfigUpdate?: (config: ExtensionConfig.State) => void;
+    onConfigUpdate?: (config: State) => void;
 
     getState: IO.IO<AppState> = () => ({
       config: this.config,
@@ -48,9 +48,9 @@ export const WithAppState = <T extends ClassType>(Base: T) =>
       );
   };
 
-export const getConfig: S.State<AppState, O.Option<ExtensionConfig.State>> = S.gets((s) => s.config);
+export const getConfig: S.State<AppState, O.Option<State>> = S.gets((s) => s.config);
 
-export const setConfig = (config: ExtensionConfig.State): S.State<AppState, void> =>
+export const setConfig = (config: State): S.State<AppState, void> =>
   S.modify((s) => ({ ...s, config: O.some(config), isLoading: false }));
 
 export const getIsLoading: S.State<AppState, boolean> = S.gets((s) => s.isLoading);

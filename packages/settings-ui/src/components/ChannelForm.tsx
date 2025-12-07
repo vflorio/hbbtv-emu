@@ -1,4 +1,4 @@
-import { type ExtensionConfig, randomUUID } from "@hbb-emu/core";
+import { type ChannelConfig, randomUUID, type StreamEventConfig } from "@hbb-emu/core";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
@@ -22,14 +22,14 @@ import StreamEventsManager from "./StreamEventsManager";
 
 interface ChannelFormProps {
   open: boolean;
-  channel: ExtensionConfig.ChannelConfig | null;
+  channel: ChannelConfig | null;
   onClose: () => void;
-  onSave: (channel: ExtensionConfig.ChannelConfig) => void;
+  onSave: (channel: ChannelConfig) => void;
 }
 
 export default function ChannelForm({ open, channel, onClose, onSave }: ChannelFormProps) {
   const [streamEventsOpen, setStreamEventsOpen] = useState(false);
-  const [formData, setFormData] = useState<Omit<ExtensionConfig.ChannelConfig, "id">>({
+  const [formData, setFormData] = useState<Omit<ChannelConfig, "id">>({
     ...generateRandomChannel(),
     name: "",
     mp4Source: "",
@@ -59,13 +59,12 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
     }
   }, [channel]);
 
-  const handleChange =
-    (field: keyof Omit<ExtensionConfig.ChannelConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-    };
+  const handleChange = (field: keyof Omit<ChannelConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const handleSubmit = () => {
-    const channelData: ExtensionConfig.ChannelConfig = {
+    const channelData: ChannelConfig = {
       ...formData,
       id: channel?.id || randomUUID(),
       onid: Number(formData.onid),
@@ -168,7 +167,7 @@ export default function ChannelForm({ open, channel, onClose, onSave }: ChannelF
         open={streamEventsOpen}
         events={formData.streamEvents || []}
         onClose={() => setStreamEventsOpen(false)}
-        onSave={(events: ExtensionConfig.StreamEventConfig[]) => {
+        onSave={(events: StreamEventConfig[]) => {
           setFormData((prev) => ({ ...prev, streamEvents: events }));
           setStreamEventsOpen(false);
         }}

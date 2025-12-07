@@ -51,7 +51,7 @@ export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
         pipe(
           logger.info("Config update received"),
           IO.flatMap(() => {
-            const config = envelope.message.payload as ExtensionConfig.State;
+            const config = envelope.message.payload as State;
             return app.runState(setConfig(config));
           }),
           // TODO: Update HbbTV API with new config

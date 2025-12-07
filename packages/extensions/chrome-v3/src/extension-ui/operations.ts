@@ -10,22 +10,22 @@ import { getConfig } from "./state";
 const logger = createLogger("UI:Operations");
 
 export const updateChannelInConfig =
-  (channel: ExtensionConfig.ChannelConfig) =>
-  (config: ExtensionConfig.State): ExtensionConfig.State => ({
+  (channel: ChannelConfig) =>
+  (config: State): State => ({
     ...config,
     channels: config.channels.map((c) => (c.id === channel.id ? channel : c)),
   });
 
 export const setCurrentChannelInConfig =
-  (channel: ExtensionConfig.ChannelConfig | null) =>
-  (config: ExtensionConfig.State): ExtensionConfig.State => ({
+  (channel: ChannelConfig | null) =>
+  (config: State): State => ({
     ...config,
     currentChannel: channel,
   });
 
 export const sendConfigUpdate =
   (app: Instance) =>
-  (config: ExtensionConfig.State): TE.TaskEither<ConfigUpdateError, void> =>
+  (config: State): TE.TaskEither<ConfigUpdateError, void> =>
     pipe(
       TE.tryCatch(
         () => app.send("BACKGROUND_SCRIPT", { type: "STATE_UPDATED", payload: config })(),
@@ -39,17 +39,17 @@ export const sendConfigUpdate =
 
 export const updateConfig =
   (app: Instance) =>
-  (config: ExtensionConfig.State): TE.TaskEither<ConfigUpdateError, void> =>
+  (config: State): TE.TaskEither<ConfigUpdateError, void> =>
     sendConfigUpdate(app)(config);
 
 export const updateChannel =
   (app: Instance) =>
-  (channel: ExtensionConfig.ChannelConfig): TE.TaskEither<OperationError, void> =>
+  (channel: ChannelConfig): TE.TaskEither<OperationError, void> =>
     pipe(
       TE.fromIO(app.runState(getConfig)),
       TE.flatMap(
         O.match(
-          () => TE.left<OperationError, ExtensionConfig.State>(configNotAvailableError()),
+          () => TE.left<OperationError, State>(configNotAvailableError()),
           (config) => TE.right(updateChannelInConfig(channel)(config)),
         ),
       ),
@@ -58,12 +58,12 @@ export const updateChannel =
 
 export const setCurrentChannel =
   (app: Instance) =>
-  (channel: ExtensionConfig.ChannelConfig | null): TE.TaskEither<OperationError, void> =>
+  (channel: ChannelConfig | null): TE.TaskEither<OperationError, void> =>
     pipe(
       TE.fromIO(app.runState(getConfig)),
       TE.flatMap(
         O.match(
-          () => TE.left<OperationError, ExtensionConfig.State>(configNotAvailableError()),
+          () => TE.left<OperationError, State>(configNotAvailableError()),
           (config) => TE.right(setCurrentChannelInConfig(channel)(config)),
         ),
       ),

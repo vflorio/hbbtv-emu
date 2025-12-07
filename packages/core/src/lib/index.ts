@@ -1,5 +1,5 @@
-export * from "./config";
 export * from "./domObserver";
+export * from "./extension";
 export * from "./hex";
 export * from "./json";
 export * from "./logger";

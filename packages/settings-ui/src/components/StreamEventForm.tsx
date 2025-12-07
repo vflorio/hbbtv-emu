@@ -1,4 +1,4 @@
-import { type ExtensionConfig, randomUUID } from "@hbb-emu/core";
+import { randomUUID, type StreamEventConfig } from "@hbb-emu/core";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,
@@ -19,13 +19,13 @@ import { useEffect, useState } from "react";
 
 interface StreamEventFormProps {
   open: boolean;
-  event: ExtensionConfig.StreamEventConfig | null;
+  event: StreamEventConfig | null;
   onClose: () => void;
-  onSave: (event: ExtensionConfig.StreamEventConfig) => void;
+  onSave: (event: StreamEventConfig) => void;
 }
 
 export default function StreamEventForm({ open, event, onClose, onSave }: StreamEventFormProps) {
-  const [formData, setFormData] = useState<Omit<ExtensionConfig.StreamEventConfig, "id">>({
+  const [formData, setFormData] = useState<Omit<StreamEventConfig, "id">>({
     name: "",
     eventName: "",
     data: "",
@@ -60,18 +60,17 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
     }
   }, [event, open]);
 
-  const handleChange =
-    (field: keyof Omit<ExtensionConfig.StreamEventConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = field === "delaySeconds" ? Number.parseInt(e.target.value, 10) || 0 : e.target.value;
-      setFormData((prev) => ({ ...prev, [field]: value }));
-    };
+  const handleChange = (field: keyof Omit<StreamEventConfig, "id">) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = field === "delaySeconds" ? Number.parseInt(e.target.value, 10) || 0 : e.target.value;
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleToggleEnabled = () => {
     setFormData((prev) => ({ ...prev, enabled: !prev.enabled }));
   };
 
   const handleSubmit = () => {
-    const eventData: ExtensionConfig.StreamEventConfig = {
+    const eventData: StreamEventConfig = {
       id: event?.id || randomUUID(),
       name: formData.name,
       eventName: formData.eventName,

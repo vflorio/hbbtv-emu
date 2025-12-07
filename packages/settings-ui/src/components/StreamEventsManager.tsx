@@ -1,4 +1,4 @@
-import { type ExtensionConfig, randomUUID } from "@hbb-emu/core";
+import { randomUUID, type StreamEventConfig } from "@hbb-emu/core";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import {
   Box,
@@ -20,16 +20,16 @@ import { useState } from "react";
 
 interface StreamEventsManagerProps {
   open: boolean;
-  events: ExtensionConfig.StreamEventConfig[];
+  events: StreamEventConfig[];
   onClose: () => void;
-  onSave: (events: ExtensionConfig.StreamEventConfig[]) => void;
+  onSave: (events: StreamEventConfig[]) => void;
 }
 
-interface EventFormData extends Omit<ExtensionConfig.StreamEventConfig, "id"> {}
+interface EventFormData extends Omit<StreamEventConfig, "id"> {}
 
 export default function StreamEventsManager({ open, events, onClose, onSave }: StreamEventsManagerProps) {
-  const [localEvents, setLocalEvents] = useState<ExtensionConfig.StreamEventConfig[]>(events);
-  const [editingEvent, setEditingEvent] = useState<ExtensionConfig.StreamEventConfig | null>(null);
+  const [localEvents, setLocalEvents] = useState<StreamEventConfig[]>(events);
+  const [editingEvent, setEditingEvent] = useState<StreamEventConfig | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [formData, setFormData] = useState<EventFormData>({
     name: "",
@@ -55,7 +55,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
     setFormOpen(true);
   };
 
-  const handleEditEvent = (event: ExtensionConfig.StreamEventConfig) => {
+  const handleEditEvent = (event: StreamEventConfig) => {
     setEditingEvent(event);
     setFormData({
       name: event.name,
@@ -74,7 +74,7 @@ export default function StreamEventsManager({ open, events, onClose, onSave }: S
   };
 
   const handleSaveEvent = () => {
-    const eventData: ExtensionConfig.StreamEventConfig = {
+    const eventData: StreamEventConfig = {
       id: editingEvent?.id || randomUUID(),
       ...formData,
     };

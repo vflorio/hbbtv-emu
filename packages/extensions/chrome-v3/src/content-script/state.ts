@@ -5,13 +5,13 @@ import * as O from "fp-ts/Option";
 import * as S from "fp-ts/State";
 
 export interface AppState {
-  config: O.Option<ExtensionConfig.State>;
+  config: O.Option<State>;
   isReady: boolean;
 }
 
 export const WithAppState = <T extends ClassType>(Base: T) =>
   class extends Base {
-    config: O.Option<ExtensionConfig.State> = O.none;
+    config: O.Option<State> = O.none;
     isReady = false;
 
     getState: IO.IO<AppState> = () => ({
@@ -39,9 +39,9 @@ export const WithAppState = <T extends ClassType>(Base: T) =>
       );
   };
 
-export const getConfig: S.State<AppState, O.Option<ExtensionConfig.State>> = S.gets((s) => s.config);
+export const getConfig: S.State<AppState, O.Option<State>> = S.gets((s) => s.config);
 
-export const setConfig = (config: ExtensionConfig.State): S.State<AppState, void> =>
+export const setConfig = (config: State): S.State<AppState, void> =>
   S.modify((s) => ({ ...s, config: O.some(config) }));
 
 export const getIsReady: S.State<AppState, boolean> = S.gets((s) => s.isReady);

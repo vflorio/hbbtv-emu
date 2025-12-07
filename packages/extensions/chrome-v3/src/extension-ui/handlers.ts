@@ -25,7 +25,7 @@ export const loadInitialConfig = (app: Instance): T.Task<void> =>
             pipe(
               T.fromIO(logger.info("Initial config loaded")),
               T.flatMap(() => {
-                const config = envelope.message.payload as ExtensionConfig.State;
+                const config = envelope.message.payload as State;
                 return T.fromIO(app.runState(setConfig(config)));
               }),
             ),
@@ -42,7 +42,7 @@ export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
         pipe(
           logger.info("Config update received from background"),
           IO.flatMap(() => {
-            const config = envelope.message.payload as ExtensionConfig.State;
+            const config = envelope.message.payload as State;
             return app.runState(setConfig(config));
           }),
         ),
