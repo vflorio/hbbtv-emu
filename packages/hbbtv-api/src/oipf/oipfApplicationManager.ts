@@ -1,7 +1,15 @@
-import { createLogger, DEFAULT_APPLICATION, DEFAULT_KEYSET, type OIPF } from "@hbb-emu/core";
+import {
+  type ApplicationManagerState,
+  ApplicationManagerStateCodec,
+  createLogger,
+  DEFAULT_APPLICATION,
+  DEFAULT_KEYSET,
+  type OIPF,
+} from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
+import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 
 const logger = createLogger("OipfApplicationManager");
 
@@ -113,7 +121,32 @@ const getOrCreateApplication = (doc: Document): IO.IO<OIPF.ApplicationManager.Ap
     ),
   );
 
-export class OipfApplicationManager implements OIPF.ApplicationManager.ApplicationManager {
+export class OipfApplicationManager
+  implements OIPF.ApplicationManager.ApplicationManager, Stateful<ApplicationManagerState>
+{
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Stateful Interface
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  readonly stateful = createBidirectionalMethods(
+    deriveSchema<ApplicationManagerState, OipfApplicationManager>(ApplicationManagerStateCodec),
+    this,
+  );
+
+  applyState = (state: Partial<ApplicationManagerState>): IO.IO<void> => this.stateful.applyState(state);
+
+  getState = (): IO.IO<Partial<ApplicationManagerState>> => this.stateful.getState();
+
+  subscribe = (callback: OnStateChangeCallback<ApplicationManagerState>): IO.IO<() => void> =>
+    this.stateful.subscribe(callback);
+
+  notifyStateChange = (changedKeys: ReadonlyArray<keyof ApplicationManagerState>): IO.IO<void> =>
+    this.stateful.notifyStateChange(changedKeys);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ApplicationManager API
+  // ═══════════════════════════════════════════════════════════════════════════
+
   getOwnerApplication = (document?: Document): OIPF.ApplicationManager.Application | null =>
     pipe(
       logger.debug("getOwnerApplication"),

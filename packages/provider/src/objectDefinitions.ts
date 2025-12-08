@@ -8,12 +8,14 @@
  * - Factory: Creates instance
  * - StateKey: Key in HbbTVState for this object's state slice
  * - AttachStrategy: How to attach instance to DOM element
- * - ApplyState: How to apply external state to instance (if bidirectional)
- * - GetState: How to read state from instance (if bidirectional)
- * - Subscribe: How to subscribe to instance changes (if bidirectional)
+ * - ApplyState: How to apply external state to instance
+ * - GetState: How to read state from instance
+ * - Subscribe: How to subscribe to instance changes
  */
 
 import {
+  type ApplicationManagerState,
+  type AVControlState,
   Broadcast,
   Control,
   type HbbTVState,
@@ -46,9 +48,10 @@ export type StateKey = keyof HbbTVState;
 export type AttachStrategy = "copy" | "proxy";
 
 /**
- * Definition for a stateless OIPF object (no state sync).
+ * Definition for an OIPF object
+ * All OIPF objects support state sync between the extension and the page.
  */
-export type OipfObjectDefinition<T, K extends StateKey> = Readonly<{
+export type ObjectDefinition<T extends Stateful<S>, S, K extends StateKey> = Readonly<{
   /** Unique name for this object type */
   name: string;
 
@@ -66,35 +69,6 @@ export type OipfObjectDefinition<T, K extends StateKey> = Readonly<{
 
   /** How to attach instance to DOM element */
   attachStrategy: AttachStrategy;
-
-  /** Whether this object supports bidirectional state sync */
-  bidirectional: false;
-}>;
-
-/**
- * Definition for a bidirectional OIPF object (supports state sync).
- */
-export type OipfBidirectionalDefinition<T extends Stateful<S>, S, K extends StateKey> = Readonly<{
-  /** Unique name for this object type */
-  name: string;
-
-  /** CSS selector to find elements in DOM */
-  selector: string;
-
-  /** Type guard for validating elements */
-  predicate: (element: Element) => element is HTMLObjectElement;
-
-  /** Factory to create instance */
-  factory: () => T;
-
-  /** Key in HbbTVState for this object's state slice */
-  stateKey: K;
-
-  /** How to attach instance to DOM element */
-  attachStrategy: AttachStrategy;
-
-  /** Whether this object supports bidirectional state sync */
-  bidirectional: true;
 
   /** Apply external state to instance */
   applyState: (instance: T, state: Partial<S>) => IO.IO<void>;
@@ -107,38 +81,35 @@ export type OipfBidirectionalDefinition<T extends Stateful<S>, S, K extends Stat
 }>;
 
 /**
- * Union type for all OIPF object definitions.
+ * Type alias for any OIPF object definition.
+ * Uses `any` for instance/state types since definitions are heterogeneous.
  */
-export type AnyOipfDefinition = OipfObjectDefinition<any, StateKey> | OipfBidirectionalDefinition<any, any, StateKey>;
+export type AnyOipfDefinition = ObjectDefinition<any, any, StateKey>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * OipfCapabilities definition - bidirectional state sync.
+ * OipfCapabilities definition.
  */
-export const oipfCapabilitiesDefinition: OipfBidirectionalDefinition<
-  OipfCapabilities,
-  OipfCapabilitiesState,
-  "oipfCapabilities"
-> = {
-  name: "OipfCapabilities",
-  selector: `object[type="${OIPF.Capabilities.MIME_TYPE}"]`,
-  predicate: OIPF.Capabilities.isValidElement,
-  factory: () => new OipfCapabilities(),
-  stateKey: "oipfCapabilities",
-  attachStrategy: "copy",
-  bidirectional: true,
-  applyState: (instance, state) => instance.applyState(state ?? {}),
-  getState: (instance) => instance.getState(),
-  subscribe: (instance, callback) => instance.subscribe(callback),
-};
+export const oipfCapabilitiesDefinition: ObjectDefinition<OipfCapabilities, OipfCapabilitiesState, "oipfCapabilities"> =
+  {
+    name: "OipfCapabilities",
+    selector: `object[type="${OIPF.Capabilities.MIME_TYPE}"]`,
+    predicate: OIPF.Capabilities.isValidElement,
+    factory: () => new OipfCapabilities(),
+    stateKey: "oipfCapabilities",
+    attachStrategy: "copy",
+    applyState: (instance, state) => instance.applyState(state ?? {}),
+    getState: (instance) => instance.getState(),
+    subscribe: (instance, callback) => instance.subscribe(callback),
+  };
 
 /**
- * OipfConfiguration definition - bidirectional state sync.
+ * OipfConfiguration definition.
  */
-export const oipfConfigurationDefinition: OipfBidirectionalDefinition<
+export const oipfConfigurationDefinition: ObjectDefinition<
   OipfConfiguration,
   OipfConfigurationState,
   "oipfConfiguration"
@@ -149,90 +120,80 @@ export const oipfConfigurationDefinition: OipfBidirectionalDefinition<
   factory: () => new OipfConfiguration(),
   stateKey: "oipfConfiguration",
   attachStrategy: "copy",
-  bidirectional: true,
   applyState: (instance, state) => instance.applyState(state ?? {}),
   getState: (instance) => instance.getState(),
   subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
 /**
- * OipfApplicationManager definition - stateless (no external state sync).
+ * OipfApplicationManager definition.
  */
-export const oipfApplicationManagerDefinition: OipfObjectDefinition<OipfApplicationManager, "applicationManager"> = {
+export const oipfApplicationManagerDefinition: ObjectDefinition<
+  OipfApplicationManager,
+  ApplicationManagerState,
+  "applicationManager"
+> = {
   name: "OipfApplicationManager",
   selector: `object[type="${OIPF.ApplicationManager.MIME_TYPE}"]`,
   predicate: OIPF.ApplicationManager.isValidElement,
   factory: () => new OipfApplicationManager(),
   stateKey: "applicationManager",
   attachStrategy: "copy",
-  bidirectional: false,
-};
-
-/**
- * AvVideoBroadcast definition - bidirectional state sync.
- */
-export const avVideoBroadcastDefinition: OipfBidirectionalDefinition<
-  AvVideoBroadcast,
-  VideoBroadcastState,
-  "videoBroadcast"
-> = {
-  name: "AvVideoBroadcast",
-  selector: `object[type="${Broadcast.VideoBroadcast.MIME_TYPE}"]`,
-  predicate: Broadcast.VideoBroadcast.isValidElement,
-  factory: () => new AvVideoBroadcast(),
-  stateKey: "videoBroadcast",
-  attachStrategy: "proxy",
-  bidirectional: true,
   applyState: (instance, state) => instance.applyState(state ?? {}),
   getState: (instance) => instance.getState(),
   subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
 /**
- * AvVideoMp4 definition - stateless for now.
+ * AvVideoBroadcast definition.
  */
-export const avVideoMp4Definition: OipfObjectDefinition<AvVideoMp4, "avControls"> = {
+export const avVideoBroadcastDefinition: ObjectDefinition<AvVideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
+  name: "AvVideoBroadcast",
+  selector: `object[type="${Broadcast.VideoBroadcast.MIME_TYPE}"]`,
+  predicate: Broadcast.VideoBroadcast.isValidElement,
+  factory: () => new AvVideoBroadcast(),
+  stateKey: "videoBroadcast",
+  attachStrategy: "proxy",
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
+};
+
+/**
+ * AvVideoMp4 definition.
+ */
+export const avVideoMp4Definition: ObjectDefinition<AvVideoMp4, AVControlState, "avControls"> = {
   name: "AvVideoMp4",
   selector: `object[type="${Control.VideoMp4.MIME_TYPE}"]`,
   predicate: Control.VideoMp4.isValidElement,
   factory: () => new AvVideoMp4(),
   stateKey: "avControls",
   attachStrategy: "proxy",
-  bidirectional: false,
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
 /**
- * AvVideoDash definition - stateless for now.
+ * AvVideoDash definition.
  */
-export const avVideoDashDefinition: OipfObjectDefinition<AvVideoDash, "avControls"> = {
+export const avVideoDashDefinition: ObjectDefinition<AvVideoDash, AVControlState, "avControls"> = {
   name: "AvVideoDash",
   selector: `object[type="${Control.VideoDash.MIME_TYPE}"]`,
   predicate: Control.VideoDash.isValidElement,
   factory: () => new AvVideoDash(),
   stateKey: "avControls",
   attachStrategy: "proxy",
-  bidirectional: false,
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * All bidirectional OIPF object definitions.
- * Used by StateManager for state sync.
- */
-export const bidirectionalDefinitions = [
-  oipfCapabilitiesDefinition,
-  oipfConfigurationDefinition,
-  avVideoBroadcastDefinition,
-] as const;
-
-/**
- * All OIPF object definitions.
- * Used by matcher system for detection.
- */
-export const allDefinitions = [
+export const objectDefinitions = [
   oipfCapabilitiesDefinition,
   oipfConfigurationDefinition,
   oipfApplicationManagerDefinition,
@@ -240,12 +201,3 @@ export const allDefinitions = [
   avVideoMp4Definition,
   avVideoDashDefinition,
 ] as const;
-
-/**
- * Type helper to extract instance type from definition.
- */
-export type InstanceTypeFromDefinition<D> = D extends OipfBidirectionalDefinition<infer T, unknown, StateKey>
-  ? T
-  : D extends OipfObjectDefinition<infer T, StateKey>
-    ? T
-    : never;

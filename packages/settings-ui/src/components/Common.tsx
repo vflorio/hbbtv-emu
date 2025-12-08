@@ -1,5 +1,4 @@
 import { buildDefaultUserAgent } from "@hbb-emu/core";
-import { Refresh } from "@mui/icons-material";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useAppState } from "../context/state";

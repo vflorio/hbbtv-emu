@@ -1,4 +1,4 @@
-import { buildDefaultUserAgent, createLogger, DEFAULT_HBBTV_VERSION } from "@hbb-emu/core";
+import { buildDefaultUserAgent, createLogger, DEFAULT_HBBTV_VERSION, type ExtensionState } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
@@ -21,5 +21,11 @@ export const overrideUserAgent = (userAgent: string): IO.IO<void> =>
     IO.tap(() => logger.debug("navigator.userAgent override complete")),
   );
 
-export const initializeUserAgent = (userAgent: string | undefined, hbbtvVersion: string | undefined): IO.IO<void> =>
-  pipe(IO.of(userAgent ?? buildDefaultUserAgent(hbbtvVersion || DEFAULT_HBBTV_VERSION)), IO.flatMap(overrideUserAgent));
+export const initializeUserAgent = (extensionState: ExtensionState): IO.IO<void> =>
+  pipe(
+    IO.of(
+      extensionState.userAgent ??
+        buildDefaultUserAgent(extensionState.hbbtv?.oipfCapabilities?.hbbtvVersion || DEFAULT_HBBTV_VERSION),
+    ),
+    IO.flatMap(overrideUserAgent),
+  );

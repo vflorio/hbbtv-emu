@@ -1,4 +1,6 @@
 import {
+  type AVControlState,
+  AVControlStateCodec,
   type Control,
   createLogger,
   DEFAULT_AV_CONTROL_FULL_SCREEN,
@@ -7,6 +9,7 @@ import {
 } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 import { AVObjectBase } from "./avObjectBase";
 
 const logger = createLogger("AVVideoBase");
@@ -23,7 +26,25 @@ const logger = createLogger("AVVideoBase");
  * - Full screen support
  * - Focus/blur handlers
  */
-export class AVVideoObjectBase extends AVObjectBase implements Control.AVControlVideo {
+export class AVVideoObjectBase extends AVObjectBase implements Control.AVControlVideo, Stateful<AVControlState> {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Stateful Interface
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  readonly stateful = createBidirectionalMethods(
+    deriveSchema<AVControlState, AVVideoObjectBase>(AVControlStateCodec),
+    this,
+  );
+
+  applyState = (state: Partial<AVControlState>): IO.IO<void> => this.stateful.applyState(state);
+
+  getState = (): IO.IO<Partial<AVControlState>> => this.stateful.getState();
+
+  subscribe = (callback: OnStateChangeCallback<AVControlState>): IO.IO<() => void> => this.stateful.subscribe(callback);
+
+  notifyStateChange = (changedKeys: ReadonlyArray<keyof AVControlState>): IO.IO<void> =>
+    this.stateful.notifyStateChange(changedKeys);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // State
   // ═══════════════════════════════════════════════════════════════════════════

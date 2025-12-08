@@ -1,5 +1,5 @@
 /**
- * Provider State Management Mixin
+ * Provider State Management
  *
  * Manages the bidirectional state flow between:
  * - External state (from message bus / storage)
@@ -12,15 +12,15 @@ import type { ClassType, HbbTVState } from "@hbb-emu/core";
 import type { Stateful } from "@hbb-emu/hbbtv-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { bidirectionalDefinitions, type OipfBidirectionalDefinition, type StateKey } from "./oipfRegistry";
-
+import * as RA from "fp-ts/ReadonlyArray";
+import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "./objectDefinitions";
 export type OnLocalStateChangeCallback = (type: StateKey, state: Partial<unknown>) => IO.IO<void>;
 
 /**
  * Entry in the instance registry.
  */
 type RegistryEntry = Readonly<{
-  definition: OipfBidirectionalDefinition<any, any, StateKey>; //FIXME
+  definition: ObjectDefinition<any, any, StateKey>; //FIXME
   instances: Set<any>;
 }>;
 
@@ -29,13 +29,18 @@ type RegistryEntry = Readonly<{
  */
 type InstanceRegistry = Map<StateKey, RegistryEntry>;
 
-export interface StateManager {
+export interface ElementStateManager {
   /**
-   * Register a bidirectional instance and subscribe to its changes.
+   * Register object definitions.
+   */
+  initializeStateManager: (objectDefinitions: ReadonlyArray<AnyOipfDefinition>) => IO.IO<void>;
+
+  /**
+   * Register an instance and subscribe to its changes.
    * Returns unsubscribe function.
    */
   registerInstance: <T extends Stateful<S>, S>(
-    definition: OipfBidirectionalDefinition<T, S, StateKey>,
+    definition: ObjectDefinition<T, S, StateKey>,
     instance: T,
   ) => IO.IO<() => void>;
 
@@ -55,28 +60,31 @@ export interface StateManager {
   setOnLocalStateChange: (callback: OnLocalStateChangeCallback) => IO.IO<void>;
 }
 
-export const WithStateManager = <T extends ClassType>(Base: T) => {
-  // Use closure for private state to avoid TS4094 errors
-  const registry: InstanceRegistry = new Map();
-  let onLocalStateChange: OnLocalStateChangeCallback | null = null;
+export const WithElementStateManager = <T extends ClassType>(Base: T) =>
+  class extends Base implements ElementStateManager {
+    instanceRegistry: InstanceRegistry = new Map();
+    onLocalStateChange: OnLocalStateChangeCallback | null = null;
 
-  // TODO FIXME
-  // Initialize registry entries for all bidirectional definitions
-  for (const definition of bidirectionalDefinitions) {
-    registry.set(definition.stateKey, {
-      definition: definition as any,
-      instances: new Set(),
-    });
-  }
+    initializeStateManager = (objectDefinitions: ReadonlyArray<AnyOipfDefinition>): IO.IO<void> =>
+      pipe(
+        objectDefinitions,
+        RA.traverse(IO.Applicative)((definition) =>
+          IO.of(() => {
+            this.instanceRegistry.set(definition.stateKey, {
+              definition,
+              instances: new Set(),
+            });
+          }),
+        ),
+      );
 
-  return class extends Base implements StateManager {
     registerInstance = <I extends Stateful<S>, S>(
-      definition: OipfBidirectionalDefinition<I, S, StateKey>,
+      definition: ObjectDefinition<I, S, StateKey>,
       instance: I,
     ): IO.IO<() => void> =>
       pipe(
         IO.Do,
-        IO.bind("entry", () => IO.of(registry.get(definition.stateKey))),
+        IO.bind("entry", () => IO.of(this.instanceRegistry.get(definition.stateKey))),
         IO.flatMap(({ entry }) => {
           if (!entry) {
             return IO.of(() => {});
@@ -86,7 +94,7 @@ export const WithStateManager = <T extends ClassType>(Base: T) => {
           entry.instances.add(instance);
 
           // Subscribe to instance changes
-          const handleChange = createInstanceChangeHandler(() => onLocalStateChange, definition.stateKey);
+          const handleChange = createInstanceChangeHandler(() => this.onLocalStateChange, definition.stateKey);
           const unsubscribe = definition.subscribe(instance, handleChange)();
 
           // Return cleanup function
@@ -100,7 +108,7 @@ export const WithStateManager = <T extends ClassType>(Base: T) => {
     applyExternalState =
       (state: Partial<HbbTVState>): IO.IO<void> =>
       () => {
-        for (const [stateKey, entry] of registry.entries()) {
+        for (const [stateKey, entry] of this.instanceRegistry.entries()) {
           const stateSlice = state[stateKey];
           if (stateSlice !== undefined) {
             for (const instance of entry.instances) {
@@ -113,7 +121,7 @@ export const WithStateManager = <T extends ClassType>(Base: T) => {
     collectState = (): IO.IO<Partial<HbbTVState>> => () => {
       const result: Partial<HbbTVState> = {};
 
-      for (const [stateKey, entry] of registry.entries()) {
+      for (const [stateKey, entry] of this.instanceRegistry.entries()) {
         const firstInstance = entry.instances.values().next();
         if (!firstInstance.done) {
           const state = entry.definition.getState(firstInstance.value)();
@@ -127,10 +135,9 @@ export const WithStateManager = <T extends ClassType>(Base: T) => {
     setOnLocalStateChange =
       (callback: OnLocalStateChangeCallback): IO.IO<void> =>
       () => {
-        onLocalStateChange = callback;
+        this.onLocalStateChange = callback;
       };
   };
-};
 
 /**
  * Creates a handler for instance state changes.

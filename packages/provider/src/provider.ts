@@ -1,32 +1,24 @@
 import { type ClassType, compose, createLogger, type ExtensionState, WithDomObserver } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as RA from "fp-ts/ReadonlyArray";
-import { initializeOipfObjectFactory } from "./apis/oipfObjectFactory";
-import { initializeUserAgent } from "./apis/userAgent";
-import { type ElementMatcherRegistry, WithElementMatcherRegistry } from "./elementMatcher";
-import { createMatcherFromAnyDefinition } from "./matcherFactory";
-import { allDefinitions } from "./oipfRegistry";
-import { type StateManager, WithStateManager } from "./stateManager";
+import { type ElementMatcherManager, WithElementMatcherManager } from "./elementMatcherManager";
+import { type ElementStateManager, WithElementStateManager } from "./elementStateManager";
+import { objectDefinitions } from "./objectDefinitions";
+import { initializeOipfObjectFactory } from "./oipfObjectFactory";
+import { initializeUserAgent } from "./userAgent";
 
 const logger = createLogger("Provider");
 
-export const WithApp = <T extends ClassType<ElementMatcherRegistry & StateManager>>(Base: T) =>
-  class extends Base implements ElementMatcherRegistry, StateManager {
-    initialize = (config: ExtensionState) =>
+export const WithApp = <T extends ClassType<ElementMatcherManager & ElementStateManager>>(Base: T) =>
+  class extends Base implements ElementMatcherManager, ElementStateManager {
+    initialize = (extensionState: ExtensionState) =>
       pipe(
-        logger.info("Initializing", config),
-        IO.flatMap(() => initializeUserAgent(config.userAgent, config.hbbtv?.oipfCapabilities?.hbbtvVersion)),
+        logger.info("Initializing"),
+        IO.tap(() => initializeUserAgent(extensionState)),
         IO.tap(() => initializeOipfObjectFactory),
-        IO.flatMap(() =>
-          pipe(
-            allDefinitions,
-            RA.map((definition) => createMatcherFromAnyDefinition(definition, this)),
-            RA.traverse(IO.Applicative)((matcher) => this.registerMatcher(matcher)),
-            IO.asUnit,
-          ),
-        ),
-        IO.tap(() => this.initMatchers),
+        IO.tap(() => this.initializeStateManager(objectDefinitions)),
+        IO.tap(() => this.initializeMatcherManager(objectDefinitions)),
+        IO.tap(() => logger.info("Initialized")),
       );
   };
 
@@ -34,8 +26,8 @@ export const WithApp = <T extends ClassType<ElementMatcherRegistry & StateManage
 export const Provider = compose(
   class {},
   WithDomObserver,
-  WithElementMatcherRegistry,
-  WithStateManager,
+  WithElementStateManager,
+  WithElementMatcherManager,
   WithApp,
 );
 
