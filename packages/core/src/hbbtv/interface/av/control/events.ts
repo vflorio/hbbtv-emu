@@ -7,7 +7,7 @@
  * @see HbbTV Specification
  */
 
-import type { PlayState } from "./avControl";
+import type { PlayState } from "./control";
 
 /**
  * Play state change event handler.

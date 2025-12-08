@@ -7,7 +7,7 @@
  */
 
 import * as t from "io-ts";
-import type { OIPF } from "../api";
+import type { OIPF } from "../interface";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OIPF Capabilities State

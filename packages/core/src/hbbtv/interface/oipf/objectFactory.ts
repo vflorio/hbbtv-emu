@@ -32,7 +32,7 @@
  * @since HbbTV 1.0
  */
 
-import type { ChannelConfig } from "../avBroadcast/channel";
+import type { ChannelConfig } from "../av/broadcast/channel";
 
 // ============================================================================
 // MIME Types

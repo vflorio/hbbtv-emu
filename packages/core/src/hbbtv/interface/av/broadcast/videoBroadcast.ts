@@ -20,7 +20,7 @@
  * @see HbbTV Specification
  */
 
-import type { AVComponent, AVComponentCollection, ComponentType } from "../avComponent";
+import type { AVComponent, AVComponentCollection, ComponentType } from "../component";
 import type { Channel, ChannelConfig, ChannelIdType } from "./channel";
 import type {
   OnBlurHandler,

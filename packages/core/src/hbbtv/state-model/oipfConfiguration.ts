@@ -7,7 +7,7 @@
  */
 
 import * as t from "io-ts";
-import type { OIPF } from "../api";
+import type { OIPF } from "../interface";
 import { NetworkConfigCodec, ParentalControlCodec } from "./network";
 
 // ─────────────────────────────────────────────────────────────────────────────
