@@ -12,7 +12,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as RR from "fp-ts/ReadonlyRecord";
-import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
+import { createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 
 const logger = createLogger("OipfConfiguration");
 
@@ -35,7 +35,7 @@ export class OipfConfiguration implements OIPF.Configuration.Configuration, Stat
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createBidirectionalMethods(
+  readonly stateful = createStatefulMethods(
     deriveSchema<OipfConfigurationState, OipfConfiguration>(OipfConfigurationStateCodec),
     this,
   );

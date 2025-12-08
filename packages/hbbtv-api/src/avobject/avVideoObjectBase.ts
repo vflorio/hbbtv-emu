@@ -9,7 +9,7 @@ import {
 } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
+import { createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 import { AVObjectBase } from "./avObjectBase";
 
 const logger = createLogger("AVVideoBase");
@@ -31,10 +31,7 @@ export class AVVideoObjectBase extends AVObjectBase implements Control.AVControl
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createBidirectionalMethods(
-    deriveSchema<AVControlState, AVVideoObjectBase>(AVControlStateCodec),
-    this,
-  );
+  readonly stateful = createStatefulMethods(deriveSchema<AVControlState, AVVideoObjectBase>(AVControlStateCodec), this);
 
   applyState = (state: Partial<AVControlState>): IO.IO<void> => this.stateful.applyState(state);
 

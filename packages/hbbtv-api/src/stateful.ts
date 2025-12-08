@@ -385,15 +385,10 @@ export const notifyStateChange =
  * }
  * ```
  */
-export const createBidirectionalMethods = <S extends object, T extends object>(
+export const createStatefulMethods = <S extends object, T extends object>(
   schema: StateSchema<S, T>,
   instance: T,
-): {
-  applyState: (state: Partial<S>) => IO.IO<void>;
-  getState: () => IO.IO<Partial<S>>;
-  subscribe: (callback: OnStateChangeCallback<S>) => IO.IO<() => void>;
-  notifyStateChange: (changedKeys: ReadonlyArray<keyof S>) => IO.IO<void>;
-} => ({
+): Stateful<S> => ({
   applyState: (state: Partial<S>) => applyState(schema)(instance)(state),
   getState: () => readState(schema)(instance)(),
   subscribe: (callback) => subscribe<S>(instance)(callback),

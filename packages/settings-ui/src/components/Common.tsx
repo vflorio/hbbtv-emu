@@ -67,7 +67,7 @@ export default function Settings() {
             helperText={`Default for HbbTV ${hbbtvVersion}`}
           />
           <Button onClick={handleResetDefault} sx={{ mt: 1 }}>
-            Reset to default for current HbbTV version
+            Reset to default
           </Button>
         </Stack>
         <Alert severity="warning" sx={{ mt: -2 }}>

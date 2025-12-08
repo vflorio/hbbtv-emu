@@ -9,7 +9,7 @@ import {
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
-import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
+import { createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 
 const logger = createLogger("OipfApplicationManager");
 
@@ -128,7 +128,7 @@ export class OipfApplicationManager
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createBidirectionalMethods(
+  readonly stateful = createStatefulMethods(
     deriveSchema<ApplicationManagerState, OipfApplicationManager>(ApplicationManagerStateCodec),
     this,
   );

@@ -10,7 +10,7 @@ import {
 } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { createBidirectionalMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
+import { createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
 
 const logger = createLogger("AvVideoBroadcast");
 
@@ -39,7 +39,7 @@ export class AvVideoBroadcast implements Stateful<VideoBroadcastState> {
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createBidirectionalMethods(
+  readonly stateful = createStatefulMethods(
     deriveSchema<VideoBroadcastState, AvVideoBroadcast>(VideoBroadcastStateCodec),
     this,
   );
