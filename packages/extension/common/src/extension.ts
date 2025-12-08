@@ -1,3 +1,5 @@
+import { randomUUID, textToHex } from "@hbb-emu/core";
+import { DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "@hbb-emu/oipf";
 import * as t from "io-ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,11 +22,13 @@ export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const ChannelConfigCodec = t.intersection([
-  ChannelTripletCodec,
   t.type({
     id: t.string,
     name: t.string,
     mp4Source: t.string,
+    onid: t.number,
+    tsid: t.number,
+    sid: t.number,
   }),
   t.partial({
     streamEvents: t.array(StreamEventConfigCodec),

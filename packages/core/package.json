@@ -15,18 +15,6 @@
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"
     },
-    "./hbbtv": {
-      "types": "./dist/hbbtv/index.d.ts",
-      "import": "./dist/hbbtv/index.js"
-    },
-    "./message-bus": {
-      "types": "./dist/message-bus/index.d.ts",
-      "import": "./dist/message-bus/index.js"
-    },
-    "./lib": {
-      "types": "./dist/lib/index.d.ts",
-      "import": "./dist/lib/index.js"
-    },
     "./storage": {
       "types": "./dist/storage/index.d.ts",
       "import": "./dist/storage/index.js"
@@ -47,15 +35,6 @@
     "*": {
       "dom": [
         "./dist/dom/index.d.ts"
-      ],
-      "hbbtv": [
-        "./dist/hbbtv/index.d.ts"
-      ],
-      "message-bus": [
-        "./dist/message-bus/index.d.ts"
-      ],
-      "lib": [
-        "./dist/lib/index.d.ts"
       ],
       "storage": [
         "./dist/storage/index.d.ts"

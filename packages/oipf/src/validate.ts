@@ -5,35 +5,6 @@ import { ChannelIdType } from "./specification/dae/videoBroadcast/channel";
 
 // TODO: Mergiare a model/dae/videoBroadcast/channel.ts
 
-export const ChannelTripletCodec = t.type({
-  onid: t.number,
-  tsid: t.number,
-  sid: t.number,
-});
-
-export type ChannelTriplet = t.TypeOf<typeof ChannelTripletCodec>;
-
-export type InvalidChannelTripletError = Readonly<{
-  type: "InvalidChannelTripletError";
-  message: string;
-}>;
-
-export const invalidChannelTripletError = (message: string): InvalidChannelTripletError => ({
-  type: "InvalidChannelTripletError",
-  message,
-});
-
-export const validateChannelTriplet = (data: unknown): E.Either<InvalidChannelTripletError, ChannelTriplet> =>
-  pipe(
-    ChannelTripletCodec.decode(data),
-    E.mapLeft(() => invalidChannelTripletError(`Invalid channel triplet: ${JSON.stringify(data)}`)),
-  );
-
-export const isValidChannelTriplet = (channel: unknown): channel is ChannelTriplet =>
-  E.isRight(ChannelTripletCodec.decode(channel));
-
-export const serializeChannelTriplet = (triplet: ChannelTriplet) => `${triplet.onid}-${triplet.tsid}-${triplet.sid}`;
-
 export const ChannelCodec = t.intersection([
   t.type({
     idType: t.union([

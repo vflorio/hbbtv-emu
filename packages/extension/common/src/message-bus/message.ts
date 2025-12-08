@@ -8,7 +8,7 @@ import {
   ExtensionStateCodec,
   type StreamEventConfig,
   StreamEventConfigCodec,
-} from "../lib/extension";
+} from "../extension";
 
 export type BridgeContextPayload = Readonly<{
   tabId: number;

@@ -2,11 +2,13 @@
   "name": "@hbb-emu/extension-common",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*"
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/oipf": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "0.1.32",
     "fp-ts": "2.16.11",
+    "io-ts": "2.2.22",
     "typescript": "5.9.3"
   },
   "exports": {

@@ -5,7 +5,7 @@ import {
   type MessageAdapter,
   type MessageEnvelope,
   WithMessageAdapter,
-} from "@hbb-emu/core/message-bus";
+} from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";

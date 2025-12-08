@@ -1,12 +1,10 @@
+import { type ClassType, createLogger, type NotImplementedError, notImplementedError } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
 import * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
-import { createLogger } from "../lib/logger";
-import { type NotImplementedError, notImplementedError } from "../lib/misc";
-import type { ClassType } from "../lib/mixin";
 import type { Message } from "./message";
 import type { InvalidMessageEnvelopeError, InvalidTargetError, MessageEnvelope } from "./messageEnvelope";
 import { validateEnvelope } from "./messageEnvelope";

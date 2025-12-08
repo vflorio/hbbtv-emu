@@ -6,14 +6,14 @@ import {
   type MessageEnvelope,
   validateMessageOrigin,
   WithMessageAdapter,
-} from "@hbb-emu/core/message-bus";
+} from "@hbb-emu/extension-common";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 
-const logger = createLogger("ChromeMessageListener");
+const logger = createLogger("ChromeMessageAdapter");
 
 export interface ChromeMessageAdapter extends MessageAdapter {
   sendMessage: <T extends Message>(envelope: MessageEnvelope<T>) => TE.TaskEither<unknown, void>;

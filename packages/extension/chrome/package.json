@@ -2,7 +2,8 @@
   "name": "@hbb-emu/runtime-chrome",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*"
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "0.1.32",

@@ -2,7 +2,8 @@
   "name": "@hbb-emu/runtime-web",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*"
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*"
   },
   "devDependencies": {
     "fp-ts": "2.16.11",

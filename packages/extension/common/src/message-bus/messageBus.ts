@@ -1,10 +1,10 @@
+import type { ClassType } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as RR from "fp-ts/ReadonlyRecord";
 import * as S from "fp-ts/State";
-import type { ClassType } from "../lib/mixin";
 import type { Message } from "./message";
 import type { Handler, MessageAdapter } from "./messageAdapter";
 import type { MessageEnvelope } from "./messageEnvelope";

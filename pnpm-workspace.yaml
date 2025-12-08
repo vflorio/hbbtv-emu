@@ -1,8 +1,8 @@
 packages:
   #- packages_old/*
+  - extensions/*
   - packages/*
-  - packages/extensions/*
-  - packages/runtimes/*
+  - packages/extension/*
 
 onlyBuiltDependencies:
   - esbuild

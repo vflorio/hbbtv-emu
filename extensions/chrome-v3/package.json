@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/emulator": "workspace:*",
-    "@hbb-emu/provider": "workspace:*",
+    "@hbb-emu/runtime": "workspace:*",
     "@hbb-emu/settings-ui": "workspace:*",
     "@hbb-emu/runtime-chrome": "workspace:*",
     "@hbb-emu/runtime-web": "workspace:*",
