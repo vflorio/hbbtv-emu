@@ -1,31 +1,35 @@
 /**
  * WithVideoBackend Class Expression Mixin
  *
- * Provides video playback capabilities through a unified Player interface.
- * Can be configured for either AVControl or VideoBroadcast APIs, handling
- * the state mapping automatically.
+ * Provides low-level video playback capabilities through a unified Player interface.
+ * This mixin handles only video management - no HbbTV-specific API logic.
+ *
+ * HbbTV-specific state mapping and API compliance should be handled by
+ * the consuming classes (AvVideoMp4, AvVideoBroadcast, etc.)
  *
  * @example
  * ```typescript
- * class AvVideoMp4 extends WithVideoBackend("avControl")(SomeBaseClass) {
+ * class AvVideoMp4 extends WithVideoBackend(SomeBaseClass) {
  *   // Has access to this.player with unified interface
- *   // State changes automatically map to AVControl.PlayState
- * }
- *
- * class VideoBroadcast extends WithVideoBackend("avBroadcast")(SomeBaseClass) {
- *   // State changes automatically map to VideoBroadcast.PlayState
+ *   // Map player events to HbbTV events in this class
  * }
  * ```
  */
 
-import { createLogger } from "@hbb-emu/core";
+import { type ClassType, createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { createDashPlayer } from "./dashPlayer";
 import { createHlsPlayer } from "./hlsPlayer";
 import { createHtmlVideoPlayer } from "./htmlVideoPlayer";
-import { type AVControlPlayState, unifiedToApiState, type VideoBroadcastPlayState } from "./stateMapping";
-import type { ApiType, MediaSource, MediaSourceType, Player, PlayerEventListener, PlayerEventType } from "./types";
+import type {
+  MediaSource,
+  MediaSourceType,
+  Player,
+  PlayerEventListener,
+  PlayerEventType,
+  UnifiedPlayState,
+} from "./types";
 
 const logger = createLogger("VideoBackend");
 
@@ -34,22 +38,15 @@ const logger = createLogger("VideoBackend");
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * State type based on API type.
- */
-export type ApiPlayState<T extends ApiType> = T extends "avControl" ? AVControlPlayState : VideoBroadcastPlayState;
-
-/**
  * Video backend interface provided by the mixin.
+ * Contains only low-level video management functionality.
  */
-export interface VideoBackendInterface<T extends ApiType> {
+export interface VideoBackendInterface {
   /** The underlying unified player instance */
   readonly player: Player;
 
-  /** The API type this backend is configured for */
-  readonly apiType: T;
-
-  /** Current play state in API-specific format */
-  readonly apiPlayState: ApiPlayState<T>;
+  /** Current unified play state */
+  readonly unifiedState: UnifiedPlayState;
 
   /** Get the underlying video element (for DOM attachment) */
   getVideoElement(): HTMLVideoElement;
@@ -67,8 +64,6 @@ export interface VideoBackendInterface<T extends ApiType> {
 /**
  * Constructor type for class expression pattern.
  */
-// biome-ignore lint/suspicious/noExplicitAny: Required for mixin pattern
-type Constructor<T = object> = new (...args: any[]) => T;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Player Factory
@@ -113,191 +108,192 @@ const detectSourceType = (url: string): MediaSourceType => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create a class expression mixin that provides video backend functionality.
+ * Create a class expression mixin that provides low-level video backend functionality.
  *
- * @param apiType - The HbbTV API type to configure state mapping for
- * @returns A class expression mixin that adds VideoBackendInterface
+ * This mixin provides:
+ * - Player management (create, load, release)
+ * - Playback control (play, pause, stop, seek)
+ * - Volume control
+ * - Fullscreen control
+ * - Event subscription
+ *
+ * It does NOT provide:
+ * - HbbTV-specific state mapping (handle in consuming class)
+ * - HbbTV API compliance (handle in consuming class)
  *
  * @example
  * ```typescript
- * // For A/V Control objects (video/mp4, video/dash, audio/*)
- * class AvVideoMp4 extends WithVideoBackend("avControl")(BaseClass) {
- *   playback() {
- *     this.player.play();
- *     console.log(this.apiPlayState); // AVControl.PlayState value
- *   }
- * }
- *
- * // For Video/Broadcast objects
- * class VideoBroadcast extends WithVideoBackend("avBroadcast")(BaseClass) {
- *   tune() {
- *     this.loadSource({ url: "dvb://..." })();
- *     console.log(this.apiPlayState); // VideoBroadcast.PlayState value
+ * class AvVideoMp4 extends WithVideoBackend(BaseClass) {
+ *   constructor() {
+ *     super();
+ *     // Subscribe to unified state changes and map to HbbTV states
+ *     this.onUnifiedStateChange((state) => {
+ *       this._playState = mapToAvControlState(state);
+ *       this.onPlayStateChange?.(this._playState);
+ *     });
  *   }
  * }
  * ```
  */
-export const WithVideoBackend = <T extends ApiType>(apiType: T) => {
-  return <TBase extends Constructor>(Base: TBase) => {
-    return class VideoBackendMixin extends Base implements VideoBackendInterface<T> {
-      // ═════════════════════════════════════════════════════════════════════════
-      // Private State
-      // ═════════════════════════════════════════════════════════════════════════
+export const WithVideoBackend = <T extends ClassType>(Base: T) => {
+  return class VideoBackendMixin extends Base implements VideoBackendInterface {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Private State
+    // ═══════════════════════════════════════════════════════════════════════════
 
-      #player: Player = createHtmlVideoPlayer();
-      #currentSourceType: MediaSourceType = "native";
-      #stateChangeListeners: Set<(state: ApiPlayState<T>) => void> = new Set();
+    #player: Player = createHtmlVideoPlayer();
+    #currentSourceType: MediaSourceType = "native";
+    #stateChangeListeners: Set<(state: UnifiedPlayState, previousState: UnifiedPlayState) => void> = new Set();
 
-      // ═════════════════════════════════════════════════════════════════════════
-      // VideoBackendInterface Implementation
-      // ═════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Constructor
+    // ═══════════════════════════════════════════════════════════════════════════
 
-      readonly apiType: T = apiType;
+    constructor(...args: any[]) {
+      super(...args);
+      this.#setupStateChangeListener();
+      logger.info("VideoBackend initialized")();
+    }
 
-      get player(): Player {
-        return this.#player;
-      }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VideoBackendInterface Implementation
+    // ═══════════════════════════════════════════════════════════════════════════
 
-      get apiPlayState(): ApiPlayState<T> {
-        return unifiedToApiState(apiType, this.#player.state) as ApiPlayState<T>;
-      }
+    get player(): Player {
+      return this.#player;
+    }
 
-      getVideoElement = (): HTMLVideoElement => {
-        return this.#player.getVideoElement();
-      };
+    get unifiedState(): UnifiedPlayState {
+      return this.#player.state;
+    }
 
-      /**
-       * Initialize a new player for the given source type.
-       * This will release the current player if switching types.
-       */
-      initializePlayer = (sourceType: MediaSourceType): IO.IO<void> =>
-        pipe(
-          logger.debug("Initializing player for source type:", sourceType),
-          IO.flatMap(() =>
-            sourceType !== this.#currentSourceType
-              ? pipe(
-                  this.releasePlayer(),
-                  IO.flatMap(() =>
-                    IO.of(() => {
-                      this.#player = createPlayer(sourceType);
-                      this.#currentSourceType = sourceType;
-                      this.#setupStateChangeListener();
-                    }),
-                  ),
-                )
-              : IO.of(undefined),
-          ),
-        );
-
-      /**
-       * Load a media source into the player.
-       * Automatically detects source type and initializes appropriate player.
-       */
-      loadSource = (source: MediaSource): IO.IO<void> =>
-        pipe(
-          logger.debug("Loading source:", source.url),
-          IO.flatMap(() => {
-            const sourceType = source.type ?? detectSourceType(source.url);
-            return pipe(
-              this.initializePlayer(sourceType),
-              IO.flatMap(() =>
-                IO.of(() => {
-                  this.#player.load(source);
-                }),
-              ),
-            );
-          }),
-        );
-
-      /**
-       * Release the current player and clean up resources.
-       */
-      releasePlayer = (): IO.IO<void> =>
-        pipe(
-          logger.debug("Releasing player"),
-          IO.flatMap(() =>
-            IO.of(() => {
-              this.#player.release();
-            }),
-          ),
-        );
-
-      // ═════════════════════════════════════════════════════════════════════════
-      // Internal Methods
-      // ═════════════════════════════════════════════════════════════════════════
-
-      /**
-       * Set up a listener to forward state changes.
-       */
-      #setupStateChangeListener = (): void => {
-        this.#player.on("statechange", (event) => {
-          const apiState = unifiedToApiState(apiType, event.state) as ApiPlayState<T>;
-          logger.debug("State change:", event.previousState, "->", event.state, "API state:", apiState)();
-
-          for (const listener of this.#stateChangeListeners) {
-            try {
-              listener(apiState);
-            } catch (err) {
-              logger.error("State change listener error:", err)();
-            }
-          }
-        });
-      };
-
-      /**
-       * Subscribe to API-specific state changes.
-       */
-      onApiStateChange = (listener: (state: ApiPlayState<T>) => void): (() => void) => {
-        this.#stateChangeListeners.add(listener);
-        return () => this.#stateChangeListeners.delete(listener);
-      };
-
-      /**
-       * Forward player events to a listener.
-       */
-      onPlayerEvent = <E extends PlayerEventType>(type: E, listener: PlayerEventListener<E>): (() => void) => {
-        this.#player.on(type, listener);
-        return () => this.#player.off(type, listener);
-      };
-
-      // ═════════════════════════════════════════════════════════════════════════
-      // Convenience Methods (delegate to player)
-      // ═════════════════════════════════════════════════════════════════════════
-
-      /** Start or resume playback */
-      backendPlay = (speed = 1): void => this.#player.play(speed);
-
-      /** Pause playback */
-      backendPause = (): void => this.#player.pause();
-
-      /** Stop playback and reset position */
-      backendStop = (): void => this.#player.stop();
-
-      /** Seek to position (milliseconds) */
-      backendSeek = (position: number): void => this.#player.seek(position);
-
-      /** Set volume (0-100) */
-      backendSetVolume = (volume: number): void => this.#player.setVolume(volume);
-
-      /** Set muted state */
-      backendSetMuted = (muted: boolean): void => this.#player.setMuted(muted);
-
-      /** Set fullscreen state */
-      backendSetFullscreen = (fullscreen: boolean): void => this.#player.setFullscreen(fullscreen);
-
-      /** Set dimensions */
-      backendSetSize = (width: number, height: number): void => this.#player.setSize(width, height);
-
-      // ═════════════════════════════════════════════════════════════════════════
-      // Constructor
-      // ═════════════════════════════════════════════════════════════════════════
-
-      constructor(...args: any[]) {
-        super(...args);
-        this.#setupStateChangeListener();
-        logger.info("Initialized with API type:", apiType)();
-      }
+    getVideoElement = (): HTMLVideoElement => {
+      return this.#player.getVideoElement();
     };
+
+    /**
+     * Initialize a new player for the given source type.
+     * This will release the current player if switching types.
+     */
+    initializePlayer = (sourceType: MediaSourceType): IO.IO<void> =>
+      pipe(
+        logger.debug("Initializing player for source type:", sourceType),
+        IO.flatMap(() =>
+          sourceType !== this.#currentSourceType
+            ? pipe(
+                this.releasePlayer(),
+                IO.flatMap(() =>
+                  IO.of(() => {
+                    this.#player = createPlayer(sourceType);
+                    this.#currentSourceType = sourceType;
+                    this.#setupStateChangeListener();
+                  }),
+                ),
+              )
+            : IO.of(undefined),
+        ),
+      );
+
+    /**
+     * Load a media source into the player.
+     * Automatically detects source type and initializes appropriate player.
+     */
+    loadSource = (source: MediaSource): IO.IO<void> =>
+      pipe(
+        logger.debug("Loading source:", source.url),
+        IO.flatMap(() => {
+          const sourceType = source.type ?? detectSourceType(source.url);
+          return pipe(
+            this.initializePlayer(sourceType),
+            IO.flatMap(() =>
+              IO.of(() => {
+                this.#player.load(source);
+              }),
+            ),
+          );
+        }),
+      );
+
+    /**
+     * Release the current player and clean up resources.
+     */
+    releasePlayer = (): IO.IO<void> =>
+      pipe(
+        logger.debug("Releasing player"),
+        IO.flatMap(() =>
+          IO.of(() => {
+            this.#player.release();
+          }),
+        ),
+      );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Internal Methods
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Set up a listener to forward state changes.
+     */
+    #setupStateChangeListener = (): void => {
+      this.#player.on("statechange", (event) => {
+        logger.debug("Unified state change:", event.previousState, "->", event.state)();
+
+        for (const listener of this.#stateChangeListeners) {
+          try {
+            listener(event.state, event.previousState);
+          } catch (err) {
+            logger.error("State change listener error:", err)();
+          }
+        }
+      });
+    };
+
+    /**
+     * Subscribe to unified state changes.
+     * Use this to map unified states to HbbTV-specific states in consuming classes.
+     */
+    onUnifiedStateChange = (
+      listener: (state: UnifiedPlayState, previousState: UnifiedPlayState) => void,
+    ): (() => void) => {
+      this.#stateChangeListeners.add(listener);
+      return () => this.#stateChangeListeners.delete(listener);
+    };
+
+    /**
+     * Forward player events to a listener.
+     */
+    onPlayerEvent = <E extends PlayerEventType>(type: E, listener: PlayerEventListener<E>): (() => void) => {
+      this.#player.on(type, listener);
+      return () => this.#player.off(type, listener);
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Low-Level Playback Control (delegate to player)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /** Start or resume playback */
+    backendPlay = (speed = 1): void => this.#player.play(speed);
+
+    /** Pause playback */
+    backendPause = (): void => this.#player.pause();
+
+    /** Stop playback and reset position */
+    backendStop = (): void => this.#player.stop();
+
+    /** Seek to position (milliseconds) */
+    backendSeek = (position: number): void => this.#player.seek(position);
+
+    /** Set volume (0-100) */
+    backendSetVolume = (volume: number): void => this.#player.setVolume(volume);
+
+    /** Set muted state */
+    backendSetMuted = (muted: boolean): void => this.#player.setMuted(muted);
+
+    /** Set fullscreen state */
+    backendSetFullscreen = (fullscreen: boolean): void => this.#player.setFullscreen(fullscreen);
+
+    /** Set dimensions */
+    backendSetSize = (width: number, height: number): void => this.#player.setSize(width, height);
   };
 };
 
@@ -308,4 +304,4 @@ export const WithVideoBackend = <T extends ApiType>(apiType: T) => {
 /**
  * Extract the mixin instance type.
  */
-export type VideoBackendMixin<T extends ApiType> = InstanceType<ReturnType<ReturnType<typeof WithVideoBackend<T>>>>;
+export type VideoBackendMixin = InstanceType<ReturnType<typeof WithVideoBackend>>;

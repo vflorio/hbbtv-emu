@@ -1,19 +1,23 @@
 /**
  * Video Backend Package
  *
- * Provides a unified video playback abstraction that works across
- * different HbbTV APIs (AVControl and VideoBroadcast) and different
- * streaming technologies (native HTML5, DASH.js, HLS.js).
+ * Provides a unified low-level video playback abstraction that works across
+ * different streaming technologies (native HTML5, DASH.js, HLS.js).
+ *
+ * This package handles only video management - no HbbTV-specific API logic.
+ * HbbTV state mapping should be done in the consuming classes.
  *
  * @example
  * ```typescript
- * import { WithVideoBackend, createDashPlayer } from "@hbb-emu/video-backend";
+ * import { WithVideoBackend, createDashPlayer, UnifiedPlayState } from "@hbb-emu/video-backend";
  *
- * // Using the mixin pattern for HbbTV objects
- * class AvVideoDash extends WithVideoBackend("avControl")(BaseClass) {
- *   play() {
- *     this.loadSource({ url: "https://example.com/video.mpd" })();
- *     this.backendPlay();
+ * // Using the mixin pattern
+ * class AvVideoMp4 extends WithVideoBackend(BaseClass) {
+ *   constructor() {
+ *     super();
+ *     this.onUnifiedStateChange((state) => {
+ *       // Map unified state to HbbTV-specific state here
+ *     });
  *   }
  * }
  *
@@ -31,7 +35,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type {
-  ApiType,
   DrmConfig,
   MediaSource,
   MediaSourceType,
@@ -45,22 +48,6 @@ export type {
 export { UnifiedPlayState } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// State Mapping
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type { AVControlPlayState, VideoBroadcastPlayState } from "./stateMapping";
-
-export {
-  AVControlPlayState as AVControlPlayStateValues,
-  avControlToUnified,
-  unifiedToApiState,
-  unifiedToAvControl,
-  unifiedToVideoBroadcast,
-  VideoBroadcastPlayState as VideoBroadcastPlayStateValues,
-  videoBroadcastToUnified,
-} from "./stateMapping";
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Players
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,5 +59,5 @@ export { createHtmlVideoPlayer } from "./htmlVideoPlayer";
 // Mixin
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type { ApiPlayState, VideoBackendInterface, VideoBackendMixin } from "./withVideoBackend";
+export type { VideoBackendInterface, VideoBackendMixin } from "./withVideoBackend";
 export { WithVideoBackend } from "./withVideoBackend";

@@ -1,30 +1,19 @@
 /**
  * Video Backend Types
  *
- * Unified types for video playback backend that abstracts away
- * the differences between AVControl and VideoBroadcast APIs.
+ * Unified types for low-level video playback backend.
+ * This module contains only video-related types, no HbbTV-specific logic.
  */
-
-// ─────────────────────────────────────────────────────────────────────────────
-// API Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * The type of HbbTV API being emulated.
- * - avControl: A/V Control objects (video/mp4, video/dash, audio/*)
- * - avBroadcast: Video/Broadcast objects (video/broadcast)
- */
-export type ApiType = "avControl" | "avBroadcast";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Unified Play State
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Unified play state that maps to both AVControl and VideoBroadcast states.
+ * Unified play state for the video backend.
  *
- * This is our internal representation that gets translated to the appropriate
- * HbbTV API state.
+ * This is the internal representation used by the player.
+ * HbbTV-specific state mapping should be done in the consuming classes.
  */
 export enum UnifiedPlayState {
   /** Not started or released */
