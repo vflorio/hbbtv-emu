@@ -1,21 +1,17 @@
 /**
- * DASH.js Player
+ * HTML Video Player
  *
- * Player implementation using DASH.js for MPEG-DASH adaptive streaming.
+ * Base player implementation using HTMLVideoElement.
+ * Extended by DASH and HLS players for adaptive streaming.
  */
 
 import { createLogger } from "@hbb-emu/core";
-import type dashjs from "dashjs";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "./types";
-import { UnifiedPlayState } from "./types";
+import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
+import { UnifiedPlayState } from "../types";
 
-/** DASH.js MediaPlayer instance type */
-type DashMediaPlayer = ReturnType<typeof dashjs.MediaPlayer>;
-type DashMediaPlayerInstance = ReturnType<DashMediaPlayer["create"]>;
-
-const logger = createLogger("DashPlayer");
+const logger = createLogger("HtmlVideoPlayer");
 
 /**
  * Event listener storage.
@@ -25,12 +21,11 @@ type EventListeners = {
 };
 
 /**
- * Create a new DASH.js player.
+ * Create a new HTML video player.
  */
-export const createDashPlayer = (): Player => {
+export const createHtmlVideoPlayer = (): Player => {
   // ─── Private State ─────────────────────────────────────────────────────────
   const videoElement = document.createElement("video");
-  let dashPlayer: DashMediaPlayerInstance | null = null;
   let state: UnifiedPlayState = UnifiedPlayState.IDLE;
   let source: MediaSource | null = null;
   let currentSpeed = 1;
@@ -66,60 +61,50 @@ export const createDashPlayer = (): Player => {
     }
   };
 
-  // ─── DASH.js Initialization ────────────────────────────────────────────────
-  const initDashPlayer = async (): Promise<DashMediaPlayerInstance> => {
-    if (dashPlayer) {
-      return dashPlayer;
-    }
-
-    // Dynamic import to avoid loading dashjs if not needed
-    const dashjs = await import("dashjs");
-    dashPlayer = dashjs.MediaPlayer().create();
-    dashPlayer.initialize(videoElement, undefined, false);
-
-    // Set up DASH.js event handlers
-    dashPlayer.on("error", (event: unknown) => {
-      const error: PlayerError = {
-        code: 0,
-        message: "DASH playback error",
-        details: event,
-      };
-      setState(UnifiedPlayState.ERROR);
-      emit("error", { error });
+  // ─── Video Element Event Handlers ──────────────────────────────────────────
+  const setupVideoEventListeners = (): IO.IO<void> => () => {
+    videoElement.addEventListener("loadstart", () => {
+      if (state === UnifiedPlayState.IDLE) {
+        setState(UnifiedPlayState.CONNECTING);
+      }
     });
 
-    dashPlayer.on("playbackStarted", () => {
+    videoElement.addEventListener("canplay", () => {
+      if (state === UnifiedPlayState.CONNECTING || state === UnifiedPlayState.BUFFERING) {
+        // Don't auto-transition to PLAYING, wait for play() call
+      }
+    });
+
+    videoElement.addEventListener("playing", () => {
       setState(UnifiedPlayState.PLAYING);
     });
 
-    dashPlayer.on("playbackPaused", () => {
+    videoElement.addEventListener("pause", () => {
       if (state === UnifiedPlayState.PLAYING) {
         setState(UnifiedPlayState.PAUSED);
       }
     });
 
-    dashPlayer.on("bufferStalled", () => {
+    videoElement.addEventListener("waiting", () => {
       if (state === UnifiedPlayState.PLAYING) {
         setState(UnifiedPlayState.BUFFERING);
       }
     });
 
-    dashPlayer.on("bufferLoaded", () => {
-      if (state === UnifiedPlayState.BUFFERING) {
-        setState(UnifiedPlayState.PLAYING);
-      }
-    });
-
-    dashPlayer.on("playbackEnded", () => {
+    videoElement.addEventListener("ended", () => {
       setState(UnifiedPlayState.FINISHED);
       emit("ended", {});
     });
 
-    return dashPlayer;
-  };
+    videoElement.addEventListener("error", () => {
+      const error: PlayerError = {
+        code: videoElement.error?.code ?? 0,
+        message: videoElement.error?.message ?? "Unknown error",
+      };
+      setState(UnifiedPlayState.ERROR);
+      emit("error", { error });
+    });
 
-  // ─── Video Element Event Handlers ──────────────────────────────────────────
-  const setupVideoEventListeners = (): IO.IO<void> => () => {
     videoElement.addEventListener("timeupdate", () => {
       emit("timeupdate", { currentTime: Math.floor(videoElement.currentTime * 1000) });
     });
@@ -144,6 +129,7 @@ export const createDashPlayer = (): Player => {
     });
   };
 
+  // Initialize event listeners
   setupVideoEventListeners()();
 
   // ─── Player Implementation ─────────────────────────────────────────────────
@@ -175,25 +161,13 @@ export const createDashPlayer = (): Player => {
 
     load: (newSource: MediaSource): void => {
       pipe(
-        logger.debug("Loading DASH source:", newSource.url),
+        logger.debug("Loading source:", newSource.url),
         IO.tap(() =>
           IO.of(() => {
             source = newSource;
+            videoElement.src = newSource.url;
+            videoElement.load();
             setState(UnifiedPlayState.CONNECTING);
-
-            initDashPlayer().then((dp) => {
-              // Configure DRM if provided
-              if (newSource.drm) {
-                dp.setProtectionData({
-                  [newSource.drm.system]: {
-                    serverURL: newSource.drm.licenseUrl,
-                    httpRequestHeaders: newSource.drm.headers,
-                  },
-                });
-              }
-
-              dp.attachSource(newSource.url);
-            });
           }),
         ),
       )();
@@ -210,7 +184,12 @@ export const createDashPlayer = (): Player => {
             if (speed === 0) {
               videoElement.pause();
             } else {
-              dashPlayer?.play();
+              videoElement.play().catch((err) => {
+                logger.error("Play failed:", err)();
+                const error: PlayerError = { code: 0, message: String(err) };
+                setState(UnifiedPlayState.ERROR);
+                emit("error", { error });
+              });
             }
           }),
         ),
@@ -220,7 +199,7 @@ export const createDashPlayer = (): Player => {
     pause: (): void => {
       pipe(
         logger.debug("Pause"),
-        IO.tap(() => IO.of(() => dashPlayer?.pause())),
+        IO.tap(() => IO.of(() => videoElement.pause())),
       )();
     },
 
@@ -229,7 +208,7 @@ export const createDashPlayer = (): Player => {
         logger.debug("Stop"),
         IO.tap(() =>
           IO.of(() => {
-            dashPlayer?.pause();
+            videoElement.pause();
             videoElement.currentTime = 0;
             setState(UnifiedPlayState.STOPPED);
           }),
@@ -242,7 +221,10 @@ export const createDashPlayer = (): Player => {
         logger.debug("Seek:", position),
         IO.tap(() =>
           IO.of(() => {
-            dashPlayer?.seek(position / 1000);
+            const posSeconds = position / 1000;
+            if (posSeconds >= 0 && posSeconds <= videoElement.duration) {
+              videoElement.currentTime = posSeconds;
+            }
           }),
         ),
       )();
@@ -253,8 +235,9 @@ export const createDashPlayer = (): Player => {
         logger.debug("Release"),
         IO.tap(() =>
           IO.of(() => {
-            dashPlayer?.reset();
-            dashPlayer = null;
+            videoElement.pause();
+            videoElement.removeAttribute("src");
+            videoElement.load();
             source = null;
             setState(UnifiedPlayState.IDLE);
           }),
@@ -268,7 +251,7 @@ export const createDashPlayer = (): Player => {
     },
 
     setMuted: (muted: boolean): void => {
-      dashPlayer?.setMute(muted);
+      videoElement.muted = muted;
     },
 
     setFullscreen: (fullscreen: boolean): void => {

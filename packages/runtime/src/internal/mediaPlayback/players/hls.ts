@@ -8,8 +8,8 @@ import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type Hls from "hls.js";
-import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "./types";
-import { UnifiedPlayState } from "./types";
+import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
+import { UnifiedPlayState } from "../types";
 
 const logger = createLogger("HlsPlayer");
 

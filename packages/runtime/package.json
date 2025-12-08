@@ -1,12 +1,13 @@
 {
-  "name": "@hbb-emu/emulator",
+  "name": "@hbb-emu/runtime",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/video-backend": "workspace:*"
+    "@hbb-emu/core": "workspace:*"
   },
   "devDependencies": {
+    "dashjs": "^5.1.0",
     "fp-ts": "2.16.11",
+    "hls.js": "^1.6.15",
     "io-ts": "2.2.22",
     "typescript": "5.9.3"
   },

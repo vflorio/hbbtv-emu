@@ -1,8 +1,8 @@
 import { createLogger, DEFAULT_HBBTV_CONFIG, type ExtensionState, ExtensionStateCodec, Storage } from "@hbb-emu/core";
-import { ChromeStorageAdapter } from "@hbb-emu/runtime-chrome";
 import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
+import { ChromeStorageAdapter } from "../../../../extensions-runtime/chrome/src";
 import type { Instance } from "./app";
 import { setConfig } from "./state";
 

@@ -1,10 +1,10 @@
 import { type ClassType, DEFAULT_HBBTV_CONFIG, type ExtensionState } from "@hbb-emu/core";
-import type { WebRequestManager } from "@hbb-emu/runtime-chrome";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as N from "fp-ts/number";
 import * as RS from "fp-ts/ReadonlySet";
 import * as S from "fp-ts/State";
+import type { WebRequestManager } from "../../../../extensions-runtime/chrome/src";
 
 export interface AppState {
   tabs: ReadonlySet<number>;

@@ -51,9 +51,9 @@ export { UnifiedPlayState } from "./types";
 // Players
 // ─────────────────────────────────────────────────────────────────────────────
 
-export { createDashPlayer } from "./dashPlayer";
-export { createHlsPlayer } from "./hlsPlayer";
-export { createHtmlVideoPlayer } from "./htmlVideoPlayer";
+export { createDashPlayer } from "./players/dash";
+export { createHlsPlayer } from "./players/hls";
+export { createHtmlVideoPlayer } from "./players/htmlVideo";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mixin

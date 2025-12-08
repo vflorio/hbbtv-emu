@@ -1,6 +1,6 @@
 import { compose } from "@hbb-emu/core";
 import { WithMessageClient } from "@hbb-emu/core/message-bus";
-import { WithChromeMessageAdapter } from "@hbb-emu/runtime-chrome";
+import { WithChromeMessageAdapter } from "../../../../extensions-runtime/chrome/src";
 import { WithBridge } from "./bridge";
 import { WithRender } from "./render";
 import { WithAppState } from "./state";

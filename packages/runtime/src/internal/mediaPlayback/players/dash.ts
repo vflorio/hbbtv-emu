@@ -1,17 +1,21 @@
 /**
- * HTML Video Player
+ * DASH.js Player
  *
- * Base player implementation using HTMLVideoElement.
- * Extended by DASH and HLS players for adaptive streaming.
+ * Player implementation using DASH.js for MPEG-DASH adaptive streaming.
  */
 
 import { createLogger } from "@hbb-emu/core";
+import type dashjs from "dashjs";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "./types";
-import { UnifiedPlayState } from "./types";
+import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
+import { UnifiedPlayState } from "../types";
 
-const logger = createLogger("HtmlVideoPlayer");
+/** DASH.js MediaPlayer instance type */
+type DashMediaPlayer = ReturnType<typeof dashjs.MediaPlayer>;
+type DashMediaPlayerInstance = ReturnType<DashMediaPlayer["create"]>;
+
+const logger = createLogger("DashPlayer");
 
 /**
  * Event listener storage.
@@ -21,11 +25,12 @@ type EventListeners = {
 };
 
 /**
- * Create a new HTML video player.
+ * Create a new DASH.js player.
  */
-export const createHtmlVideoPlayer = (): Player => {
+export const createDashPlayer = (): Player => {
   // ─── Private State ─────────────────────────────────────────────────────────
   const videoElement = document.createElement("video");
+  let dashPlayer: DashMediaPlayerInstance | null = null;
   let state: UnifiedPlayState = UnifiedPlayState.IDLE;
   let source: MediaSource | null = null;
   let currentSpeed = 1;
@@ -61,50 +66,60 @@ export const createHtmlVideoPlayer = (): Player => {
     }
   };
 
-  // ─── Video Element Event Handlers ──────────────────────────────────────────
-  const setupVideoEventListeners = (): IO.IO<void> => () => {
-    videoElement.addEventListener("loadstart", () => {
-      if (state === UnifiedPlayState.IDLE) {
-        setState(UnifiedPlayState.CONNECTING);
-      }
-    });
+  // ─── DASH.js Initialization ────────────────────────────────────────────────
+  const initDashPlayer = async (): Promise<DashMediaPlayerInstance> => {
+    if (dashPlayer) {
+      return dashPlayer;
+    }
 
-    videoElement.addEventListener("canplay", () => {
-      if (state === UnifiedPlayState.CONNECTING || state === UnifiedPlayState.BUFFERING) {
-        // Don't auto-transition to PLAYING, wait for play() call
-      }
-    });
+    // Dynamic import to avoid loading dashjs if not needed
+    const dashjs = await import("dashjs");
+    dashPlayer = dashjs.MediaPlayer().create();
+    dashPlayer.initialize(videoElement, undefined, false);
 
-    videoElement.addEventListener("playing", () => {
-      setState(UnifiedPlayState.PLAYING);
-    });
-
-    videoElement.addEventListener("pause", () => {
-      if (state === UnifiedPlayState.PLAYING) {
-        setState(UnifiedPlayState.PAUSED);
-      }
-    });
-
-    videoElement.addEventListener("waiting", () => {
-      if (state === UnifiedPlayState.PLAYING) {
-        setState(UnifiedPlayState.BUFFERING);
-      }
-    });
-
-    videoElement.addEventListener("ended", () => {
-      setState(UnifiedPlayState.FINISHED);
-      emit("ended", {});
-    });
-
-    videoElement.addEventListener("error", () => {
+    // Set up DASH.js event handlers
+    dashPlayer.on("error", (event: unknown) => {
       const error: PlayerError = {
-        code: videoElement.error?.code ?? 0,
-        message: videoElement.error?.message ?? "Unknown error",
+        code: 0,
+        message: "DASH playback error",
+        details: event,
       };
       setState(UnifiedPlayState.ERROR);
       emit("error", { error });
     });
 
+    dashPlayer.on("playbackStarted", () => {
+      setState(UnifiedPlayState.PLAYING);
+    });
+
+    dashPlayer.on("playbackPaused", () => {
+      if (state === UnifiedPlayState.PLAYING) {
+        setState(UnifiedPlayState.PAUSED);
+      }
+    });
+
+    dashPlayer.on("bufferStalled", () => {
+      if (state === UnifiedPlayState.PLAYING) {
+        setState(UnifiedPlayState.BUFFERING);
+      }
+    });
+
+    dashPlayer.on("bufferLoaded", () => {
+      if (state === UnifiedPlayState.BUFFERING) {
+        setState(UnifiedPlayState.PLAYING);
+      }
+    });
+
+    dashPlayer.on("playbackEnded", () => {
+      setState(UnifiedPlayState.FINISHED);
+      emit("ended", {});
+    });
+
+    return dashPlayer;
+  };
+
+  // ─── Video Element Event Handlers ──────────────────────────────────────────
+  const setupVideoEventListeners = (): IO.IO<void> => () => {
     videoElement.addEventListener("timeupdate", () => {
       emit("timeupdate", { currentTime: Math.floor(videoElement.currentTime * 1000) });
     });
@@ -129,7 +144,6 @@ export const createHtmlVideoPlayer = (): Player => {
     });
   };
 
-  // Initialize event listeners
   setupVideoEventListeners()();
 
   // ─── Player Implementation ─────────────────────────────────────────────────
@@ -161,13 +175,25 @@ export const createHtmlVideoPlayer = (): Player => {
 
     load: (newSource: MediaSource): void => {
       pipe(
-        logger.debug("Loading source:", newSource.url),
+        logger.debug("Loading DASH source:", newSource.url),
         IO.tap(() =>
           IO.of(() => {
             source = newSource;
-            videoElement.src = newSource.url;
-            videoElement.load();
             setState(UnifiedPlayState.CONNECTING);
+
+            initDashPlayer().then((dp) => {
+              // Configure DRM if provided
+              if (newSource.drm) {
+                dp.setProtectionData({
+                  [newSource.drm.system]: {
+                    serverURL: newSource.drm.licenseUrl,
+                    httpRequestHeaders: newSource.drm.headers,
+                  },
+                });
+              }
+
+              dp.attachSource(newSource.url);
+            });
           }),
         ),
       )();
@@ -184,12 +210,7 @@ export const createHtmlVideoPlayer = (): Player => {
             if (speed === 0) {
               videoElement.pause();
             } else {
-              videoElement.play().catch((err) => {
-                logger.error("Play failed:", err)();
-                const error: PlayerError = { code: 0, message: String(err) };
-                setState(UnifiedPlayState.ERROR);
-                emit("error", { error });
-              });
+              dashPlayer?.play();
             }
           }),
         ),
@@ -199,7 +220,7 @@ export const createHtmlVideoPlayer = (): Player => {
     pause: (): void => {
       pipe(
         logger.debug("Pause"),
-        IO.tap(() => IO.of(() => videoElement.pause())),
+        IO.tap(() => IO.of(() => dashPlayer?.pause())),
       )();
     },
 
@@ -208,7 +229,7 @@ export const createHtmlVideoPlayer = (): Player => {
         logger.debug("Stop"),
         IO.tap(() =>
           IO.of(() => {
-            videoElement.pause();
+            dashPlayer?.pause();
             videoElement.currentTime = 0;
             setState(UnifiedPlayState.STOPPED);
           }),
@@ -221,10 +242,7 @@ export const createHtmlVideoPlayer = (): Player => {
         logger.debug("Seek:", position),
         IO.tap(() =>
           IO.of(() => {
-            const posSeconds = position / 1000;
-            if (posSeconds >= 0 && posSeconds <= videoElement.duration) {
-              videoElement.currentTime = posSeconds;
-            }
+            dashPlayer?.seek(position / 1000);
           }),
         ),
       )();
@@ -235,9 +253,8 @@ export const createHtmlVideoPlayer = (): Player => {
         logger.debug("Release"),
         IO.tap(() =>
           IO.of(() => {
-            videoElement.pause();
-            videoElement.removeAttribute("src");
-            videoElement.load();
+            dashPlayer?.reset();
+            dashPlayer = null;
             source = null;
             setState(UnifiedPlayState.IDLE);
           }),
@@ -251,7 +268,7 @@ export const createHtmlVideoPlayer = (): Player => {
     },
 
     setMuted: (muted: boolean): void => {
-      videoElement.muted = muted;
+      dashPlayer?.setMute(muted);
     },
 
     setFullscreen: (fullscreen: boolean): void => {

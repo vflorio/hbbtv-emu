@@ -19,9 +19,9 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { createDashPlayer } from "./dashPlayer";
-import { createHlsPlayer } from "./hlsPlayer";
-import { createHtmlVideoPlayer } from "./htmlVideoPlayer";
+import { createDashPlayer } from "./players/dash";
+import { createHlsPlayer } from "./players/hls";
+import { createHtmlVideoPlayer } from "./players/htmlVideo";
 import type {
   MediaSource,
   MediaSourceType,

@@ -1,6 +1,10 @@
 import { compose } from "@hbb-emu/core";
 import { WithMessageBroker } from "@hbb-emu/core/message-bus";
-import { WithChromeMessageAdapter, WithChromeScriptInject, WithChromeWebRequestManager } from "@hbb-emu/runtime-chrome";
+import {
+  WithChromeMessageAdapter,
+  WithChromeScriptInject,
+  WithChromeWebRequestManager,
+} from "../../../../extensions-runtime/chrome/src";
 import { WithAppState } from "./state";
 
 export const App = compose(

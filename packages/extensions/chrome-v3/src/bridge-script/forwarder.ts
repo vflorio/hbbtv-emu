@@ -6,7 +6,6 @@ import {
   type MessageEnvelope,
   validateEnvelope,
 } from "@hbb-emu/core";
-import { isFromSamePage } from "@hbb-emu/runtime-web";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
@@ -15,6 +14,7 @@ import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import * as TO from "fp-ts/TaskOption";
+import { isFromSamePage } from "../../../../extensions-runtime/web/src";
 import { type AppState, getTabId, setTabId } from "./state";
 
 const logger = createLogger("Bridge:Forwarder");
