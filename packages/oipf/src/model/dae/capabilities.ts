@@ -7,7 +7,7 @@
  */
 
 import * as t from "io-ts";
-import type { DAE } from "../../interface";
+import type { DAE } from "../../specification";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OIPF Capabilities State

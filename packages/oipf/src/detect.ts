@@ -1,7 +1,8 @@
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
-// FIXME: duplicato
+// FIXME: migrare a ObjectFactoryAPI
+
 const HBBTV_OBJECT_TYPES = [
   "application/oipfApplicationManager",
   "application/oipfConfiguration",

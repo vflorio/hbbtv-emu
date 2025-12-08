@@ -1,0 +1,27 @@
+{
+  "name": "@hbb-emu/oipf",
+  "version": "1.0.0",
+  "dependencies": {},
+  "devDependencies": {
+    "fp-ts": "2.16.11",
+    "io-ts": "2.2.22",
+    "typescript": "5.9.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts"
+}
