@@ -1,11 +1,17 @@
 /**
- * A/V Object Base with Video Backend
+ * A/V Control Video
  *
- * Base class for A/V Control objects that uses the video-backend package
+ * Base class for A/V Control video objects that uses ObjectVideoStream
  * for unified player management.
  */
 
-import { createLogger } from "@hbb-emu/core";
+import {
+  createLogger,
+  createStatefulMethods,
+  deriveSchema,
+  type OnStateChangeCallback,
+  type Stateful,
+} from "@hbb-emu/core";
 import {
   type AVControlState,
   AVControlStateCodec,
@@ -19,15 +25,11 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import {
-  createStatefulMethods,
-  deriveSchema,
-  type OnStateChangeCallback,
-  type Stateful,
-} from "../../../core/src/stateful";
-import { UnifiedPlayState, WithVideoBackend } from "../providers/playback";
 
-const logger = createLogger("AVObjectWithBackend");
+import { UnifiedPlayState } from "../providers/videoStream";
+import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
+
+const logger = createLogger("AVControlVideo");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State Mapping: Unified → AVControl
@@ -57,38 +59,28 @@ const mapUnifiedToAvControl = (state: UnifiedPlayState): OIPF.AV.control.PlaySta
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Base Class for Mixin
+// A/V Control Video
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Empty base class for mixin composition.
- */
-class EmptyBase {}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// A/V Object Base with Video Backend
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Base class for A/V Control objects using the video backend.
+ * A/V Control Video implementation using ObjectVideoStream.
  *
  * Provides:
- * - Unified player interface via WithVideoBackend mixin
+ * - Unified player interface via ObjectVideoStream
  * - State mapping from unified states to AVControl.PlayState
  * - Full HbbTV A/V Control API compliance
+ *
+ * Use this class for video/mp4, video/mpeg and similar MIME types.
  */
-export class AVObjectWithBackend
-  extends WithVideoBackend(EmptyBase)
+export class AVControlVideo
+  extends ObjectVideoStream
   implements OIPF.AV.control.AVControlVideo, Stateful<AVControlState>
 {
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createStatefulMethods(
-    deriveSchema<AVControlState, AVObjectWithBackend>(AVControlStateCodec),
-    this,
-  );
+  readonly stateful = createStatefulMethods(deriveSchema<AVControlState, AVControlVideo>(AVControlStateCodec), this);
 
   applyState = (state: Partial<AVControlState>): IO.IO<void> => this.stateful.applyState(state);
 

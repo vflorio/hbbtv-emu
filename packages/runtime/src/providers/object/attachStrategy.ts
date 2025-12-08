@@ -3,12 +3,16 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { OipfObject } from "../..";
 import type { OipfObjectFactory } from "../../apis/oipfObjectFactory";
-import type { AvVideoBroadcast, AvVideoDash, AvVideoMp4 } from "../../av";
+import type { AVControlVideo } from "../../av";
 import type { OipfApplicationManager } from "../../dae/applicationManager";
 import type { OipfCapabilities } from "../../dae/capabilities";
 import type { OipfConfiguration } from "../../dae/configuration";
+import type { VideoBroadcast } from "../../dae/videoBroadcast";
 
 const logger = createLogger("AttachStrategy");
+
+export type CopyableOipfObjects = OipfApplicationManager | OipfCapabilities | OipfConfiguration;
+export type ProxableOipfObjects = AVControlVideo | VideoBroadcast;
 
 /**
  * Copy Strategy - copies all properties from instance to target element.
@@ -18,10 +22,7 @@ const logger = createLogger("AttachStrategy");
  * - oipfConfiguration
  * - oipfCapabilities
  */
-export const copyStrategy = (
-  oipfObject: OipfObject,
-  instance: OipfApplicationManager | OipfCapabilities | OipfConfiguration,
-): IO.IO<void> =>
+export const copyStrategy = (oipfObject: OipfObject, instance: CopyableOipfObjects): IO.IO<void> =>
   pipe(
     logger.debug("Applying copy strategy to:", oipfObject.type),
     IO.flatMap(() => copyProperties(instance, oipfObject.element)),
@@ -48,21 +49,6 @@ export const injectStrategy = (instance: OipfObjectFactory, key: string): IO.IO<
   );
 
 /**
- * Interface for AV objects that have a video backend.
- *
- * All AV objects (VideoBroadcast, VideoMp4, VideoDash) share this structure.
- */
-export interface AvObjectWithVideoBackend {
-  /** Get the underlying HTML video element for playback */
-  getVideoElement(): HTMLVideoElement;
-}
-
-/**
- * Union of all supported AV object types.
- */
-export type AvObject = (AvVideoBroadcast | AvVideoMp4 | AvVideoDash) & AvObjectWithVideoBackend;
-
-/**
  * Proxy Strategy - proxies properties and sets up video element mirroring.
  *
  * Used for A/V objects that require a video backend:
@@ -70,7 +56,7 @@ export type AvObject = (AvVideoBroadcast | AvVideoMp4 | AvVideoDash) & AvObjectW
  * - video/mp4
  * - application/dash+xml
  */
-export const proxyStrategy = (oipfObject: OipfObject, instance: AvObject): IO.IO<void> => {
+export const proxyStrategy = (oipfObject: OipfObject, instance: ProxableOipfObjects): IO.IO<void> => {
   const videoElement = instance.getVideoElement();
   const styleMirror = new ObjectStyleMirror(oipfObject.element, videoElement);
 

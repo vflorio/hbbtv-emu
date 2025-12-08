@@ -145,6 +145,7 @@ export enum QuietMode {
  *
  * HTMLObjectElement defines `width` and `height` as `string`, but HbbTV
  * specifies them as `Integer`. We use Omit to allow redefinition.
+ * @deprecated
  */
 type VideoBroadcastBase = Omit<HTMLObjectElement, "width" | "height">;
 
@@ -189,7 +190,7 @@ type VideoBroadcastBase = Omit<HTMLObjectElement, "width" | "height">;
  * @see Component.ComponentType
  * @see ChannelChangeErrorCode
  */
-export interface VideoBroadcast extends VideoBroadcastBase {
+export interface VideoBroadcast {
   // ==========================================================================
   // Constants (defined on the object instance)
   // ==========================================================================

@@ -1,4 +1,10 @@
-import { createLogger } from "@hbb-emu/core";
+import {
+  createLogger,
+  createStatefulMethods,
+  deriveSchema,
+  type OnStateChangeCallback,
+  type Stateful,
+} from "@hbb-emu/core";
 import {
   DEFAULT_DRM_SYSTEMS,
   DEFAULT_HBBTV_VERSION,
@@ -11,12 +17,6 @@ import {
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import {
-  createStatefulMethods,
-  deriveSchema,
-  type OnStateChangeCallback,
-  type Stateful,
-} from "../../../core/src/stateful";
 
 const logger = createLogger("OipfCapabilities");
 

@@ -27,10 +27,11 @@ import {
   type VideoBroadcastState,
 } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
-import { AvVideoBroadcast, AvVideoDash, AvVideoMp4 } from "./av";
+import { AVControlVideo } from "./av";
 import { OipfApplicationManager } from "./dae/applicationManager";
 import { OipfCapabilities } from "./dae/capabilities";
 import { OipfConfiguration } from "./dae/configuration";
+import { VideoBroadcast } from "./dae/videoBroadcast";
 
 /**
  * State slice key in HbbTVState.
@@ -142,13 +143,13 @@ export const oipfApplicationManagerDefinition: ObjectDefinition<
 };
 
 /**
- * AvVideoBroadcast definition.
+ * VideoBroadcast definition.
  */
-export const avVideoBroadcastDefinition: ObjectDefinition<AvVideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
-  name: "AvVideoBroadcast",
+export const videoBroadcastDefinition: ObjectDefinition<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
+  name: "VideoBroadcast",
   selector: `object[type="${OIPF.DAE.broadcast.MIME_TYPE}"]`,
   predicate: OIPF.DAE.broadcast.isValidElement,
-  factory: () => new AvVideoBroadcast(),
+  factory: () => new VideoBroadcast(),
   stateKey: "videoBroadcast",
   attachStrategy: "proxy",
   applyState: (instance, state) => instance.applyState(state ?? {}),
@@ -159,11 +160,11 @@ export const avVideoBroadcastDefinition: ObjectDefinition<AvVideoBroadcast, Vide
 /**
  * AvVideoMp4 definition.
  */
-export const avVideoMp4Definition: ObjectDefinition<AvVideoMp4, AVControlState, "avControls"> = {
+export const avVideoMp4Definition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
   name: "AvVideoMp4",
   selector: `object[type="${AV_CONTROL_VIDEO_MP4_MIME_TYPE}"]`,
   predicate: isValidAvControlVideoMp4,
-  factory: () => new AvVideoMp4(),
+  factory: () => new AVControlVideo(),
   stateKey: "avControls",
   attachStrategy: "proxy",
   applyState: (instance, state) => instance.applyState(state ?? {}),
@@ -174,11 +175,11 @@ export const avVideoMp4Definition: ObjectDefinition<AvVideoMp4, AVControlState, 
 /**
  * AvVideoDash definition.
  */
-export const avVideoDashDefinition: ObjectDefinition<AvVideoDash, AVControlState, "avControls"> = {
+export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
   name: "AvVideoDash",
   selector: `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
   predicate: isValidAvControlDash,
-  factory: () => new AvVideoDash(),
+  factory: () => new AVControlVideo(),
   stateKey: "avControls",
   attachStrategy: "proxy",
   applyState: (instance, state) => instance.applyState(state ?? {}),
@@ -194,7 +195,7 @@ export const objectDefinitions = [
   oipfCapabilitiesDefinition,
   oipfConfigurationDefinition,
   oipfApplicationManagerDefinition,
-  avVideoBroadcastDefinition,
+  videoBroadcastDefinition,
   avVideoMp4Definition,
   avVideoDashDefinition,
 ] as const;

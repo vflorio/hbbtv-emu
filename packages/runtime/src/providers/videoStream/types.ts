@@ -6,7 +6,7 @@
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Unified Play State
+// Play State
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -41,7 +41,7 @@ export enum UnifiedPlayState {
 /**
  * Type of media source being played.
  */
-export type MediaSourceType = "native" | "dash" | "hls" | "broadcast";
+export type MediaSourceType = "video" | "dash" | "hls";
 
 /**
  * Media source configuration.
@@ -178,5 +178,5 @@ export interface Player {
 
   // ─── Video Element Access ──────────────────────────────────────────────────
   /** Get underlying video element (for DOM attachment) */
-  getVideoElement(): HTMLVideoElement;
+  getElement(): HTMLVideoElement;
 }

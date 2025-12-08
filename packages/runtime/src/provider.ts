@@ -11,7 +11,7 @@ import { initializeUserAgent } from "./userAgent";
 const logger = createLogger("Provider");
 
 export const WithApp = <T extends ClassType<ElementMatcherManager & ElementStateManager>>(Base: T) =>
-  class extends Base implements ElementMatcherManager, ElementStateManager {
+  class extends Base {
     initialize = (extensionState: ExtensionState) =>
       pipe(
         logger.info("Initializing"),

@@ -30,6 +30,9 @@
       },
       "performance": {
         "noAccumulatingSpread": "off"
+      },
+      "correctness": {
+        "noUnusedPrivateClassMembers": "off"
       }
     }
   },

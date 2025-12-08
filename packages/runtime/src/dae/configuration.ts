@@ -1,4 +1,10 @@
-import { createLogger } from "@hbb-emu/core";
+import {
+  createLogger,
+  createStatefulMethods,
+  deriveSchema,
+  type OnStateChangeCallback,
+  type Stateful,
+} from "@hbb-emu/core";
 import {
   DEFAULT_COUNTRY_ID,
   DEFAULT_LANGUAGE,
@@ -12,12 +18,6 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as RR from "fp-ts/ReadonlyRecord";
-import {
-  createStatefulMethods,
-  deriveSchema,
-  type OnStateChangeCallback,
-  type Stateful,
-} from "../../../core/src/stateful";
 
 const logger = createLogger("OipfConfiguration");
 

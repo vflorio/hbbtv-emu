@@ -1,4 +1,4 @@
 REFACTOR TODO:
-    - Video Backend interface + runtime
+    - Playback service connection
     - aggiornare l'ExtensionState 
     - Connettere il provider alla config 

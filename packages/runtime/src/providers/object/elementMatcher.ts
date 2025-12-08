@@ -11,7 +11,7 @@ import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
 import { type OipfObject, toOipfObject } from "../../index";
 import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../objectDefinitions";
-import { type AvObject, copyStrategy, proxyStrategy } from "./attachStrategy";
+import { type CopyableOipfObjects, copyStrategy, type ProxableOipfObjects, proxyStrategy } from "./attachStrategy";
 import type { ElementStateManager } from "./elementStateManager";
 
 const logger = createLogger("ElementMatcher");
@@ -63,8 +63,8 @@ export const createMatcherFromDefinitions = (
 const applyAttachStrategy = <T>(strategy: "copy" | "proxy", oipfObject: OipfObject, instance: T): IO.IO<void> => {
   switch (strategy) {
     case "copy":
-      return copyStrategy(oipfObject, instance as Parameters<typeof copyStrategy>[1]);
+      return copyStrategy(oipfObject, instance as CopyableOipfObjects);
     case "proxy":
-      return proxyStrategy(oipfObject, instance as AvObject);
+      return proxyStrategy(oipfObject, instance as ProxableOipfObjects);
   }
 };
