@@ -7,7 +7,7 @@
  */
 
 import * as t from "io-ts";
-import type { OIPF } from "../interface";
+import type { DAE } from "../../interface";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OIPF Capabilities State
@@ -83,7 +83,7 @@ export const buildDefaultUserAgent = (hbbtvVersion: string): string => {
 
 export const DEFAULT_HBBTV_VERSION = "2.0.1";
 
-export const DEFAULT_UI_PROFILES: NonNullable<OIPF.Capabilities.Capabilities["uiProfiles"]> = [
+export const DEFAULT_UI_PROFILES: NonNullable<DAE.Capabilities.Capabilities["uiProfiles"]> = [
   "+TRICKMODE",
   "+DVB_T",
   "+DVB_T2",
@@ -93,11 +93,11 @@ export const DEFAULT_UI_PROFILES: NonNullable<OIPF.Capabilities.Capabilities["ui
   "+DVB_S2",
 ];
 
-export const DEFAULT_DRM_SYSTEMS: NonNullable<OIPF.Capabilities.Capabilities["drmSystems"]> = [
+export const DEFAULT_DRM_SYSTEMS: NonNullable<DAE.Capabilities.Capabilities["drmSystems"]> = [
   "urn:dvb:casystemid:19219" /* Widevine */,
 ];
 
-export const DEFAULT_MEDIA_FORMATS: NonNullable<OIPF.Capabilities.Capabilities["mediaFormats"]> = [
+export const DEFAULT_MEDIA_FORMATS: NonNullable<DAE.Capabilities.Capabilities["mediaFormats"]> = [
   {
     container: "video/mp4",
     videoCodecs: ["avc1", "avc3", "hev1", "hvc1"],

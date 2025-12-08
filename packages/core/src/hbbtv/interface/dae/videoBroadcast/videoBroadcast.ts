@@ -20,7 +20,7 @@
  * @see HbbTV Specification
  */
 
-import type { AVComponent, AVComponentCollection, ComponentType } from "../component";
+import type { Component } from "../../av/component";
 import type { Channel, ChannelConfig, ChannelIdType } from "./channel";
 import type {
   OnBlurHandler,
@@ -186,7 +186,7 @@ type VideoBroadcastBase = Omit<HTMLObjectElement, "width" | "height">;
  * ```
  *
  * @see PlayState
- * @see ComponentType
+ * @see Component.ComponentType
  * @see ChannelChangeErrorCode
  */
 export interface VideoBroadcast extends VideoBroadcastBase {
@@ -194,13 +194,13 @@ export interface VideoBroadcast extends VideoBroadcastBase {
   // Constants (defined on the object instance)
   // ==========================================================================
 
-  /** Represents a video component. @see ComponentType.VIDEO */
+  /** Represents a video component. @see Component.ComponentType.VIDEO */
   readonly COMPONENT_TYPE_VIDEO: 0;
 
-  /** Represents an audio component. @see ComponentType.AUDIO */
+  /** Represents an audio component. @see Component.ComponentType.AUDIO */
   readonly COMPONENT_TYPE_AUDIO: 1;
 
-  /** Represents a subtitle component. @see ComponentType.SUBTITLE */
+  /** Represents a subtitle component. @see Component.ComponentType.SUBTITLE */
   readonly COMPONENT_TYPE_SUBTITLE: 2;
 
   // ==========================================================================
@@ -439,37 +439,37 @@ export interface VideoBroadcast extends VideoBroadcastBase {
    * @param componentType - The type of component, or null for all
    * @returns Collection of AVComponent values, or undefined if not known
    */
-  getComponents(componentType?: ComponentType | null): AVComponentCollection | undefined;
+  getComponents(componentType?: Component.ComponentType | null): Component.AVComponentCollection | undefined;
 
   /**
    * Returns the currently active components being rendered.
    * @param componentType - The type of component, or undefined for all
    */
-  getCurrentActiveComponents(componentType?: ComponentType): AVComponentCollection | undefined;
+  getCurrentActiveComponents(componentType?: Component.ComponentType): Component.AVComponentCollection | undefined;
 
   /**
    * Selects a component for rendering.
    * @param component - A component object from the current stream
    */
-  selectComponent(component: AVComponent): void;
+  selectComponent(component: Component.AVComponent): void;
 
   /**
    * Selects the default component of the specified type.
    * @param componentType - The type of component to select
    */
-  selectComponent(componentType: ComponentType): void;
+  selectComponent(componentType: Component.ComponentType): void;
 
   /**
    * Stops rendering the specified component.
    * @param component - The component to stop
    */
-  unselectComponent(component: AVComponent): void;
+  unselectComponent(component: Component.AVComponent): void;
 
   /**
    * Stops rendering all components of the specified type.
    * @param componentType - The type of component to stop
    */
-  unselectComponent(componentType: ComponentType): void;
+  unselectComponent(componentType: Component.ComponentType): void;
 
   /**
    * Requests full screen mode.

@@ -1,7 +1,9 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as t from "io-ts";
-import { ChannelIdType } from "./interface/av/broadcast/channel";
+import { ChannelIdType } from "./interface/dae/videoBroadcast/channel";
+
+// TODO: Mergiare a model/dae/videoBroadcast/channel.ts
 
 export const ChannelTripletCodec = t.type({
   onid: t.number,

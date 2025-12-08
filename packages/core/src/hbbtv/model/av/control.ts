@@ -6,7 +6,7 @@
  */
 
 import * as t from "io-ts";
-import { AVComponentStateCodec, SelectedComponentsStateCodec } from "./avComponent";
+import { AVComponentStateCodec, SelectedComponentsStateCodec } from "./component";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A/V Control Play State

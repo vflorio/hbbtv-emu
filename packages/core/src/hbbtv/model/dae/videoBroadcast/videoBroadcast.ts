@@ -5,7 +5,7 @@
  */
 
 import * as t from "io-ts";
-import { AVComponentStateCodec, SelectedComponentsStateCodec } from "./avComponent";
+import { AVComponentStateCodec, SelectedComponentsStateCodec } from "../../av/component";
 import { ChannelStateCodec } from "./channel";
 import { ProgrammeStateCodec } from "./programme";
 

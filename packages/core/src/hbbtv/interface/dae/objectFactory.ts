@@ -32,37 +32,12 @@
  * @since HbbTV 1.0
  */
 
-import type { ChannelConfig } from "../av/broadcast/channel";
+import type { DAEMimeType } from ".";
+import type { ChannelConfig } from "./videoBroadcast/channel";
 
 // ============================================================================
 // MIME Types
 // ============================================================================
-
-/**
- * DAE-defined MIME types for embedded objects.
- *
- * These MIME types can be used with `isObjectSupported()` to query
- * terminal capabilities.
- */
-export type DAEMimeType =
-  | "application/notifsocket"
-  | "application/oipfApplicationManager"
-  | "application/oipfCapabilities"
-  | "application/oipfCodManager"
-  | "application/oipfCommunicationServices"
-  | "application/oipfConfiguration"
-  | "application/oipfDownloadManager"
-  | "application/oipfDownloadTrigger"
-  | "application/oipfDrmAgent"
-  | "application/oipfGatewayInfo"
-  | "application/oipfMDTF"
-  | "application/oipfParentalControlManager"
-  | "application/oipfRecordingScheduler"
-  | "application/oipfRemoteControlFunction"
-  | "application/oipfRemoteManagement"
-  | "application/oipfSearchManager"
-  | "application/oipfStatusView"
-  | "video/broadcast";
 
 /**
  * HbbTV-specific MIME types for embedded objects.

@@ -7,7 +7,7 @@
  */
 
 import * as t from "io-ts";
-import type { OIPF } from "../interface";
+import type { DAE } from "../../../interface";
 import { NetworkConfigCodec, ParentalControlCodec } from "./network";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,12 +44,12 @@ export const DEFAULT_COUNTRY_ID = "IT";
 
 export const DEFAULT_LANGUAGE = "ita";
 
-export const DEFAULT_NETWORK: NonNullable<OIPF.Configuration.Configuration["network"]> = {
+export const DEFAULT_NETWORK: NonNullable<DAE.Configuration.Configuration["network"]> = {
   interfaces: [],
   online: true,
 };
 
-export const DEFAULT_PARENTAL_CONTROL: NonNullable<OIPF.Configuration.Configuration["parentalControl"]> = {
+export const DEFAULT_PARENTAL_CONTROL: NonNullable<DAE.Configuration.Configuration["parentalControl"]> = {
   rating: 0,
   enabled: false,
 };

@@ -8,10 +8,10 @@
  * @see HbbTV Specification
  */
 
-import type { PlayState } from "../../avBroadcast/videoBroadcast";
-import type { ComponentType } from "../component";
+import type { ComponentType } from "../../av/component/component";
 import type { Channel } from "./channel";
 import type { ParentalRatingCollection } from "./parentalRating";
+import type { PlayState } from "./videoBroadcast";
 
 // ============================================================================
 // Error Codes and States

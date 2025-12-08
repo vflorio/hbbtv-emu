@@ -13,12 +13,12 @@
  */
 
 import * as t from "io-ts";
-import { ApplicationManagerStateCodec, DEFAULT_APPLICATION_MANAGER } from "./applicationManager";
-import { AVControlStateCodec } from "./avControl";
-import { ChannelConfigStateCodec, DEFAULT_CHANNEL_CONFIG } from "./channel";
-import { DEFAULT_OIPF_CAPABILITIES, OipfCapabilitiesStateCodec } from "./oipfCapabilities";
-import { DEFAULT_OIPF_CONFIGURATION, OipfConfigurationStateCodec } from "./oipfConfiguration";
-import { DEFAULT_VIDEO_BROADCAST, VideoBroadcastStateCodec } from "./videoBroadcast";
+import { AVControlStateCodec } from "./av/control";
+import { ApplicationManagerStateCodec, DEFAULT_APPLICATION_MANAGER } from "./dae/applicationManager";
+import { DEFAULT_OIPF_CAPABILITIES, OipfCapabilitiesStateCodec } from "./dae/capabilities";
+import { DEFAULT_OIPF_CONFIGURATION, OipfConfigurationStateCodec } from "./dae/configuration/configuration";
+import { ChannelConfigStateCodec, DEFAULT_CHANNEL_CONFIG } from "./dae/videoBroadcast/channel";
+import { DEFAULT_VIDEO_BROADCAST, VideoBroadcastStateCodec } from "./dae/videoBroadcast/videoBroadcast";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HbbTV State Container
