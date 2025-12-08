@@ -1,6 +1,6 @@
 import * as t from "io-ts";
-import { ChannelTripletCodec } from "../hbbtv";
-import { DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "../hbbtv/model";
+import { ChannelTripletCodec } from "../oipf";
+import { DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "../oipf/model";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
 
