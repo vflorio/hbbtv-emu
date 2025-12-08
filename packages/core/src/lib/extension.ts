@@ -1,29 +1,19 @@
 import * as t from "io-ts";
 import { ChannelTripletCodec } from "../hbbtv";
-import { HbbTVStateCodec } from "../hbbtv/state-model/index";
+import { DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "../hbbtv/state-model";
 import { textToHex } from "./hex";
 import { randomUUID } from "./misc";
-
-// Re-export HbbTV state types for convenience
-export type { HbbTVState, OipfCapabilitiesState, OipfConfigurationState } from "../hbbtv/state-model/index";
-export { DEFAULT_HBBTV_STATE, HbbTVStateCodec } from "../hbbtv/state-model/index";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stream Event Config
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const StreamEventConfigCodec = t.intersection([
+  StreamEventStateCodec,
   t.type({
     id: t.string,
-    name: t.string,
-    eventName: t.string,
-    data: t.string,
-    delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
-  }),
-  t.partial({
-    text: t.string,
-    targetURL: t.string,
     enabled: t.boolean,
+    delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
   }),
 ]);
 
@@ -54,14 +44,11 @@ export type ChannelConfig = t.TypeOf<typeof ChannelConfigCodec>;
 
 export const ExtensionStateCodec = t.intersection([
   t.type({
-    version: t.string,
-    countryCode: t.string,
-    capabilities: t.string,
     userAgent: t.string,
     channels: t.array(ChannelConfigCodec),
     currentChannel: t.union([ChannelConfigCodec, t.null]),
   }),
-  t.partial({
+  t.type({
     hbbtv: HbbTVStateCodec,
   }),
 ]);
@@ -83,13 +70,13 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
 
 const streamEvent = (eventName: string, payload: string, delaySeconds: number): StreamEventConfig => ({
   id: randomUUID(),
-  name: `DAS Event ${eventName}`,
-  eventName,
-  targetURL: "http://localhost:8000",
   enabled: true,
   delaySeconds,
+  eventName,
+  targetURL: "http://localhost:8000",
   text: payload,
   data: textToHex(payload),
+  status: "trigger",
 });
 
 export const DEFAULT_HBBTV_CONFIG: ExtensionState = {
@@ -111,29 +98,8 @@ export const DEFAULT_HBBTV_CONFIG: ExtensionState = {
       ],
     },
   ],
-  version: "1.5.0",
-  countryCode: "ITA",
   userAgent: "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
-  capabilities:
-    "<profilelist>" +
-    '<ui_profile name="OITF_HD_UIPROF+META_SI+META_EIT+TRICKMODE+RTSP+AVCAD+DRM+DVB_T">' +
-    "<ext>" +
-    "<colorkeys>true</colorkeys>" +
-    '<video_broadcast type="ID_DVB_T" scaling="arbitrary" minSize="0">true</video_broadcast>' +
-    '<parentalcontrol schemes="dvb-si">true</parentalcontrol>' +
-    "</ext>" +
-    '<drm DRMSystemID="urn:dvb:casystemid:19219">TS MP4</drm>' +
-    '<drm DRMSystemID="urn:dvb:casystemid:1664" protectionGateways="ci+">TS</drm>' +
-    "</ui_profile>" +
-    '<audio_profile name="MPEG1_L3" type="audio/mpeg"/>' +
-    '<audio_profile name="HEAAC" type="audio/mp4"/>' +
-    '<video_profile name="TS_AVC_SD_25_HEAAC" type="video/mpeg"/>' +
-    '<video_profile name="TS_AVC_HD_25_HEAAC" type="video/mpeg"/>' +
-    '<video_profile name="MP4_AVC_SD_25_HEAAC" type="video/mp4"/>' +
-    '<video_profile name="MP4_AVC_HD_25_HEAAC" type="video/mp4"/>' +
-    '<video_profile name="MP4_AVC_SD_25_HEAAC" type="video/mp4" transport="dash"/>' +
-    '<video_profile name="MP4_AVC_HD_25_HEAAC" type="video/mp4" transport="dash"/>' +
-    "</profilelist>",
+  hbbtv: DEFAULT_HBBTV_STATE,
 };
 
 // Errors

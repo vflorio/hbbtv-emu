@@ -20,7 +20,7 @@ const logger = createLogger("AvVideoBroadcast");
  * Implements the video/broadcast MIME type for HbbTV applications.
  * Provides channel tuning, EPG access, and component selection.
  */
-export class AvVideoBroadcast implements Broadcast.VideoBroadcast.VideoBroadcast, Stateful<VideoBroadcastState> {
+export class AvVideoBroadcast implements Stateful<VideoBroadcastState> {
   static readonly MIME_TYPE = Broadcast.VideoBroadcast.MIME_TYPE;
 
   /** The underlying HTML video element used for broadcast presentation */

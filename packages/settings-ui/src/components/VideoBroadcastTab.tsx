@@ -104,6 +104,7 @@ export default function VideoBroadcastTab() {
         <FormControl fullWidth>
           <InputLabel>Play State</InputLabel>
           <Select
+            readOnly
             value={playState}
             label="Play State"
             onChange={(e) => {

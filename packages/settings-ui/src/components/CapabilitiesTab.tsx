@@ -1,6 +1,18 @@
 import type { OipfCapabilitiesState } from "@hbb-emu/core";
 import { Add } from "@mui/icons-material";
-import { Box, Button, Chip, IconButton, Stack, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useEffect, useState } from "react";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
 
@@ -97,18 +109,33 @@ export default function CapabilitiesTab() {
 
       <Stack spacing={3} sx={{ mt: 3 }}>
         {/* HbbTV Version */}
-        <TextField
-          label="HbbTV Version"
-          value={hbbtvVersion}
-          onChange={(e) => {
-            setHbbtvVersion(e.target.value);
-            setIsEditing(true);
-          }}
-          placeholder="2.0.1"
-          fullWidth
-          helperText="e.g., 1.5.1, 2.0.1, 2.0.3"
-        />
-
+        <FormControl fullWidth>
+          <InputLabel id="version-label">Version</InputLabel>
+          <Select
+            labelId="version-label"
+            id="version"
+            value={hbbtvVersion}
+            label="Version"
+            onChange={(e) => {
+              setHbbtvVersion(e.target.value);
+              setIsEditing(true);
+            }}
+          >
+            {[
+              { oipf: "1.7.1", hbbtv: "2.0.4" },
+              { oipf: "1.6.1", hbbtv: "2.0.3" },
+              { oipf: "1.5.1", hbbtv: "2.0.2" },
+              { oipf: "1.4.1", hbbtv: "2.0.1" },
+              { oipf: "1.3.1", hbbtv: "2.0" },
+              { oipf: "1.2.1", hbbtv: "1.5" },
+              { oipf: "1.1.1", hbbtv: "1.0" },
+            ].map(({ oipf, hbbtv }) => (
+              <MenuItem key={hbbtv} value={hbbtv}>
+                V{oipf} - HbbTV {hbbtv}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         {/* UI Profiles */}
         <Box>
           <Typography variant="subtitle1" gutterBottom>

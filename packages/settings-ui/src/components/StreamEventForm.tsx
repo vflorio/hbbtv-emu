@@ -26,35 +26,35 @@ interface StreamEventFormProps {
 
 export default function StreamEventForm({ open, event, onClose, onSave }: StreamEventFormProps) {
   const [formData, setFormData] = useState<Omit<StreamEventConfig, "id">>({
-    name: "",
     eventName: "",
     data: "",
     delaySeconds: 10,
     targetURL: "dvb://current.ait",
     text: "",
     enabled: true,
+    status: "trigger",
   });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <need investigate>
   useEffect(() => {
     if (event) {
       setFormData({
-        name: event.name,
         eventName: event.eventName,
         data: event.data,
         delaySeconds: event.delaySeconds,
         targetURL: event.targetURL ?? "dvb://current.ait",
         text: event.text ?? "",
+        status: event.status ?? "trigger",
         enabled: event.enabled ?? true,
       });
     } else {
       setFormData({
-        name: "",
         eventName: "",
         data: "",
         delaySeconds: 10,
         targetURL: "dvb://current.ait",
         text: "",
+        status: "trigger",
         enabled: true,
       });
     }
@@ -72,12 +72,12 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
   const handleSubmit = () => {
     const eventData: StreamEventConfig = {
       id: event?.id || randomUUID(),
-      name: formData.name,
       eventName: formData.eventName,
       data: formData.data,
       delaySeconds: formData.delaySeconds,
       targetURL: formData.targetURL,
       text: formData.text,
+      status: formData.status,
       enabled: formData.enabled,
     };
     onSave(eventData);
@@ -92,14 +92,6 @@ export default function StreamEventForm({ open, event, onClose, onSave }: Stream
           <FormControlLabel
             control={<Switch checked={formData.enabled} onChange={handleToggleEnabled} />}
             label="Enabled"
-          />
-          <TextField
-            label="Event Name (UI)"
-            value={formData.name}
-            onChange={handleChange("name")}
-            fullWidth
-            required
-            helperText="Display name for this event configuration"
           />
           <TextField
             label="DSM-CC Event Name"

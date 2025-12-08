@@ -1,4 +1,4 @@
-import { createLogger, type ExtensionConfig } from "@hbb-emu/core";
+import { createLogger, type ExtensionState } from "@hbb-emu/core";
 import type { Handler, MessageEnvelope } from "@hbb-emu/core/message-bus";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
@@ -70,7 +70,7 @@ export const onGetState =
     );
 
 export const onStateUpdated =
-  (app: Instance): Handler<{ type: "STATE_UPDATED"; payload: State }> =>
+  (app: Instance): Handler<{ type: "STATE_UPDATED"; payload: ExtensionState }> =>
   (envelope) =>
     runTask(
       pipe(

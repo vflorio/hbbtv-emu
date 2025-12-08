@@ -30,7 +30,7 @@ import { useChannelActions } from "../hooks/useChannelActions";
 interface EventFormData extends Omit<StreamEventConfig, "id"> {}
 
 const defaultEventFormData: EventFormData = {
-  name: "",
+  status: "trigger",
   eventName: "",
   data: "",
   text: "",
@@ -67,10 +67,10 @@ export default function StreamEventsEdit() {
   const handleEditEvent = (event: StreamEventConfig) => {
     setEditingEvent(event);
     setFormData({
-      name: event.name,
       eventName: event.eventName,
       data: event.data,
       text: event.text || "",
+      status: event.status || "trigger",
       targetURL: event.targetURL || "dvb://current.ait",
       delaySeconds: event.delaySeconds,
       enabled: event.enabled !== false,
@@ -138,13 +138,6 @@ export default function StreamEventsEdit() {
         </AppBar>
         <Box sx={{ p: 2 }}>
           <Stack gap={2}>
-            <TextField
-              label="Event Name (Display)"
-              value={formData.name}
-              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-              fullWidth
-              required
-            />
             <TextField
               label="DSM-CC Event Name"
               value={formData.eventName}
@@ -267,8 +260,8 @@ export default function StreamEventsEdit() {
                 }
               >
                 <ListItemText
-                  primary={event.name}
-                  secondary={`Event: ${event.eventName} | Delay: ${event.delaySeconds}s | ${event.enabled ? "Enabled" : "Disabled"}`}
+                  primary={event.eventName}
+                  secondary={`Delay: ${event.delaySeconds}s | ${event.enabled ? "Enabled" : "Disabled"}`}
                 />
               </ListItem>
             ))}

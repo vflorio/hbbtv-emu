@@ -141,6 +141,14 @@ export enum QuietMode {
 // ============================================================================
 
 /**
+ * Base type for VideoBroadcast that omits properties with incompatible types.
+ *
+ * HTMLObjectElement defines `width` and `height` as `string`, but HbbTV
+ * specifies them as `Integer`. We use Omit to allow redefinition.
+ */
+type VideoBroadcastBase = Omit<HTMLObjectElement, "width" | "height">;
+
+/**
  * Video/Broadcast embedded object interface.
  *
  * This interface represents the complete API surface of an HbbTV video/broadcast

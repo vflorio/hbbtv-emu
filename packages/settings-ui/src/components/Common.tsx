@@ -7,36 +7,25 @@ export default function Settings() {
   const { config, isLoading } = useAppState();
   const { save } = useCommonActions();
 
-  const [version, setVersion] = useState(config.version);
-  const [countryCode, setCountryCode] = useState(config.countryCode);
   const [userAgent, setUserAgent] = useState(config.userAgent);
-  const [capabilities, setCapabilities] = useState(config.capabilities);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setVersion(config.version);
-    setCountryCode(config.countryCode);
     setUserAgent(config.userAgent);
-    setCapabilities(config.capabilities);
     setIsEditing(false);
-  }, [config.version, config.countryCode, config.userAgent, config.capabilities]);
+  }, [config.userAgent]);
 
   const handleSave = async () => {
     await save({
       currentChannel: config.currentChannel,
-      version,
-      countryCode,
+      hbbtv: config.hbbtv,
       userAgent,
-      capabilities,
     });
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setVersion(config.version);
-    setCountryCode(config.countryCode);
     setUserAgent(config.userAgent);
-    setCapabilities(config.capabilities);
     setIsEditing(false);
   };
 
@@ -51,7 +40,7 @@ export default function Settings() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Settings
+        Common
       </Typography>
       <Stack spacing={3} sx={{ mt: 3 }}>
         <TextField
