@@ -1,4 +1,4 @@
-import type { OipfCapabilitiesState } from "@hbb-emu/core";
+import { HBBTV_VERSION_MAP, type OipfCapabilitiesState } from "@hbb-emu/core";
 import { Add } from "@mui/icons-material";
 import {
   Box,
@@ -121,15 +121,7 @@ export default function CapabilitiesTab() {
               setIsEditing(true);
             }}
           >
-            {[
-              { oipf: "1.7.1", hbbtv: "2.0.4" },
-              { oipf: "1.6.1", hbbtv: "2.0.3" },
-              { oipf: "1.5.1", hbbtv: "2.0.2" },
-              { oipf: "1.4.1", hbbtv: "2.0.1" },
-              { oipf: "1.3.1", hbbtv: "2.0" },
-              { oipf: "1.2.1", hbbtv: "1.5" },
-              { oipf: "1.1.1", hbbtv: "1.0" },
-            ].map(({ oipf, hbbtv }) => (
+            {HBBTV_VERSION_MAP.map(({ oipf, hbbtv }) => (
               <MenuItem key={hbbtv} value={hbbtv}>
                 V{oipf} - HbbTV {hbbtv}
               </MenuItem>

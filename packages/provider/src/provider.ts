@@ -3,6 +3,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
 import { initializeOipfObjectFactory } from "./apis/oipfObjectFactory";
+import { initializeUserAgent } from "./apis/userAgent";
 import { type ElementMatcherRegistry, WithElementMatcherRegistry } from "./elementMatcher";
 import { createMatcherFromAnyDefinition } from "./matcherFactory";
 import { allDefinitions } from "./oipfRegistry";
@@ -15,6 +16,7 @@ export const WithApp = <T extends ClassType<ElementMatcherRegistry & StateManage
     initialize = (config: ExtensionState) =>
       pipe(
         logger.info("Initializing", config),
+        IO.flatMap(() => initializeUserAgent(config.userAgent, config.hbbtv?.oipfCapabilities?.hbbtvVersion)),
         IO.tap(() => initializeOipfObjectFactory),
         IO.flatMap(() =>
           pipe(

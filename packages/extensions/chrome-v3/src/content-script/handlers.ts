@@ -1,4 +1,4 @@
-import { createLogger, type ExtensionConfig } from "@hbb-emu/core";
+import { createLogger, type ExtensionState } from "@hbb-emu/core";
 import { Provider } from "@hbb-emu/provider";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -51,7 +51,7 @@ export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
         pipe(
           logger.info("Config update received"),
           IO.flatMap(() => {
-            const config = envelope.message.payload as State;
+            const config = envelope.message.payload as ExtensionState;
             return app.runState(setConfig(config));
           }),
           // TODO: Update HbbTV API with new config

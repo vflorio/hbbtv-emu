@@ -38,6 +38,46 @@ export const OipfCapabilitiesStateCodec = t.partial({
 export type OipfCapabilitiesState = t.TypeOf<typeof OipfCapabilitiesStateCodec>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Version Mapping
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mapping between OIPF DAE version and HbbTV version.
+ */
+export const HBBTV_VERSION_MAP = [
+  { oipf: "1.7.1", hbbtv: "2.0.4" },
+  { oipf: "1.6.1", hbbtv: "2.0.3" },
+  { oipf: "1.5.1", hbbtv: "2.0.2" },
+  { oipf: "1.4.1", hbbtv: "2.0.1" },
+  { oipf: "1.3.1", hbbtv: "2.0" },
+  { oipf: "1.2.1", hbbtv: "1.5" },
+  { oipf: "1.1.1", hbbtv: "1.0" },
+] as const;
+
+export type HbbTVVersion = (typeof HBBTV_VERSION_MAP)[number]["hbbtv"];
+export type OIPFVersion = (typeof HBBTV_VERSION_MAP)[number]["oipf"];
+
+/**
+ * Get OIPF DAE version from HbbTV version.
+ */
+export const getOipfVersion = (hbbtvVersion: string): string | undefined =>
+  HBBTV_VERSION_MAP.find((v) => v.hbbtv === hbbtvVersion)?.oipf;
+
+/**
+ * Get HbbTV version from OIPF DAE version.
+ */
+export const getHbbtvVersion = (oipfVersion: string): string | undefined =>
+  HBBTV_VERSION_MAP.find((v) => v.oipf === oipfVersion)?.hbbtv;
+
+/**
+ * Build default User-Agent string for a given HbbTV version.
+ */
+export const buildDefaultUserAgent = (hbbtvVersion: string): string => {
+  const oipfVersion = getOipfVersion(hbbtvVersion) ?? "1.4.1";
+  return `Mozilla/5.0 (SmartTV; HbbTV/${oipfVersion} (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH`;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Default Values
 // ─────────────────────────────────────────────────────────────────────────────
 

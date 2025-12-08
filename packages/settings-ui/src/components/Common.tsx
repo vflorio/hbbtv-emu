@@ -1,3 +1,5 @@
+import { buildDefaultUserAgent } from "@hbb-emu/core";
+import { Refresh } from "@mui/icons-material";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useAppState } from "../context/state";
@@ -7,13 +9,16 @@ export default function Settings() {
   const { config, isLoading } = useAppState();
   const { save } = useCommonActions();
 
-  const [userAgent, setUserAgent] = useState(config.userAgent);
+  const hbbtvVersion = config.hbbtv?.oipfCapabilities?.hbbtvVersion ?? "2.0.1";
+  const defaultUserAgent = buildDefaultUserAgent(hbbtvVersion);
+
+  const [userAgent, setUserAgent] = useState(config.userAgent ?? defaultUserAgent);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setUserAgent(config.userAgent);
+    setUserAgent(config.userAgent ?? defaultUserAgent);
     setIsEditing(false);
-  }, [config.userAgent]);
+  }, [config.userAgent, defaultUserAgent]);
 
   const handleSave = async () => {
     await save({
@@ -25,8 +30,13 @@ export default function Settings() {
   };
 
   const handleCancel = () => {
-    setUserAgent(config.userAgent);
+    setUserAgent(config.userAgent ?? defaultUserAgent);
     setIsEditing(false);
+  };
+
+  const handleResetDefault = () => {
+    setUserAgent(defaultUserAgent);
+    setIsEditing(true);
   };
 
   if (isLoading) {
@@ -43,16 +53,24 @@ export default function Settings() {
         Common
       </Typography>
       <Stack spacing={3} sx={{ mt: 3 }}>
-        <TextField
-          label="User Agent"
-          value={userAgent}
-          onChange={(e) => {
-            setUserAgent(e.target.value);
-            setIsEditing(true);
-          }}
-          placeholder="Mozilla/5.0 (SmartTV; HbbTV/1.5.1...)"
-          fullWidth
-        />
+        <Stack spacing={1} alignItems="flex-start">
+          <TextField
+            label="User Agent"
+            value={userAgent}
+            onChange={(e) => {
+              setUserAgent(e.target.value);
+              setIsEditing(true);
+            }}
+            placeholder="Mozilla/5.0 (SmartTV; HbbTV/1.5.1...)"
+            fullWidth
+            multiline
+            minRows={4}
+            helperText={`Default for HbbTV ${hbbtvVersion}`}
+          />
+          <Button onClick={handleResetDefault} sx={{ mt: 1 }}>
+            Reset to default for current HbbTV version
+          </Button>
+        </Stack>
         <Alert severity="warning" sx={{ mt: -2 }}>
           Changing the User-Agent may require a page reload to take effect.
         </Alert>
