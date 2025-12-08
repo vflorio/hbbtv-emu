@@ -6,4 +6,5 @@ export * from "./logger";
 export * from "./misc";
 export * from "./mixin";
 export * from "./object";
+export * from "./stateful";
 export * from "./version";

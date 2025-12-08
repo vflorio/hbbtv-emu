@@ -2,9 +2,9 @@ import { type Broadcast, createLogger, type OIPF } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import { OipfApplicationManager } from "./oipfApplicationManager";
-import { OipfCapabilities } from "./oipfCapabilities";
-import { OipfConfiguration } from "./oipfConfiguration";
+import { OipfApplicationManager } from "../dae/applicationManager";
+import { OipfCapabilities } from "../dae/capabilities";
+import { OipfConfiguration } from "../dae/configuration";
 
 const logger = createLogger("OipfObjectFactory");
 

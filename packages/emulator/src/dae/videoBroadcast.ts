@@ -1,5 +1,5 @@
 import { Broadcast, createLogger } from "@hbb-emu/core";
-import { VideoBroadcastWithBackend } from "../backend/videoBroadcastWithBackend";
+import { VideoBroadcastWithBackend } from "./videoBroadcastWithBackend";
 
 const logger = createLogger("AvVideoBroadcast");
 

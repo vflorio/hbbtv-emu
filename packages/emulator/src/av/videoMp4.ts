@@ -1,5 +1,5 @@
 import { Control, createLogger } from "@hbb-emu/core";
-import { AVObjectWithBackend } from "../backend/avObjectWithBackend";
+import { AVObjectWithBackend } from "./avObjectWithBackend";
 
 const logger = createLogger("AvVideoMp4");
 

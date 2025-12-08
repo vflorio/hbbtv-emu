@@ -12,6 +12,6 @@
     "sourceMap": true,
     "esModuleInterop": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../core/src/lib/stateful.ts"],
   "exclude": ["node_modules", "dist", "**/*.old.ts"]
 }

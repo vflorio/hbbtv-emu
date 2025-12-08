@@ -31,7 +31,12 @@ import {
 import { UnifiedPlayState, WithVideoBackend } from "@hbb-emu/video-backend";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "../stateful";
+import {
+  createStatefulMethods,
+  deriveSchema,
+  type OnStateChangeCallback,
+  type Stateful,
+} from "../../../core/src/lib/stateful";
 
 const logger = createLogger("VideoBroadcastWithBackend");
 

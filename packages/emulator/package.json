@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/hbbtv-api",
+  "name": "@hbb-emu/emulator",
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
