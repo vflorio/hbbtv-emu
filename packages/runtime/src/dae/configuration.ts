@@ -17,7 +17,7 @@ import {
   deriveSchema,
   type OnStateChangeCallback,
   type Stateful,
-} from "../../../core/src/lib/stateful";
+} from "../../../core/src/stateful";
 
 const logger = createLogger("OipfConfiguration");
 

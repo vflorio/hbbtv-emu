@@ -14,7 +14,7 @@ import {
   deriveSchema,
   type OnStateChangeCallback,
   type Stateful,
-} from "../../../core/src/lib/stateful";
+} from "../../../core/src/stateful";
 import { AVObjectBase } from "./control";
 
 const logger = createLogger("AVVideoBase");

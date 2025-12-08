@@ -3,8 +3,10 @@ import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import type * as t from "io-ts";
 import { jsonParse, jsonStringify } from "../lib/json";
-import { createLogger } from "../lib/logger";
 import { invalidDataError } from "../lib/misc";
+import { createLogger } from
+"../l../misc
+
 import type { StorageError } from "./errors";
 import type { StorageAdapter } from "./storageAdapter";
 

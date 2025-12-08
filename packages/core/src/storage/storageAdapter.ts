@@ -1,5 +1,5 @@
 import type * as TE from "fp-ts/TaskEither";
-import type { DataNotFoundError } from "../lib/misc";
+import type { DataNotFoundError } from "../misc";
 import type { LocalStorageGetItemError, LocalStorageSetItemError } from "./errors";
 
 export interface StorageAdapter {

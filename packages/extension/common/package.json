@@ -1,0 +1,29 @@
+{
+  "name": "@hbb-emu/extension-common",
+  "version": "1.0.0",
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.1.32",
+    "fp-ts": "2.16.11",
+    "typescript": "5.9.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts"
+}
