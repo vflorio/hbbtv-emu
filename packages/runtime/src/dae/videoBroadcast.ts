@@ -1,4 +1,5 @@
-import { Broadcast, createLogger } from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
+import { OIPF } from "@hbb-emu/oipf";
 import { VideoBroadcastWithBackend } from "./videoBroadcastWithBackend";
 
 const logger = createLogger("AvVideoBroadcast");
@@ -12,7 +13,7 @@ const logger = createLogger("AvVideoBroadcast");
  * Provides channel tuning, EPG access, and component selection.
  */
 export class AvVideoBroadcast extends VideoBroadcastWithBackend {
-  static readonly MIME_TYPE = Broadcast.VideoBroadcast.MIME_TYPE;
+  static readonly MIME_TYPE = OIPF.DAE.broadcast.MIME_TYPE;
 
   constructor() {
     super();

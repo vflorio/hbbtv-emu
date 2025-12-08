@@ -1,16 +1,12 @@
 import { copyProperties, createLogger, insertAfter, ObjectStyleMirror, proxyProperties } from "@hbb-emu/core";
-import type {
-  AvVideoBroadcast,
-  AvVideoDash,
-  AvVideoMp4,
-  OipfApplicationManager,
-  OipfCapabilities,
-  OipfConfiguration,
-  OipfObjectFactory,
-} from "@hbb-emu/hbbtv-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { OipfObject } from ".";
+import type { OipfObject } from "../..";
+import type { OipfObjectFactory } from "../../apis/oipfObjectFactory";
+import type { AvVideoBroadcast, AvVideoDash, AvVideoMp4 } from "../../av";
+import type { OipfApplicationManager } from "../../dae/applicationManager";
+import type { OipfCapabilities } from "../../dae/capabilities";
+import type { OipfConfiguration } from "../../dae/configuration";
 
 const logger = createLogger("AttachStrategy");
 

@@ -1,5 +1,5 @@
-import { createLogger, type ExtensionState } from "@hbb-emu/core";
-import { Provider } from "@hbb-emu/provider";
+import { createLogger } from "@hbb-emu/core";
+import type { ExtensionState } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -75,9 +75,10 @@ export const initializeHbbTVApi = (app: Instance): IO.IO<void> =>
         () => logger.error("No config available, skipping HbbTV provider initialization"),
         (config) =>
           pipe(
-            IO.of(new Provider()),
-            IO.tap(() => logger.info("Initializing HbbTV Provider with config", config)),
-            IO.flatMap((provider) => provider.initialize(config)),
+            IO.Do,
+            // IO.of(new Provider()),
+            // IO.tap(() => logger.info("Initializing HbbTV Provider with config", config)),
+            // IO.flatMap((provider) => provider.initialize(config)),
           ),
       ),
     ),

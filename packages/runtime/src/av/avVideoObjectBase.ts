@@ -1,12 +1,12 @@
+import { createLogger } from "@hbb-emu/core";
 import {
   type AVControlState,
   AVControlStateCodec,
-  type Control,
-  createLogger,
   DEFAULT_AV_CONTROL_FULL_SCREEN,
   DEFAULT_AV_CONTROL_HEIGHT,
   DEFAULT_AV_CONTROL_WIDTH,
-} from "@hbb-emu/core";
+  type OIPF,
+} from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import {
@@ -31,7 +31,10 @@ const logger = createLogger("AVVideoBase");
  * - Full screen support
  * - Focus/blur handlers
  */
-export class AVVideoObjectBase extends AVObjectBase implements Control.AVControlVideo, Stateful<AVControlState> {
+export class AVVideoObjectBase
+  extends AVObjectBase
+  implements OIPF.AV.control.AVControlVideo, Stateful<AVControlState>
+{
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
@@ -59,7 +62,7 @@ export class AVVideoObjectBase extends AVObjectBase implements Control.AVControl
   // Event Handlers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  onFullScreenChange: Control.OnFullScreenChangeHandler | null = null;
+  onFullScreenChange: OIPF.AV.control.OnFullScreenChangeHandler | null = null;
   onfocus: (() => void) | null = null;
   onblur: (() => void) | null = null;
 

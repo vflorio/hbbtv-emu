@@ -1,5 +1,5 @@
-import { createLogger, type ExtensionState } from "@hbb-emu/core";
-import type { Handler, MessageEnvelope } from "@hbb-emu/core/message-bus";
+import { createLogger } from "@hbb-emu/core";
+import type { ExtensionState, Handler, MessageEnvelope } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import * as N from "fp-ts/number";

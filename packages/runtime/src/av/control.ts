@@ -1,10 +1,5 @@
-import {
-  Control,
-  createLogger,
-  DEFAULT_AV_CONTROL_DATA,
-  DEFAULT_AV_CONTROL_PLAY_STATE,
-  DEFAULT_AV_CONTROL_SPEED,
-} from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
+import { DEFAULT_AV_CONTROL_DATA, DEFAULT_AV_CONTROL_PLAY_STATE, DEFAULT_AV_CONTROL_SPEED, OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -25,7 +20,7 @@ const logger = createLogger("AVObjectBase");
  * - Event handlers
  * - Underlying HTMLVideoElement management
  */
-export class AVObjectBase implements Control.AVControlBase {
+export class AVObjectBase implements OIPF.AV.control.AVControlBase {
   /** The underlying HTML video element used for playback */
   protected videoElement: HTMLVideoElement = document.createElement("video");
 
@@ -34,17 +29,17 @@ export class AVObjectBase implements Control.AVControlBase {
   // ═══════════════════════════════════════════════════════════════════════════
 
   protected _data = DEFAULT_AV_CONTROL_DATA;
-  protected _playState: Control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
-  protected _error: Control.ErrorCode | undefined = undefined;
+  protected _playState: OIPF.AV.control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
+  protected _error: OIPF.AV.control.ErrorCode | undefined = undefined;
   protected _speed = DEFAULT_AV_CONTROL_SPEED;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Event Handlers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  onPlayStateChange: Control.OnPlayStateChangeHandler | null = null;
-  onPlayPositionChanged: Control.OnPlayPositionChangedHandler | null = null;
-  onPlaySpeedChanged: Control.OnPlaySpeedChangedHandler | null = null;
+  onPlayStateChange: OIPF.AV.control.OnPlayStateChangeHandler | null = null;
+  onPlayPositionChanged: OIPF.AV.control.OnPlayPositionChangedHandler | null = null;
+  onPlaySpeedChanged: OIPF.AV.control.OnPlaySpeedChangedHandler | null = null;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Properties (readonly)
@@ -67,11 +62,11 @@ export class AVObjectBase implements Control.AVControlBase {
     );
   }
 
-  get playState(): Control.PlayState {
+  get playState(): OIPF.AV.control.PlayState {
     return this._playState;
   }
 
-  get error(): Control.ErrorCode | undefined {
+  get error(): OIPF.AV.control.ErrorCode | undefined {
     return this._error;
   }
 
@@ -92,7 +87,7 @@ export class AVObjectBase implements Control.AVControlBase {
       logger.debug("Setting data:", url),
       IO.flatMap(() => {
         // Stop current playback if data changes
-        if (this._data !== url && this._playState !== Control.PlayState.STOPPED) {
+        if (this._data !== url && this._playState !== OIPF.AV.control.PlayState.STOPPED) {
           return IO.of(this.stop());
         }
         return IO.of(true);
@@ -128,15 +123,15 @@ export class AVObjectBase implements Control.AVControlBase {
 
         if (speed === 0) {
           this.videoElement.pause();
-          this.setPlayState(Control.PlayState.PAUSED);
+          this.setPlayState(OIPF.AV.control.PlayState.PAUSED);
         } else {
-          this.setPlayState(Control.PlayState.CONNECTING);
+          this.setPlayState(OIPF.AV.control.PlayState.CONNECTING);
           this.videoElement.play().then(
-            () => this.setPlayState(Control.PlayState.PLAYING),
+            () => this.setPlayState(OIPF.AV.control.PlayState.PLAYING),
             (err) => {
               logger.error("Playback error:", err)();
-              this._error = Control.ErrorCode.UNIDENTIFIED;
-              this.setPlayState(Control.PlayState.ERROR);
+              this._error = OIPF.AV.control.ErrorCode.UNIDENTIFIED;
+              this.setPlayState(OIPF.AV.control.PlayState.ERROR);
             },
           );
         }
@@ -150,7 +145,7 @@ export class AVObjectBase implements Control.AVControlBase {
       IO.map(() => {
         this.videoElement.pause();
         this.videoElement.currentTime = 0;
-        this.setPlayState(Control.PlayState.STOPPED);
+        this.setPlayState(OIPF.AV.control.PlayState.STOPPED);
         return true;
       }),
     )();
@@ -193,7 +188,7 @@ export class AVObjectBase implements Control.AVControlBase {
   // Protected Helpers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected setPlayState = (newState: Control.PlayState): void => {
+  protected setPlayState = (newState: OIPF.AV.control.PlayState): void => {
     if (this._playState !== newState) {
       const oldState = this._playState;
       this._playState = newState;

@@ -1,4 +1,6 @@
-import { buildDefaultUserAgent, createLogger, DEFAULT_HBBTV_VERSION, type ExtensionState } from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
+import type { ExtensionState } from "@hbb-emu/extension-common";
+import { buildDefaultUserAgent, DEFAULT_HBBTV_VERSION } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 

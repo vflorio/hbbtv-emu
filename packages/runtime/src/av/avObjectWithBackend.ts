@@ -5,19 +5,18 @@
  * for unified player management.
  */
 
+import { createLogger } from "@hbb-emu/core";
 import {
   type AVControlState,
   AVControlStateCodec,
-  Control,
-  createLogger,
   DEFAULT_AV_CONTROL_DATA,
   DEFAULT_AV_CONTROL_FULL_SCREEN,
   DEFAULT_AV_CONTROL_HEIGHT,
   DEFAULT_AV_CONTROL_PLAY_STATE,
   DEFAULT_AV_CONTROL_SPEED,
   DEFAULT_AV_CONTROL_WIDTH,
-} from "@hbb-emu/core";
-import { UnifiedPlayState, WithVideoBackend } from "@hbb-emu/video-backend";
+  OIPF,
+} from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import {
@@ -26,6 +25,7 @@ import {
   type OnStateChangeCallback,
   type Stateful,
 } from "../../../core/src/stateful";
+import { UnifiedPlayState, WithVideoBackend } from "../providers/playback";
 
 const logger = createLogger("AVObjectWithBackend");
 
@@ -36,23 +36,23 @@ const logger = createLogger("AVObjectWithBackend");
 /**
  * Map unified play state to AVControl PlayState.
  */
-const mapUnifiedToAvControl = (state: UnifiedPlayState): Control.PlayState => {
+const mapUnifiedToAvControl = (state: UnifiedPlayState): OIPF.AV.control.PlayState => {
   switch (state) {
     case UnifiedPlayState.IDLE:
     case UnifiedPlayState.STOPPED:
-      return Control.PlayState.STOPPED;
+      return OIPF.AV.control.PlayState.STOPPED;
     case UnifiedPlayState.CONNECTING:
-      return Control.PlayState.CONNECTING;
+      return OIPF.AV.control.PlayState.CONNECTING;
     case UnifiedPlayState.BUFFERING:
-      return Control.PlayState.BUFFERING;
+      return OIPF.AV.control.PlayState.BUFFERING;
     case UnifiedPlayState.PLAYING:
-      return Control.PlayState.PLAYING;
+      return OIPF.AV.control.PlayState.PLAYING;
     case UnifiedPlayState.PAUSED:
-      return Control.PlayState.PAUSED;
+      return OIPF.AV.control.PlayState.PAUSED;
     case UnifiedPlayState.FINISHED:
-      return Control.PlayState.FINISHED;
+      return OIPF.AV.control.PlayState.FINISHED;
     case UnifiedPlayState.ERROR:
-      return Control.PlayState.ERROR;
+      return OIPF.AV.control.PlayState.ERROR;
   }
 };
 
@@ -79,7 +79,7 @@ class EmptyBase {}
  */
 export class AVObjectWithBackend
   extends WithVideoBackend(EmptyBase)
-  implements Control.AVControlVideo, Stateful<AVControlState>
+  implements OIPF.AV.control.AVControlVideo, Stateful<AVControlState>
 {
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
@@ -104,8 +104,8 @@ export class AVObjectWithBackend
   // ═══════════════════════════════════════════════════════════════════════════
 
   protected _data = DEFAULT_AV_CONTROL_DATA;
-  protected _playState: Control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
-  protected _error: Control.ErrorCode | undefined = undefined;
+  protected _playState: OIPF.AV.control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
+  protected _error: OIPF.AV.control.ErrorCode | undefined = undefined;
   protected _speed = DEFAULT_AV_CONTROL_SPEED;
   protected _width = String(DEFAULT_AV_CONTROL_WIDTH);
   protected _height = String(DEFAULT_AV_CONTROL_HEIGHT);
@@ -115,10 +115,10 @@ export class AVObjectWithBackend
   // Event Handlers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  onPlayStateChange: Control.OnPlayStateChangeHandler | null = null;
-  onPlayPositionChanged: Control.OnPlayPositionChangedHandler | null = null;
-  onPlaySpeedChanged: Control.OnPlaySpeedChangedHandler | null = null;
-  onFullScreenChange: Control.OnFullScreenChangeHandler | null = null;
+  onPlayStateChange: OIPF.AV.control.OnPlayStateChangeHandler | null = null;
+  onPlayPositionChanged: OIPF.AV.control.OnPlayPositionChangedHandler | null = null;
+  onPlaySpeedChanged: OIPF.AV.control.OnPlaySpeedChangedHandler | null = null;
+  onFullScreenChange: OIPF.AV.control.OnFullScreenChangeHandler | null = null;
   onfocus: (() => void) | null = null;
   onblur: (() => void) | null = null;
 
@@ -160,18 +160,18 @@ export class AVObjectWithBackend
   /**
    * Map player error code to HbbTV error code.
    */
-  mapErrorCode = (code: number): Control.ErrorCode => {
+  mapErrorCode = (code: number): OIPF.AV.control.ErrorCode => {
     switch (code) {
       case 1: // MEDIA_ERR_ABORTED
-        return Control.ErrorCode.UNIDENTIFIED;
+        return OIPF.AV.control.ErrorCode.UNIDENTIFIED;
       case 2: // MEDIA_ERR_NETWORK
-        return Control.ErrorCode.CONNECTION_ERROR;
+        return OIPF.AV.control.ErrorCode.CONNECTION_ERROR;
       case 3: // MEDIA_ERR_DECODE
-        return Control.ErrorCode.CONTENT_CORRUPT;
+        return OIPF.AV.control.ErrorCode.CONTENT_CORRUPT;
       case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-        return Control.ErrorCode.FORMAT_NOT_SUPPORTED;
+        return OIPF.AV.control.ErrorCode.FORMAT_NOT_SUPPORTED;
       default:
-        return Control.ErrorCode.UNIDENTIFIED;
+        return OIPF.AV.control.ErrorCode.UNIDENTIFIED;
     }
   };
 
@@ -189,11 +189,11 @@ export class AVObjectWithBackend
     return duration > 0 ? duration : undefined;
   }
 
-  get playState(): Control.PlayState {
+  get playState(): OIPF.AV.control.PlayState {
     return this._playState;
   }
 
-  get error(): Control.ErrorCode | undefined {
+  get error(): OIPF.AV.control.ErrorCode | undefined {
     return this._error;
   }
 
@@ -214,7 +214,7 @@ export class AVObjectWithBackend
       logger.debug("Setting data:", url),
       IO.flatMap(() => {
         // Stop current playback if data changes
-        if (this._data !== url && this._playState !== Control.PlayState.STOPPED) {
+        if (this._data !== url && this._playState !== OIPF.AV.control.PlayState.STOPPED) {
           this.backendStop();
         }
         return IO.of(undefined);
@@ -282,7 +282,7 @@ export class AVObjectWithBackend
           this.backendPause();
         } else {
           // Set connecting state before play attempt
-          this.setPlayState(Control.PlayState.CONNECTING);
+          this.setPlayState(OIPF.AV.control.PlayState.CONNECTING);
           this.backendPlay(speed);
         }
 
@@ -364,7 +364,7 @@ export class AVObjectWithBackend
   // Protected Helpers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected setPlayState = (newState: Control.PlayState): void => {
+  protected setPlayState = (newState: OIPF.AV.control.PlayState): void => {
     if (this._playState !== newState) {
       const oldState = this._playState;
       this._playState = newState;

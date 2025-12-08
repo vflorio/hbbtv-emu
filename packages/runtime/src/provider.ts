@@ -1,10 +1,11 @@
-import { type ClassType, compose, createLogger, type ExtensionState, WithDomObserver } from "@hbb-emu/core";
+import { type ClassType, compose, createLogger, WithDomObserver } from "@hbb-emu/core";
+import type { ExtensionState } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { type ElementMatcherManager, WithElementMatcherManager } from "./elementMatcherManager";
-import { type ElementStateManager, WithElementStateManager } from "./elementStateManager";
 import { objectDefinitions } from "./objectDefinitions";
 import { initializeOipfObjectFactory } from "./oipfObjectFactory";
+import { type ElementMatcherManager, WithElementMatcherManager } from "./providers/object/elementMatcherManager";
+import { type ElementStateManager, WithElementStateManager } from "./providers/object/elementStateManager";
 import { initializeUserAgent } from "./userAgent";
 
 const logger = createLogger("Provider");

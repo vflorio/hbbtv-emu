@@ -1,5 +1,5 @@
+import { createLogger } from "@hbb-emu/core";
 import {
-  createLogger,
   DEFAULT_COUNTRY_ID,
   DEFAULT_LANGUAGE,
   DEFAULT_NETWORK,
@@ -7,7 +7,7 @@ import {
   type OIPF,
   type OipfConfigurationState,
   OipfConfigurationStateCodec,
-} from "@hbb-emu/core";
+} from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -25,7 +25,7 @@ const logger = createLogger("OipfConfiguration");
 // Configuration Implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class OipfConfiguration implements OIPF.Configuration.Configuration, Stateful<OipfConfigurationState> {
+export class OipfConfiguration implements OIPF.DAE.configuration.Configuration, Stateful<OipfConfigurationState> {
   countryId = DEFAULT_COUNTRY_ID;
   language = DEFAULT_LANGUAGE;
   preferredAudioLanguage: string[] = [DEFAULT_LANGUAGE, "eng"];

@@ -32,7 +32,7 @@
  * @since HbbTV 1.0
  */
 
-import type { DAEMimeType } from ".";
+import type { MimeType } from ".";
 import type { ChannelConfig } from "./videoBroadcast/channel";
 
 // ============================================================================
@@ -49,7 +49,7 @@ export type HbbTVMimeType = "application/hbbtvMediaSynchroniser" | "application/
 /**
  * All supported MIME types for object factory queries.
  */
-export type ObjectFactoryMimeType = DAEMimeType | HbbTVMimeType;
+export type ObjectFactoryMimeType = MimeType | HbbTVMimeType;
 
 // ============================================================================
 // Allocation Method

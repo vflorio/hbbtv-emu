@@ -5,15 +5,14 @@
  * Centralizes instantiation and state management integration.
  */
 
-import { createLogger } from "@hbb-emu/core";
-import type { Stateful } from "@hbb-emu/hbbtv-api";
+import { createLogger, type Stateful } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
+import { type OipfObject, toOipfObject } from "../../index";
+import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../objectDefinitions";
 import { type AvObject, copyStrategy, proxyStrategy } from "./attachStrategy";
 import type { ElementStateManager } from "./elementStateManager";
-import { type OipfObject, toOipfObject } from "./index";
-import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "./objectDefinitions";
 
 const logger = createLogger("ElementMatcher");
 

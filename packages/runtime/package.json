@@ -2,7 +2,9 @@
   "name": "@hbb-emu/runtime",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*"
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/oipf": "workspace:*"
   },
   "devDependencies": {
     "dashjs": "^5.1.0",

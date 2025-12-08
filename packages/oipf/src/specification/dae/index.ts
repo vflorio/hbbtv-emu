@@ -1,7 +1,8 @@
-export * as ApplicationManager from "./applicationManager";
-export * as Capabilities from "./capabilities";
-export * as Configuration from "./configuration";
-export * as VideoBroadcast from "./videoBroadcast";
+export * as applicationManager from "./applicationManager";
+export * as capabilities from "./capabilities";
+export * as configuration from "./configuration";
+export * as objectFactory from "./objectFactory";
+export * as broadcast from "./videoBroadcast";
 
 /**
  * DAE-defined MIME types for embedded objects.
@@ -9,7 +10,7 @@ export * as VideoBroadcast from "./videoBroadcast";
  * These MIME types can be used with `isObjectSupported()` to query
  * terminal capabilities.
  */
-export type DAEMimeType =
+export type MimeType =
   | "application/notifsocket"
   | "application/oipfApplicationManager"
   | "application/oipfCapabilities"

@@ -1,7 +1,7 @@
-import { OipfObjectFactory } from "@hbb-emu/hbbtv-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { injectStrategy } from "./attachStrategy";
+import { OipfObjectFactory } from "./apis/oipfObjectFactory";
+import { injectStrategy } from "./providers/object/attachStrategy";
 
 const WINDOW_KEY = "oipfObjectFactory" as const;
 

@@ -1,4 +1,5 @@
-import { Control, createLogger } from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
+import { AV_CONTROL_DASH_MIME_TYPE } from "@hbb-emu/oipf";
 import { AVObjectWithBackend } from "./avObjectWithBackend";
 
 const logger = createLogger("AvVideoDash");
@@ -12,7 +13,7 @@ const logger = createLogger("AvVideoDash");
  * @see Control.VideoDash
  */
 export class AvVideoDash extends AVObjectWithBackend {
-  static readonly MIME_TYPE = Control.VideoDash.MIME_TYPE;
+  static readonly MIME_TYPE = AV_CONTROL_DASH_MIME_TYPE;
 
   constructor() {
     super();

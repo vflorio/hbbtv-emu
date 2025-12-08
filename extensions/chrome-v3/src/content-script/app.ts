@@ -1,5 +1,6 @@
-import { compose, WithMessageClient } from "@hbb-emu/core";
-import { WithPostMessageAdapter } from "../../../../extensions-runtime/web/src";
+import { compose } from "@hbb-emu/core";
+import { WithMessageClient } from "@hbb-emu/extension-common";
+import { WithPostMessageAdapter } from "@hbb-emu/runtime-web";
 import { WithAppState } from "./state";
 
 // biome-ignore format: composition

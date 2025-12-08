@@ -1,5 +1,5 @@
+import { createLogger } from "@hbb-emu/core";
 import {
-  createLogger,
   DEFAULT_DRM_SYSTEMS,
   DEFAULT_HBBTV_VERSION,
   DEFAULT_MEDIA_FORMATS,
@@ -7,7 +7,7 @@ import {
   type OIPF,
   type OipfCapabilitiesState,
   OipfCapabilitiesStateCodec,
-} from "@hbb-emu/core";
+} from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
@@ -24,7 +24,7 @@ const logger = createLogger("OipfCapabilities");
 // OipfCapabilities Class
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class OipfCapabilities implements OIPF.Capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
+export class OipfCapabilities implements OIPF.DAE.capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
   hbbtvVersion = DEFAULT_HBBTV_VERSION;
   uiProfiles = [...DEFAULT_UI_PROFILES];
   drmSystems = [...DEFAULT_DRM_SYSTEMS];

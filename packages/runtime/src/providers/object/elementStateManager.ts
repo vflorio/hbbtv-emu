@@ -8,12 +8,12 @@
  * Uses the centralized oipfRegistry for definitions.
  */
 
-import type { ClassType, HbbTVState } from "@hbb-emu/core";
-import type { Stateful } from "@hbb-emu/hbbtv-api";
+import type { ClassType, Stateful } from "@hbb-emu/core";
+import type { HbbTVState } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "./objectDefinitions";
+import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../objectDefinitions";
 export type OnLocalStateChangeCallback = (type: StateKey, state: Partial<unknown>) => IO.IO<void>;
 
 /**

@@ -1,4 +1,5 @@
-import { type Broadcast, createLogger, type OIPF } from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
+import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
@@ -12,7 +13,7 @@ const logger = createLogger("OipfObjectFactory");
 // Supported MIME Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SUPPORTED_MIME_TYPES: ReadonlyArray<OIPF.ObjectFactory.ObjectFactoryMimeType> = [
+const SUPPORTED_MIME_TYPES: ReadonlyArray<OIPF.DAE.objectFactory.ObjectFactoryMimeType> = [
   "application/oipfApplicationManager",
   "application/oipfCapabilities",
   "application/oipfConfiguration",
@@ -51,7 +52,7 @@ const notSupported = (methodName: string): never => {
 // Object Factory Implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class OipfObjectFactory implements OIPF.ObjectFactory.OipfObjectFactory {
+export class OipfObjectFactory implements OIPF.DAE.objectFactory.OipfObjectFactory {
   // ═══════════════════════════════════════════════════════════════════════════
   // Object Support Query
   // ═══════════════════════════════════════════════════════════════════════════
@@ -88,12 +89,12 @@ export class OipfObjectFactory implements OIPF.ObjectFactory.OipfObjectFactory {
   // HbbTV-specific Visual Objects
   // ═══════════════════════════════════════════════════════════════════════════
 
-  createMediaSynchroniser = (): OIPF.ObjectFactory.MediaSynchroniser => {
+  createMediaSynchroniser = (): OIPF.DAE.objectFactory.MediaSynchroniser => {
     logger.debug("createMediaSynchroniser")();
     return {};
   };
 
-  createCSManager = (): OIPF.ObjectFactory.HbbTVCSManager => {
+  createCSManager = (): OIPF.DAE.objectFactory.HbbTVCSManager => {
     logger.debug("createCSManager")();
     return {};
   };
@@ -102,17 +103,17 @@ export class OipfObjectFactory implements OIPF.ObjectFactory.OipfObjectFactory {
   // Non-Visual Objects (JavaScript Objects)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  createApplicationManagerObject = (): OIPF.ApplicationManager.ApplicationManager => {
+  createApplicationManagerObject = (): OIPF.DAE.applicationManager.ApplicationManager => {
     logger.debug("createApplicationManagerObject")();
     return new OipfApplicationManager();
   };
 
-  createCapabilitiesObject = (): object => {
+  createCapabilitiesObject = (): OIPF.DAE.capabilities.Capabilities => {
     logger.debug("createCapabilitiesObject")();
     return new OipfCapabilities();
   };
 
-  createChannelConfig = (): Broadcast.Channel.ChannelConfig => {
+  createChannelConfig = (): OIPF.DAE.broadcast.ChannelConfig => {
     logger.debug("createChannelConfig")();
     // Return a stub ChannelConfig - full implementation requires ChannelList etc.
     return {
@@ -120,10 +121,10 @@ export class OipfObjectFactory implements OIPF.ObjectFactory.OipfObjectFactory {
       favouriteLists: { length: 0, getFavouriteList: () => null },
       currentFavouriteList: null,
       getChannelByTriplet: () => null,
-    } as unknown as Broadcast.Channel.ChannelConfig;
+    } as unknown as OIPF.DAE.broadcast.ChannelConfig;
   };
 
-  createConfigurationObject = (): OIPF.Configuration.Configuration => {
+  createConfigurationObject = (): OIPF.DAE.configuration.Configuration => {
     logger.debug("createConfigurationObject")();
     return new OipfConfiguration();
   };

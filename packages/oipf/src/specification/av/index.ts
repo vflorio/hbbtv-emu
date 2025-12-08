@@ -1,3 +1,2 @@
-export * as Broadcast from "../dae/videoBroadcast";
-export * as Component from "./component";
-export * as Control from "./control";
+export * as component from "./component";
+export * as control from "./control";

@@ -1,4 +1,5 @@
-import { Control, createLogger } from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
+import { AV_CONTROL_VIDEO_MP4_MIME_TYPE } from "@hbb-emu/oipf";
 import { AVObjectWithBackend } from "./avObjectWithBackend";
 
 const logger = createLogger("AvVideoMp4");
@@ -12,7 +13,7 @@ const logger = createLogger("AvVideoMp4");
  * @see Control.VideoMp4
  */
 export class AvVideoMp4 extends AVObjectWithBackend {
-  static readonly MIME_TYPE = Control.VideoMp4.MIME_TYPE;
+  static readonly MIME_TYPE = AV_CONTROL_VIDEO_MP4_MIME_TYPE;
 
   constructor() {
     super();

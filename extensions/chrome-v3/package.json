@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/oipf": "workspace:*",
     "@hbb-emu/runtime": "workspace:*",
-    "@hbb-emu/settings-ui": "workspace:*",
     "@hbb-emu/runtime-chrome": "workspace:*",
     "@hbb-emu/runtime-web": "workspace:*",
+    "@hbb-emu/settings-ui": "workspace:*",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

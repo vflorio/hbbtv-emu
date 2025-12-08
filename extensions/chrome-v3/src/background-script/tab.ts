@@ -1,4 +1,4 @@
-import type { MessageEnvelope } from "@hbb-emu/core/message-bus";
+import type { MessageEnvelope } from "@hbb-emu/extension-common";
 import * as E from "fp-ts/Either";
 import { flow, pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";

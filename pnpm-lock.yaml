@@ -33,6 +33,12 @@ importers:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../../packages/extension/common
+      '@hbb-emu/oipf':
+        specifier: workspace:*
+        version: link:../../packages/oipf
       '@hbb-emu/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -169,6 +175,12 @@ importers:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../extension/common
+      '@hbb-emu/oipf':
+        specifier: workspace:*
+        version: link:../oipf
     devDependencies:
       dashjs:
         specifier: ^5.1.0

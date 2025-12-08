@@ -6,9 +6,9 @@ import * as IORef from "fp-ts/IORef";
 import * as NEA from "fp-ts/NonEmptyArray";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
+import type { AnyOipfDefinition } from "../../objectDefinitions";
 import { createMatcherFromDefinitions, type ElementMatcher } from "./elementMatcher";
 import type { ElementStateManager } from "./elementStateManager";
-import type { AnyOipfDefinition } from "./objectDefinitions";
 
 const logger = createLogger("ElementMatcher");
 

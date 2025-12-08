@@ -1,20 +1,20 @@
 import {
-  type ApplicationManagerState,
-  ApplicationManagerStateCodec,
   createLogger,
-  DEFAULT_APPLICATION,
-  DEFAULT_KEYSET,
-  type OIPF,
-} from "@hbb-emu/core";
-import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import * as O from "fp-ts/Option";
-import {
   createStatefulMethods,
   deriveSchema,
   type OnStateChangeCallback,
   type Stateful,
-} from "../../../core/src/stateful";
+} from "@hbb-emu/core";
+import {
+  type ApplicationManagerState,
+  ApplicationManagerStateCodec,
+  DEFAULT_APPLICATION,
+  DEFAULT_KEYSET,
+  type OIPF,
+} from "@hbb-emu/oipf";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
 
 const logger = createLogger("OipfApplicationManager");
 
@@ -22,7 +22,7 @@ const logger = createLogger("OipfApplicationManager");
 // Keyset Implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
-class KeysetImpl implements OIPF.ApplicationManager.Keyset {
+class KeysetImpl implements OIPF.DAE.applicationManager.Keyset {
   currentValue = DEFAULT_KEYSET.value ?? 0;
 
   setValue = (mask: number): void => {
@@ -40,21 +40,21 @@ class KeysetImpl implements OIPF.ApplicationManager.Keyset {
   };
 }
 
-export const createKeyset = (): OIPF.ApplicationManager.Keyset => new KeysetImpl();
+export const createKeyset = (): OIPF.DAE.applicationManager.Keyset => new KeysetImpl();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Application Implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ApplicationImpl implements OIPF.ApplicationManager.Application {
-  privateData: OIPF.ApplicationManager.ApplicationPrivateData = DEFAULT_APPLICATION.privateData ?? {};
+class ApplicationImpl implements OIPF.DAE.applicationManager.Application {
+  privateData: OIPF.DAE.applicationManager.ApplicationPrivateData = DEFAULT_APPLICATION.privateData ?? {};
   keyset: KeysetImpl;
 
   constructor(private readonly document: Document) {
     this.keyset = new KeysetImpl();
   }
 
-  getKeyset = (): OIPF.ApplicationManager.Keyset => this.keyset;
+  getKeyset = (): OIPF.DAE.applicationManager.Keyset => this.keyset;
 
   show = (): void => {
     pipe(
@@ -95,7 +95,7 @@ class ApplicationImpl implements OIPF.ApplicationManager.Application {
   };
 }
 
-export const createApplication = (document: Document): OIPF.ApplicationManager.Application =>
+export const createApplication = (document: Document): OIPF.DAE.applicationManager.Application =>
   new ApplicationImpl(document);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,10 +103,10 @@ export const createApplication = (document: Document): OIPF.ApplicationManager.A
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** WeakMap cache for applications per document */
-const applicationCache = new WeakMap<Document, OIPF.ApplicationManager.Application>();
+const applicationCache = new WeakMap<Document, OIPF.DAE.applicationManager.Application>();
 
 /** Pure function to get or create application for a document */
-const getOrCreateApplication = (doc: Document): IO.IO<OIPF.ApplicationManager.Application> =>
+const getOrCreateApplication = (doc: Document): IO.IO<OIPF.DAE.applicationManager.Application> =>
   pipe(
     IO.of(applicationCache.get(doc)),
     IO.map(O.fromNullable),
@@ -127,7 +127,7 @@ const getOrCreateApplication = (doc: Document): IO.IO<OIPF.ApplicationManager.Ap
   );
 
 export class OipfApplicationManager
-  implements OIPF.ApplicationManager.ApplicationManager, Stateful<ApplicationManagerState>
+  implements OIPF.DAE.applicationManager.ApplicationManager, Stateful<ApplicationManagerState>
 {
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
@@ -152,25 +152,25 @@ export class OipfApplicationManager
   // ApplicationManager API
   // ═══════════════════════════════════════════════════════════════════════════
 
-  getOwnerApplication = (document?: Document): OIPF.ApplicationManager.Application | null =>
+  getOwnerApplication = (document?: Document): OIPF.DAE.applicationManager.Application | null =>
     pipe(
       logger.debug("getOwnerApplication"),
       IO.flatMap(() =>
         pipe(
           O.fromNullable(document ?? globalThis.document),
           O.match(
-            (): IO.IO<OIPF.ApplicationManager.Application | null> =>
+            (): IO.IO<OIPF.DAE.applicationManager.Application | null> =>
               pipe(
                 logger.warn("No document available"),
                 IO.map(() => null),
               ),
-            (doc): IO.IO<OIPF.ApplicationManager.Application | null> => getOrCreateApplication(doc),
+            (doc): IO.IO<OIPF.DAE.applicationManager.Application | null> => getOrCreateApplication(doc),
           ),
         ),
       ),
     )();
 
-  getApplication = (appId: string): OIPF.ApplicationManager.Application | null => {
+  getApplication = (appId: string): OIPF.DAE.applicationManager.Application | null => {
     logger.debug("getApplication:", appId)();
     // TODO
     return null;

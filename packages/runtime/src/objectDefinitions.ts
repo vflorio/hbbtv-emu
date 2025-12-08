@@ -12,28 +12,25 @@
  * - GetState: How to read state from instance
  * - Subscribe: How to subscribe to instance changes
  */
-
+import type { Stateful } from "@hbb-emu/core";
 import {
   type ApplicationManagerState,
+  AV_CONTROL_DASH_MIME_TYPE,
+  AV_CONTROL_VIDEO_MP4_MIME_TYPE,
   type AVControlState,
-  Broadcast,
-  Control,
   type HbbTVState,
+  isValidAvControlDash,
+  isValidAvControlVideoMp4,
   OIPF,
   type OipfCapabilitiesState,
   type OipfConfigurationState,
   type VideoBroadcastState,
-} from "@hbb-emu/core";
-import {
-  AvVideoBroadcast,
-  AvVideoDash,
-  AvVideoMp4,
-  OipfApplicationManager,
-  OipfCapabilities,
-  OipfConfiguration,
-  type Stateful,
-} from "@hbb-emu/hbbtv-api";
+} from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
+import { AvVideoBroadcast, AvVideoDash, AvVideoMp4 } from "./av";
+import { OipfApplicationManager } from "./dae/applicationManager";
+import { OipfCapabilities } from "./dae/capabilities";
+import { OipfConfiguration } from "./dae/configuration";
 
 /**
  * State slice key in HbbTVState.
@@ -96,8 +93,8 @@ export type AnyOipfDefinition = ObjectDefinition<any, any, StateKey>;
 export const oipfCapabilitiesDefinition: ObjectDefinition<OipfCapabilities, OipfCapabilitiesState, "oipfCapabilities"> =
   {
     name: "OipfCapabilities",
-    selector: `object[type="${OIPF.Capabilities.MIME_TYPE}"]`,
-    predicate: OIPF.Capabilities.isValidElement,
+    selector: `object[type="${OIPF.DAE.capabilities.MIME_TYPE}"]`,
+    predicate: OIPF.DAE.capabilities.isValidElement,
     factory: () => new OipfCapabilities(),
     stateKey: "oipfCapabilities",
     attachStrategy: "copy",
@@ -115,8 +112,8 @@ export const oipfConfigurationDefinition: ObjectDefinition<
   "oipfConfiguration"
 > = {
   name: "OipfConfiguration",
-  selector: `object[type="${OIPF.Configuration.MIME_TYPE}"]`,
-  predicate: OIPF.Configuration.isValidElement,
+  selector: `object[type="${OIPF.DAE.configuration.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.configuration.isValidElement,
   factory: () => new OipfConfiguration(),
   stateKey: "oipfConfiguration",
   attachStrategy: "copy",
@@ -134,8 +131,8 @@ export const oipfApplicationManagerDefinition: ObjectDefinition<
   "applicationManager"
 > = {
   name: "OipfApplicationManager",
-  selector: `object[type="${OIPF.ApplicationManager.MIME_TYPE}"]`,
-  predicate: OIPF.ApplicationManager.isValidElement,
+  selector: `object[type="${OIPF.DAE.applicationManager.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.applicationManager.isValidElement,
   factory: () => new OipfApplicationManager(),
   stateKey: "applicationManager",
   attachStrategy: "copy",
@@ -149,8 +146,8 @@ export const oipfApplicationManagerDefinition: ObjectDefinition<
  */
 export const avVideoBroadcastDefinition: ObjectDefinition<AvVideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
   name: "AvVideoBroadcast",
-  selector: `object[type="${Broadcast.VideoBroadcast.MIME_TYPE}"]`,
-  predicate: Broadcast.VideoBroadcast.isValidElement,
+  selector: `object[type="${OIPF.DAE.broadcast.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.broadcast.isValidElement,
   factory: () => new AvVideoBroadcast(),
   stateKey: "videoBroadcast",
   attachStrategy: "proxy",
@@ -164,8 +161,8 @@ export const avVideoBroadcastDefinition: ObjectDefinition<AvVideoBroadcast, Vide
  */
 export const avVideoMp4Definition: ObjectDefinition<AvVideoMp4, AVControlState, "avControls"> = {
   name: "AvVideoMp4",
-  selector: `object[type="${Control.VideoMp4.MIME_TYPE}"]`,
-  predicate: Control.VideoMp4.isValidElement,
+  selector: `object[type="${AV_CONTROL_VIDEO_MP4_MIME_TYPE}"]`,
+  predicate: isValidAvControlVideoMp4,
   factory: () => new AvVideoMp4(),
   stateKey: "avControls",
   attachStrategy: "proxy",
@@ -179,8 +176,8 @@ export const avVideoMp4Definition: ObjectDefinition<AvVideoMp4, AVControlState, 
  */
 export const avVideoDashDefinition: ObjectDefinition<AvVideoDash, AVControlState, "avControls"> = {
   name: "AvVideoDash",
-  selector: `object[type="${Control.VideoDash.MIME_TYPE}"]`,
-  predicate: Control.VideoDash.isValidElement,
+  selector: `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
+  predicate: isValidAvControlDash,
   factory: () => new AvVideoDash(),
   stateKey: "avControls",
   attachStrategy: "proxy",

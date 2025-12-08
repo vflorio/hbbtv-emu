@@ -102,6 +102,23 @@ export const AVControlStateCodec = t.partial({
 export type AVControlState = t.TypeOf<typeof AVControlStateCodec>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// A/V Control Mime Type & utils
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const AV_CONTROL_VIDEO_MP4_MIME_TYPE = "video/mp4";
+export const AV_CONTROL_DASH_MIME_TYPE = "application/dash+xml";
+export const AV_CONTROL_HLS_MIME_TYPE = "application/vnd.apple.mpegurl";
+
+export const isValidAvControlVideoMp4 = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === AV_CONTROL_VIDEO_MP4_MIME_TYPE;
+
+export const isValidAvControlDash = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === AV_CONTROL_DASH_MIME_TYPE;
+
+export const isValidAvControlHls = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && element.type === AV_CONTROL_HLS_MIME_TYPE;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Default Values
 // ─────────────────────────────────────────────────────────────────────────────
 

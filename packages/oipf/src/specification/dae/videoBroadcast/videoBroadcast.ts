@@ -537,12 +537,7 @@ export interface VideoBroadcast extends VideoBroadcastBase {
   removeStreamEventListener(targetURL: string, eventName: string, listener: StreamEventListener): void;
 }
 
-export const VIDEO_BROADCAST_MIME_TYPE = "video/broadcast" as const;
-
-export const MIME_TYPE = VIDEO_BROADCAST_MIME_TYPE;
-
-export const isVideoBroadcast = (element: Element | null | undefined): element is VideoBroadcast =>
-  element instanceof HTMLObjectElement && element.type === VIDEO_BROADCAST_MIME_TYPE;
+export const MIME_TYPE = "video/broadcast" as const;
 
 export const isValidElement = (element: Element | null | undefined): element is HTMLObjectElement =>
-  element instanceof HTMLObjectElement && element.type === VIDEO_BROADCAST_MIME_TYPE;
+  element instanceof HTMLObjectElement && element.type === MIME_TYPE;
