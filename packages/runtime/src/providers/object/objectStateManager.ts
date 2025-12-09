@@ -13,7 +13,7 @@ import type { HbbTVState } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../objectDefinitions";
+import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../types";
 export type OnLocalStateChangeCallback = (type: StateKey, state: Partial<unknown>) => IO.IO<void>;
 
 /**
@@ -29,7 +29,7 @@ type RegistryEntry = Readonly<{
  */
 type InstanceRegistry = Map<StateKey, RegistryEntry>;
 
-export interface ElementStateManager {
+export interface ObjectStateManager {
   /**
    * Register object definitions.
    */
@@ -60,8 +60,8 @@ export interface ElementStateManager {
   setOnLocalStateChange: (callback: OnLocalStateChangeCallback) => IO.IO<void>;
 }
 
-export const WithElementStateManager = <T extends ClassType>(Base: T) =>
-  class extends Base implements ElementStateManager {
+export const WithObjectStateManager = <T extends ClassType>(Base: T) =>
+  class extends Base implements ObjectStateManager {
     instanceRegistry: InstanceRegistry = new Map();
     onLocalStateChange: OnLocalStateChangeCallback | null = null;
 

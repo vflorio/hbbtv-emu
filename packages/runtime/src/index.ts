@@ -1,5 +1,7 @@
 import { OIPF } from "@hbb-emu/oipf";
 
+export * from "./types";
+
 export type OipfObject = {
   type: OIPF.DAE.MimeType;
   element: HTMLObjectElement;

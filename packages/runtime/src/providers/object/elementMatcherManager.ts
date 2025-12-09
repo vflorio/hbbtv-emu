@@ -6,9 +6,9 @@ import * as IORef from "fp-ts/IORef";
 import * as NEA from "fp-ts/NonEmptyArray";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
-import type { AnyOipfDefinition } from "../../objectDefinitions";
+import type { AnyOipfDefinition } from "../../types";
 import { createMatcherFromDefinitions, type ElementMatcher } from "./elementMatcher";
-import type { ElementStateManager } from "./elementStateManager";
+import type { ObjectStateManager } from "./objectStateManager";
 
 const logger = createLogger("ElementMatcher");
 
@@ -19,7 +19,7 @@ export interface ElementMatcherManager {
   startElementObserver: IO.IO<void>;
 }
 
-export const WithElementMatcherManager = <T extends ClassType<DomObserver & ElementStateManager>>(Base: T) =>
+export const WithElementMatcherManager = <T extends ClassType<DomObserver & ObjectStateManager>>(Base: T) =>
   class extends Base implements ElementMatcherManager {
     matchersRef: IORef.IORef<ElementMatcher<any, any>[]> = IORef.newIORef<ElementMatcher<any, any>[]>([])();
 

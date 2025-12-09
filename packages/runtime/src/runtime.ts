@@ -4,21 +4,32 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { initializeOipfObjectFactory } from "./apis/objectFactory";
 import { initializeUserAgent } from "./apis/userAgent";
-import { objectDefinitions } from "./objectDefinitions";
-import { type ElementMatcherManager, WithElementMatcherManager } from "./providers/object/elementMatcherManager";
-import { type ElementStateManager, WithElementStateManager } from "./providers/object/elementStateManager";
+import { avVideoDashDefinition, avVideoMp4Definition } from "./av";
+import { oipfApplicationManagerDefinition } from "./dae/applicationManager";
+import { oipfCapabilitiesDefinition } from "./dae/capabilities";
+import { oipfConfigurationDefinition } from "./dae/configuration";
+import { videoBroadcastDefinition } from "./dae/videoBroadcast";
+import { type ObjectProvider, WithObjectProvider } from "./providers/object/objectProvider";
+
+export const objectDefinitions = [
+  oipfCapabilitiesDefinition,
+  oipfConfigurationDefinition,
+  oipfApplicationManagerDefinition,
+  videoBroadcastDefinition,
+  avVideoMp4Definition,
+  avVideoDashDefinition,
+] as const;
 
 const logger = createLogger("Provider");
 
-export const WithApp = <T extends ClassType<ElementMatcherManager & ElementStateManager>>(Base: T) =>
+const WithApp = <T extends ClassType<ObjectProvider>>(Base: T) =>
   class extends Base {
     initialize = (extensionState: ExtensionState) =>
       pipe(
         logger.info("Initializing"),
         IO.tap(() => initializeUserAgent(extensionState)),
         IO.tap(() => initializeOipfObjectFactory),
-        IO.tap(() => this.initializeStateManager(objectDefinitions)),
-        IO.tap(() => this.initializeMatcherManager(objectDefinitions)),
+        IO.tap(() => this.initializeProvider),
         IO.tap(() => logger.info("Initialized")),
       );
   };
@@ -26,9 +37,7 @@ export const WithApp = <T extends ClassType<ElementMatcherManager & ElementState
 // biome-ignore format: composition
 export const Runtime = compose(
   class {},
-  WithDomObserver,
-  WithElementStateManager,
-  WithElementMatcherManager,
+  WithObjectProvider,
   WithApp,
 );
 

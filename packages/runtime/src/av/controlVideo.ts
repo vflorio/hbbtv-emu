@@ -29,9 +29,9 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { ObjectDefinition } from "../objectDefinitions";
 import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
+import type { ObjectDefinition } from "../types";
 
 const logger = createLogger("AVControlVideo");
 

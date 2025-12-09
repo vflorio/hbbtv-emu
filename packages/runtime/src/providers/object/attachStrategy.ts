@@ -1,18 +1,10 @@
 import { copyProperties, createLogger, insertAfter, ObjectStyleMirror, proxyProperties } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { OipfObject } from "../..";
+import type { CopyableOipfObjects, OipfObject, ProxableOipfObjects } from "../..";
 import type { OipfObjectFactory } from "../../apis/objectFactory";
-import type { AVControlVideo } from "../../av";
-import type { OipfApplicationManager } from "../../dae/applicationManager";
-import type { OipfCapabilities } from "../../dae/capabilities";
-import type { OipfConfiguration } from "../../dae/configuration";
-import type { VideoBroadcast } from "../../dae/videoBroadcast";
 
 const logger = createLogger("AttachStrategy");
-
-export type CopyableOipfObjects = OipfApplicationManager | OipfCapabilities | OipfConfiguration;
-export type ProxableOipfObjects = AVControlVideo | VideoBroadcast;
 
 /**
  * Copy Strategy - copies all properties from instance to target element.

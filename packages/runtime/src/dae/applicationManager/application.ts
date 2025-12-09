@@ -8,7 +8,7 @@ const logger = createLogger("OipfApplicationManager/Application");
 
 export class Application implements OIPF.DAE.ApplicationManager.Application {
   privateData: OIPF.DAE.ApplicationManager.ApplicationPrivateData = DEFAULT_APPLICATION.privateData ?? {};
-  keyset: Keyset;
+  keyset: OIPF.DAE.ApplicationManager.Keyset;
 
   constructor(private readonly document: Document) {
     this.keyset = new Keyset();

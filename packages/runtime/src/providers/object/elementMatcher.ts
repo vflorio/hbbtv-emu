@@ -10,9 +10,15 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
 import { type OipfObject, toOipfObject } from "../../index";
-import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../objectDefinitions";
-import { type CopyableOipfObjects, copyStrategy, type ProxableOipfObjects, proxyStrategy } from "./attachStrategy";
-import type { ElementStateManager } from "./elementStateManager";
+import type {
+  AnyOipfDefinition,
+  CopyableOipfObjects,
+  ObjectDefinition,
+  ProxableOipfObjects,
+  StateKey,
+} from "../../types";
+import { copyStrategy, proxyStrategy } from "./attachStrategy";
+import type { ObjectStateManager } from "./objectStateManager";
 
 const logger = createLogger("ElementMatcher");
 
@@ -30,7 +36,7 @@ export interface ElementMatcher<E extends Element, T> {
  */
 export const createMatcherFromDefinition = <T extends Stateful<S>, S, K extends StateKey>(
   objectDefinition: ObjectDefinition<T, S, K>,
-  elementStateManager: ElementStateManager,
+  objectStateManager: ObjectStateManager,
 ): ElementMatcher<HTMLObjectElement, OipfObject> => ({
   name: objectDefinition.name,
   selector: objectDefinition.selector,
@@ -40,7 +46,7 @@ export const createMatcherFromDefinition = <T extends Stateful<S>, S, K extends 
     pipe(
       logger.debug(`${objectDefinition.name} detected, creating instance`),
       IO.flatMap(() => IO.of(objectDefinition.factory())),
-      IO.tap((instance) => elementStateManager.registerInstance(objectDefinition, instance)),
+      IO.tap((instance) => objectStateManager.registerInstance(objectDefinition, instance)),
       IO.flatMap((instance) => applyAttachStrategy(objectDefinition.attachStrategy, oipfObject, instance)),
     ),
 });
@@ -50,11 +56,11 @@ export const createMatcherFromDefinition = <T extends Stateful<S>, S, K extends 
  */
 export const createMatcherFromDefinitions = (
   objectDefinitions: ReadonlyArray<AnyOipfDefinition>,
-  elementStateManager: ElementStateManager,
+  objectStateManager: ObjectStateManager,
 ): ReadonlyArray<ElementMatcher<HTMLObjectElement, OipfObject>> =>
   pipe(
     objectDefinitions,
-    RA.map((objectDefinition) => createMatcherFromDefinition(objectDefinition, elementStateManager)),
+    RA.map((objectDefinition) => createMatcherFromDefinition(objectDefinition, objectStateManager)),
   );
 
 /**

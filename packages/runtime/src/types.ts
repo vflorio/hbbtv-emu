@@ -1,11 +1,11 @@
 import type { Stateful } from "@hbb-emu/core";
 import type { HbbTVState } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
-import { avVideoDashDefinition, avVideoMp4Definition } from "./av";
-import { oipfApplicationManagerDefinition } from "./dae/applicationManager";
-import { oipfCapabilitiesDefinition } from "./dae/capabilities";
-import { oipfConfigurationDefinition } from "./dae/configuration";
-import { videoBroadcastDefinition } from "./dae/videoBroadcast";
+import type { AVControlVideo } from "./av";
+import type { OipfApplicationManager } from "./dae/applicationManager";
+import type { OipfCapabilities } from "./dae/capabilities";
+import type { OipfConfiguration } from "./dae/configuration";
+import type { VideoBroadcast } from "./dae/videoBroadcast";
 
 /**
  * State slice key in HbbTVState.
@@ -18,6 +18,10 @@ export type StateKey = keyof HbbTVState;
  * - proxy: Proxy properties and set up video element (AV objects)
  */
 export type AttachStrategy = "copy" | "proxy";
+
+export type CopyableOipfObjects = OipfApplicationManager | OipfCapabilities | OipfConfiguration;
+
+export type ProxableOipfObjects = AVControlVideo | VideoBroadcast;
 
 /**
  * Definition for an OIPF object
@@ -57,16 +61,3 @@ export type ObjectDefinition<T extends Stateful<S>, S, K extends StateKey> = Rea
  * Uses `any` for instance/state types since definitions are heterogeneous.
  */
 export type AnyOipfDefinition = ObjectDefinition<any, any, StateKey>;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Registry
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const objectDefinitions = [
-  oipfCapabilitiesDefinition,
-  oipfConfigurationDefinition,
-  oipfApplicationManagerDefinition,
-  videoBroadcastDefinition,
-  avVideoMp4Definition,
-  avVideoDashDefinition,
-] as const;

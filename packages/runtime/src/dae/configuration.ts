@@ -18,7 +18,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as RR from "fp-ts/ReadonlyRecord";
-import type { ObjectDefinition } from "../objectDefinitions";
+import type { ObjectDefinition } from "../types";
 
 const logger = createLogger("OipfConfiguration");
 

@@ -1,5 +1,5 @@
 import { type ApplicationManagerState, OIPF } from "@hbb-emu/oipf";
-import type { ObjectDefinition } from "../../objectDefinitions";
+import type { ObjectDefinition } from "../../types";
 import { OipfApplicationManager } from "./applicationManager";
 
 export * from "./application";
