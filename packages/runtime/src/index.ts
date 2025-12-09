@@ -10,4 +10,4 @@ export const toOipfObject = (element: HTMLObjectElement): OipfObject => ({
   element,
 });
 
-export * from "./provider";
+export * from "./runtime";

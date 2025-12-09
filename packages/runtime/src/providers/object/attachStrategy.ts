@@ -2,7 +2,7 @@ import { copyProperties, createLogger, insertAfter, ObjectStyleMirror, proxyProp
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { OipfObject } from "../..";
-import type { OipfObjectFactory } from "../../apis/oipfObjectFactory";
+import type { OipfObjectFactory } from "../../apis/objectFactory";
 import type { AVControlVideo } from "../../av";
 import type { OipfApplicationManager } from "../../dae/applicationManager";
 import type { OipfCapabilities } from "../../dae/capabilities";

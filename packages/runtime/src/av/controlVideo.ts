@@ -13,6 +13,8 @@ import {
   type Stateful,
 } from "@hbb-emu/core";
 import {
+  AV_CONTROL_DASH_MIME_TYPE,
+  AV_CONTROL_VIDEO_MP4_MIME_TYPE,
   type AVControlState,
   AVControlStateCodec,
   DEFAULT_AV_CONTROL_DATA,
@@ -21,41 +23,43 @@ import {
   DEFAULT_AV_CONTROL_PLAY_STATE,
   DEFAULT_AV_CONTROL_SPEED,
   DEFAULT_AV_CONTROL_WIDTH,
+  isValidAvControlDash,
+  isValidAvControlVideoMp4,
   OIPF,
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-
+import type { ObjectDefinition } from "../objectDefinitions";
 import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
 
 const logger = createLogger("AVControlVideo");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// State Mapping: Stream → AVControl
-// ─────────────────────────────────────────────────────────────────────────────
+export const avVideoMp4Definition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
+  name: "AvVideoMp4",
+  selector: `object[type="${AV_CONTROL_VIDEO_MP4_MIME_TYPE}"]`,
+  predicate: isValidAvControlVideoMp4,
+  factory: () => new AVControlVideo(),
+  stateKey: "avControls",
+  attachStrategy: "proxy",
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
+};
 
 /**
- * Map stream play state to AVControl PlayState.
+ * AvVideoDash definition.
  */
-const mapStreamToAvControl = (state: StreamPlayState): OIPF.AV.Control.PlayState => {
-  switch (state) {
-    case StreamPlayState.IDLE:
-    case StreamPlayState.STOPPED:
-      return OIPF.AV.Control.PlayState.STOPPED;
-    case StreamPlayState.CONNECTING:
-      return OIPF.AV.Control.PlayState.CONNECTING;
-    case StreamPlayState.BUFFERING:
-      return OIPF.AV.Control.PlayState.BUFFERING;
-    case StreamPlayState.PLAYING:
-      return OIPF.AV.Control.PlayState.PLAYING;
-    case StreamPlayState.PAUSED:
-      return OIPF.AV.Control.PlayState.PAUSED;
-    case StreamPlayState.FINISHED:
-      return OIPF.AV.Control.PlayState.FINISHED;
-    case StreamPlayState.ERROR:
-      return OIPF.AV.Control.PlayState.ERROR;
-  }
+export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
+  name: "AvVideoDash",
+  selector: `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
+  predicate: isValidAvControlDash,
+  factory: () => new AVControlVideo(),
+  stateKey: "avControls",
+  attachStrategy: "proxy",
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -352,10 +356,6 @@ export class AVControlVideo
     )();
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Protected Helpers
-  // ═══════════════════════════════════════════════════════════════════════════
-
   protected setPlayState = (newState: OIPF.AV.Control.PlayState): void => {
     if (this._playState !== newState) {
       const oldState = this._playState;
@@ -365,3 +365,30 @@ export class AVControlVideo
     }
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State Mapping: Stream → AVControl
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Map stream play state to AVControl PlayState.
+ */
+const mapStreamToAvControl = (state: StreamPlayState): OIPF.AV.Control.PlayState => {
+  switch (state) {
+    case StreamPlayState.IDLE:
+    case StreamPlayState.STOPPED:
+      return OIPF.AV.Control.PlayState.STOPPED;
+    case StreamPlayState.CONNECTING:
+      return OIPF.AV.Control.PlayState.CONNECTING;
+    case StreamPlayState.BUFFERING:
+      return OIPF.AV.Control.PlayState.BUFFERING;
+    case StreamPlayState.PLAYING:
+      return OIPF.AV.Control.PlayState.PLAYING;
+    case StreamPlayState.PAUSED:
+      return OIPF.AV.Control.PlayState.PAUSED;
+    case StreamPlayState.FINISHED:
+      return OIPF.AV.Control.PlayState.FINISHED;
+    case StreamPlayState.ERROR:
+      return OIPF.AV.Control.PlayState.ERROR;
+  }
+};

@@ -16,65 +16,26 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import type { ObjectDefinition } from "../objectDefinitions";
 import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
 
-/**
- * Video/Broadcast embedded object implementation.
- *
- * Implements the video/broadcast MIME type for HbbTV applications.
- * Uses the video-backend for stream player management.
- *
- * Provides channel tuning, EPG access, and component selection.
- */
-/**
- * Video/Broadcast Object with Video Backend
- *
- * Implements the video/broadcast MIME type for HbbTV applications
- * using the video-backend package for stream player management.
- *
- * State Transitions:
- * - UNREALIZED: Initial state, no channel bound
- * - CONNECTING: bindToCurrentChannel() called, connecting to channel
- * - PRESENTING: Channel is being presented
- * - STOPPED: stop() called, channel still bound but not presenting
- *
- * API Mappings:
- * - bindToCurrentChannel() → load source + play (CONNECTING → PRESENTING)
- * - setChannel(channel) → load source + play (CONNECTING → PRESENTING)
- * - setChannel(null) → release (→ UNREALIZED)
- * - stop() → stop playback (→ STOPPED)
- * - release() → release all resources (→ UNREALIZED)
- */
-
 const logger = createLogger("VideoBroadcast");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// State Mapping: Stream → VideoBroadcast
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Map stream play state to VideoBroadcast PlayState.
- */
-const mapStreamToVideoBroadcast = (state: StreamPlayState): OIPF.DAE.Broadcast.PlayState => {
-  switch (state) {
-    case StreamPlayState.IDLE:
-      return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
-    case StreamPlayState.CONNECTING:
-    case StreamPlayState.BUFFERING:
-      return OIPF.DAE.Broadcast.PlayState.CONNECTING;
-    case StreamPlayState.PLAYING:
-    case StreamPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
-      return OIPF.DAE.Broadcast.PlayState.PRESENTING;
-    case StreamPlayState.STOPPED:
-    case StreamPlayState.FINISHED:
-    case StreamPlayState.ERROR:
-      return OIPF.DAE.Broadcast.PlayState.STOPPED;
-  }
+export const videoBroadcastDefinition: ObjectDefinition<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
+  name: "VideoBroadcast",
+  selector: `object[type="${OIPF.DAE.Broadcast.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.Broadcast.isValidElement,
+  factory: () => new VideoBroadcast(),
+  stateKey: "videoBroadcast",
+  attachStrategy: "proxy",
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Video/Broadcast Object with Video Backend
+// Video/Broadcast Object
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -461,3 +422,27 @@ export class VideoBroadcast
     }
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State Mapping: Stream → VideoBroadcast
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Map stream play state to VideoBroadcast PlayState.
+ */
+const mapStreamToVideoBroadcast = (state: StreamPlayState): OIPF.DAE.Broadcast.PlayState => {
+  switch (state) {
+    case StreamPlayState.IDLE:
+      return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
+    case StreamPlayState.CONNECTING:
+    case StreamPlayState.BUFFERING:
+      return OIPF.DAE.Broadcast.PlayState.CONNECTING;
+    case StreamPlayState.PLAYING:
+    case StreamPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
+      return OIPF.DAE.Broadcast.PlayState.PRESENTING;
+    case StreamPlayState.STOPPED:
+    case StreamPlayState.FINISHED:
+    case StreamPlayState.ERROR:
+      return OIPF.DAE.Broadcast.PlayState.STOPPED;
+  }
+};

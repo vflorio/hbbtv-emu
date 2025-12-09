@@ -2,11 +2,11 @@ import { type ClassType, compose, createLogger, WithDomObserver } from "@hbb-emu
 import type { ExtensionState } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import { initializeOipfObjectFactory } from "./apis/objectFactory";
+import { initializeUserAgent } from "./apis/userAgent";
 import { objectDefinitions } from "./objectDefinitions";
-import { initializeOipfObjectFactory } from "./oipfObjectFactory";
 import { type ElementMatcherManager, WithElementMatcherManager } from "./providers/object/elementMatcherManager";
 import { type ElementStateManager, WithElementStateManager } from "./providers/object/elementStateManager";
-import { initializeUserAgent } from "./userAgent";
 
 const logger = createLogger("Provider");
 
@@ -24,7 +24,7 @@ export const WithApp = <T extends ClassType<ElementMatcherManager & ElementState
   };
 
 // biome-ignore format: composition
-export const Provider = compose(
+export const Runtime = compose(
   class {},
   WithDomObserver,
   WithElementStateManager,
@@ -32,4 +32,4 @@ export const Provider = compose(
   WithApp,
 );
 
-export type Instance = InstanceType<typeof Provider>;
+export type Instance = InstanceType<typeof Runtime>;
