@@ -20,7 +20,7 @@
  * @see HbbTV Specification
  */
 
-import type { Component } from "../../av/component";
+import type { OIPF } from "../../..";
 import type { Channel, ChannelConfig, ChannelIdType } from "./channel";
 import type {
   OnBlurHandler,
@@ -135,19 +135,6 @@ export enum QuietMode {
    */
   QUIET = 2,
 }
-
-// ============================================================================
-// VideoBroadcast Interface
-// ============================================================================
-
-/**
- * Base type for VideoBroadcast that omits properties with incompatible types.
- *
- * HTMLObjectElement defines `width` and `height` as `string`, but HbbTV
- * specifies them as `Integer`. We use Omit to allow redefinition.
- * @deprecated
- */
-type VideoBroadcastBase = Omit<HTMLObjectElement, "width" | "height">;
 
 /**
  * Video/Broadcast embedded object interface.
@@ -440,37 +427,41 @@ export interface VideoBroadcast {
    * @param componentType - The type of component, or null for all
    * @returns Collection of AVComponent values, or undefined if not known
    */
-  getComponents(componentType?: Component.ComponentType | null): Component.AVComponentCollection | undefined;
+  getComponents(
+    componentType?: OIPF.AV.Component.ComponentType | null,
+  ): OIPF.AV.Component.AVComponentCollection | undefined;
 
   /**
    * Returns the currently active components being rendered.
    * @param componentType - The type of component, or undefined for all
    */
-  getCurrentActiveComponents(componentType?: Component.ComponentType): Component.AVComponentCollection | undefined;
+  getCurrentActiveComponents(
+    componentType?: OIPF.AV.Component.ComponentType,
+  ): OIPF.AV.Component.AVComponentCollection | undefined;
 
   /**
    * Selects a component for rendering.
    * @param component - A component object from the current stream
    */
-  selectComponent(component: Component.AVComponent): void;
+  selectComponent(component: OIPF.AV.Component.AVComponent): void;
 
   /**
    * Selects the default component of the specified type.
    * @param componentType - The type of component to select
    */
-  selectComponent(componentType: Component.ComponentType): void;
+  selectComponent(componentType: OIPF.AV.Component.ComponentType): void;
 
   /**
    * Stops rendering the specified component.
    * @param component - The component to stop
    */
-  unselectComponent(component: Component.AVComponent): void;
+  unselectComponent(component: OIPF.AV.Component.AVComponent): void;
 
   /**
    * Stops rendering all components of the specified type.
    * @param componentType - The type of component to stop
    */
-  unselectComponent(componentType: Component.ComponentType): void;
+  unselectComponent(componentType: OIPF.AV.Component.ComponentType): void;
 
   /**
    * Requests full screen mode.

@@ -1,7 +1,7 @@
 /**
  * Video Backend Types
  *
- * Unified types for low-level video playback backend.
+ * Stream types for low-level video playback backend.
  * This module contains only video-related types, no HbbTV-specific logic.
  */
 
@@ -10,12 +10,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Unified play state for the video backend.
+ * Stream play state for the video backend.
  *
  * This is the internal representation used by the player.
  * HbbTV-specific state mapping should be done in the consuming classes.
  */
-export enum UnifiedPlayState {
+export enum StreamPlayState {
   /** Not started or released */
   IDLE = "IDLE",
   /** Connecting to media source */
@@ -91,7 +91,7 @@ export type PlayerEvent<T extends PlayerEventType = PlayerEventType> = Readonly<
   timestamp: number;
 }> &
   (T extends "statechange"
-    ? { readonly state: UnifiedPlayState; readonly previousState: UnifiedPlayState }
+    ? { readonly state: StreamPlayState; readonly previousState: StreamPlayState }
     : T extends "timeupdate"
       ? { readonly currentTime: number }
       : T extends "durationchange"
@@ -123,12 +123,12 @@ export type PlayerEventListener<T extends PlayerEventType = PlayerEventType> = (
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Unified player interface that abstracts HTMLVideoElement, DASH.js, and HLS.js.
+ * Stream player interface that abstracts HTMLVideoElement, DASH.js, and HLS.js.
  */
 export interface Player {
   // ─── State ─────────────────────────────────────────────────────────────────
   /** Current play state */
-  readonly state: UnifiedPlayState;
+  readonly state: StreamPlayState;
   /** Current media source */
   readonly source: MediaSource | null;
   /** Current playback position in milliseconds */

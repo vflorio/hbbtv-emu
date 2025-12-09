@@ -9,7 +9,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type Hls from "hls.js";
 import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
-import { UnifiedPlayState } from "../types";
+import { StreamPlayState } from "../types";
 
 const logger = createLogger("HlsPlayer");
 
@@ -21,7 +21,7 @@ export class HlsPlayer implements Player {
   readonly #videoElement: HTMLVideoElement;
   readonly #listeners: EventListeners;
   #hlsPlayer: Hls | null = null;
-  #state: UnifiedPlayState = UnifiedPlayState.IDLE;
+  #state: StreamPlayState = StreamPlayState.IDLE;
   #source: MediaSource | null = null;
   #currentSpeed = 1;
 
@@ -60,7 +60,7 @@ export class HlsPlayer implements Player {
     hls.on(HlsClass.Events.ERROR, (_event, data) => {
       if (data.fatal) {
         pipe(
-          this.#setState(UnifiedPlayState.ERROR),
+          this.#setState(StreamPlayState.ERROR),
           IO.flatMap(() => this.#emit("error", { error: createHlsError(data) })),
         )();
       }
@@ -71,8 +71,8 @@ export class HlsPlayer implements Player {
     });
 
     hls.on(HlsClass.Events.FRAG_BUFFERED, () => {
-      if (this.#state === UnifiedPlayState.BUFFERING) {
-        this.#setState(UnifiedPlayState.PLAYING)();
+      if (this.#state === StreamPlayState.BUFFERING) {
+        this.#setState(StreamPlayState.PLAYING)();
       }
     });
   };
@@ -80,18 +80,18 @@ export class HlsPlayer implements Player {
   readonly #setupVideoEventListeners = (): IO.IO<void> =>
     IO.of(() => {
       this.#videoElement.addEventListener("playing", () => {
-        this.#setState(UnifiedPlayState.PLAYING)();
+        this.#setState(StreamPlayState.PLAYING)();
       });
 
       this.#videoElement.addEventListener("pause", () => {
-        if (this.#state === UnifiedPlayState.PLAYING) {
-          this.#setState(UnifiedPlayState.PAUSED)();
+        if (this.#state === StreamPlayState.PLAYING) {
+          this.#setState(StreamPlayState.PAUSED)();
         }
       });
 
       this.#videoElement.addEventListener("ended", () => {
         pipe(
-          this.#setState(UnifiedPlayState.FINISHED),
+          this.#setState(StreamPlayState.FINISHED),
           IO.flatMap(() => this.#emit("ended", {})),
         )();
       });
@@ -138,7 +138,7 @@ export class HlsPlayer implements Player {
     );
 
   readonly #setState =
-    (newState: UnifiedPlayState): IO.IO<void> =>
+    (newState: StreamPlayState): IO.IO<void> =>
     () => {
       if (this.#state === newState) return;
       const previousState = this.#state;
@@ -153,7 +153,7 @@ export class HlsPlayer implements Player {
   // Public API
   // ─────────────────────────────────────────────────────────────────────────────
 
-  get state(): UnifiedPlayState {
+  get state(): StreamPlayState {
     return this.#state;
   }
 
@@ -197,7 +197,7 @@ export class HlsPlayer implements Player {
           this.#source = newSource;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.CONNECTING)),
+      IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
       IO.flatMap(() =>
         IO.of(() => {
           this.#initHlsPlayer()
@@ -207,7 +207,7 @@ export class HlsPlayer implements Player {
             .catch((err) => {
               logger.error("HLS init failed:", err)();
               pipe(
-                this.#setState(UnifiedPlayState.ERROR),
+                this.#setState(StreamPlayState.ERROR),
                 IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
               )();
             });
@@ -230,7 +230,7 @@ export class HlsPlayer implements Player {
             this.#videoElement.play().catch((err) => {
               logger.error("Play failed:", err)();
               pipe(
-                this.#setState(UnifiedPlayState.ERROR),
+                this.#setState(StreamPlayState.ERROR),
                 IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
               )();
             });
@@ -256,7 +256,7 @@ export class HlsPlayer implements Player {
           this.#videoElement.currentTime = 0;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.STOPPED)),
+      IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
     )();
   };
 
@@ -284,7 +284,7 @@ export class HlsPlayer implements Player {
           this.#source = null;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.IDLE)),
+      IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
     )();
   };
 

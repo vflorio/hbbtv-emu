@@ -9,7 +9,7 @@ import * as dashjs from "dashjs";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
-import { UnifiedPlayState } from "../types";
+import { StreamPlayState } from "../types";
 
 const logger = createLogger("DashPlayer");
 
@@ -21,7 +21,7 @@ export class DashPlayer implements Player {
   readonly #videoElement: HTMLVideoElement;
   readonly #listeners: EventListeners;
   #dashPlayer: dashjs.MediaPlayerClass | null = null;
-  #state: UnifiedPlayState = UnifiedPlayState.IDLE;
+  #state: StreamPlayState = StreamPlayState.IDLE;
   #source: MediaSource | null = null;
   #currentSpeed = 1;
 
@@ -47,36 +47,36 @@ export class DashPlayer implements Player {
   readonly #setupDashEventHandlers = (dashPlayer: dashjs.MediaPlayerClass): void => {
     dashPlayer.on("error", (event: unknown) => {
       pipe(
-        this.#setState(UnifiedPlayState.ERROR),
+        this.#setState(StreamPlayState.ERROR),
         IO.flatMap(() => this.#emit("error", { error: createDashError(event) })),
       )();
     });
 
     dashPlayer.on("playbackStarted", () => {
-      this.#setState(UnifiedPlayState.PLAYING)();
+      this.#setState(StreamPlayState.PLAYING)();
     });
 
     dashPlayer.on("playbackPaused", () => {
-      if (this.#state === UnifiedPlayState.PLAYING) {
-        this.#setState(UnifiedPlayState.PAUSED)();
+      if (this.#state === StreamPlayState.PLAYING) {
+        this.#setState(StreamPlayState.PAUSED)();
       }
     });
 
     dashPlayer.on("bufferStalled", () => {
-      if (this.#state === UnifiedPlayState.PLAYING) {
-        this.#setState(UnifiedPlayState.BUFFERING)();
+      if (this.#state === StreamPlayState.PLAYING) {
+        this.#setState(StreamPlayState.BUFFERING)();
       }
     });
 
     dashPlayer.on("bufferLoaded", () => {
-      if (this.#state === UnifiedPlayState.BUFFERING) {
-        this.#setState(UnifiedPlayState.PLAYING)();
+      if (this.#state === StreamPlayState.BUFFERING) {
+        this.#setState(StreamPlayState.PLAYING)();
       }
     });
 
     dashPlayer.on("playbackEnded", () => {
       pipe(
-        this.#setState(UnifiedPlayState.FINISHED),
+        this.#setState(StreamPlayState.FINISHED),
         IO.flatMap(() => this.#emit("ended", {})),
       )();
     });
@@ -126,7 +126,7 @@ export class DashPlayer implements Player {
     );
 
   readonly #setState =
-    (newState: UnifiedPlayState): IO.IO<void> =>
+    (newState: StreamPlayState): IO.IO<void> =>
     () => {
       if (this.#state === newState) return;
       const previousState = this.#state;
@@ -141,7 +141,7 @@ export class DashPlayer implements Player {
   // Public API
   // ─────────────────────────────────────────────────────────────────────────────
 
-  get state(): UnifiedPlayState {
+  get state(): StreamPlayState {
     return this.#state;
   }
 
@@ -185,7 +185,7 @@ export class DashPlayer implements Player {
           this.#source = newSource;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.CONNECTING)),
+      IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
       IO.flatMap(() => this.#initDashPlayer()),
       IO.flatMap((dashPlayer) =>
         IO.of(() => {
@@ -237,7 +237,7 @@ export class DashPlayer implements Player {
           this.#videoElement.currentTime = 0;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.STOPPED)),
+      IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
     )();
   };
 
@@ -258,7 +258,7 @@ export class DashPlayer implements Player {
           this.#source = null;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.IDLE)),
+      IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
     )();
   };
 

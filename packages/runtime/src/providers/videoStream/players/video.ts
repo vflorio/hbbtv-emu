@@ -8,7 +8,7 @@ import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
-import { UnifiedPlayState } from "../types";
+import { StreamPlayState } from "../types";
 
 const logger = createLogger("HtmlVideoPlayer");
 
@@ -19,7 +19,7 @@ const logger = createLogger("HtmlVideoPlayer");
 export class HtmlVideoPlayer implements Player {
   readonly #videoElement: HTMLVideoElement;
   readonly #listeners: EventListeners;
-  #state: UnifiedPlayState = UnifiedPlayState.IDLE;
+  #state: StreamPlayState = StreamPlayState.IDLE;
   #source: MediaSource | null = null;
   #currentSpeed = 1;
 
@@ -32,37 +32,37 @@ export class HtmlVideoPlayer implements Player {
   readonly #setupVideoEventListeners = (): IO.IO<void> =>
     IO.of(() => {
       this.#videoElement.addEventListener("loadstart", () => {
-        if (this.#state === UnifiedPlayState.IDLE) {
-          this.#setState(UnifiedPlayState.CONNECTING)();
+        if (this.#state === StreamPlayState.IDLE) {
+          this.#setState(StreamPlayState.CONNECTING)();
         }
       });
 
       this.#videoElement.addEventListener("playing", () => {
-        this.#setState(UnifiedPlayState.PLAYING)();
+        this.#setState(StreamPlayState.PLAYING)();
       });
 
       this.#videoElement.addEventListener("pause", () => {
-        if (this.#state === UnifiedPlayState.PLAYING) {
-          this.#setState(UnifiedPlayState.PAUSED)();
+        if (this.#state === StreamPlayState.PLAYING) {
+          this.#setState(StreamPlayState.PAUSED)();
         }
       });
 
       this.#videoElement.addEventListener("waiting", () => {
-        if (this.#state === UnifiedPlayState.PLAYING) {
-          this.#setState(UnifiedPlayState.BUFFERING)();
+        if (this.#state === StreamPlayState.PLAYING) {
+          this.#setState(StreamPlayState.BUFFERING)();
         }
       });
 
       this.#videoElement.addEventListener("ended", () => {
         pipe(
-          this.#setState(UnifiedPlayState.FINISHED),
+          this.#setState(StreamPlayState.FINISHED),
           IO.flatMap(() => this.#emit("ended", {})),
         )();
       });
 
       this.#videoElement.addEventListener("error", () => {
         pipe(
-          this.#setState(UnifiedPlayState.ERROR),
+          this.#setState(StreamPlayState.ERROR),
           IO.flatMap(() => this.#emit("error", { error: createVideoError(this.#videoElement) })),
         )();
       });
@@ -109,7 +109,7 @@ export class HtmlVideoPlayer implements Player {
     );
 
   readonly #setState =
-    (newState: UnifiedPlayState): IO.IO<void> =>
+    (newState: StreamPlayState): IO.IO<void> =>
     () => {
       if (this.#state === newState) return;
       const previousState = this.#state;
@@ -124,7 +124,7 @@ export class HtmlVideoPlayer implements Player {
   // Public API
   // ─────────────────────────────────────────────────────────────────────────────
 
-  get state(): UnifiedPlayState {
+  get state(): StreamPlayState {
     return this.#state;
   }
 
@@ -170,7 +170,7 @@ export class HtmlVideoPlayer implements Player {
           this.#videoElement.load();
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.CONNECTING)),
+      IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
     )();
   };
 
@@ -188,7 +188,7 @@ export class HtmlVideoPlayer implements Player {
             this.#videoElement.play().catch((err) => {
               logger.error("Play failed:", err)();
               pipe(
-                this.#setState(UnifiedPlayState.ERROR),
+                this.#setState(StreamPlayState.ERROR),
                 IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
               )();
             });
@@ -214,7 +214,7 @@ export class HtmlVideoPlayer implements Player {
           this.#videoElement.currentTime = 0;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.STOPPED)),
+      IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
     )();
   };
 
@@ -243,7 +243,7 @@ export class HtmlVideoPlayer implements Player {
           this.#source = null;
         }),
       ),
-      IO.flatMap(() => this.#setState(UnifiedPlayState.IDLE)),
+      IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
     )();
   };
 

@@ -25,7 +25,7 @@ const logger = createLogger("OipfConfiguration");
 // Configuration Implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class OipfConfiguration implements OIPF.DAE.configuration.Configuration, Stateful<OipfConfigurationState> {
+export class OipfConfiguration implements OIPF.DAE.Configuration.Configuration, Stateful<OipfConfigurationState> {
   countryId = DEFAULT_COUNTRY_ID;
   language = DEFAULT_LANGUAGE;
   preferredAudioLanguage: string[] = [DEFAULT_LANGUAGE, "eng"];

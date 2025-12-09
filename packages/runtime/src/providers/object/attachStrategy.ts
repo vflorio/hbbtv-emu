@@ -57,12 +57,10 @@ export const injectStrategy = (instance: OipfObjectFactory, key: string): IO.IO<
  * - application/dash+xml
  */
 export const proxyStrategy = (oipfObject: OipfObject, instance: ProxableOipfObjects): IO.IO<void> => {
-  const videoElement = instance.getVideoElement();
-  const styleMirror = new ObjectStyleMirror(oipfObject.element, videoElement);
-
+  const styleMirror = new ObjectStyleMirror(oipfObject.element, instance.videoElement);
   return pipe(
     logger.debug("Applying proxy strategy to:", oipfObject.type),
-    IO.flatMap(() => insertAfter(videoElement)(oipfObject.element)),
+    IO.flatMap(() => insertAfter(instance.videoElement)(oipfObject.element)),
     IO.flatMap(() => styleMirror.start),
     IO.flatMap(() => proxyProperties(oipfObject.element, instance)),
     IO.tap(() => logger.debug("Proxy strategy complete for:", oipfObject.type)),

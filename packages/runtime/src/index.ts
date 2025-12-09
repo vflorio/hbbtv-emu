@@ -6,7 +6,7 @@ export type OipfObject = {
 };
 
 export const toOipfObject = (element: HTMLObjectElement): OipfObject => ({
-  type: OIPF.DAE.applicationManager.MIME_TYPE,
+  type: OIPF.DAE.ApplicationManager.MIME_TYPE,
   element,
 });
 

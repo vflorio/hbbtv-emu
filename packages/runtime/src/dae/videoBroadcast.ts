@@ -16,14 +16,14 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { UnifiedPlayState } from "../providers/videoStream";
+import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
 
 /**
  * Video/Broadcast embedded object implementation.
  *
  * Implements the video/broadcast MIME type for HbbTV applications.
- * Uses the video-backend for unified player management.
+ * Uses the video-backend for stream player management.
  *
  * Provides channel tuning, EPG access, and component selection.
  */
@@ -31,7 +31,7 @@ import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
  * Video/Broadcast Object with Video Backend
  *
  * Implements the video/broadcast MIME type for HbbTV applications
- * using the video-backend package for unified player management.
+ * using the video-backend package for stream player management.
  *
  * State Transitions:
  * - UNREALIZED: Initial state, no channel bound
@@ -50,26 +50,26 @@ import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
 const logger = createLogger("VideoBroadcast");
 
 // ─────────────────────────────────────────────────────────────────────────────
-// State Mapping: Unified → VideoBroadcast
+// State Mapping: Stream → VideoBroadcast
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Map unified play state to VideoBroadcast PlayState.
+ * Map stream play state to VideoBroadcast PlayState.
  */
-const mapUnifiedToVideoBroadcast = (state: UnifiedPlayState): OIPF.DAE.broadcast.PlayState => {
+const mapStreamToVideoBroadcast = (state: StreamPlayState): OIPF.DAE.Broadcast.PlayState => {
   switch (state) {
-    case UnifiedPlayState.IDLE:
-      return OIPF.DAE.broadcast.PlayState.UNREALIZED;
-    case UnifiedPlayState.CONNECTING:
-    case UnifiedPlayState.BUFFERING:
-      return OIPF.DAE.broadcast.PlayState.CONNECTING;
-    case UnifiedPlayState.PLAYING:
-    case UnifiedPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
-      return OIPF.DAE.broadcast.PlayState.PRESENTING;
-    case UnifiedPlayState.STOPPED:
-    case UnifiedPlayState.FINISHED:
-    case UnifiedPlayState.ERROR:
-      return OIPF.DAE.broadcast.PlayState.STOPPED;
+    case StreamPlayState.IDLE:
+      return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
+    case StreamPlayState.CONNECTING:
+    case StreamPlayState.BUFFERING:
+      return OIPF.DAE.Broadcast.PlayState.CONNECTING;
+    case StreamPlayState.PLAYING:
+    case StreamPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
+      return OIPF.DAE.Broadcast.PlayState.PRESENTING;
+    case StreamPlayState.STOPPED:
+    case StreamPlayState.FINISHED:
+    case StreamPlayState.ERROR:
+      return OIPF.DAE.Broadcast.PlayState.STOPPED;
   }
 };
 
@@ -81,15 +81,15 @@ const mapUnifiedToVideoBroadcast = (state: UnifiedPlayState): OIPF.DAE.broadcast
  * Video/Broadcast embedded object implementation using video backend.
  *
  * Provides:
- * - Unified player interface via WithVideoBackend mixin
- * - State mapping from unified states to VideoBroadcast.PlayState
+ * - Stream player interface via WithVideoBackend mixin
+ * - State mapping from stream states to VideoBroadcast.PlayState
  * - Full HbbTV video/broadcast API compliance
  */
 export class VideoBroadcast
   extends ObjectVideoStream
-  implements OIPF.DAE.broadcast.VideoBroadcast, Stateful<VideoBroadcastState>
+  implements OIPF.DAE.Broadcast.VideoBroadcast, Stateful<VideoBroadcastState>
 {
-  static readonly MIME_TYPE = OIPF.DAE.broadcast.MIME_TYPE;
+  static readonly MIME_TYPE = OIPF.DAE.Broadcast.MIME_TYPE;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
@@ -114,11 +114,11 @@ export class VideoBroadcast
   // State
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected _playState: OIPF.DAE.broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
+  protected _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
   protected _fullScreen = DEFAULT_FULL_SCREEN;
   protected _width = DEFAULT_VIDEO_WIDTH;
   protected _height = DEFAULT_VIDEO_HEIGHT;
-  protected _currentChannel: OIPF.DAE.broadcast.Channel | null = null;
+  protected _currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
   // ═══════════════════════════════════════════════════════════════════════════
   // Constants (COMPONENT_TYPE_*)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -131,18 +131,18 @@ export class VideoBroadcast
   // Event Handlers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  onPlayStateChange: OIPF.DAE.broadcast.OnPlayStateChangeHandler | null = null;
-  onFullScreenChange: OIPF.DAE.broadcast.OnFullScreenChangeHandler | null = null;
-  onfocus: OIPF.DAE.broadcast.OnFocusHandler | null = null;
-  onblur: OIPF.DAE.broadcast.OnBlurHandler | null = null;
-  onChannelChangeSucceeded: OIPF.DAE.broadcast.OnChannelChangeSucceededHandler | null = null;
-  onChannelChangeError: OIPF.DAE.broadcast.OnChannelChangeErrorHandler | null = null;
-  onProgrammesChanged: OIPF.DAE.broadcast.OnProgrammesChangedHandler | null = null;
-  onParentalRatingChange: OIPF.DAE.broadcast.OnParentalRatingChangeHandler | null = null;
-  onParentalRatingError: OIPF.DAE.broadcast.OnParentalRatingErrorHandler | null = null;
-  onDRMRightsError: OIPF.DAE.broadcast.OnDRMRightsErrorHandler | null = null;
-  onSelectedComponentChanged: OIPF.DAE.broadcast.OnSelectedComponentChangedHandler | null = null;
-  onComponentChanged: OIPF.DAE.broadcast.OnComponentChangedHandler | null = null;
+  onPlayStateChange: OIPF.DAE.Broadcast.OnPlayStateChangeHandler | null = null;
+  onFullScreenChange: OIPF.DAE.Broadcast.OnFullScreenChangeHandler | null = null;
+  onfocus: OIPF.DAE.Broadcast.OnFocusHandler | null = null;
+  onblur: OIPF.DAE.Broadcast.OnBlurHandler | null = null;
+  onChannelChangeSucceeded: OIPF.DAE.Broadcast.OnChannelChangeSucceededHandler | null = null;
+  onChannelChangeError: OIPF.DAE.Broadcast.OnChannelChangeErrorHandler | null = null;
+  onProgrammesChanged: OIPF.DAE.Broadcast.OnProgrammesChangedHandler | null = null;
+  onParentalRatingChange: OIPF.DAE.Broadcast.OnParentalRatingChangeHandler | null = null;
+  onParentalRatingError: OIPF.DAE.Broadcast.OnParentalRatingErrorHandler | null = null;
+  onDRMRightsError: OIPF.DAE.Broadcast.OnDRMRightsErrorHandler | null = null;
+  onSelectedComponentChanged: OIPF.DAE.Broadcast.OnSelectedComponentChangedHandler | null = null;
+  onComponentChanged: OIPF.DAE.Broadcast.OnComponentChangedHandler | null = null;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Constructor
@@ -162,13 +162,13 @@ export class VideoBroadcast
    * Connect backend events to HbbTV API events.
    */
   #setupBackendEventListeners = (): void => {
-    // Map unified state changes to HbbTV playState
-    this.onUnifiedStateChange((unifiedState) => {
-      const broadcastState = mapUnifiedToVideoBroadcast(unifiedState);
+    // Map stream state changes to HbbTV playState
+    this.onStreamStateChange((streamState) => {
+      const broadcastState = mapStreamToVideoBroadcast(streamState);
       this.setPlayState(broadcastState);
 
       // Handle channel change success when presenting
-      if (unifiedState === UnifiedPlayState.PLAYING && this._currentChannel) {
+      if (streamState === StreamPlayState.PLAYING && this._currentChannel) {
         this.onChannelChangeSucceeded?.(this._currentChannel);
       }
     });
@@ -178,7 +178,7 @@ export class VideoBroadcast
   // Properties
   // ═══════════════════════════════════════════════════════════════════════════
 
-  get playState(): OIPF.DAE.broadcast.PlayState {
+  get playState(): OIPF.DAE.Broadcast.PlayState {
     return this._playState;
   }
 
@@ -216,11 +216,11 @@ export class VideoBroadcast
     // Setting data property has no effect for video/broadcast
   }
 
-  get currentChannel(): OIPF.DAE.broadcast.Channel | null {
+  get currentChannel(): OIPF.DAE.Broadcast.Channel | null {
     return this._currentChannel;
   }
 
-  get programmes(): OIPF.DAE.broadcast.ProgrammeCollection {
+  get programmes(): OIPF.DAE.Broadcast.ProgrammeCollection {
     // TODO: Implement EPG
     return { length: 0, item: () => undefined };
   }
@@ -259,7 +259,7 @@ export class VideoBroadcast
         IO.of(() => {
           this.backendStop();
           // Force STOPPED since broadcast stop is explicit
-          this.setPlayState(OIPF.DAE.broadcast.PlayState.STOPPED);
+          this.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED);
         }),
       ),
     )();
@@ -276,7 +276,7 @@ export class VideoBroadcast
         IO.of(() => {
           this.releasePlayer()();
           this._currentChannel = null;
-          this.setPlayState(OIPF.DAE.broadcast.PlayState.UNREALIZED);
+          this.setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
         }),
       ),
     )();
@@ -286,7 +286,7 @@ export class VideoBroadcast
   // Channel Methods
   // ═══════════════════════════════════════════════════════════════════════════
 
-  getChannelConfig = (): OIPF.DAE.broadcast.ChannelConfig | null => {
+  getChannelConfig = (): OIPF.DAE.Broadcast.ChannelConfig | null => {
     logger.debug("getChannelConfig")();
     // TODO: Implement channel list management
     return null;
@@ -299,17 +299,17 @@ export class VideoBroadcast
    * - Transitions from UNREALIZED → CONNECTING → PRESENTING
    * - From STOPPED → PRESENTING (restarts presentation)
    */
-  bindToCurrentChannel = (): OIPF.DAE.broadcast.Channel | null =>
+  bindToCurrentChannel = (): OIPF.DAE.Broadcast.Channel | null =>
     pipe(
       logger.debug("bindToCurrentChannel"),
       IO.map(() => {
-        if (this._playState === OIPF.DAE.broadcast.PlayState.UNREALIZED) {
+        if (this._playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED) {
           return null; // Not broadcast related
         }
 
-        if (this._playState === OIPF.DAE.broadcast.PlayState.STOPPED) {
+        if (this._playState === OIPF.DAE.Broadcast.PlayState.STOPPED) {
           // Channel already bound, just restart presentation
-          this.setPlayState(OIPF.DAE.broadcast.PlayState.CONNECTING);
+          this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
           this.backendPlay();
           return this._currentChannel;
         }
@@ -320,13 +320,13 @@ export class VideoBroadcast
     )();
 
   createChannelObject = (
-    _idType: OIPF.DAE.broadcast.ChannelIdType,
+    _idType: OIPF.DAE.Broadcast.ChannelIdType,
     _onidOrDsd?: number | string,
     _tsid?: number,
     _sid?: number,
     _sourceID?: number,
     _ipBroadcastID?: string,
-  ): OIPF.DAE.broadcast.Channel | null => {
+  ): OIPF.DAE.Broadcast.Channel | null => {
     logger.debug("createChannelObject")();
     // TODO: Implement channel creation
     return null;
@@ -339,10 +339,10 @@ export class VideoBroadcast
    * - setChannel(null) → Equivalent to release() → UNREALIZED
    */
   setChannel = (
-    channel: OIPF.DAE.broadcast.Channel | null,
+    channel: OIPF.DAE.Broadcast.Channel | null,
     _trickplay?: boolean,
     _contentAccessDescriptorURL?: string,
-    _quiet?: OIPF.DAE.broadcast.QuietMode,
+    _quiet?: OIPF.DAE.Broadcast.QuietMode,
   ): void => {
     pipe(
       logger.debug("setChannel:", channel?.name ?? "null"),
@@ -356,7 +356,7 @@ export class VideoBroadcast
 
           // Bind to the new channel
           this._currentChannel = channel;
-          this.setPlayState(OIPF.DAE.broadcast.PlayState.CONNECTING);
+          this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
 
           // TODO FIXME
           const channelUrl = this.#getChannelStreamUrl(channel);
@@ -372,7 +372,7 @@ export class VideoBroadcast
    * Get the stream URL for a channel.
    * In a real implementation, this would interface with the tuner.
    */
-  #getChannelStreamUrl = (channel: OIPF.DAE.broadcast.Channel): string => {
+  #getChannelStreamUrl = (channel: OIPF.DAE.Broadcast.Channel): string => {
     // TODO: Implement actual channel-to-URL mapping
     return `dvb://${channel.onid ?? 0}.${channel.tsid ?? 0}.${channel.sid ?? 0}`;
   };
@@ -433,7 +433,7 @@ export class VideoBroadcast
   addStreamEventListener = (
     _targetURL: string,
     _eventName: string,
-    _listener: OIPF.DAE.broadcast.StreamEventListener,
+    _listener: OIPF.DAE.Broadcast.StreamEventListener,
   ): void => {
     logger.debug("addStreamEventListener")();
     // TODO: Implement DSM-CC stream events
@@ -442,7 +442,7 @@ export class VideoBroadcast
   removeStreamEventListener = (
     _targetURL: string,
     _eventName: string,
-    _listener: OIPF.DAE.broadcast.StreamEventListener,
+    _listener: OIPF.DAE.Broadcast.StreamEventListener,
   ): void => {
     logger.debug("removeStreamEventListener")();
     // TODO: Implement
@@ -452,7 +452,7 @@ export class VideoBroadcast
   // Protected Helpers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  protected setPlayState = (newState: OIPF.DAE.broadcast.PlayState): void => {
+  protected setPlayState = (newState: OIPF.DAE.Broadcast.PlayState): void => {
     if (this._playState !== newState) {
       const oldState = this._playState;
       this._playState = newState;

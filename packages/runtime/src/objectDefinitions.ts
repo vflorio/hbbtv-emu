@@ -94,8 +94,8 @@ export type AnyOipfDefinition = ObjectDefinition<any, any, StateKey>;
 export const oipfCapabilitiesDefinition: ObjectDefinition<OipfCapabilities, OipfCapabilitiesState, "oipfCapabilities"> =
   {
     name: "OipfCapabilities",
-    selector: `object[type="${OIPF.DAE.capabilities.MIME_TYPE}"]`,
-    predicate: OIPF.DAE.capabilities.isValidElement,
+    selector: `object[type="${OIPF.DAE.Capabilities.MIME_TYPE}"]`,
+    predicate: OIPF.DAE.Capabilities.isValidElement,
     factory: () => new OipfCapabilities(),
     stateKey: "oipfCapabilities",
     attachStrategy: "copy",
@@ -113,8 +113,8 @@ export const oipfConfigurationDefinition: ObjectDefinition<
   "oipfConfiguration"
 > = {
   name: "OipfConfiguration",
-  selector: `object[type="${OIPF.DAE.configuration.MIME_TYPE}"]`,
-  predicate: OIPF.DAE.configuration.isValidElement,
+  selector: `object[type="${OIPF.DAE.Configuration.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.Configuration.isValidElement,
   factory: () => new OipfConfiguration(),
   stateKey: "oipfConfiguration",
   attachStrategy: "copy",
@@ -132,8 +132,8 @@ export const oipfApplicationManagerDefinition: ObjectDefinition<
   "applicationManager"
 > = {
   name: "OipfApplicationManager",
-  selector: `object[type="${OIPF.DAE.applicationManager.MIME_TYPE}"]`,
-  predicate: OIPF.DAE.applicationManager.isValidElement,
+  selector: `object[type="${OIPF.DAE.ApplicationManager.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.ApplicationManager.isValidElement,
   factory: () => new OipfApplicationManager(),
   stateKey: "applicationManager",
   attachStrategy: "copy",
@@ -147,8 +147,8 @@ export const oipfApplicationManagerDefinition: ObjectDefinition<
  */
 export const videoBroadcastDefinition: ObjectDefinition<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
   name: "VideoBroadcast",
-  selector: `object[type="${OIPF.DAE.broadcast.MIME_TYPE}"]`,
-  predicate: OIPF.DAE.broadcast.isValidElement,
+  selector: `object[type="${OIPF.DAE.Broadcast.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.Broadcast.isValidElement,
   factory: () => new VideoBroadcast(),
   stateKey: "videoBroadcast",
   attachStrategy: "proxy",

@@ -1,11 +1,15 @@
-export * as applicationManager from "./applicationManager";
-export * as capabilities from "./capabilities";
-export * as configuration from "./configuration";
-export * as objectFactory from "./objectFactory";
-export * as broadcast from "./videoBroadcast";
+export * as ApplicationManager from "./applicationManager";
+export * as Capabilities from "./capabilities";
+export * as Configuration from "./configuration";
+export * as ObjectFactory from "./objectFactory";
+export * as Broadcast from "./videoBroadcast";
+
+// ------------------------------------------------------------
+// Declarative Application Environment (DAE)
+// ------------------------------------------------------------
 
 /**
- * DAE-defined MIME types for embedded objects.
+ * MIME types for embedded objects.
  *
  * These MIME types can be used with `isObjectSupported()` to query
  * terminal capabilities.

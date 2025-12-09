@@ -1,7 +1,7 @@
 /**
  * WithVideoBackend Class Expression Mixin
  *
- * Provides low-level video playback capabilities through a unified Player interface.
+ * Provides low-level video playback capabilities through a stream Player interface.
  * This mixin handles only video management - no HbbTV-specific API logic.
  *
  * HbbTV-specific state mapping and API compliance should be handled by
@@ -10,7 +10,7 @@
  * @example
  * ```typescript
  * class AvVideoMp4 extends WithVideoBackend(SomeBaseClass) {
- *   // Has access to this.player with unified interface
+ *   // Has access to this.player with stream interface
  *   // Map player events to HbbTV events in this class
  * }
  * ```
@@ -28,7 +28,7 @@ import type {
   Player,
   PlayerEventListener,
   PlayerEventType,
-  UnifiedPlayState,
+  StreamPlayState,
 } from "./types";
 
 const logger = createLogger("VideoBackend");
@@ -42,14 +42,14 @@ const logger = createLogger("VideoBackend");
  * Contains only low-level video management functionality.
  */
 export interface VideoStream {
-  /** The underlying unified player instance */
+  /** The underlying stream player instance */
   readonly player: Player;
 
-  /** Current unified play state */
-  readonly unifiedPlayState: UnifiedPlayState;
+  /** Current stream play state */
+  readonly streamPlayState: StreamPlayState;
 
-  /** Get the underlying video element (for DOM attachment) */
-  getVideoElement(): HTMLVideoElement;
+  /** The HTMLVideoElement used by the player */
+  readonly videoElement: HTMLVideoElement;
 
   /** Initialize the appropriate player based on source type */
   initializePlayer(sourceType: MediaSourceType): IO.IO<void>;
@@ -60,8 +60,8 @@ export interface VideoStream {
   /** Release the current player and clean up resources */
   releasePlayer(): IO.IO<void>;
 
-  /** Subscribe to unified state changes */
-  onUnifiedStateChange: (listener: (state: UnifiedPlayState, previousState: UnifiedPlayState) => void) => () => void;
+  /** Subscribe to stream state changes */
+  onStreamStateChange: (listener: (state: StreamPlayState, previousState: StreamPlayState) => void) => () => void;
 }
 
 /**
@@ -119,7 +119,7 @@ const detectSourceType = (url: string): MediaSourceType => {
  * class AvVideoMp4 extends WithVideoBackend(BaseClass) {
  *   constructor() {
  *     super();
- *     // Subscribe to unified state changes and map to HbbTV states
+ *     // Subscribe to stream state changes and map to HbbTV states
  *     this.onStateChange((state) => {
  *       this._playState = mapToAvControlState(state);
  *       this.onPlayStateChange?.(this._playState);
@@ -131,24 +131,12 @@ const detectSourceType = (url: string): MediaSourceType => {
 export class ObjectVideoStream implements VideoStream {
   #player: Player = new HtmlVideoPlayer();
   #currentSourceType: MediaSourceType = "video";
-  #stateChangeListeners: Set<(state: UnifiedPlayState, previousState: UnifiedPlayState) => void> = new Set();
+  #stateChangeListeners: Set<(state: StreamPlayState, previousState: StreamPlayState) => void> = new Set();
 
   constructor() {
     this.#setupStateChangeListener();
     logger.info("initialized")();
   }
-
-  get player(): Player {
-    return this.#player;
-  }
-
-  get unifiedPlayState(): UnifiedPlayState {
-    return this.#player.state;
-  }
-
-  getVideoElement = (): HTMLVideoElement => {
-    return this.#player.getElement();
-  };
 
   /**
    * Initialize a new player for the given source type.
@@ -215,7 +203,7 @@ export class ObjectVideoStream implements VideoStream {
    */
   #setupStateChangeListener = (): void => {
     this.#player.on("statechange", (event) => {
-      logger.debug("Unified state change:", event.previousState, "->", event.state)();
+      logger.debug("Stream state change:", event.previousState, "->", event.state)();
 
       for (const listener of this.#stateChangeListeners) {
         try {
@@ -228,12 +216,10 @@ export class ObjectVideoStream implements VideoStream {
   };
 
   /**
-   * Subscribe to unified state changes.
-   * Use this to map unified states to HbbTV-specific states in consuming classes.
+   * Subscribe to stream state changes.
+   * Use this to map stream states to HbbTV-specific states in consuming classes.
    */
-  onUnifiedStateChange = (
-    listener: (state: UnifiedPlayState, previousState: UnifiedPlayState) => void,
-  ): (() => void) => {
+  onStreamStateChange = (listener: (state: StreamPlayState, previousState: StreamPlayState) => void): (() => void) => {
     this.#stateChangeListeners.add(listener);
     return () => this.#stateChangeListeners.delete(listener);
   };
@@ -249,6 +235,18 @@ export class ObjectVideoStream implements VideoStream {
   // ═══════════════════════════════════════════════════════════════════════════
   // Low-Level Playback Control (delegate to player)
   // ═══════════════════════════════════════════════════════════════════════════
+
+  get player(): Player {
+    return this.#player;
+  }
+
+  get streamPlayState(): StreamPlayState {
+    return this.#player.state;
+  }
+
+  get videoElement(): HTMLVideoElement {
+    return this.#player.getElement();
+  }
 
   /** Start or resume playback */
   backendPlay = (speed = 1): void => this.#player.play(speed);

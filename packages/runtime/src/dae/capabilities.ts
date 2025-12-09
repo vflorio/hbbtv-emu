@@ -24,7 +24,7 @@ const logger = createLogger("OipfCapabilities");
 // OipfCapabilities Class
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class OipfCapabilities implements OIPF.DAE.capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
+export class OipfCapabilities implements OIPF.DAE.Capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
   hbbtvVersion = DEFAULT_HBBTV_VERSION;
   uiProfiles = [...DEFAULT_UI_PROFILES];
   drmSystems = [...DEFAULT_DRM_SYSTEMS];
