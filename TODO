@@ -1,4 +1,5 @@
 REFACTOR TODO:
+    - Runtime VideoBroadcast stream integration
     - Estensione deve iniziallizzare la runtime
     - Playback service connection
     - aggiornare l'ExtensionState 
