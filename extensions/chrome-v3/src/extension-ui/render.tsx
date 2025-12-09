@@ -1,11 +1,5 @@
-import {
-  type ChannelConfig,
-  type ClassType,
-  createLogger,
-  type ExtensionState,
-  notImplementedError,
-  querySelector,
-} from "@hbb-emu/core";
+import { type ClassType, createLogger, notImplementedError, querySelector } from "@hbb-emu/core";
+import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import { Settings } from "@hbb-emu/settings-ui";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";

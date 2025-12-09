@@ -76,6 +76,7 @@ export const initializeHbbTVApi = (app: Instance): IO.IO<void> =>
         (config) =>
           pipe(
             IO.Do,
+            // TODO
             // IO.of(new Provider()),
             // IO.tap(() => logger.info("Initializing HbbTV Provider with config", config)),
             // IO.flatMap((provider) => provider.initialize(config)),

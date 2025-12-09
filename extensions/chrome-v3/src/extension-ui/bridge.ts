@@ -1,11 +1,10 @@
+import { type ClassType, createLogger } from "@hbb-emu/core";
 import {
   type ChannelConfig,
-  type ClassType,
-  createLogger,
   DEFAULT_HBBTV_CONFIG,
   type ExtensionState,
   type MessageClient,
-} from "@hbb-emu/core";
+} from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
