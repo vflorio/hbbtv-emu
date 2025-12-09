@@ -1,8 +1,4 @@
-/**
- * DASH.js Player
- *
- * Player implementation using DASH.js for MPEG-DASH adaptive streaming.
- */
+// DASH.js Player - MPEG-DASH adaptive streaming implementation
 
 import { createLogger } from "@hbb-emu/core";
 import * as dashjs from "dashjs";
@@ -13,10 +9,6 @@ import { StreamPlayState } from "../types";
 
 const logger = createLogger("DashPlayer");
 
-/**
- * DASH.js Player implementation.
- * Manages DASH.js lifecycle, event handling, and playback control.
- */
 export class DashPlayer implements Player {
   readonly #videoElement: HTMLVideoElement;
   readonly #listeners: EventListeners;

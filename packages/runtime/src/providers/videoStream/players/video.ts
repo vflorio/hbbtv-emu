@@ -1,8 +1,4 @@
-/**
- * HTML Video Player
- *
- * Player implementation using HTMLVideoElement.
- */
+// HTML Video Player - native HTMLVideoElement implementation
 
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
@@ -12,10 +8,6 @@ import { StreamPlayState } from "../types";
 
 const logger = createLogger("HtmlVideoPlayer");
 
-/**
- * HTML Video Player implementation.
- * Manages HTMLVideoElement lifecycle, event handling, and playback control.
- */
 export class HtmlVideoPlayer implements Player {
   readonly #videoElement: HTMLVideoElement;
   readonly #listeners: EventListeners;

@@ -158,21 +158,6 @@ export enum QuietMode {
  *   `nextChannel()` will throw a "Security Error"
  * - `setFullScreen()`, `release()`, `stop()` will have no effect
  *
- * @example
- * ```typescript
- * // Get the video/broadcast object from the DOM
- * const vb = document.getElementById('video') as VideoBroadcast;
- *
- * // Bind to the current channel
- * vb.onPlayStateChange = (state, error) => {
- *   if (state === PlayState.PRESENTING) {
- *     console.log('Now presenting:', vb.currentChannel?.name);
- *   }
- * };
- *
- * const channel = vb.bindToCurrentChannel();
- * ```
- *
  * @see PlayState
  * @see Component.ComponentType
  * @see ChannelChangeErrorCode

@@ -98,17 +98,6 @@ export enum AudioType {
 
 /**
  * Represents an audio component in the stream.
- *
- * @example
- * ```typescript
- * const components = videoBroadcast.getComponents(ComponentType.AUDIO);
- * if (components) {
- *   for (let i = 0; i < components.length; i++) {
- *     const audio = components.item(i) as AVAudioComponent;
- *     console.log(`Audio: ${audio.language} (${audio.audioChannels}ch)`);
- *   }
- * }
- * ```
  */
 export interface AVAudioComponent extends AVComponentBase {
   readonly componentType: ComponentType.AUDIO;
@@ -231,20 +220,6 @@ export enum SubtitleType {
 
 /**
  * Represents a subtitle component in the stream.
- *
- * @example
- * ```typescript
- * const components = videoBroadcast.getComponents(ComponentType.SUBTITLE);
- * if (components) {
- *   for (let i = 0; i < components.length; i++) {
- *     const subtitle = components.item(i) as AVSubtitleComponent;
- *     console.log(`Subtitle: ${subtitle.language}`);
- *     if (subtitle.hearingImpaired) {
- *       console.log('  (for hearing impaired)');
- *     }
- *   }
- * }
- * ```
  */
 export interface AVSubtitleComponent extends AVComponentBase {
   readonly componentType: ComponentType.SUBTITLE;

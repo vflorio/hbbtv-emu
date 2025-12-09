@@ -3,3 +3,5 @@ REFACTOR TODO:
     - Playback service connection
     - aggiornare l'ExtensionState 
     - Connettere il provider alla config 
+
+    - quando un oggetto viene rimosso dal DOM, scollegalo dalla runtime

@@ -17,15 +17,6 @@
  *
  * Parental ratings indicate the age-appropriateness or content warnings
  * for broadcast and on-demand content.
- *
- * @example
- * ```typescript
- * const ratings = programme.parentalRatings;
- * for (let i = 0; i < ratings.length; i++) {
- *   const rating = ratings.item(i);
- *   console.log(`${rating.scheme}: ${rating.name} (age ${rating.value}+)`);
- * }
- * ```
  */
 export interface ParentalRating {
   /**

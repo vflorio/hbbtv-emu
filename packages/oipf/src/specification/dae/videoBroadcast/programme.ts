@@ -23,16 +23,6 @@ import type { ParentalRatingCollection } from "./parentalRating";
  * Obtained via:
  * - `VideoBroadcast.programmes` collection
  * - EPG/metadata query APIs
- *
- * @example
- * ```typescript
- * const programmes = videoBroadcast.programmes;
- * if (programmes.length > 0) {
- *   const current = programmes.item(0);
- *   console.log(`Now: ${current?.name}`);
- *   console.log(`Duration: ${current?.duration} seconds`);
- * }
- * ```
  */
 export interface Programme {
   /**

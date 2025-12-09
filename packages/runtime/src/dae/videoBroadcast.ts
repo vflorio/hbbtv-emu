@@ -38,14 +38,6 @@ export const videoBroadcastDefinition: ObjectDefinition<VideoBroadcast, VideoBro
 // Video/Broadcast Object
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Video/Broadcast embedded object implementation using video backend.
- *
- * Provides:
- * - Stream player interface via WithVideoBackend mixin
- * - State mapping from stream states to VideoBroadcast.PlayState
- * - Full HbbTV video/broadcast API compliance
- */
 export class VideoBroadcast
   extends ObjectVideoStream
   implements OIPF.DAE.Broadcast.VideoBroadcast, Stateful<VideoBroadcastState>
@@ -119,9 +111,6 @@ export class VideoBroadcast
   // Backend Event Integration
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Connect backend events to HbbTV API events.
-   */
   #setupBackendEventListeners = (): void => {
     // Map stream state changes to HbbTV playState
     this.onStreamStateChange((streamState) => {
@@ -205,14 +194,10 @@ export class VideoBroadcast
     )();
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
   // Playback Control Methods
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Stop presenting broadcast video.
-   * Transitions to STOPPED state (channel remains bound).
-   */
   stop = (): void => {
     pipe(
       logger.debug("stop"),
@@ -226,10 +211,6 @@ export class VideoBroadcast
     )();
   };
 
-  /**
-   * Release the decoder/tuner and all associated resources.
-   * Transitions to UNREALIZED state.
-   */
   release = (): void => {
     pipe(
       logger.debug("release"),
@@ -253,13 +234,7 @@ export class VideoBroadcast
     return null;
   };
 
-  /**
-   * Binds the video/broadcast object to the current channel.
-   *
-   * This is equivalent to: if(currentChannel) play()
-   * - Transitions from UNREALIZED → CONNECTING → PRESENTING
-   * - From STOPPED → PRESENTING (restarts presentation)
-   */
+  // bindToCurrentChannel: equivalent to if(currentChannel) play()
   bindToCurrentChannel = (): OIPF.DAE.Broadcast.Channel | null =>
     pipe(
       logger.debug("bindToCurrentChannel"),
@@ -293,12 +268,7 @@ export class VideoBroadcast
     return null;
   };
 
-  /**
-   * Requests the terminal to switch to the specified channel.
-   *
-   * - setChannel(channel) → Transitions CONNECTING → PRESENTING
-   * - setChannel(null) → Equivalent to release() → UNREALIZED
-   */
+  // setChannel(null) is equivalent to release()
   setChannel = (
     channel: OIPF.DAE.Broadcast.Channel | null,
     _trickplay?: boolean,
@@ -329,10 +299,6 @@ export class VideoBroadcast
     )();
   };
 
-  /**
-   * Get the stream URL for a channel.
-   * In a real implementation, this would interface with the tuner.
-   */
   #getChannelStreamUrl = (channel: OIPF.DAE.Broadcast.Channel): string => {
     // TODO: Implement actual channel-to-URL mapping
     return `dvb://${channel.onid ?? 0}.${channel.tsid ?? 0}.${channel.sid ?? 0}`;
@@ -424,12 +390,9 @@ export class VideoBroadcast
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// State Mapping: Stream → VideoBroadcast
+// State Mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Map stream play state to VideoBroadcast PlayState.
- */
 const mapStreamToVideoBroadcast = (state: StreamPlayState): OIPF.DAE.Broadcast.PlayState => {
   switch (state) {
     case StreamPlayState.IDLE:

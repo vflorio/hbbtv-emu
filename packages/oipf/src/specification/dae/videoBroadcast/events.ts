@@ -418,25 +418,6 @@ export interface ComponentChangedEvent extends Event {
  * @bubbles No
  * @cancelable No
  *
- * @example
- * ```typescript
- * const vb = document.getElementById('video') as VideoBroadcast;
- *
- * vb.addStreamEventListener(
- *   'dvb://current.ait/streamevents',
- *   'myEvent',
- *   (event: StreamEvent) => {
- *     if (event.status === 'trigger') {
- *       console.log('Event triggered:', event.name);
- *       console.log('Data (hex):', event.data);
- *       console.log('Text:', event.text);
- *     } else {
- *       console.error('Stream event error');
- *     }
- *   }
- * );
- * ```
- *
  * @see HbbTV Specification Clause 7.2.4
  * @since HbbTV 1.0
  */

@@ -11,22 +11,6 @@
  * - The `<object>` element in HTML
  * - The DOM `createElement()` method
  *
- * @example
- * ```typescript
- * // Access the factory directly from window
- * const factory = window.oipfObjectFactory;
- *
- * // Check support and create objects
- * if (factory.isObjectSupported('video/broadcast')) {
- *   const vb = factory.createVideoBroadcastObject();
- *   document.body.appendChild(vb);
- * }
- *
- * // Create non-visual objects
- * const appMgr = factory.createApplicationManagerObject();
- * const config = factory.createConfigurationObject();
- * ```
- *
  * @see OIPF DAE Specification Clause 7.1
  * @see HbbTV 1.0 (ETSI TS 102 796 V1.1.1)
  * @since HbbTV 1.0
@@ -113,22 +97,6 @@ export type HbbTVCSManager = {};
  * Objects can be either:
  * - **Visual** (HTMLObjectElement) - insertable into DOM for rendering
  * - **Non-visual** (JavaScript objects) - implementing specific interfaces
- *
- * @example
- * ```typescript
- * // Access directly from window (no <object> element needed)
- * const factory = window.oipfObjectFactory;
- *
- * // Check if video/broadcast is supported
- * if (factory.isObjectSupported('video/broadcast')) {
- *   const vb = factory.createVideoBroadcastObject();
- *   document.body.appendChild(vb);
- * }
- *
- * // Create non-visual objects
- * const appMgr = factory.createApplicationManagerObject();
- * const config = factory.createConfigurationObject();
- * ```
  *
  * @see OIPF DAE Specification Clause 7.1
  */

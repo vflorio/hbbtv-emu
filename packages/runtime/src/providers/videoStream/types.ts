@@ -1,36 +1,17 @@
-/**
- * Video Backend Types
- *
- * Stream types for low-level video playback backend.
- * This module contains only video-related types, no HbbTV-specific logic.
- */
+// Video Backend Types - low-level video playback types
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Play State
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Stream play state for the video backend.
- *
- * This is the internal representation used by the player.
- * HbbTV-specific state mapping should be done in the consuming classes.
- */
 export enum StreamPlayState {
-  /** Not started or released */
   IDLE = "IDLE",
-  /** Connecting to media source */
   CONNECTING = "CONNECTING",
-  /** Buffering data */
   BUFFERING = "BUFFERING",
-  /** Media is playing */
   PLAYING = "PLAYING",
-  /** Media is paused */
   PAUSED = "PAUSED",
-  /** Playback finished */
   FINISHED = "FINISHED",
-  /** Playback stopped by user */
   STOPPED = "STOPPED",
-  /** Error occurred */
   ERROR = "ERROR",
 }
 
@@ -38,32 +19,17 @@ export enum StreamPlayState {
 // Media Source Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Type of media source being played.
- */
 export type MediaSourceType = "video" | "dash" | "hls";
 
-/**
- * Media source configuration.
- */
 export type MediaSource = Readonly<{
-  /** URL of the media source */
   url: string;
-  /** Type of media source (auto-detected if not provided) */
   type?: MediaSourceType;
-  /** Optional DRM configuration */
   drm?: DrmConfig;
 }>;
 
-/**
- * DRM configuration for protected content.
- */
 export type DrmConfig = Readonly<{
-  /** DRM system identifier (e.g., "com.widevine.alpha") */
   system: string;
-  /** License server URL */
   licenseUrl: string;
-  /** Optional additional headers */
   headers?: Record<string, string>;
 }>;
 
@@ -71,9 +37,6 @@ export type DrmConfig = Readonly<{
 // Player Events
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Player event types.
- */
 export type PlayerEventType =
   | "statechange"
   | "timeupdate"
@@ -83,9 +46,6 @@ export type PlayerEventType =
   | "ended"
   | "fullscreenchange";
 
-/**
- * Player event data.
- */
 export type PlayerEvent<T extends PlayerEventType = PlayerEventType> = Readonly<{
   type: T;
   timestamp: number;
@@ -104,79 +64,50 @@ export type PlayerEvent<T extends PlayerEventType = PlayerEventType> = Readonly<
               ? { readonly fullscreen: boolean }
               : object);
 
-/**
- * Player error information.
- */
 export type PlayerError = Readonly<{
   code: number;
   message: string;
   details?: unknown;
 }>;
 
-/**
- * Player event listener.
- */
 export type PlayerEventListener<T extends PlayerEventType = PlayerEventType> = (event: PlayerEvent<T>) => void;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Player Interface
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Stream player interface that abstracts HTMLVideoElement, DASH.js, and HLS.js.
- */
+// Abstracts HTMLVideoElement, DASH.js, and HLS.js
 export interface Player {
-  // ─── State ─────────────────────────────────────────────────────────────────
-  /** Current play state */
+  // State
   readonly state: StreamPlayState;
-  /** Current media source */
   readonly source: MediaSource | null;
-  /** Current playback position in milliseconds */
   readonly currentTime: number;
-  /** Media duration in milliseconds */
   readonly duration: number;
-  /** Current playback speed (1.0 = normal) */
   readonly speed: number;
-  /** Volume level (0-100) */
   readonly volume: number;
-  /** Muted state */
   readonly muted: boolean;
-  /** Fullscreen state */
   readonly fullscreen: boolean;
 
-  // ─── Playback Control ──────────────────────────────────────────────────────
-  /** Load media source */
+  // Playback Control
   load(source: MediaSource): void;
-  /** Start or resume playback */
   play(speed?: number): void;
-  /** Pause playback */
   pause(): void;
-  /** Stop playback and reset position */
   stop(): void;
-  /** Seek to position (milliseconds) */
   seek(position: number): void;
-  /** Release all resources */
   release(): void;
 
-  // ─── Audio Control ─────────────────────────────────────────────────────────
-  /** Set volume (0-100) */
+  // Audio Control
   setVolume(volume: number): void;
-  /** Set muted state */
   setMuted(muted: boolean): void;
 
-  // ─── Display Control ───────────────────────────────────────────────────────
-  /** Set fullscreen state */
+  // Display Control
   setFullscreen(fullscreen: boolean): void;
-  /** Set dimensions */
   setSize(width: number, height: number): void;
 
-  // ─── Events ────────────────────────────────────────────────────────────────
-  /** Add event listener */
+  // Events
   on<T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void;
-  /** Remove event listener */
   off<T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void;
 
-  // ─── Video Element Access ──────────────────────────────────────────────────
-  /** Get underlying video element (for DOM attachment) */
+  // Video Element Access
   getElement(): HTMLVideoElement;
 }

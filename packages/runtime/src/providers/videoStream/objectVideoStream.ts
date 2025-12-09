@@ -1,20 +1,4 @@
-/**
- * WithVideoBackend Class Expression Mixin
- *
- * Provides low-level video playback capabilities through a stream Player interface.
- * This mixin handles only video management - no HbbTV-specific API logic.
- *
- * HbbTV-specific state mapping and API compliance should be handled by
- * the consuming classes (AvVideoMp4, AvVideoBroadcast, etc.)
- *
- * @example
- * ```typescript
- * class AvVideoMp4 extends WithVideoBackend(SomeBaseClass) {
- *   // Has access to this.player with stream interface
- *   // Map player events to HbbTV events in this class
- * }
- * ```
- */
+// ObjectVideoStream - low-level video playback via stream Player interface
 
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
@@ -37,44 +21,21 @@ const logger = createLogger("VideoBackend");
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Video backend interface provided by the mixin.
- * Contains only low-level video management functionality.
- */
+// Video backend interface with low-level video management
 export interface VideoStream {
-  /** The underlying stream player instance */
   readonly player: Player;
-
-  /** Current stream play state */
   readonly streamPlayState: StreamPlayState;
-
-  /** The HTMLVideoElement used by the player */
   readonly videoElement: HTMLVideoElement;
-
-  /** Initialize the appropriate player based on source type */
   initializePlayer(sourceType: MediaSourceType): IO.IO<void>;
-
-  /** Load and prepare a media source */
   loadSource(source: MediaSource): IO.IO<void>;
-
-  /** Release the current player and clean up resources */
   releasePlayer(): IO.IO<void>;
-
-  /** Subscribe to stream state changes */
   onStreamStateChange: (listener: (state: StreamPlayState, previousState: StreamPlayState) => void) => () => void;
 }
-
-/**
- * Constructor type for class expression pattern.
- */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Player Factory
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Create a player instance based on source type.
- */
 const createPlayer = (sourceType: MediaSourceType): Player => {
   switch (sourceType) {
     case "dash":
@@ -86,9 +47,6 @@ const createPlayer = (sourceType: MediaSourceType): Player => {
   }
 };
 
-/**
- * Detect source type from URL.
- */
 const detectSourceType = (url: string): MediaSourceType => {
   const lowercaseUrl = url.toLowerCase();
   if (lowercaseUrl.endsWith(".mpd") || lowercaseUrl.includes("dash")) return "dash";
@@ -97,37 +55,9 @@ const detectSourceType = (url: string): MediaSourceType => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mixin Factory
+// ObjectVideoStream
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Create a class expression mixin that provides low-level video backend functionality.
- *
- * This mixin provides:
- * - Player management (create, load, release)
- * - Playback control (play, pause, stop, seek)
- * - Volume control
- * - Fullscreen control
- * - Event subscription
- *
- * It does NOT provide:
- * - HbbTV-specific state mapping (handle in consuming class)
- * - HbbTV API compliance (handle in consuming class)
- *
- * @example
- * ```typescript
- * class AvVideoMp4 extends WithVideoBackend(BaseClass) {
- *   constructor() {
- *     super();
- *     // Subscribe to stream state changes and map to HbbTV states
- *     this.onStateChange((state) => {
- *       this._playState = mapToAvControlState(state);
- *       this.onPlayStateChange?.(this._playState);
- *     });
- *   }
- * }
- * ```
- */
 export class ObjectVideoStream implements VideoStream {
   #player: Player = new HtmlVideoPlayer();
   #currentSourceType: MediaSourceType = "video";
@@ -138,10 +68,6 @@ export class ObjectVideoStream implements VideoStream {
     logger.info("initialized")();
   }
 
-  /**
-   * Initialize a new player for the given source type.
-   * This will release the current player if switching types.
-   */
   initializePlayer = (sourceType: MediaSourceType): IO.IO<void> =>
     pipe(
       logger.debug("Initializing player for source type:", sourceType),
@@ -161,10 +87,6 @@ export class ObjectVideoStream implements VideoStream {
       ),
     );
 
-  /**
-   * Load a media source into the player.
-   * Automatically detects source type and initializes appropriate player.
-   */
   loadSource = (source: MediaSource): IO.IO<void> =>
     pipe(
       logger.debug("Loading source:", source.url),
@@ -181,9 +103,6 @@ export class ObjectVideoStream implements VideoStream {
       }),
     );
 
-  /**
-   * Release the current player and clean up resources.
-   */
   releasePlayer = (): IO.IO<void> =>
     pipe(
       logger.debug("Releasing player"),
@@ -194,13 +113,10 @@ export class ObjectVideoStream implements VideoStream {
       ),
     );
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
   // Internal Methods
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Set up a listener to forward state changes.
-   */
   #setupStateChangeListener = (): void => {
     this.#player.on("statechange", (event) => {
       logger.debug("Stream state change:", event.previousState, "->", event.state)();
@@ -215,18 +131,11 @@ export class ObjectVideoStream implements VideoStream {
     });
   };
 
-  /**
-   * Subscribe to stream state changes.
-   * Use this to map stream states to HbbTV-specific states in consuming classes.
-   */
   onStreamStateChange = (listener: (state: StreamPlayState, previousState: StreamPlayState) => void): (() => void) => {
     this.#stateChangeListeners.add(listener);
     return () => this.#stateChangeListeners.delete(listener);
   };
 
-  /**
-   * Forward player events to a listener.
-   */
   onPlayerEvent = <E extends PlayerEventType>(type: E, listener: PlayerEventListener<E>): (() => void) => {
     this.#player.on(type, listener);
     return () => this.#player.off(type, listener);
@@ -248,27 +157,12 @@ export class ObjectVideoStream implements VideoStream {
     return this.#player.getElement();
   }
 
-  /** Start or resume playback */
   backendPlay = (speed = 1): void => this.#player.play(speed);
-
-  /** Pause playback */
   backendPause = (): void => this.#player.pause();
-
-  /** Stop playback and reset position */
   backendStop = (): void => this.#player.stop();
-
-  /** Seek to position (milliseconds) */
   backendSeek = (position: number): void => this.#player.seek(position);
-
-  /** Set volume (0-100) */
   backendSetVolume = (volume: number): void => this.#player.setVolume(volume);
-
-  /** Set muted state */
   backendSetMuted = (muted: boolean): void => this.#player.setMuted(muted);
-
-  /** Set fullscreen state */
   backendSetFullscreen = (fullscreen: boolean): void => this.#player.setFullscreen(fullscreen);
-
-  /** Set dimensions */
   backendSetSize = (width: number, height: number): void => this.#player.setSize(width, height);
 }

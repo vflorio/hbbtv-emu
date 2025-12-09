@@ -1,12 +1,4 @@
-/**
- * Provider State Management
- *
- * Manages the bidirectional state flow between:
- * - External state (from message bus / storage)
- * - OIPF instances (stateful objects in the page)
- *
- * Uses the centralized oipfRegistry for definitions.
- */
+// Provider State Management - bidirectional state flow between external state and OIPF instances
 
 import type { ClassType, Stateful } from "@hbb-emu/core";
 import type { HbbTVState } from "@hbb-emu/oipf";
@@ -16,47 +8,21 @@ import * as RA from "fp-ts/ReadonlyArray";
 import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../types";
 export type OnLocalStateChangeCallback = (type: StateKey, state: Partial<unknown>) => IO.IO<void>;
 
-/**
- * Entry in the instance registry.
- */
 type RegistryEntry = Readonly<{
   definition: ObjectDefinition<any, any, StateKey>; //FIXME
   instances: Set<any>;
 }>;
 
-/**
- * Registry of stateful instances by stateKey.
- */
 type InstanceRegistry = Map<StateKey, RegistryEntry>;
 
 export interface ObjectStateManager {
-  /**
-   * Register object definitions.
-   */
   initializeStateManager: (objectDefinitions: ReadonlyArray<AnyOipfDefinition>) => IO.IO<void>;
-
-  /**
-   * Register an instance and subscribe to its changes.
-   * Returns unsubscribe function.
-   */
   registerInstance: <T extends Stateful<S>, S>(
     definition: ObjectDefinition<T, S, StateKey>,
     instance: T,
   ) => IO.IO<() => void>;
-
-  /**
-   * Apply external HbbTV state to all registered instances.
-   */
   applyExternalState: (state: Partial<HbbTVState>) => IO.IO<void>;
-
-  /**
-   * Collect state from all registered instances.
-   */
   collectState: () => IO.IO<Partial<HbbTVState>>;
-
-  /**
-   * Set callback for local state changes.
-   */
   setOnLocalStateChange: (callback: OnLocalStateChangeCallback) => IO.IO<void>;
 }
 
@@ -139,9 +105,6 @@ export const WithObjectStateManager = <T extends ClassType>(Base: T) =>
       };
   };
 
-/**
- * Creates a handler for instance state changes.
- */
 const createInstanceChangeHandler =
   (getCallback: () => OnLocalStateChangeCallback | null, stateKey: StateKey) =>
   (changedState: Partial<unknown>): IO.IO<void> =>

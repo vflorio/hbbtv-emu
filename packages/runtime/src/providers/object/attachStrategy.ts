@@ -6,14 +6,7 @@ import type { OipfObjectFactory } from "../../apis/objectFactory";
 
 const logger = createLogger("AttachStrategy");
 
-/**
- * Copy Strategy - copies all properties from instance to target element.
- *
- * Used for OIPF objects that don't require a video backend:
- * - oipfApplicationManager
- * - oipfConfiguration
- * - oipfCapabilities
- */
+// Copy all properties from instance to target element (OIPF objects)
 export const copyStrategy = (oipfObject: OipfObject, instance: CopyableOipfObjects): IO.IO<void> =>
   pipe(
     logger.debug("Applying copy strategy to:", oipfObject.type),
@@ -21,12 +14,7 @@ export const copyStrategy = (oipfObject: OipfObject, instance: CopyableOipfObjec
     IO.tap(() => logger.debug("Copy strategy complete for:", oipfObject.type)),
   );
 
-/**
- * Inject Strategy - injects an API instance into the global window object.
- *
- * Used for:
- * - oipfObjectFactory -> window.oipfObjectFactory
- */
+// Inject API instance to window object (e.g. window.oipfObjectFactory)
 export const injectStrategy = (instance: OipfObjectFactory, key: string): IO.IO<void> =>
   pipe(
     logger.debug("Injecting to window:", key),
@@ -40,14 +28,7 @@ export const injectStrategy = (instance: OipfObjectFactory, key: string): IO.IO<
     IO.tap(() => logger.debug("Inject strategy complete for:", key)),
   );
 
-/**
- * Proxy Strategy - proxies properties and sets up video element mirroring.
- *
- * Used for A/V objects that require a video backend:
- * - video/broadcast
- * - video/mp4
- * - application/dash+xml
- */
+// Proxy properties and set up video element mirroring (A/V objects)
 export const proxyStrategy = (oipfObject: OipfObject, instance: ProxableOipfObjects): IO.IO<void> => {
   const styleMirror = new ObjectStyleMirror(oipfObject.element, instance.videoElement);
   return pipe(

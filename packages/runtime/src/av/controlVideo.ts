@@ -1,9 +1,4 @@
-/**
- * A/V Control Video
- *
- * Base class for A/V Control video objects that uses ObjectVideoStream
- * for stream player management.
- */
+// A/V Control Video - video/mp4, video/mpeg MIME type implementation
 
 import {
   createLogger,
@@ -47,9 +42,6 @@ export const avVideoMp4Definition: ObjectDefinition<AVControlVideo, AVControlSta
   subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
-/**
- * AvVideoDash definition.
- */
 export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
   name: "AvVideoDash",
   selector: `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
@@ -66,16 +58,6 @@ export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlSt
 // A/V Control Video
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * A/V Control Video implementation using ObjectVideoStream.
- *
- * Provides:
- * - Stream player interface via ObjectVideoStream
- * - State mapping from stream states to AVControl.PlayState
- * - Full HbbTV A/V Control API compliance
- *
- * Use this class for video/mp4, video/mpeg and similar MIME types.
- */
 export class AVControlVideo
   extends ObjectVideoStream
   implements OIPF.AV.Control.AVControlVideo, Stateful<AVControlState>
@@ -128,13 +110,10 @@ export class AVControlVideo
     logger.info("Initialized")();
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
   // Backend Event Integration
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Connect backend events to HbbTV API events.
-   */
   setupBackendEventListeners = (): void => {
     // Map stream state changes to HbbTV playState
     this.onStreamStateChange((streamState) => {
@@ -153,9 +132,6 @@ export class AVControlVideo
     });
   };
 
-  /**
-   * Map player error code to HbbTV error code.
-   */
   mapErrorCode = (code: number): OIPF.AV.Control.ErrorCode => {
     switch (code) {
       case 1: // MEDIA_ERR_ABORTED
@@ -367,12 +343,9 @@ export class AVControlVideo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// State Mapping: Stream → AVControl
+// State Mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Map stream play state to AVControl PlayState.
- */
 const mapStreamToAvControl = (state: StreamPlayState): OIPF.AV.Control.PlayState => {
   switch (state) {
     case StreamPlayState.IDLE:

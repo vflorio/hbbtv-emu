@@ -97,14 +97,6 @@ export enum ChannelType {
  * - `VideoBroadcast.currentChannel`
  * - `VideoBroadcast.createChannelObject()`
  * - `ChannelConfig.getChannelWithTriplet()`
- *
- * @example
- * ```typescript
- * const channel = videoBroadcast.currentChannel;
- * if (channel) {
- *   console.log(`Watching: ${channel.name} (${channel.majorChannel}.${channel.minorChannel})`);
- * }
- * ```
  */
 export interface Channel {
   /**
@@ -379,18 +371,6 @@ export interface FavouriteListCollection {
  * Provides access to the channel line-up and configuration.
  *
  * Obtained via `VideoBroadcast.getChannelConfig()`.
- *
- * @example
- * ```typescript
- * const config = videoBroadcast.getChannelConfig();
- * if (config) {
- *   console.log(`Found ${config.channelList.length} channels`);
- *   for (let i = 0; i < config.channelList.length; i++) {
- *     const ch = config.channelList.item(i);
- *     console.log(`${ch?.channelNumber}: ${ch?.name}`);
- *   }
- * }
- * ```
  */
 export interface ChannelConfig {
   /**

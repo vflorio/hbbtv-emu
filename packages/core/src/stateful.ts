@@ -35,9 +35,6 @@ export type PropertyDescriptor<S extends object, T extends object> = Readonly<{
 /**
  * Schema defining how state maps to an instance's properties.
  * Array of property descriptors for each state field.
- *
- * @template S - State type (must be object)
- * @template T - Instance type (must be object)
  */
 export type StateSchema<S extends object, T extends object> = ReadonlyArray<PropertyDescriptor<S, T>>;
 
@@ -48,8 +45,6 @@ export type OnStateChangeCallback<S> = (state: Partial<S>) => IO.IO<void>;
 
 /**
  * Interface for stateful objects that can receive state updates.
- *
- * @template S - State type
  */
 export interface Stateful<S> {
   /** Apply a partial state update to this instance */
@@ -85,16 +80,6 @@ export type PropertyReverseTransforms<S extends object> = Partial<Record<keyof S
 // Descriptor Builders
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Create a property descriptor for direct assignment.
- * When state has a value, assign it directly to the instance property.
- *
- * @example
- * ```ts
- * prop<MyState, MyClass>("hbbtvVersion", "hbbtvVersion")
- * // state.hbbtvVersion → instance.hbbtvVersion
- * ```
- */
 export const prop = <S extends object, T extends object>(
   stateKey: keyof S,
   instanceKey: keyof T,
@@ -112,12 +97,6 @@ export const prop = <S extends object, T extends object>(
 /**
  * Create a property descriptor that spreads array values.
  * Useful for arrays that should be copied (not referenced).
- *
- * @example
- * ```ts
- * propArray<MyState, MyClass>("uiProfiles", "uiProfiles")
- * // state.uiProfiles → instance.uiProfiles = [...value]
- * ```
  */
 export const propArray = <S extends object, T extends object>(
   stateKey: keyof S,
@@ -138,12 +117,6 @@ export const propArray = <S extends object, T extends object>(
 
 /**
  * Create a property descriptor with custom transformation.
- *
- * @example
- * ```ts
- * propTransform<MyState, MyClass>("width", "width", (v) => String(v), (v) => Number(v))
- * // state.width (number) → instance.width (string) and back
- * ```
  */
 export const propTransform = <S extends object, T extends object, V>(
   stateKey: keyof S,
@@ -184,23 +157,6 @@ const isArrayCodec = (codec: t.Mixed): boolean => {
  * @param codec - io-ts codec (t.partial or t.type)
  * @param options - Optional mappings and transforms
  * @returns StateSchema derived from the codec
- *
- * @example
- * ```ts
- * // Same keys in state and instance
- * const schema = deriveSchema<OipfCapabilitiesState, OipfCapabilities>(
- *   OipfCapabilitiesStateCodec
- * );
- *
- * // With key mappings
- * const schema = deriveSchema<MyState, MyClass>(MyCodec, {
- *   mappings: { stateKey: "instanceKey" }
- * });
- *
- * // With transforms
- * const schema = deriveSchema<MyState, MyClass>(MyCodec, {
- *   transforms: { width: (v) => String(v) }
- * });
  * ```
  */
 export const deriveSchema = <S extends object, T extends object>(
@@ -368,22 +324,6 @@ export const notifyStateChange =
 /**
  * Create methods for bidirectional state management.
  * Returns an object with all Stateful methods bound to the schema and instance.
- *
- * @param schema - The state schema
- * @param instance - The instance to bind to
- * @returns Object with applyState, getState, subscribe, notifyStateChange
- *
- * @example
- * ```ts
- * class OipfCapabilities implements Stateful<OipfCapabilitiesState> {
- *   private _stateful = createBidirectionalMethods(schema, this);
- *
- *   applyState = this._stateful.applyState;
- *   getState = this._stateful.getState;
- *   subscribe = this._stateful.subscribe;
- *   notifyStateChange = this._stateful.notifyStateChange;
- * }
- * ```
  */
 export const createStatefulMethods = <S extends object, T extends object>(
   schema: StateSchema<S, T>,

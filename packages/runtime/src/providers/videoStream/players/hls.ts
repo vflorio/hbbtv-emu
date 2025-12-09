@@ -1,8 +1,4 @@
-/**
- * HLS.js Player
- *
- * Player implementation using HLS.js for HLS adaptive streaming.
- */
+// HLS.js Player - HLS adaptive streaming implementation
 
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
@@ -13,10 +9,6 @@ import { StreamPlayState } from "../types";
 
 const logger = createLogger("HlsPlayer");
 
-/**
- * HLS.js Player implementation.
- * Manages HLS.js lifecycle, event handling, and playback control.
- */
 export class HlsPlayer implements Player {
   readonly #videoElement: HTMLVideoElement;
   readonly #listeners: EventListeners;
