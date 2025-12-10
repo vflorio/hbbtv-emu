@@ -7,7 +7,7 @@ import * as RA from "fp-ts/ReadonlyArray";
 import { OipfApplicationManager } from "../dae/applicationManager";
 import { OipfCapabilities } from "../dae/capabilities";
 import { OipfConfiguration } from "../dae/configuration";
-import { injectStrategy } from "../providers/object/attachStrategy";
+import { injectStrategy } from "../providers/object/connector/attach";
 
 const logger = createLogger("OipfObjectFactory");
 

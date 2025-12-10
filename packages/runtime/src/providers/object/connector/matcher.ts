@@ -5,13 +5,35 @@ import type * as RIO from "fp-ts/ReaderIO";
 import * as RA from "fp-ts/ReadonlyArray";
 import { type OipfObject, toOipfObject } from "../../..";
 import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../../types";
-import type { ElementMatcher } from ".";
 import { type DetectionEnv, handleDetection } from "./detection";
 
-const logger = createLogger("Matcher");
+/** Generic element matcher that transforms elements and handles detection */
+export interface ElementMatcher<E extends Element, T> {
+  readonly name: string;
+  readonly selector: string;
+  readonly predicate: (element: Element) => element is E;
+  readonly transform: (element: E) => T;
+  readonly onDetected: (item: T) => IO.IO<void>;
+}
 
-/** Matcher requires DetectionEnv for handling detections */
-export type MatcherEnv = DetectionEnv;
+/** Type alias for HTMLObjectElement matchers (OIPF objects) */
+export type OipfMatcher<T> = ElementMatcher<HTMLObjectElement, T>;
+
+/** Matcher requires DetectionEnv for handling detections + object definitions */
+export type MatcherEnv = DetectionEnv &
+  Readonly<{
+    objectDefinitions: ReadonlyArray<AnyOipfDefinition>;
+  }>;
+
+export const createMatcherEnv = (
+  objectDefinitions: ReadonlyArray<AnyOipfDefinition>,
+  detectionEnv: DetectionEnv,
+): MatcherEnv => ({
+  ...detectionEnv,
+  objectDefinitions,
+});
+
+const logger = createLogger("Matcher");
 
 // Operations
 
@@ -33,18 +55,16 @@ export const createMatcher =
     );
 
 /** Create matchers from multiple definitions */
-export const createMatchers =
-  (
-    definitions: ReadonlyArray<AnyOipfDefinition>,
-  ): RIO.ReaderIO<MatcherEnv, ReadonlyArray<ElementMatcher<HTMLObjectElement, OipfObject>>> =>
-  (env) =>
-    pipe(
-      logger.debug("Creating matchers for definitions:", definitions.length),
-      IO.flatMap(() =>
-        pipe(
-          definitions,
-          RA.traverse(IO.Applicative)((definition) => createMatcher(definition)(env)),
-        ),
+export const createMatchers: RIO.ReaderIO<MatcherEnv, ReadonlyArray<ElementMatcher<HTMLObjectElement, OipfObject>>> = (
+  env,
+) =>
+  pipe(
+    logger.debug("Creating matchers for definitions:", env.objectDefinitions.length),
+    IO.flatMap(() =>
+      pipe(
+        env.objectDefinitions,
+        RA.traverse(IO.Applicative)((definition) => createMatcher(definition)(env)),
       ),
-      IO.tap((matchers) => logger.debug("Created matchers:", matchers.length)),
-    );
+    ),
+    IO.tap((matchers) => logger.debug("Created matchers:", matchers.length)),
+  );
