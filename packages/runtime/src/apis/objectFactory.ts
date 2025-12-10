@@ -2,6 +2,7 @@ import { createLogger, notImplementedError } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import type * as RIO from "fp-ts/ReaderIO";
 import * as RA from "fp-ts/ReadonlyArray";
 import { OipfApplicationManager } from "../dae/applicationManager";
 import { OipfCapabilities } from "../dae/capabilities";
@@ -129,7 +130,16 @@ const createObjectElement = (mimeType: string): IO.IO<HTMLObjectElement> =>
     ),
   );
 
-export const initializeOipfObjectFactory: IO.IO<void> = pipe(
-  IO.of(new OipfObjectFactory()),
-  IO.flatMap((factory) => injectStrategy(factory, "oipfObjectFactory")),
-);
+export type OipfObjectFactoryEnv = {
+  getOipfObjectFactory: IO.IO<OIPF.DAE.ObjectFactory.OipfObjectFactory>;
+};
+
+export const initializeOipfObjectFactory: RIO.ReaderIO<OipfObjectFactoryEnv, void> = (env) =>
+  pipe(
+    env.getOipfObjectFactory,
+    IO.flatMap((factory) => injectStrategy(factory, "oipfObjectFactory")),
+  );
+
+export const createOipfObjectFactoryEnv = (): OipfObjectFactoryEnv => ({
+  getOipfObjectFactory: IO.of(new OipfObjectFactory()),
+});

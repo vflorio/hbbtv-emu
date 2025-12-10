@@ -1,8 +1,8 @@
 import { copyProperties, createLogger, insertAfter, ObjectStyleMirror, proxyProperties } from "@hbb-emu/core";
+import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { CopyableOipfObjects, OipfObject, ProxableOipfObjects } from "../..";
-import type { OipfObjectFactory } from "../../apis/objectFactory";
 
 const logger = createLogger("AttachStrategy");
 
@@ -15,7 +15,7 @@ export const copyStrategy = (oipfObject: OipfObject, instance: CopyableOipfObjec
   );
 
 // Inject API instance to window object (e.g. window.oipfObjectFactory)
-export const injectStrategy = (instance: OipfObjectFactory, key: string): IO.IO<void> =>
+export const injectStrategy = (instance: OIPF.DAE.ObjectFactory.OipfObjectFactory, key: string): IO.IO<void> =>
   pipe(
     logger.debug("Injecting to window:", key),
     IO.flatMap(() => () => {

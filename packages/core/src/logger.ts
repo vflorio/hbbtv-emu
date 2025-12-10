@@ -67,7 +67,14 @@ const consoleLogger: L.LoggerIO<Entry> = (entry) =>
     }),
   );
 
-export const createLogger = (section: string) => {
+export type Logger = Readonly<{
+  debug: (message: string, ...args: unknown[]) => IO.IO<void>;
+  info: (message: string, ...args: unknown[]) => IO.IO<void>;
+  warn: (message: string, ...args: unknown[]) => IO.IO<void>;
+  error: (message: string, ...args: unknown[]) => IO.IO<void>;
+}>;
+
+export const createLogger = (section: string): Logger => {
   const debug = (message: string, ...args: unknown[]): IO.IO<void> =>
     pipe(
       D.create,

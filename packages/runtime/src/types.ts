@@ -1,11 +1,7 @@
 import type { Stateful } from "@hbb-emu/core";
-import type { HbbTVState } from "@hbb-emu/oipf";
+import type { HbbTVState, OIPF } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
-import type { AVControlVideo } from "./av";
-import type { OipfApplicationManager } from "./dae/applicationManager";
-import type { OipfCapabilities } from "./dae/capabilities";
-import type { OipfConfiguration } from "./dae/configuration";
-import type { VideoBroadcast } from "./dae/videoBroadcast";
+import type { VideoStream } from "./providers/videoStream/objectVideoStream";
 
 // State slice key in HbbTVState
 export type StateKey = keyof HbbTVState;
@@ -13,9 +9,14 @@ export type StateKey = keyof HbbTVState;
 // copy: Copy properties to element | proxy: Set up video element
 export type AttachStrategy = "copy" | "proxy";
 
-export type CopyableOipfObjects = OipfApplicationManager | OipfCapabilities | OipfConfiguration;
+export type CopyableOipfObjects =
+  | OIPF.DAE.ApplicationManager.ApplicationManager
+  | OIPF.DAE.Capabilities.Capabilities
+  | OIPF.DAE.Configuration.Configuration;
 
-export type ProxableOipfObjects = AVControlVideo | VideoBroadcast;
+export type ProxableOipfObjects =
+  | (VideoStream & OIPF.AV.Control.AVControlObject)
+  | (VideoStream & OIPF.DAE.Broadcast.VideoBroadcast);
 
 // Definition for an OIPF object with state sync
 export type ObjectDefinition<T extends Stateful<S>, S, K extends StateKey> = Readonly<{
