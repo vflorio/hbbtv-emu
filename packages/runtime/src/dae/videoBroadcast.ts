@@ -18,21 +18,8 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
-import type { ObjectDefinition } from "../types";
 
 const logger = createLogger("VideoBroadcast");
-
-export const videoBroadcastDefinition: ObjectDefinition<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
-  name: "VideoBroadcast",
-  selector: `object[type="${OIPF.DAE.Broadcast.MIME_TYPE}"]`,
-  predicate: OIPF.DAE.Broadcast.isValidElement,
-  factory: () => new VideoBroadcast(),
-  stateKey: "videoBroadcast",
-  attachStrategy: "proxy",
-  applyState: (instance, state) => instance.applyState(state ?? {}),
-  getState: (instance) => instance.getState(),
-  subscribe: (instance, callback) => instance.subscribe(callback),
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Video/Broadcast Object

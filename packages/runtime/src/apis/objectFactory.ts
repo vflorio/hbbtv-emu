@@ -11,9 +11,7 @@ import { injectStrategy } from "../providers/object/attachStrategy";
 
 const logger = createLogger("OipfObjectFactory");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Object Factory
-// ─────────────────────────────────────────────────────────────────────────────
+// API Implementation
 
 export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFactory {
   isObjectSupported = (mimeType: string): boolean =>
@@ -22,9 +20,7 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
       IO.map(() => isSupportedMimeType(mimeType)),
     )();
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Visual Objects (HTMLObjectElement)
-  // ═══════════════════════════════════════════════════════════════════════════
 
   createVideoBroadcastObject = (_requiredCapabilities?: readonly string[]): HTMLObjectElement | null =>
     pipe(
@@ -44,9 +40,7 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
       IO.flatMap(() => createObjectElement("application/oipfStatusView")),
     )();
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // HbbTV-specific Visual Objects
-  // ═══════════════════════════════════════════════════════════════════════════
 
   createMediaSynchroniser = (): OIPF.DAE.ObjectFactory.MediaSynchroniser => {
     logger.debug("createMediaSynchroniser")();
@@ -58,9 +52,7 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
     return {};
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Non-Visual Objects (JavaScript Objects)
-  // ═══════════════════════════════════════════════════════════════════════════
 
   createApplicationManagerObject = (): OIPF.DAE.ApplicationManager.ApplicationManager => {
     logger.debug("createApplicationManagerObject")();
@@ -74,7 +66,7 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
 
   createChannelConfig = (): OIPF.DAE.Broadcast.ChannelConfig => {
     logger.debug("createChannelConfig")();
-    // Return a stub ChannelConfig - full implementation requires ChannelList etc.
+    // TODO Return a stub ChannelConfig - full implementation requires ChannelList etc.
     return {
       channelList: { length: 0, item: () => null },
       favouriteLists: { length: 0, getFavouriteList: () => null },
@@ -88,9 +80,7 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
     return new OipfConfiguration();
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Not Implemented Objects
-  // ═══════════════════════════════════════════════════════════════════════════
 
   createCodManagerObject = (): object => notImplementedError("createCodManagerObject");
   createDownloadManagerObject = (): object => notImplementedError("createDownloadManagerObject");
@@ -129,6 +119,8 @@ const createObjectElement = (mimeType: string): IO.IO<HTMLObjectElement> =>
       }),
     ),
   );
+
+// Provider
 
 export type OipfObjectFactoryEnv = {
   getOipfObjectFactory: IO.IO<OIPF.DAE.ObjectFactory.OipfObjectFactory>;

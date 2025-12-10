@@ -8,23 +8,26 @@ import {
   initializeOipfObjectFactory,
   type OipfObjectFactoryEnv,
 } from "./apis/objectFactory";
+import { createObjectProviderEnv, initializeObjectProvider, type ObjectProviderEnv } from "./providers";
 import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./providers/userAgent/userAgent";
 
 const logger = createLogger("Runtime");
 
-type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv;
+type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv;
 
 export const runtime: RIO.ReaderIO<RuntimeEnv, void> = (env) =>
   pipe(
     logger.info("Initializing"),
     IO.tap(() => initializeUserAgent(env)),
     IO.tap(() => initializeOipfObjectFactory(env)),
+    IO.tap(() => initializeObjectProvider(env)),
     IO.tap(() => logger.info("Initialized")),
   );
 
 export const createRuntimeDeps = (extensionState: ExtensionState): RuntimeEnv => ({
   ...createUserAgentEnv(extensionState),
   ...createOipfObjectFactoryEnv(),
+  ...createObjectProviderEnv(),
 });
 
 export class Runtime {

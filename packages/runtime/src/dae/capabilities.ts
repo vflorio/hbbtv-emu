@@ -10,29 +10,15 @@ import {
   DEFAULT_HBBTV_VERSION,
   DEFAULT_MEDIA_FORMATS,
   DEFAULT_UI_PROFILES,
-  OIPF,
+  type OIPF,
   type OipfCapabilitiesState,
   OipfCapabilitiesStateCodec,
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import type { ObjectDefinition } from "../types";
 
 const logger = createLogger("OipfCapabilities");
-
-export const oipfCapabilitiesDefinition: ObjectDefinition<OipfCapabilities, OipfCapabilitiesState, "oipfCapabilities"> =
-  {
-    name: "OipfCapabilities",
-    selector: `object[type="${OIPF.DAE.Capabilities.MIME_TYPE}"]`,
-    predicate: OIPF.DAE.Capabilities.isValidElement,
-    factory: () => new OipfCapabilities(),
-    stateKey: "oipfCapabilities",
-    attachStrategy: "copy",
-    applyState: (instance, state) => instance.applyState(state ?? {}),
-    getState: (instance) => instance.getState(),
-    subscribe: (instance, callback) => instance.subscribe(callback),
-  };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OipfCapabilities Class

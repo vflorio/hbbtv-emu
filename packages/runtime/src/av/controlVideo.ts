@@ -1,5 +1,3 @@
-// A/V Control Video - video/mp4, video/mpeg MIME type implementation
-
 import {
   createLogger,
   createStatefulMethods,
@@ -8,8 +6,6 @@ import {
   type Stateful,
 } from "@hbb-emu/core";
 import {
-  AV_CONTROL_DASH_MIME_TYPE,
-  AV_CONTROL_VIDEO_MP4_MIME_TYPE,
   type AVControlState,
   AVControlStateCodec,
   DEFAULT_AV_CONTROL_DATA,
@@ -18,41 +14,14 @@ import {
   DEFAULT_AV_CONTROL_PLAY_STATE,
   DEFAULT_AV_CONTROL_SPEED,
   DEFAULT_AV_CONTROL_WIDTH,
-  isValidAvControlDash,
-  isValidAvControlVideoMp4,
   OIPF,
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
-import type { ObjectDefinition } from "../types";
 
 const logger = createLogger("AVControlVideo");
-
-export const avVideoMp4Definition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
-  name: "AvVideoMp4",
-  selector: `object[type="${AV_CONTROL_VIDEO_MP4_MIME_TYPE}"]`,
-  predicate: isValidAvControlVideoMp4,
-  factory: () => new AVControlVideo(),
-  stateKey: "avControls",
-  attachStrategy: "proxy",
-  applyState: (instance, state) => instance.applyState(state ?? {}),
-  getState: (instance) => instance.getState(),
-  subscribe: (instance, callback) => instance.subscribe(callback),
-};
-
-export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
-  name: "AvVideoDash",
-  selector: `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
-  predicate: isValidAvControlDash,
-  factory: () => new AVControlVideo(),
-  stateKey: "avControls",
-  attachStrategy: "proxy",
-  applyState: (instance, state) => instance.applyState(state ?? {}),
-  getState: (instance) => instance.getState(),
-  subscribe: (instance, callback) => instance.subscribe(callback),
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A/V Control Video
