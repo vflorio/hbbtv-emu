@@ -2,7 +2,7 @@ import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
-import type { AnyOipfDefinition } from "../../types";
+import type { AnyOipfDefinition } from "../..";
 import {
   type ConnectorEnv,
   createConnectorObserverEnv,

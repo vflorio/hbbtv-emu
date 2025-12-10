@@ -8,7 +8,7 @@ import type * as RIO from "fp-ts/ReaderIO";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as RM from "fp-ts/ReadonlyMap";
 import * as S from "fp-ts/string";
-import type { AnyOipfDefinition, StateKey } from "../../../types";
+import type { AnyOipfDefinition, StateKey } from "../../..";
 
 const logger = createLogger("Registry");
 

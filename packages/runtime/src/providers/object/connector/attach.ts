@@ -2,17 +2,17 @@ import { copyProperties, createLogger, insertAfter, ObjectStyleMirror, proxyProp
 import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { CopyableOipfObjects, OipfObject, ProxableOipfObjects } from "../../..";
-import type { AttachStrategy } from "../../../types";
+import type { AttachStrategy, CopyableOipfObject, ProxableOipfObject } from "../../..";
+import type { DetectedElement } from "./";
 
 const logger = createLogger("Attach");
 
 /** Copy all properties from instance to target element (non-visual OIPF objects) */
-export const copyStrategy = (oipfObject: OipfObject, instance: CopyableOipfObjects): IO.IO<void> =>
+export const copyStrategy = (detected: DetectedElement, instance: CopyableOipfObject): IO.IO<void> =>
   pipe(
-    logger.debug("Applying copy strategy to:", oipfObject.type),
-    IO.flatMap(() => copyProperties(instance, oipfObject.element)),
-    IO.tap(() => logger.debug("Copy strategy complete for:", oipfObject.type)),
+    logger.debug("Applying copy strategy to:", detected.mimeType),
+    IO.flatMap(() => copyProperties(instance, detected.element)),
+    IO.tap(() => logger.debug("Copy strategy complete for:", detected.mimeType)),
   );
 
 /** Inject API instance to window object (basic OIPF window apis) */
@@ -30,23 +30,23 @@ export const injectStrategy = (instance: OIPF.DAE.ObjectFactory.OipfObjectFactor
   );
 
 /** Proxy properties and set up video element mirroring (A/V objects) */
-export const proxyStrategy = (oipfObject: OipfObject, instance: ProxableOipfObjects): IO.IO<void> => {
-  const styleMirror = new ObjectStyleMirror(oipfObject.element, instance.videoElement);
+export const proxyStrategy = (detected: DetectedElement, instance: ProxableOipfObject): IO.IO<void> => {
+  const styleMirror = new ObjectStyleMirror(detected.element, instance.videoElement);
   return pipe(
-    logger.debug("Applying proxy strategy to:", oipfObject.type),
-    IO.flatMap(() => insertAfter(instance.videoElement)(oipfObject.element)),
+    logger.debug("Applying proxy strategy to:", detected.mimeType),
+    IO.flatMap(() => insertAfter(instance.videoElement)(detected.element)),
     IO.flatMap(() => styleMirror.start),
-    IO.flatMap(() => proxyProperties(oipfObject.element, instance)),
-    IO.tap(() => logger.debug("Proxy strategy complete for:", oipfObject.type)),
+    IO.flatMap(() => proxyProperties(detected.element, instance)),
+    IO.tap(() => logger.debug("Proxy strategy complete for:", detected.mimeType)),
   );
 };
 
 /** Apply the appropriate attach strategy based on definition */
-export const applyStrategy = <T>(strategy: AttachStrategy, oipfObject: OipfObject, instance: T): IO.IO<void> => {
+export const applyStrategy = <T>(strategy: AttachStrategy, detected: DetectedElement, instance: T): IO.IO<void> => {
   switch (strategy) {
     case "copy":
-      return copyStrategy(oipfObject, instance as CopyableOipfObjects);
+      return copyStrategy(detected, instance as CopyableOipfObject);
     case "proxy":
-      return proxyStrategy(oipfObject, instance as ProxableOipfObjects);
+      return proxyStrategy(detected, instance as ProxableOipfObject);
   }
 };

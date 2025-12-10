@@ -6,7 +6,7 @@ import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import type * as RIO from "fp-ts/ReaderIO";
 import * as RA from "fp-ts/ReadonlyArray";
-import type { AnyOipfDefinition } from "../../../types";
+import type { AnyOipfDefinition } from "../../..";
 import { getFirstInstance, type RegistryEntry, type RegistryEnv, readRegistry } from "./registry";
 
 const logger = createLogger("State");

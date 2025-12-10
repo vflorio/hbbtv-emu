@@ -10,12 +10,12 @@ import {
   type OipfConfigurationState,
   type VideoBroadcastState,
 } from "@hbb-emu/oipf";
+import type { ObjectDefinition } from "../..";
 import { AVControlVideo } from "../../av";
 import { OipfApplicationManager } from "../../dae/applicationManager";
 import { OipfCapabilities } from "../../dae/capabilities";
 import { OipfConfiguration } from "../../dae/configuration";
 import { VideoBroadcast } from "../../dae/videoBroadcast";
-import type { ObjectDefinition } from "../../types";
 
 // DAE Object Definitions
 
@@ -101,6 +101,8 @@ export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlSt
   getState: (instance) => instance.getState(),
   subscribe: (instance, callback) => instance.subscribe(callback),
 };
+
+// Export all definitions
 
 export const oipfObjectDefinitions = [
   oipfApplicationManagerDefinition,

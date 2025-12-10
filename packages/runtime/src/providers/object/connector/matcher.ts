@@ -1,10 +1,11 @@
 import { createLogger, type Stateful } from "@hbb-emu/core";
+import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
 import * as RA from "fp-ts/ReadonlyArray";
-import { type OipfObject, toOipfObject } from "../../..";
-import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../../types";
+import type { AnyOipfDefinition, ObjectDefinition, StateKey } from "../../..";
+import type { DetectedElement } from "./";
 import { type DetectionEnv, handleDetection } from "./detection";
 
 /** Generic element matcher that transforms elements and handles detection */
@@ -41,7 +42,7 @@ const logger = createLogger("Matcher");
 export const createMatcher =
   <T extends Stateful<S>, S, K extends StateKey>(
     definition: ObjectDefinition<T, S, K>,
-  ): RIO.ReaderIO<MatcherEnv, ElementMatcher<HTMLObjectElement, OipfObject>> =>
+  ): RIO.ReaderIO<MatcherEnv, ElementMatcher<HTMLObjectElement, DetectedElement>> =>
   (env) =>
     pipe(
       logger.debug("Creating matcher for:", definition.name),
@@ -49,15 +50,19 @@ export const createMatcher =
         name: definition.name,
         selector: definition.selector,
         predicate: definition.predicate,
-        transform: toOipfObject,
-        onDetected: (oipfObject: OipfObject) => handleDetection(definition, oipfObject)(env),
+        onDetected: (detected) => handleDetection(definition, detected)(env),
+        transform: (element: HTMLObjectElement): DetectedElement => ({
+          mimeType: element.type as OIPF.DAE.MimeType,
+          element,
+        }),
       })),
     );
 
 /** Create matchers from multiple definitions */
-export const createMatchers: RIO.ReaderIO<MatcherEnv, ReadonlyArray<ElementMatcher<HTMLObjectElement, OipfObject>>> = (
-  env,
-) =>
+export const createMatchers: RIO.ReaderIO<
+  MatcherEnv,
+  ReadonlyArray<ElementMatcher<HTMLObjectElement, DetectedElement>>
+> = (env) =>
   pipe(
     logger.debug("Creating matchers for definitions:", env.objectDefinitions.length),
     IO.flatMap(() =>

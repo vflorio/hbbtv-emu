@@ -13,7 +13,7 @@ import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./pr
 
 const logger = createLogger("Runtime");
 
-type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv;
+export type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv;
 
 export const runtime: RIO.ReaderIO<RuntimeEnv, void> = (env) =>
   pipe(
@@ -24,14 +24,8 @@ export const runtime: RIO.ReaderIO<RuntimeEnv, void> = (env) =>
     IO.tap(() => logger.info("Initialized")),
   );
 
-export const createRuntimeDeps = (extensionState: ExtensionState): RuntimeEnv => ({
+export const createRuntimeEnv = (extensionState: ExtensionState): RuntimeEnv => ({
   ...createUserAgentEnv(extensionState),
   ...createOipfObjectFactoryEnv(),
   ...createObjectProviderEnv(),
 });
-
-export class Runtime {
-  constructor(extensionState: ExtensionState) {
-    runtime(createRuntimeDeps(extensionState))();
-  }
-}

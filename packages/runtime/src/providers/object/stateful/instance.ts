@@ -4,7 +4,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import type * as RIO from "fp-ts/ReaderIO";
-import type { ObjectDefinition, StateKey } from "../../../types";
+import type { ObjectDefinition, StateKey } from "../../..";
 import { type CallbackEnv, createChangeHandler } from "./callback";
 import { addInstance, lookupEntry, type RegistryEnv, readRegistry, removeInstance } from "./registry";
 

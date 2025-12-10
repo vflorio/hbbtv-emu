@@ -4,7 +4,7 @@ import * as IO from "fp-ts/IO";
 import type * as IORef from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type * as RIO from "fp-ts/ReaderIO";
-import type { StateKey } from "../../../types";
+import type { StateKey } from "../../..";
 
 const logger = createLogger("Callback");
 

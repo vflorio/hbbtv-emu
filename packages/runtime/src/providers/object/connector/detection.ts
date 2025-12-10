@@ -2,9 +2,9 @@ import { createLogger, type Stateful } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
-import type { OipfObject } from "../../..";
-import type { ObjectDefinition, StateKey } from "../../../types";
+import type { ObjectDefinition, StateKey } from "../../..";
 import { type InstanceEnv, registerInstance } from "../stateful/instance";
+import type { DetectedElement } from "./";
 import { applyStrategy } from "./attach";
 
 const logger = createLogger("Detection");
@@ -27,7 +27,7 @@ const createInstance = <T extends Stateful<S>, S, K extends StateKey>(
 export const handleDetection =
   <T extends Stateful<S>, S, K extends StateKey>(
     definition: ObjectDefinition<T, S, K>,
-    oipfObject: OipfObject,
+    detected: DetectedElement,
   ): RIO.ReaderIO<DetectionEnv, void> =>
   (env) =>
     pipe(
@@ -36,7 +36,7 @@ export const handleDetection =
       IO.flatMap((instance) =>
         pipe(
           registerInstance(definition, instance)(env),
-          IO.flatMap(() => applyStrategy(definition.attachStrategy, oipfObject, instance)),
+          IO.flatMap(() => applyStrategy(definition.attachStrategy, detected, instance)),
           IO.tap(() => logger.debug(`${definition.name} connected`)),
         ),
       ),
