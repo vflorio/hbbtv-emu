@@ -7,7 +7,7 @@ import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { Instance } from "./app";
-import { getConfig, setConfig, setReady } from "./state";
+import { getConfig, getRuntimeHandle, setConfig, setReady, setRuntimeHandle } from "./state";
 import { responseError, sendGetState, waitForState } from "./utils";
 
 const logger = createLogger("ContentScript:Handlers");
@@ -44,18 +44,29 @@ export const requestAndWaitForConfig = (app: Instance): T.Task<void> =>
     ),
   );
 
-export const setupConfigSubscription = (app: Instance): IO.IO<void> =>
+export const setupStateSubscription = (app: Instance): IO.IO<void> =>
   pipe(
-    logger.debug("Setting up config subscription"),
+    logger.debug("Setting up state subscription"),
     IO.flatMap(() =>
       app.on("STATE_UPDATED", (envelope) =>
         pipe(
-          logger.info("Config update received"),
-          IO.flatMap(() => {
-            const config = envelope.message.payload as ExtensionState;
-            return app.runState(setConfig(config));
-          }),
-          // TODO: Update HbbTV API with new config
+          logger.info("State update received", envelope.message.payload),
+          IO.flatMap(() => app.runState(setConfig(envelope.message.payload as ExtensionState))),
+          IO.flatMap(() =>
+            pipe(
+              app.runState(getRuntimeHandle),
+              IO.flatMap(
+                O.match(
+                  () => logger.warn("No runtime handle available, skipping HbbTV state update"),
+                  (handle) =>
+                    pipe(
+                      logger.debug("Updating HbbTV runtime state"),
+                      IO.flatMap(() => handle.updateState((envelope.message.payload as ExtensionState).hbbtv)),
+                    ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     ),
@@ -78,6 +89,12 @@ export const initializeHbbTVApi = (app: Instance): IO.IO<void> =>
           pipe(
             logger.info("Initializing HbbTV runtime with config", extensionState),
             IO.flatMap(() => runtime(createRuntimeEnv(extensionState))),
+            IO.flatMap((handle) =>
+              pipe(
+                logger.debug("Saving runtime handle"),
+                IO.flatMap(() => app.runState(setRuntimeHandle(handle))),
+              ),
+            ),
           ),
       ),
     ),

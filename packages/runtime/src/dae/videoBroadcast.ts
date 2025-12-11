@@ -36,7 +36,21 @@ export class VideoBroadcast
   // ═══════════════════════════════════════════════════════════════════════════
 
   readonly stateful = createStatefulMethods(
-    deriveSchema<VideoBroadcastState, VideoBroadcast>(VideoBroadcastStateCodec),
+    deriveSchema<VideoBroadcastState, VideoBroadcast>(VideoBroadcastStateCodec, {
+      mappings: {
+        playState: "_playState",
+        fullScreen: "_fullScreen",
+        width: "_width",
+        height: "_height",
+        currentChannel: "_currentChannel",
+        programmes: "_programmes",
+        volume: "_volume",
+        muted: "_muted",
+        components: "_components",
+        selectedComponents: "_selectedComponents",
+        streamEventListeners: "_streamEventListeners",
+      },
+    }),
     this,
   );
 
@@ -50,15 +64,18 @@ export class VideoBroadcast
   notifyStateChange = (changedKeys: ReadonlyArray<keyof VideoBroadcastState>): IO.IO<void> =>
     this.stateful.notifyStateChange(changedKeys);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // State
-  // ═══════════════════════════════════════════════════════════════════════════
+  _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
+  _fullScreen = DEFAULT_FULL_SCREEN;
+  _width = DEFAULT_VIDEO_WIDTH;
+  _height = DEFAULT_VIDEO_HEIGHT;
+  _currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
+  _programmes: OIPF.DAE.Broadcast.Programme[] = [];
+  _volume = 100;
+  _muted = false;
+  _components: unknown[] = [];
+  _selectedComponents: Record<string, unknown> = {};
+  _streamEventListeners: unknown[] = [];
 
-  protected _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
-  protected _fullScreen = DEFAULT_FULL_SCREEN;
-  protected _width = DEFAULT_VIDEO_WIDTH;
-  protected _height = DEFAULT_VIDEO_HEIGHT;
-  protected _currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
   // ═══════════════════════════════════════════════════════════════════════════
   // Constants (COMPONENT_TYPE_*)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -158,8 +175,10 @@ export class VideoBroadcast
   }
 
   get programmes(): OIPF.DAE.Broadcast.ProgrammeCollection {
-    // TODO: Implement EPG
-    return { length: 0, item: () => undefined };
+    return {
+      length: this._programmes.length,
+      item: (index: number) => this._programmes[index],
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -35,7 +35,27 @@ export class AVControlVideo
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createStatefulMethods(deriveSchema<AVControlState, AVControlVideo>(AVControlStateCodec), this);
+  readonly stateful = createStatefulMethods(
+    deriveSchema<AVControlState, AVControlVideo>(AVControlStateCodec, {
+      mappings: {
+        mimeType: "_mimeType",
+        data: "_data",
+        playState: "_playState",
+        error: "_error",
+        playPosition: "_playPosition",
+        playTime: "_playTime",
+        speed: "_speed",
+        volume: "_volume",
+        muted: "_muted",
+        width: "_width",
+        height: "_height",
+        fullScreen: "_fullScreen",
+        components: "_components",
+        selectedComponents: "_selectedComponents",
+      },
+    }),
+    this,
+  );
 
   applyState = (state: Partial<AVControlState>): IO.IO<void> => this.stateful.applyState(state);
 
@@ -46,17 +66,20 @@ export class AVControlVideo
   notifyStateChange = (changedKeys: ReadonlyArray<keyof AVControlState>): IO.IO<void> =>
     this.stateful.notifyStateChange(changedKeys);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // State
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  protected _data = DEFAULT_AV_CONTROL_DATA;
-  protected _playState: OIPF.AV.Control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
-  protected _error: OIPF.AV.Control.ErrorCode | undefined = undefined;
-  protected _speed = DEFAULT_AV_CONTROL_SPEED;
-  protected _width = String(DEFAULT_AV_CONTROL_WIDTH);
-  protected _height = String(DEFAULT_AV_CONTROL_HEIGHT);
-  protected _fullScreen = DEFAULT_AV_CONTROL_FULL_SCREEN;
+  _mimeType = "";
+  _data = DEFAULT_AV_CONTROL_DATA;
+  _playState: OIPF.AV.Control.PlayState = DEFAULT_AV_CONTROL_PLAY_STATE;
+  _error: OIPF.AV.Control.ErrorCode | undefined = undefined;
+  _playPosition = 0;
+  _playTime = 0;
+  _speed = DEFAULT_AV_CONTROL_SPEED;
+  _volume = 100;
+  _muted = false;
+  _width = String(DEFAULT_AV_CONTROL_WIDTH);
+  _height = String(DEFAULT_AV_CONTROL_HEIGHT);
+  _fullScreen = DEFAULT_AV_CONTROL_FULL_SCREEN;
+  _components: unknown[] = [];
+  _selectedComponents: Record<string, unknown> = {};
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Event Handlers

@@ -112,13 +112,6 @@ const defineProxyAccessor =
     });
   };
 
-const definePropertyCopy =
-  (target: object) =>
-  (key: string, descriptor: PropertyDescriptor): IO.IO<void> =>
-  () => {
-    Object.defineProperty(target, key, descriptor);
-  };
-
 const proxyProperty =
   (target: object, source: object) =>
   (key: string): IO.IO<void> =>
@@ -134,26 +127,6 @@ const proxyProperty =
             : defineProxyAccessor(target, source)(key),
       ),
     );
-
-const copyProperty =
-  (target: object, source: object) =>
-  (key: string): IO.IO<void> =>
-    pipe(
-      // Skip constructor and existing keys
-      O.fromPredicate((k: string) => k !== "constructor" && !(k in target))(key),
-      O.flatMap(() => getPropertyDescriptor(source, key)),
-      O.match(
-        () => IO.of(undefined),
-        (descriptor) => definePropertyCopy(target)(key, descriptor),
-      ),
-    );
-
-export const copyProperties = (source: object, target: object): IO.IO<void> =>
-  pipe(
-    collectPropertyKeys(source),
-    RA.traverse(IO.Applicative)(copyProperty(target, source)),
-    IO.map(() => undefined),
-  );
 
 export const proxyProperties = (target: object, source: object): IO.IO<void> =>
   pipe(

@@ -1,5 +1,6 @@
 import type { ClassType } from "@hbb-emu/core";
 import type { ExtensionState } from "@hbb-emu/extension-common";
+import type { RuntimeHandle } from "@hbb-emu/runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -8,16 +9,19 @@ import * as S from "fp-ts/State";
 export interface AppState {
   config: O.Option<ExtensionState>;
   isReady: boolean;
+  runtimeHandle: O.Option<RuntimeHandle>;
 }
 
 export const WithAppState = <T extends ClassType>(Base: T) =>
   class extends Base {
     config: O.Option<ExtensionState> = O.none;
     isReady = false;
+    runtimeHandle: O.Option<RuntimeHandle> = O.none;
 
     getState: IO.IO<AppState> = () => ({
       config: this.config,
       isReady: this.isReady,
+      runtimeHandle: this.runtimeHandle,
     });
 
     setState =
@@ -25,6 +29,7 @@ export const WithAppState = <T extends ClassType>(Base: T) =>
       () => {
         this.config = state.config;
         this.isReady = state.isReady;
+        this.runtimeHandle = state.runtimeHandle;
       };
 
     runState = <A>(op: S.State<AppState, A>): IO.IO<A> =>
@@ -48,3 +53,8 @@ export const setConfig = (config: ExtensionState): S.State<AppState, void> =>
 export const getIsReady: S.State<AppState, boolean> = S.gets((s) => s.isReady);
 
 export const setReady: S.State<AppState, void> = S.modify((s) => ({ ...s, isReady: true }));
+
+export const getRuntimeHandle: S.State<AppState, O.Option<RuntimeHandle>> = S.gets((s) => s.runtimeHandle);
+
+export const setRuntimeHandle = (handle: RuntimeHandle): S.State<AppState, void> =>
+  S.modify((s) => ({ ...s, runtimeHandle: O.some(handle) }));

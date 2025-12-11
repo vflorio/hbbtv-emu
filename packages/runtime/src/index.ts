@@ -6,17 +6,17 @@ import type { VideoStream } from "./providers/videoStream/objectVideoStream";
 // State slice key in HbbTVState
 export type StateKey = keyof HbbTVState;
 
-// copy: Copy properties to element | proxy: Set up video element
-export type AttachStrategy = "copy" | "proxy";
+// Definition of attach strategies for OIPF objects
+export type AttachStrategy = "non-visual" | "visual";
 
 // OIPF objects whose properties can be copied to the HTMLObjectElement (non-visual objects)
-export type CopyableOipfObject =
+export type NonVisualOipfObject =
   | OIPF.DAE.ApplicationManager.ApplicationManager
   | OIPF.DAE.Capabilities.Capabilities
   | OIPF.DAE.Configuration.Configuration;
 
 // OIPF objects whose properties can be proxied by a VideoStream (A/V objects & VideoBroadcast)
-export type ProxableOipfObject =
+export type VisualOipfObject =
   | (VideoStream & OIPF.AV.Control.AVControlObject)
   | (VideoStream & OIPF.DAE.Broadcast.VideoBroadcast);
 
