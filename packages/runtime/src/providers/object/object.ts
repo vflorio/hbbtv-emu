@@ -1,7 +1,6 @@
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import type * as RIO from "fp-ts/ReaderIO";
+import * as RIO from "fp-ts/ReaderIO";
 import type { AnyOipfDefinition } from "../..";
 import {
   type ConnectorEnv,
@@ -24,15 +23,14 @@ export const createObjectProviderEnv = (
   ...createConnectorObserverEnv(),
 });
 
-export const initializeObjectProvider: RIO.ReaderIO<ObjectProviderEnv, void> = (env) =>
-  pipe(
-    logger.info("Initializing"),
-    // Initialize stateful registry
-    IO.flatMap(() => initializeStatefulRegistry(env)),
-    // Create and register matchers
-    IO.flatMap(() => createMatchers(env)),
-    IO.flatMap((matchers) => registerMatchers(matchers)(env)),
-    // Start DOM observer
-    IO.flatMap(() => startObserver(env)),
-    IO.tap(() => logger.info("Initialized")),
-  );
+export const initializeObjectProvider: RIO.ReaderIO<ObjectProviderEnv, void> = pipe(
+  RIO.fromIO(logger.info("Initializing")),
+  // Initialize stateful registry
+  RIO.flatMap(() => initializeStatefulRegistry),
+  // Create and register matchers
+  RIO.flatMap(() => createMatchers),
+  RIO.flatMap((matchers) => registerMatchers(matchers)),
+  // Start DOM observer
+  RIO.flatMap(() => startObserver),
+  RIO.tapIO(() => logger.info("Initialized")),
+);

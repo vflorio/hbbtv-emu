@@ -153,7 +153,7 @@ export const startObserver: RIO.ReaderIO<ObserverEnv, void> = (env) =>
       O.match(
         () =>
           pipe(
-            logger.info("Starting DOM observer"),
+            logger.info("Starting"),
             IO.flatMap(() =>
               pipe(
                 IO.of(new MutationObserver((mutations) => handleMutations(mutations)(env)())),
@@ -166,9 +166,9 @@ export const startObserver: RIO.ReaderIO<ObserverEnv, void> = (env) =>
                 IO.flatMap((observer) => env.observerRef.write(O.some(observer))),
               ),
             ),
-            IO.tap(() => logger.info("DOM observer started")),
+            IO.tap(() => logger.info("Started")),
           ),
-        () => logger.debug("DOM observer already running"),
+        () => logger.debug("Already running"),
       ),
     ),
   );
@@ -179,13 +179,13 @@ export const stopObserver: RIO.ReaderIO<ObserverEnv, void> = (env) =>
     env.observerRef.read,
     IO.flatMap(
       O.match(
-        () => logger.debug("DOM observer not running"),
+        () => logger.debug("Not running"),
         (observer) =>
           pipe(
-            logger.info("Stopping DOM observer"),
+            logger.info("Stopping"),
             IO.tap(() => () => observer.disconnect()),
             IO.flatMap(() => env.observerRef.write(O.none)),
-            IO.tap(() => logger.info("DOM observer stopped")),
+            IO.tap(() => logger.info("Stopped")),
           ),
       ),
     ),

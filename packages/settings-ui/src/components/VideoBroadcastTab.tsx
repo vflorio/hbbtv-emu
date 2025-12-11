@@ -1,4 +1,4 @@
-import type { VideoBroadcastState } from "@hbb-emu/core";
+import type { VideoBroadcastState } from "@hbb-emu/oipf";
 import {
   Box,
   Button,

@@ -1,4 +1,4 @@
-import type { ChannelConfig } from "@hbb-emu/core";
+import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { useCallback } from "react";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
 

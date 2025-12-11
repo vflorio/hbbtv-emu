@@ -1,4 +1,4 @@
-import type { StreamEventConfig } from "@hbb-emu/core";
+import type { StreamEventConfig } from "@hbb-emu/extension-common";
 import { useCallback } from "react";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
 

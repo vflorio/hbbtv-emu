@@ -1,4 +1,5 @@
-import { type ChannelConfig, randomUUID } from "@hbb-emu/core";
+import { randomUUID } from "@hbb-emu/core";
+import type { ChannelConfig } from "@hbb-emu/extension-common";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
@@ -37,6 +38,9 @@ export default function ChannelEdit() {
     mp4Source: "",
     streamEvents: [],
     enableStreamEvents: false,
+    onid: 0,
+    tsid: 0,
+    sid: 0,
   });
 
   const channel = useMemo(() => channels.find((ch) => ch.id === id), [channels, id]);

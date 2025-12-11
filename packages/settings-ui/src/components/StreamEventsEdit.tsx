@@ -1,11 +1,5 @@
-import {
-  type ChannelConfig,
-  hexToText,
-  isValidHex,
-  randomUUID,
-  type StreamEventConfig,
-  textToHex,
-} from "@hbb-emu/core";
+import { hexToText, isValidHex, randomUUID, textToHex } from "@hbb-emu/core";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {

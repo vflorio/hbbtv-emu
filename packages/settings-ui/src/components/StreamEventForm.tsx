@@ -1,4 +1,5 @@
-import { randomUUID, type StreamEventConfig } from "@hbb-emu/core";
+import { randomUUID } from "@hbb-emu/core";
+import type { StreamEventConfig } from "@hbb-emu/extension-common";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Accordion,

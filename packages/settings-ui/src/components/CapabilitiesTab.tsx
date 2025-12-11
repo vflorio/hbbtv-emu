@@ -1,4 +1,4 @@
-import { HBBTV_VERSION_MAP, type OipfCapabilitiesState } from "@hbb-emu/core";
+import { HBBTV_VERSION_MAP, type OipfCapabilitiesState } from "@hbb-emu/oipf";
 import { Add } from "@mui/icons-material";
 import {
   Box,

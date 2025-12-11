@@ -5,6 +5,8 @@
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/oipf": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "react-router-dom": "7.9.6"

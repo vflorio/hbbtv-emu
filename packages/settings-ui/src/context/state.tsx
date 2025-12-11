@@ -1,5 +1,9 @@
-import type { ChannelConfig, ExtensionState, StreamEventConfig } from "@hbb-emu/core";
-import { DEFAULT_HBBTV_CONFIG } from "@hbb-emu/core";
+import {
+  type ChannelConfig,
+  DEFAULT_HBBTV_CONFIG,
+  type ExtensionState,
+  type StreamEventConfig,
+} from "@hbb-emu/extension-common";
 import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer } from "react";
 
 export interface AppState {
