@@ -124,7 +124,7 @@ const broadcastConfigToTabs = (app: Instance, originalEnvelope: MessageEnvelope)
     ),
   );
 
-// FIXME: Comporre le pipeline come IO o aggiungere il supporto agli handlers asincroni
+// TODO: Comporre le pipeline come IO o aggiungere il supporto agli handlers asincroni
 const runTask =
   <A>(task: T.Task<A>): IO.IO<void> =>
   () => {

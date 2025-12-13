@@ -16,6 +16,7 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import { getChannelRegistry } from "../providers/channelRegistry";
 import { StreamPlayState } from "../providers/videoStream";
 import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
 
@@ -108,6 +109,15 @@ export class VideoBroadcast
   constructor() {
     super();
     this.#setupBackendEventListeners();
+
+    this.setChannel({
+      idType: OIPF.DAE.Broadcast.ChannelIdType.ID_DVB_T2,
+      name: "Default Channel",
+      onid: 1,
+      tsid: 1,
+      sid: 1,
+    });
+
     logger.info("Initialized")();
   }
 
@@ -188,14 +198,14 @@ export class VideoBroadcast
   setFullScreen = (fullscreen: boolean): void => {
     pipe(
       logger.debug("setFullScreen:", fullscreen),
-      IO.tap(() =>
+      IO.flatMap(() =>
         IO.of(() => {
           if (this._fullScreen !== fullscreen) {
             this._fullScreen = fullscreen;
             this.backendSetFullscreen(fullscreen);
             this.onFullScreenChange?.();
           }
-        }),
+        })(),
       ),
     )();
   };
@@ -207,12 +217,12 @@ export class VideoBroadcast
   stop = (): void => {
     pipe(
       logger.debug("stop"),
-      IO.tap(() =>
+      IO.flatMap(() =>
         IO.of(() => {
           this.backendStop();
           // Force STOPPED since broadcast stop is explicit
           this.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED);
-        }),
+        })(),
       ),
     )();
   };
@@ -220,12 +230,12 @@ export class VideoBroadcast
   release = (): void => {
     pipe(
       logger.debug("release"),
-      IO.tap(() =>
+      IO.flatMap(() =>
         IO.of(() => {
           this.releasePlayer()();
           this._currentChannel = null;
           this.setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
-        }),
+        })(),
       ),
     )();
   };
@@ -281,33 +291,42 @@ export class VideoBroadcast
     _contentAccessDescriptorURL?: string,
     _quiet?: OIPF.DAE.Broadcast.QuietMode,
   ): void => {
-    pipe(
-      logger.debug("setChannel:", channel?.name ?? "null"),
-      IO.tap(() =>
-        IO.of(() => {
-          if (channel === null) {
-            // setChannel(null) is equivalent to release
-            this.release();
-            return;
-          }
+    if (channel === null) {
+      // setChannel(null) is equivalent to release
+      this.release();
+      return;
+    }
 
-          // Bind to the new channel
-          this._currentChannel = channel;
-          this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
+    // Bind to the new channel
+    this._currentChannel = channel;
+    this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
 
-          // TODO FIXME
-          const channelUrl = this.#getChannelStreamUrl(channel);
+    const channelUrl = this.#getChannelStreamUrl(channel);
 
-          this.loadSource({ url: channelUrl, type: "video" })();
-          this.backendPlay();
-        }),
-      ),
-    )();
+    if (!channelUrl) {
+      // Channel URL could not be resolved - trigger error
+      this.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED);
+      this.onChannelChangeError?.(channel, OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL);
+      return;
+    }
+
+    this.loadSource({ url: channelUrl, type: "video", loop: true, autoPlay: true, muted: true })();
   };
 
-  #getChannelStreamUrl = (channel: OIPF.DAE.Broadcast.Channel): string => {
-    // TODO: Implement actual channel-to-URL mapping
-    return `dvb://${channel.onid ?? 0}.${channel.tsid ?? 0}.${channel.sid ?? 0}`;
+  #getChannelStreamUrl = (channel: OIPF.DAE.Broadcast.Channel): string | null => {
+    const registry = getChannelRegistry();
+    if (!registry) {
+      logger.warn("Channel registry not initialized")();
+      return null;
+    }
+
+    const resolution = registry.resolveChannel(channel)();
+    if (!resolution) {
+      logger.warn("Could not resolve channel to URL:", channel.name)();
+      return null;
+    }
+
+    return resolution.url;
   };
 
   prevChannel = (): void => {

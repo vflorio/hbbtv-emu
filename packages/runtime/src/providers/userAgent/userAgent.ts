@@ -67,7 +67,8 @@ export const resolveUserAgent: RIO.ReaderIO<UserAgentConfig, string> = (env) =>
 
 export const initializeUserAgent: RIO.ReaderIO<UserAgentEnv, void> = (env) =>
   pipe(
-    resolveUserAgent(env),
+    env,
+    resolveUserAgent,
     IO.flatMap((userAgent) => overrideUserAgent(userAgent)(env)),
   );
 

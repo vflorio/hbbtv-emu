@@ -187,7 +187,8 @@ export class AVControlVideo
         IO.of(() => {
           this._data = url;
           if (url) {
-            this.loadSource({ url })();
+            // FIXME
+            this.loadSource({ url, type: "video" })();
           } else {
             this.releasePlayer()();
           }

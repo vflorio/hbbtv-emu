@@ -10,12 +10,17 @@ import {
   type OipfObjectFactoryEnv,
 } from "./apis/objectFactory";
 import { createObjectProviderEnv, initializeObjectProvider, type ObjectProviderEnv } from "./providers";
+import {
+  type ChannelRegistryEnv,
+  createChannelRegistryEnv,
+  initializeChannelRegistry,
+} from "./providers/channelRegistry";
 import { applyExternalState } from "./providers/object/stateful/state";
 import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./providers/userAgent/userAgent";
 
 const logger = createLogger("Runtime");
 
-export type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv;
+export type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv & ChannelRegistryEnv;
 
 /** Handle returned by runtime initialization for state updates */
 export type RuntimeHandle = Readonly<{
@@ -27,10 +32,11 @@ export const runtime: RIO.ReaderIO<RuntimeEnv, RuntimeHandle> = (env) =>
   pipe(
     logger.info("Initializing"),
     IO.tap(() => initializeUserAgent(env)),
+    IO.tap(() => initializeChannelRegistry(env)),
     IO.tap(() => initializeOipfObjectFactory(env)),
     IO.tap(() => initializeObjectProvider(env)),
-    IO.tap(() => logger.info("Initialized")),
     IO.map(() => createRuntimeHandle(env)),
+    IO.tap(() => logger.info("Initialized")),
   );
 
 /** Create runtime handle with state update capabilities */
@@ -44,6 +50,7 @@ const createRuntimeHandle = (env: RuntimeEnv): RuntimeHandle => ({
 
 export const createRuntimeEnv = (extensionState: ExtensionState): RuntimeEnv => ({
   ...createUserAgentEnv(extensionState),
+  ...createChannelRegistryEnv(extensionState),
   ...createOipfObjectFactoryEnv(),
   ...createObjectProviderEnv(),
 });

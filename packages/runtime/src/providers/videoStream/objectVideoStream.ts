@@ -75,13 +75,11 @@ export class ObjectVideoStream implements VideoStream {
         sourceType !== this.#currentSourceType
           ? pipe(
               this.releasePlayer(),
-              IO.flatMap(() =>
-                IO.of(() => {
-                  this.#player = createPlayer(sourceType);
-                  this.#currentSourceType = sourceType;
-                  this.#setupStateChangeListener();
-                }),
-              ),
+              IO.flatMap(() => () => {
+                this.#player = createPlayer(sourceType);
+                this.#currentSourceType = sourceType;
+                this.#setupStateChangeListener();
+              }),
             )
           : IO.of(undefined),
       ),
@@ -89,28 +87,20 @@ export class ObjectVideoStream implements VideoStream {
 
   loadSource = (source: MediaSource): IO.IO<void> =>
     pipe(
-      logger.debug("Loading source:", source.url),
-      IO.flatMap(() => {
-        const sourceType = source.type ?? detectSourceType(source.url);
-        return pipe(
-          this.initializePlayer(sourceType),
-          IO.flatMap(() =>
-            IO.of(() => {
-              this.#player.load(source);
-            }),
-          ),
-        );
+      IO.of(source.type ?? detectSourceType(source.url)),
+      IO.tap((sourceType) => logger.debug("Loading source:", source.url, "type:", sourceType)),
+      IO.flatMap((sourceType) => this.initializePlayer(sourceType)),
+      IO.flatMap(() => () => {
+        this.#player.load(source);
       }),
     );
 
   releasePlayer = (): IO.IO<void> =>
     pipe(
       logger.debug("Releasing player"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#player.release();
-        }),
-      ),
+      IO.flatMap(() => () => {
+        this.#player.release();
+      }),
     );
 
   // ═════════════════════════════════════════════════════════════════════════════

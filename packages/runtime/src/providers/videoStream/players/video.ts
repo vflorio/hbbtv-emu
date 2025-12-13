@@ -21,65 +21,64 @@ export class HtmlVideoPlayer implements Player {
     this.#setupVideoEventListeners()();
   }
 
-  readonly #setupVideoEventListeners = (): IO.IO<void> =>
-    IO.of(() => {
-      this.#videoElement.addEventListener("loadstart", () => {
-        if (this.#state === StreamPlayState.IDLE) {
-          this.#setState(StreamPlayState.CONNECTING)();
-        }
-      });
-
-      this.#videoElement.addEventListener("playing", () => {
-        this.#setState(StreamPlayState.PLAYING)();
-      });
-
-      this.#videoElement.addEventListener("pause", () => {
-        if (this.#state === StreamPlayState.PLAYING) {
-          this.#setState(StreamPlayState.PAUSED)();
-        }
-      });
-
-      this.#videoElement.addEventListener("waiting", () => {
-        if (this.#state === StreamPlayState.PLAYING) {
-          this.#setState(StreamPlayState.BUFFERING)();
-        }
-      });
-
-      this.#videoElement.addEventListener("ended", () => {
-        pipe(
-          this.#setState(StreamPlayState.FINISHED),
-          IO.flatMap(() => this.#emit("ended", {})),
-        )();
-      });
-
-      this.#videoElement.addEventListener("error", () => {
-        pipe(
-          this.#setState(StreamPlayState.ERROR),
-          IO.flatMap(() => this.#emit("error", { error: createVideoError(this.#videoElement) })),
-        )();
-      });
-
-      this.#videoElement.addEventListener("timeupdate", () => {
-        this.#emit("timeupdate", { currentTime: getCurrentTimeMs(this.#videoElement) })();
-      });
-
-      this.#videoElement.addEventListener("durationchange", () => {
-        if (Number.isFinite(this.#videoElement.duration)) {
-          this.#emit("durationchange", { duration: getDurationMs(this.#videoElement) })();
-        }
-      });
-
-      this.#videoElement.addEventListener("volumechange", () => {
-        this.#emit("volumechange", {
-          volume: normalizedToVolume(this.#videoElement.volume),
-          muted: this.#videoElement.muted,
-        })();
-      });
-
-      document.addEventListener("fullscreenchange", () => {
-        this.#emit("fullscreenchange", { fullscreen: isFullscreen(this.#videoElement) })();
-      });
+  readonly #setupVideoEventListeners = (): IO.IO<void> => () => {
+    this.#videoElement.addEventListener("loadstart", () => {
+      if (this.#state === StreamPlayState.IDLE) {
+        this.#setState(StreamPlayState.CONNECTING)();
+      }
     });
+
+    this.#videoElement.addEventListener("playing", () => {
+      this.#setState(StreamPlayState.PLAYING)();
+    });
+
+    this.#videoElement.addEventListener("pause", () => {
+      if (this.#state === StreamPlayState.PLAYING) {
+        this.#setState(StreamPlayState.PAUSED)();
+      }
+    });
+
+    this.#videoElement.addEventListener("waiting", () => {
+      if (this.#state === StreamPlayState.PLAYING) {
+        this.#setState(StreamPlayState.BUFFERING)();
+      }
+    });
+
+    this.#videoElement.addEventListener("ended", () => {
+      pipe(
+        this.#setState(StreamPlayState.FINISHED),
+        IO.flatMap(() => this.#emit("ended", {})),
+      )();
+    });
+
+    this.#videoElement.addEventListener("error", () => {
+      pipe(
+        this.#setState(StreamPlayState.ERROR),
+        IO.flatMap(() => this.#emit("error", { error: createVideoError(this.#videoElement) })),
+      )();
+    });
+
+    this.#videoElement.addEventListener("timeupdate", () => {
+      this.#emit("timeupdate", { currentTime: getCurrentTimeMs(this.#videoElement) })();
+    });
+
+    this.#videoElement.addEventListener("durationchange", () => {
+      if (Number.isFinite(this.#videoElement.duration)) {
+        this.#emit("durationchange", { duration: getDurationMs(this.#videoElement) })();
+      }
+    });
+
+    this.#videoElement.addEventListener("volumechange", () => {
+      this.#emit("volumechange", {
+        volume: normalizedToVolume(this.#videoElement.volume),
+        muted: this.#videoElement.muted,
+      })();
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      this.#emit("fullscreenchange", { fullscreen: isFullscreen(this.#videoElement) })();
+    });
+  };
 
   readonly #emit = <T extends PlayerEventType>(
     type: T,
@@ -87,17 +86,15 @@ export class HtmlVideoPlayer implements Player {
   ): IO.IO<void> =>
     pipe(
       IO.of(createPlayerEvent(type, data)),
-      IO.flatMap((event) =>
-        IO.of(() => {
-          for (const listener of this.#listeners[type]) {
-            try {
-              (listener as PlayerEventListener<T>)(event);
-            } catch (err) {
-              logger.error("Event listener error:", err)();
-            }
+      IO.flatMap((event) => () => {
+        for (const listener of this.#listeners[type]) {
+          try {
+            (listener as PlayerEventListener<T>)(event);
+          } catch (err) {
+            logger.error("Event listener error:", err)();
           }
-        }),
-      ),
+        }
+      }),
     );
 
   readonly #setState =
@@ -155,13 +152,14 @@ export class HtmlVideoPlayer implements Player {
   load = (newSource: MediaSource): void => {
     pipe(
       logger.debug("Loading source:", newSource.url),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#source = newSource;
-          this.#videoElement.src = newSource.url;
-          this.#videoElement.load();
-        }),
-      ),
+      IO.flatMap(() => () => {
+        this.#source = newSource;
+        this.#videoElement.autoplay = newSource.autoPlay ?? false;
+        this.#videoElement.muted = newSource.muted ?? false;
+        this.#videoElement.loop = newSource.loop ?? false;
+        this.#videoElement.src = newSource.url;
+        this.#videoElement.load();
+      }),
       IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
     )();
   };
@@ -169,43 +167,39 @@ export class HtmlVideoPlayer implements Player {
   play = (speed = 1): void => {
     pipe(
       logger.debug("Play:", speed),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#currentSpeed = speed;
-          this.#videoElement.playbackRate = Math.abs(speed);
+      IO.flatMap(() => () => {
+        this.#currentSpeed = speed;
+        this.#videoElement.playbackRate = Math.abs(speed);
 
-          if (speed === 0) {
-            this.#videoElement.pause();
-          } else {
-            this.#videoElement.play().catch((err) => {
-              logger.error("Play failed:", err)();
-              pipe(
-                this.#setState(StreamPlayState.ERROR),
-                IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
-              )();
-            });
-          }
-        }),
-      ),
+        if (speed === 0) {
+          this.#videoElement.pause();
+        } else {
+          this.#videoElement.play().catch((err) => {
+            logger.error("Play failed:", err)();
+            pipe(
+              this.#setState(StreamPlayState.ERROR),
+              IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
+            )();
+          });
+        }
+      }),
     )();
   };
 
   pause = (): void => {
     pipe(
       logger.debug("Pause"),
-      IO.flatMap(() => IO.of(() => this.#videoElement.pause())),
+      IO.flatMap(() => () => this.#videoElement.pause()),
     )();
   };
 
   stop = (): void => {
     pipe(
       logger.debug("Stop"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#videoElement.pause();
-          this.#videoElement.currentTime = 0;
-        }),
-      ),
+      IO.flatMap(() => () => {
+        this.#videoElement.pause();
+        this.#videoElement.currentTime = 0;
+      }),
       IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
     )();
   };
@@ -213,28 +207,24 @@ export class HtmlVideoPlayer implements Player {
   seek = (position: number): void => {
     pipe(
       logger.debug("Seek:", position),
-      IO.flatMap(() =>
-        IO.of(() => {
-          const posSeconds = msToSeconds(position);
-          if (posSeconds >= 0 && posSeconds <= this.#videoElement.duration) {
-            this.#videoElement.currentTime = posSeconds;
-          }
-        }),
-      ),
+      IO.flatMap(() => () => {
+        const posSeconds = msToSeconds(position);
+        if (posSeconds >= 0 && posSeconds <= this.#videoElement.duration) {
+          this.#videoElement.currentTime = posSeconds;
+        }
+      }),
     )();
   };
 
   release = (): void => {
     pipe(
       logger.debug("Release"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#videoElement.pause();
-          this.#videoElement.removeAttribute("src");
-          this.#videoElement.load();
-          this.#source = null;
-        }),
-      ),
+      IO.flatMap(() => () => {
+        this.#videoElement.pause();
+        this.#videoElement.removeAttribute("src");
+        this.#videoElement.load();
+        this.#source = null;
+      }),
       IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
     )();
   };

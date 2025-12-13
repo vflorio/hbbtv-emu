@@ -23,7 +23,10 @@ export type MediaSourceType = "video" | "dash" | "hls";
 
 export type MediaSource = Readonly<{
   url: string;
-  type?: MediaSourceType;
+  type: MediaSourceType;
+  autoPlay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
   drm?: DrmConfig;
 }>;
 
