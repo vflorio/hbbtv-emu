@@ -1,3 +1,5 @@
+AV e DAE estendono un base object stateful, le classi devono fungere solo da wrapper ad un core completamente fp e con pattern reader
+
 REFACTOR TODO:
     - Runtime VideoBroadcast stream integration
     - Estensione deve iniziallizzare la runtime
