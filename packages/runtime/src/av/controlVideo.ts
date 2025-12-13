@@ -179,7 +179,7 @@ export class AVControlVideo
       IO.flatMap(() => {
         // Stop current playback if data changes
         if (this._data !== url && this._playState !== OIPF.AV.Control.PlayState.STOPPED) {
-          this.backendStop();
+          this.videoStreamStop();
         }
         return IO.of(undefined);
       }),
@@ -206,7 +206,7 @@ export class AVControlVideo
       this._width = value;
       const numericWidth = Number.parseInt(value, 10);
       if (!Number.isNaN(numericWidth)) {
-        this.backendSetSize(numericWidth, Number.parseInt(this._height, 10) || 0);
+        this.videoStreamSetSize(numericWidth, Number.parseInt(this._height, 10) || 0);
       }
     }
   }
@@ -220,7 +220,7 @@ export class AVControlVideo
       this._height = value;
       const numericHeight = Number.parseInt(value, 10);
       if (!Number.isNaN(numericHeight)) {
-        this.backendSetSize(Number.parseInt(this._width, 10) || 0, numericHeight);
+        this.videoStreamSetSize(Number.parseInt(this._width, 10) || 0, numericHeight);
       }
     }
   }
@@ -244,11 +244,11 @@ export class AVControlVideo
         this._speed = speed;
 
         if (speed === 0) {
-          this.backendPause();
+          this.videoStreamPause();
         } else {
           // Set connecting state before play attempt
           this.setPlayState(OIPF.AV.Control.PlayState.CONNECTING);
-          this.backendPlay(speed);
+          this.videoStreamPlay(speed);
         }
 
         this.onPlaySpeedChanged?.(speed);
@@ -260,7 +260,7 @@ export class AVControlVideo
     pipe(
       logger.debug("stop"),
       IO.map(() => {
-        this.backendStop();
+        this.videoStreamStop();
         return true;
       }),
     )();
@@ -271,7 +271,7 @@ export class AVControlVideo
       IO.map(() => {
         const duration = this.player.duration;
         if (pos >= 0 && pos <= duration) {
-          this.backendSeek(pos);
+          this.videoStreamSeek(pos);
           this.onPlayPositionChanged?.(pos);
           return true;
         }
@@ -283,7 +283,7 @@ export class AVControlVideo
     pipe(
       logger.debug("setVolume:", volume),
       IO.map(() => {
-        this.backendSetVolume(volume);
+        this.videoStreamSetVolume(volume);
         return true;
       }),
     )();
@@ -305,7 +305,7 @@ export class AVControlVideo
         IO.of(() => {
           if (this._fullScreen !== fullscreen) {
             this._fullScreen = fullscreen;
-            this.backendSetFullscreen(fullscreen);
+            this.videoStreamSetFullscreen(fullscreen);
             this.onFullScreenChange?.(fullscreen);
           }
         }),

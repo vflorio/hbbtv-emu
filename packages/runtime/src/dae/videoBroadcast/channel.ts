@@ -53,7 +53,7 @@ export const WithChannelAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
       if (this._playState === OIPF.DAE.Broadcast.PlayState.STOPPED) {
         // Channel already bound, just restart presentation
         this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
-        this.backendPlay();
+        this.videoStreamPlay();
         return this._currentChannel;
       }
 
@@ -94,7 +94,7 @@ export const WithChannelAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
         logger.debug("stop"),
         IO.flatMap(() =>
           IO.of(() => {
-            this.backendStop();
+            this.videoStreamStop();
             // Force STOPPED since broadcast stop is explicit
             this.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED);
           })(),

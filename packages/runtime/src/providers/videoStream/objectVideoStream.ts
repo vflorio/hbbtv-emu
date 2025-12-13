@@ -21,7 +21,7 @@ const logger = createLogger("VideoBackend");
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Video backend interface with low-level video management
+// Video videoStream interface with low-level video management
 export interface VideoStream {
   readonly player: Player;
   readonly streamPlayState: StreamPlayState;
@@ -147,12 +147,12 @@ export class ObjectVideoStream implements VideoStream {
     return this.#player.getElement();
   }
 
-  backendPlay = (speed = 1): void => this.#player.play(speed);
-  backendPause = (): void => this.#player.pause();
-  backendStop = (): void => this.#player.stop();
-  backendSeek = (position: number): void => this.#player.seek(position);
-  backendSetVolume = (volume: number): void => this.#player.setVolume(volume);
-  backendSetMuted = (muted: boolean): void => this.#player.setMuted(muted);
-  backendSetFullscreen = (fullscreen: boolean): void => this.#player.setFullscreen(fullscreen);
-  backendSetSize = (width: number, height: number): void => this.#player.setSize(width, height);
+  videoStreamPlay = (speed = 1): void => this.#player.play(speed);
+  videoStreamPause = (): void => this.#player.pause();
+  videoStreamStop = (): void => this.#player.stop();
+  videoStreamSeek = (position: number): void => this.#player.seek(position);
+  videoStreamSetVolume = (volume: number): void => this.#player.setVolume(volume);
+  videoStreamSetMuted = (muted: boolean): void => this.#player.setMuted(muted);
+  videoStreamSetFullscreen = (fullscreen: boolean): void => this.#player.setFullscreen(fullscreen);
+  videoStreamSetSize = (width: number, height: number): void => this.#player.setSize(width, height);
 }

@@ -17,7 +17,7 @@ export const WithVolumeAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) =
     _muted = false;
 
     setVolume = (volume: number): boolean => {
-      this.backendSetVolume(volume);
+      this.videoStreamSetVolume(volume);
       return true;
     };
 

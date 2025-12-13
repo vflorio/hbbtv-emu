@@ -40,7 +40,7 @@ export const WithDisplayAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
     set width(value: number) {
       if (!this._fullScreen) {
         this._width = value;
-        this.backendSetSize(value, this._height);
+        this.videoStreamSetSize(value, this._height);
       }
     }
 
@@ -51,7 +51,7 @@ export const WithDisplayAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
     set height(value: number) {
       if (!this._fullScreen) {
         this._height = value;
-        this.backendSetSize(this._width, value);
+        this.videoStreamSetSize(this._width, value);
       }
     }
 
@@ -64,7 +64,7 @@ export const WithDisplayAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
           IO.of(() => {
             if (this._fullScreen !== fullscreen) {
               this._fullScreen = fullscreen;
-              this.backendSetFullscreen(fullscreen);
+              this.videoStreamSetFullscreen(fullscreen);
               this.onFullScreenChange?.();
             }
           })(),
