@@ -6,7 +6,7 @@ import type { ChannelAPI } from "./channel";
 
 const logger = createLogger("VideoBroadcast:Controller");
 
-export const WithControllerAPI = <T extends ClassType<ObjectVideoStream & ChannelAPI>>(Base: T) =>
+export const WithController = <T extends ClassType<ObjectVideoStream & ChannelAPI>>(Base: T) =>
   class extends Base {
     constructor(...args: any[]) {
       super(...args);

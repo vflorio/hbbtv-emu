@@ -1,31 +1,46 @@
 import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
+import { DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
 import { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
-import { WithChannelAPI } from "./channel";
-import { WithComponentAPI } from "./component";
-import { WithControllerAPI } from "./controller";
-import { WithDisplayAPI } from "./display";
-import { WithMiscAPI } from "./misc";
-import { WithStreamEventAPI } from "./streamEvent";
-import { WithVolumeAPI } from "./volume";
+import { WithChannel } from "./channel";
+import { WithComponent } from "./component";
+import { WithController } from "./controller";
+import { WithDisplay } from "./display";
+import { WithMisc } from "./misc";
+import { WithStreamEvent } from "./streamEvent";
+import { WithVolume } from "./volume";
 
-class VideoBroadcastWithVideoStream
+export type VideoBroadcastEnv = ObjectVideoStream &
+  Readonly<{
+    extensionState: ExtensionState;
+  }>;
+
+class BaseVideoBroadcast extends ObjectVideoStream implements VideoBroadcastEnv {
+  extensionState: ExtensionState;
+
+  constructor(extensionState?: ExtensionState) {
+    super();
+    this.extensionState = extensionState ?? DEFAULT_EXTENSION_STATE;
+  }
+}
+
+class VideoBroadcastAPI
   extends compose(
-    ObjectVideoStream,
-    WithChannelAPI,
-    WithComponentAPI,
-    WithDisplayAPI,
-    WithVolumeAPI,
-    WithStreamEventAPI,
-    WithMiscAPI,
-    WithControllerAPI,
+    BaseVideoBroadcast,
+    WithChannel,
+    WithComponent,
+    WithDisplay,
+    WithVolume,
+    WithStreamEvent,
+    WithMisc,
+    WithController,
   )
   implements OIPF.DAE.Broadcast.VideoBroadcast {}
 
-export class VideoBroadcast extends VideoBroadcastWithVideoStream implements Stateful<VideoBroadcastState> {
+export class VideoBroadcast extends VideoBroadcastAPI implements Stateful<VideoBroadcastState> {
   readonly stateful = createStatefulMethods(
-    deriveSchema<VideoBroadcastState, VideoBroadcastWithVideoStream>(VideoBroadcastStateCodec, {
+    deriveSchema<VideoBroadcastState, VideoBroadcastAPI>(VideoBroadcastStateCodec, {
       mappings: {
         playState: "_playState",
         fullScreen: "_fullScreen",

@@ -22,7 +22,7 @@ export interface ComponentAPI {
   unselectComponent: OIPF.DAE.Broadcast.VideoBroadcast["unselectComponent"];
 }
 
-export const WithComponentAPI = <T extends ClassType>(Base: T) =>
+export const WithComponent = <T extends ClassType>(Base: T) =>
   class extends Base implements ComponentAPI {
     _selectedComponents: Record<string, unknown> = {};
     _components: unknown[] = [];

@@ -1,11 +1,22 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { DEFAULT_BROADCAST_PLAY_STATE, OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import { getChannelRegistry } from "../../providers";
-import type { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import type * as IO from "fp-ts/IO";
+import * as RIO from "fp-ts/ReaderIO";
+import * as RTE from "fp-ts/ReaderTaskEither";
+import { match } from "ts-pattern";
+import {
+  type ChannelRegistryEnv,
+  createChannelRegistryEnv,
+  type MediaSource,
+  type ObjectVideoStream,
+  resolveChannel,
+} from "../../providers";
+import type { VideoBroadcastEnv } from ".";
 
 const logger = createLogger("VideoBroadcast:Channel");
+
+// API
 
 export interface ChannelAPI {
   // State
@@ -30,8 +41,23 @@ export interface ChannelAPI {
   setPlayState: (newState: OIPF.DAE.Broadcast.PlayState) => void;
 }
 
-export const WithChannelAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+// Mixin
+
+export const WithChannel = <T extends ClassType<VideoBroadcastEnv & ObjectVideoStream>>(Base: T) =>
   class extends Base implements ChannelAPI {
+    #videoStreamEnv: VideoStreamEnv = {
+      destroy: () => this.releasePlayer(),
+      loadSource: (source) => () => this.loadSource(source),
+      play: () => () => this.player.play(),
+      stop: () => () => this.player.stop(),
+    };
+
+    #env = {
+      ...createChannelEnv(this),
+      ...createChannelRegistryEnv(this.extensionState),
+      ...this.#videoStreamEnv,
+    };
+
     _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
     _currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
 
@@ -47,90 +73,18 @@ export const WithChannelAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
     onChannelChangeError: OIPF.DAE.Broadcast.OnChannelChangeErrorHandler | null = null;
     onChannelChangeSucceeded: OIPF.DAE.Broadcast.OnChannelChangeSucceededHandler | null = null;
 
-    bindToCurrentChannel = (): OIPF.DAE.Broadcast.Channel | null => {
-      logger.debug("bindToCurrentChannel", this._playState, this._currentChannel)();
-
-      if (this._playState === OIPF.DAE.Broadcast.PlayState.STOPPED) {
-        // Channel already bound, just restart presentation
-        this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
-        this.videoStreamPlay();
-        return this._currentChannel;
-      }
-
-      return this._currentChannel;
-    };
-
-    // setChannel(null) is equivalent to release()
     setChannel = (
       channel: OIPF.DAE.Broadcast.Channel | null,
       _trickplay?: boolean,
       _contentAccessDescriptorURL?: string,
       _quiet?: OIPF.DAE.Broadcast.QuietMode,
-    ): void => {
-      if (channel === null) {
-        // setChannel(null) is equivalent to release
-        this.release();
-        return;
-      }
+    ) => setChannel(channel)(this.#env);
 
-      // Bind to the new channel
-      this._currentChannel = channel;
-      this.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING);
+    bindToCurrentChannel = bindToCurrentChannel(this.#env);
 
-      const channelUrl = this.#getChannelStreamUrl(channel);
+    stop = stop(this.#env);
 
-      if (!channelUrl) {
-        // Channel URL could not be resolved - trigger error
-        this.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED);
-        this.onChannelChangeError?.(channel, OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL);
-        return;
-      }
-
-      this.loadSource({ url: channelUrl, type: "video", loop: true, autoPlay: true, muted: true })();
-    };
-
-    stop = (): void => {
-      pipe(
-        logger.debug("stop"),
-        IO.flatMap(() =>
-          IO.of(() => {
-            this.videoStreamStop();
-            // Force STOPPED since broadcast stop is explicit
-            this.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED);
-          })(),
-        ),
-      )();
-    };
-
-    release = (): void => {
-      pipe(
-        logger.debug("release"),
-        IO.flatMap(() =>
-          IO.of(() => {
-            this.releasePlayer()();
-            // FIXME!
-            //this._currentChannel = null;
-            this.setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
-          })(),
-        ),
-      )();
-    };
-
-    #getChannelStreamUrl = (channel: OIPF.DAE.Broadcast.Channel): string | null => {
-      const registry = getChannelRegistry();
-      if (!registry) {
-        logger.warn("Channel registry not initialized")();
-        return null;
-      }
-
-      const resolution = registry.resolveChannel(channel)();
-      if (!resolution) {
-        logger.warn("Could not resolve channel to URL:", channel.name)();
-        return null;
-      }
-
-      return resolution.url;
-    };
+    release = release(this.#env);
 
     setPlayState = (newState: OIPF.DAE.Broadcast.PlayState): void => {
       if (this._playState !== newState) {
@@ -170,3 +124,138 @@ export const WithChannelAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) 
       return null;
     };
   };
+
+// Environment
+
+export type ChannelEnv = {
+  playState: OIPF.DAE.Broadcast.PlayState;
+  currentChannel: OIPF.DAE.Broadcast.Channel | null;
+  setPlayState: (state: OIPF.DAE.Broadcast.PlayState) => IO.IO<void>;
+  setCurrentChannel: (channel: OIPF.DAE.Broadcast.Channel | null) => IO.IO<void>;
+  onChannelChangeError: (
+    channel: OIPF.DAE.Broadcast.Channel,
+    errorCode: OIPF.DAE.Broadcast.ChannelChangeErrorCode,
+  ) => void;
+};
+
+const createChannelEnv = (instance: ChannelAPI & ObjectVideoStream): ChannelEnv => ({
+  playState: instance.playState,
+  currentChannel: instance.currentChannel,
+  setPlayState: (state) => () => {
+    instance._playState = state;
+    instance.onPlayStateChange?.(state);
+  },
+  setCurrentChannel: (channel) => () => {
+    instance._currentChannel = channel;
+  },
+  onChannelChangeError: (channel, errorCode) => {
+    instance.onChannelChangeError?.(channel, errorCode);
+  },
+});
+
+// Methods
+
+const bindToCurrentChannel = pipe(
+  RIO.ask<ChannelEnv & VideoStreamEnv>(),
+  RIO.tapIO((env) => logger.debug("bindToCurrentChannel", env.playState, env.currentChannel)),
+  RIO.flatMap((env) =>
+    match(env.playState)
+      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.of(null))
+      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.of(env.currentChannel))
+      .otherwise(() =>
+        pipe(
+          RIO.fromIO(() => env.play),
+          RIO.as(env.currentChannel),
+        ),
+      ),
+  ),
+);
+
+const setChannel = (
+  channel: OIPF.DAE.Broadcast.Channel | null,
+): RTE.ReaderTaskEither<
+  ChannelEnv & ChannelRegistryEnv & VideoStreamEnv,
+  OIPF.DAE.Broadcast.ChannelChangeErrorCode,
+  OIPF.DAE.Broadcast.Channel | null
+> =>
+  pipe(
+    RTE.Do,
+    RTE.tapIO(() => logger.debug("setChannel", channel)),
+    RTE.flatMap(() =>
+      match(channel)
+        .with(null, () =>
+          pipe(
+            RTE.of(null),
+            RTE.tapReaderIO(() => release),
+          ),
+        )
+        .otherwise((channel) => pipe(playChannel(channel), RTE.as(channel))),
+    ),
+  );
+
+const playChannel = (
+  channel: OIPF.DAE.Broadcast.Channel,
+): RTE.ReaderTaskEither<
+  ChannelEnv & ChannelRegistryEnv & VideoStreamEnv,
+  OIPF.DAE.Broadcast.ChannelChangeErrorCode,
+  string
+> =>
+  pipe(
+    RTE.ask<ChannelEnv & ChannelRegistryEnv & VideoStreamEnv>(),
+    RTE.tapIO(() => logger.debug("playChannel", channel)),
+    RTE.flatMap((env) =>
+      pipe(
+        RTE.Do,
+        RTE.tapIO(() => env.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING)),
+        RTE.tapIO(() => env.setCurrentChannel(channel)),
+        RTE.flatMap(() => resolveChannel(channel)),
+        RTE.tapIO((resolved) =>
+          env.loadSource({
+            url: resolved.url,
+            type: "video",
+            loop: true,
+            autoPlay: true,
+            muted: true,
+          }),
+        ),
+        RTE.map((resolved) => resolved.url),
+      ),
+    ),
+  );
+
+const stop = pipe(
+  RIO.ask<ChannelEnv & VideoStreamEnv>(),
+  RIO.tapIO(() => logger.debug("stop")),
+  RIO.flatMap((env) =>
+    match(env.playState)
+      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.Do)
+      .otherwise(() =>
+        pipe(
+          RIO.fromIO(env.stop),
+          RIO.flatMapIO(() => env.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED)),
+        ),
+      ),
+  ),
+);
+
+const release = pipe(
+  RIO.ask<ChannelEnv & VideoStreamEnv>(),
+  RIO.tapIO(() => logger.debug("release")),
+  RIO.flatMap((env) =>
+    match(env.playState)
+      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.Do)
+      .otherwise(() =>
+        pipe(
+          RIO.fromIO(env.setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED)),
+          RIO.flatMapIO(() => env.destroy),
+        ),
+      ),
+  ),
+);
+
+export type VideoStreamEnv = {
+  play: IO.IO<void>;
+  stop: IO.IO<void>;
+  destroy: IO.IO<void>;
+  loadSource: (source: MediaSource) => IO.IO<void>;
+};

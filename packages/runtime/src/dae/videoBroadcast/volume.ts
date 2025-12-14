@@ -11,7 +11,7 @@ export interface VolumeAPI {
   getVolume: OIPF.DAE.Broadcast.VideoBroadcast["getVolume"];
 }
 
-export const WithVolumeAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithVolume = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
   class extends Base implements VolumeAPI {
     _volume = 100;
     _muted = false;

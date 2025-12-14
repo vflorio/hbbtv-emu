@@ -17,24 +17,14 @@ import type {
 
 const logger = createLogger("VideoBackend");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Video videoStream interface with low-level video management
 export interface VideoStream {
   readonly player: Player;
-  readonly streamPlayState: StreamPlayState;
   readonly videoElement: HTMLVideoElement;
   initializePlayer(sourceType: MediaSourceType): IO.IO<void>;
   loadSource(source: MediaSource): IO.IO<void>;
   releasePlayer(): IO.IO<void>;
   onStreamStateChange: (listener: (state: StreamPlayState, previousState: StreamPlayState) => void) => () => void;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Player Factory
-// ─────────────────────────────────────────────────────────────────────────────
 
 const createPlayer = (sourceType: MediaSourceType): Player => {
   switch (sourceType) {
@@ -53,10 +43,6 @@ const detectSourceType = (url: string): MediaSourceType => {
   if (lowercaseUrl.endsWith(".m3u8") || lowercaseUrl.includes("hls")) return "hls";
   return "video";
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ObjectVideoStream
-// ─────────────────────────────────────────────────────────────────────────────
 
 export class ObjectVideoStream implements VideoStream {
   #player: Player = new HtmlVideoPlayer();
@@ -103,10 +89,6 @@ export class ObjectVideoStream implements VideoStream {
       }),
     );
 
-  // ═════════════════════════════════════════════════════════════════════════════
-  // Internal Methods
-  // ═════════════════════════════════════════════════════════════════════════════
-
   #setupStateChangeListener = (): void => {
     this.#player.on("statechange", (event) => {
       logger.debug("Stream state change:", event.previousState, "->", event.state)();
@@ -131,28 +113,11 @@ export class ObjectVideoStream implements VideoStream {
     return () => this.#player.off(type, listener);
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Low-Level Playback Control (delegate to player)
-  // ═══════════════════════════════════════════════════════════════════════════
-
   get player(): Player {
     return this.#player;
-  }
-
-  get streamPlayState(): StreamPlayState {
-    return this.#player.state;
   }
 
   get videoElement(): HTMLVideoElement {
     return this.#player.getElement();
   }
-
-  videoStreamPlay = (speed = 1): void => this.#player.play(speed);
-  videoStreamPause = (): void => this.#player.pause();
-  videoStreamStop = (): void => this.#player.stop();
-  videoStreamSeek = (position: number): void => this.#player.seek(position);
-  videoStreamSetVolume = (volume: number): void => this.#player.setVolume(volume);
-  videoStreamSetMuted = (muted: boolean): void => this.#player.setMuted(muted);
-  videoStreamSetFullscreen = (fullscreen: boolean): void => this.#player.setFullscreen(fullscreen);
-  videoStreamSetSize = (width: number, height: number): void => this.#player.setSize(width, height);
 }

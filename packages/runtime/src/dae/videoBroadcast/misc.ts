@@ -15,7 +15,7 @@ export interface MiscAPI {
   onDRMRightsError: OIPF.DAE.Broadcast.VideoBroadcast["onDRMRightsError"];
 }
 
-export const WithMiscAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithMisc = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
   class extends Base implements MiscAPI {
     _programmes: OIPF.DAE.Broadcast.Programme[] = [];
 

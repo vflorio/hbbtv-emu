@@ -14,7 +14,7 @@ import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
   initializeChannelRegistry,
-} from "./providers/channelRegistry";
+} from "./providers/channelRegistry/channelRegistryOld";
 import { applyExternalState } from "./providers/object/stateful/state";
 import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./providers/userAgent/userAgent";
 

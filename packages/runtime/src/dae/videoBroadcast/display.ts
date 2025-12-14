@@ -20,7 +20,7 @@ export interface DisplayAPI {
   setFullScreen: OIPF.DAE.Broadcast.VideoBroadcast["setFullScreen"];
 }
 
-export const WithDisplayAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithDisplay = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
   class extends Base implements DisplayAPI {
     onfocus: OIPF.DAE.Broadcast.OnFocusHandler | null = null;
     onblur: OIPF.DAE.Broadcast.OnBlurHandler | null = null;

@@ -12,7 +12,7 @@ export interface StreamEventAPI {
   removeStreamEventListener: OIPF.DAE.Broadcast.VideoBroadcast["removeStreamEventListener"];
 }
 
-export const WithStreamEventAPI = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithStreamEvent = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
   class extends Base implements StreamEventAPI {
     _streamEventListeners: unknown[] = [];
 

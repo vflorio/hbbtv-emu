@@ -4,7 +4,8 @@
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
-    "@hbb-emu/oipf": "workspace:*"
+    "@hbb-emu/oipf": "workspace:*",
+    "ts-pattern": "^5.9.0"
   },
   "devDependencies": {
     "dashjs": "^5.1.0",

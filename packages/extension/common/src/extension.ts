@@ -79,7 +79,7 @@ const streamEvent = (eventName: string, payload: string, delaySeconds: number): 
   status: "trigger",
 });
 
-export const DEFAULT_HBBTV_CONFIG: ExtensionState = {
+export const DEFAULT_EXTENSION_STATE: ExtensionState = {
   currentChannel: null,
   channels: [
     {
