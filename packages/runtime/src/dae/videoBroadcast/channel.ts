@@ -8,9 +8,11 @@ import { match } from "ts-pattern";
 import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
+  loadSource,
   type MediaSource,
-  type ObjectVideoStream,
+  releasePlayer,
   resolveChannel,
+  type VideoStreamEnv,
 } from "../../providers";
 import type { VideoBroadcastEnv } from ".";
 
@@ -43,19 +45,12 @@ export interface ChannelAPI {
 
 // Mixin
 
-export const WithChannel = <T extends ClassType<VideoBroadcastEnv & ObjectVideoStream>>(Base: T) =>
+export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements ChannelAPI {
-    #videoStreamEnv: VideoStreamEnv = {
-      destroy: () => this.releasePlayer(),
-      loadSource: (source) => () => this.loadSource(source),
-      play: () => () => this.player.play(),
-      stop: () => () => this.player.stop(),
-    };
-
-    #env = {
+    #withChannelEnv = {
       ...createChannelEnv(this),
       ...createChannelRegistryEnv(this.extensionState),
-      ...this.#videoStreamEnv,
+      ...createChannelVideoStreamEnv(this.videoStreamEnv),
     };
 
     _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
@@ -78,13 +73,13 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv & ObjectVideoS
       _trickplay?: boolean,
       _contentAccessDescriptorURL?: string,
       _quiet?: OIPF.DAE.Broadcast.QuietMode,
-    ) => setChannel(channel)(this.#env);
+    ) => setChannel(channel)(this.#withChannelEnv);
 
-    bindToCurrentChannel = bindToCurrentChannel(this.#env);
+    bindToCurrentChannel = bindToCurrentChannel(this.#withChannelEnv);
 
-    stop = stop(this.#env);
+    stop = stop(this.#withChannelEnv);
 
-    release = release(this.#env);
+    release = release(this.#withChannelEnv);
 
     setPlayState = (newState: OIPF.DAE.Broadcast.PlayState): void => {
       if (this._playState !== newState) {
@@ -138,7 +133,14 @@ export type ChannelEnv = {
   ) => void;
 };
 
-const createChannelEnv = (instance: ChannelAPI & ObjectVideoStream): ChannelEnv => ({
+export type ChannelVideoStreamEnv = {
+  play: IO.IO<void>;
+  stop: IO.IO<void>;
+  destroy: IO.IO<void>;
+  loadSource: (source: MediaSource) => IO.IO<void>;
+};
+
+export const createChannelEnv = (instance: ChannelAPI): ChannelEnv => ({
   playState: instance.playState,
   currentChannel: instance.currentChannel,
   setPlayState: (state) => () => {
@@ -153,10 +155,17 @@ const createChannelEnv = (instance: ChannelAPI & ObjectVideoStream): ChannelEnv 
   },
 });
 
+export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): ChannelVideoStreamEnv => ({
+  play: videoStreamEnv.playerPlay(),
+  stop: videoStreamEnv.playerStop,
+  destroy: releasePlayer(videoStreamEnv),
+  loadSource: (source) => loadSource(source)(videoStreamEnv),
+});
+
 // Methods
 
-const bindToCurrentChannel = pipe(
-  RIO.ask<ChannelEnv & VideoStreamEnv>(),
+export const bindToCurrentChannel = pipe(
+  RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
   RIO.tapIO((env) => logger.debug("bindToCurrentChannel", env.playState, env.currentChannel)),
   RIO.flatMap((env) =>
     match(env.playState)
@@ -171,10 +180,10 @@ const bindToCurrentChannel = pipe(
   ),
 );
 
-const setChannel = (
+export const setChannel = (
   channel: OIPF.DAE.Broadcast.Channel | null,
 ): RTE.ReaderTaskEither<
-  ChannelEnv & ChannelRegistryEnv & VideoStreamEnv,
+  ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv,
   OIPF.DAE.Broadcast.ChannelChangeErrorCode,
   OIPF.DAE.Broadcast.Channel | null
 > =>
@@ -193,15 +202,15 @@ const setChannel = (
     ),
   );
 
-const playChannel = (
+export const playChannel = (
   channel: OIPF.DAE.Broadcast.Channel,
 ): RTE.ReaderTaskEither<
-  ChannelEnv & ChannelRegistryEnv & VideoStreamEnv,
+  ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv,
   OIPF.DAE.Broadcast.ChannelChangeErrorCode,
   string
 > =>
   pipe(
-    RTE.ask<ChannelEnv & ChannelRegistryEnv & VideoStreamEnv>(),
+    RTE.ask<ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv>(),
     RTE.tapIO(() => logger.debug("playChannel", channel)),
     RTE.flatMap((env) =>
       pipe(
@@ -223,8 +232,8 @@ const playChannel = (
     ),
   );
 
-const stop = pipe(
-  RIO.ask<ChannelEnv & VideoStreamEnv>(),
+export const stop = pipe(
+  RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
   RIO.tapIO(() => logger.debug("stop")),
   RIO.flatMap((env) =>
     match(env.playState)
@@ -238,8 +247,8 @@ const stop = pipe(
   ),
 );
 
-const release = pipe(
-  RIO.ask<ChannelEnv & VideoStreamEnv>(),
+export const release = pipe(
+  RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
   RIO.tapIO(() => logger.debug("release")),
   RIO.flatMap((env) =>
     match(env.playState)
@@ -252,10 +261,3 @@ const release = pipe(
       ),
   ),
 );
-
-export type VideoStreamEnv = {
-  play: IO.IO<void>;
-  stop: IO.IO<void>;
-  destroy: IO.IO<void>;
-  loadSource: (source: MediaSource) => IO.IO<void>;
-};

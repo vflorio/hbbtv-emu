@@ -1,6 +1,6 @@
 import type { ClassType } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf";
-import type { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
 
 export interface VolumeAPI {
   // State
@@ -17,11 +17,11 @@ export const WithVolume = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
     _muted = false;
 
     setVolume = (volume: number): boolean => {
-      this.videoStreamSetVolume(volume);
+      this.videoStreamSetVolume(volume)();
       return true;
     };
 
     getVolume = (): number => {
-      return this.player.volume;
+      return Math.round(this.videoElement.volume * 100);
     };
   };

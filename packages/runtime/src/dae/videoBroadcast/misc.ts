@@ -1,6 +1,6 @@
 import type { ClassType } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf";
-import type { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
 
 export interface MiscAPI {
   // State

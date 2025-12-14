@@ -2,7 +2,7 @@ import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallbac
 import { DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
-import { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import { ObjectVideoStream, type VideoStreamEnv } from "../../providers/videoStream/videoStream";
 import { WithChannel } from "./channel";
 import { WithComponent } from "./component";
 import { WithController } from "./controller";
@@ -14,6 +14,7 @@ import { WithVolume } from "./volume";
 export type VideoBroadcastEnv = ObjectVideoStream &
   Readonly<{
     extensionState: ExtensionState;
+    videoStreamEnv: VideoStreamEnv;
   }>;
 
 class BaseVideoBroadcast extends ObjectVideoStream implements VideoBroadcastEnv {
@@ -22,6 +23,10 @@ class BaseVideoBroadcast extends ObjectVideoStream implements VideoBroadcastEnv 
   constructor(extensionState?: ExtensionState) {
     super();
     this.extensionState = extensionState ?? DEFAULT_EXTENSION_STATE;
+  }
+
+  get videoStreamEnv(): VideoStreamEnv {
+    return this._videoStreamEnv;
   }
 }
 

@@ -3,335 +3,336 @@
 import { createLogger } from "@hbb-emu/core";
 import * as dashjs from "dashjs";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
+import type * as IO from "fp-ts/IO";
+import * as RIO from "fp-ts/ReaderIO";
+import { match } from "ts-pattern";
+import type { MediaSource, PlayerEventListener, PlayerEventType } from "../types";
 import { StreamPlayState } from "../types";
+import type { Player } from ".";
+import {
+  createDashError,
+  createEventListeners,
+  type EventListeners,
+  emit,
+  getCurrentTimeMs,
+  getDurationMs,
+  isFullscreen,
+  msToSeconds,
+  normalizedToVolume,
+  off,
+  on,
+  type PlayerEnv,
+  playBase,
+  setFullscreen,
+  setSize,
+  setState,
+  setVolume,
+} from "./common";
 
-const logger = createLogger("DashPlayer");
+const LOGGER_NAME = "DashPlayer";
+const logger = createLogger(LOGGER_NAME);
 
-export class DashPlayer implements Player {
-  readonly #videoElement: HTMLVideoElement;
-  readonly #listeners: EventListeners;
-  #dashPlayer: dashjs.MediaPlayerClass | null = null;
-  #state: StreamPlayState = StreamPlayState.IDLE;
-  #source: MediaSource | null = null;
-  #currentSpeed = 1;
+// State
 
-  constructor() {
-    this.#videoElement = document.createElement("video");
-    this.#listeners = createEventListeners();
-    this.#setupVideoEventListeners()();
-  }
+export type DashPlayerState = {
+  state: StreamPlayState;
+  source: MediaSource | null;
+  currentSpeed: number;
+  videoElement: HTMLVideoElement;
+  listeners: EventListeners;
+  dashPlayer: dashjs.MediaPlayerClass | null;
+};
 
-  readonly #initDashPlayer = (): IO.IO<dashjs.MediaPlayerClass> => () => {
-    if (this.#dashPlayer) {
-      return this.#dashPlayer;
-    }
+export const createDashPlayerState = (): DashPlayerState => ({
+  state: StreamPlayState.IDLE,
+  source: null,
+  currentSpeed: 1,
+  videoElement: document.createElement("video"),
+  listeners: createEventListeners(),
+  dashPlayer: null,
+});
 
-    this.#dashPlayer = dashjs.MediaPlayer().create();
-    this.#dashPlayer.initialize(this.#videoElement, undefined, false);
+// Environment
 
-    this.#setupDashEventHandlers(this.#dashPlayer);
+export type DashPlayerEnv = PlayerEnv & {
+  dashPlayer: dashjs.MediaPlayerClass | null;
+  setDashPlayer: (player: dashjs.MediaPlayerClass | null) => IO.IO<void>;
+};
 
-    return this.#dashPlayer;
-  };
+export const createDashPlayerEnv = (state: DashPlayerState): DashPlayerEnv => ({
+  state: state.state,
+  source: state.source,
+  currentSpeed: state.currentSpeed,
+  listeners: state.listeners,
+  videoElement: state.videoElement,
+  dashPlayer: state.dashPlayer,
+  setState: (newState: StreamPlayState) => () => {
+    state.state = newState;
+  },
+  setSource: (source: MediaSource | null) => () => {
+    state.source = source;
+  },
+  setCurrentSpeed: (speed: number) => () => {
+    state.currentSpeed = speed;
+  },
+  setDashPlayer: (player: dashjs.MediaPlayerClass | null) => () => {
+    state.dashPlayer = player;
+  },
+});
 
-  readonly #setupDashEventHandlers = (dashPlayer: dashjs.MediaPlayerClass): void => {
-    dashPlayer.on("error", (event: unknown) => {
-      pipe(
-        this.#setState(StreamPlayState.ERROR),
-        IO.flatMap(() => this.#emit("error", { error: createDashError(event) })),
-      )();
+// Methods
+
+const initDashPlayer: RIO.ReaderIO<DashPlayerEnv, dashjs.MediaPlayerClass> = pipe(
+  RIO.ask<DashPlayerEnv>(),
+  RIO.flatMap((env) =>
+    match(env.dashPlayer)
+      .with(null, () =>
+        pipe(
+          RIO.of<DashPlayerEnv, dashjs.MediaPlayerClass>(dashjs.MediaPlayer().create()),
+          RIO.tapIO((player) => () => {
+            player.initialize(env.videoElement, undefined, false);
+          }),
+          RIO.tap((player) => setupDashEventHandlers(player)),
+          RIO.tapIO((player) => env.setDashPlayer(player)),
+        ),
+      )
+      .otherwise((player) => RIO.of(player)),
+  ),
+);
+
+const setupDashEventHandlers = (dashPlayer: dashjs.MediaPlayerClass): RIO.ReaderIO<DashPlayerEnv, void> =>
+  pipe(
+    RIO.ask<DashPlayerEnv>(),
+    RIO.flatMapIO((env) => () => {
+      dashPlayer.on("error", (event: unknown) => {
+        pipe(
+          setState(StreamPlayState.ERROR, LOGGER_NAME),
+          RIO.flatMap(() => emit("error", { error: createDashError(event) }, LOGGER_NAME)),
+        )(env)();
+      });
+
+      dashPlayer.on("playbackStarted", () => {
+        setState(StreamPlayState.PLAYING, LOGGER_NAME)(env)();
+      });
+
+      dashPlayer.on("playbackPaused", () => {
+        match(env.state)
+          .with(StreamPlayState.PLAYING, () => setState(StreamPlayState.PAUSED, LOGGER_NAME)(env)())
+          .otherwise(() => {});
+      });
+
+      dashPlayer.on("bufferStalled", () => {
+        match(env.state)
+          .with(StreamPlayState.PLAYING, () => setState(StreamPlayState.BUFFERING, LOGGER_NAME)(env)())
+          .otherwise(() => {});
+      });
+
+      dashPlayer.on("bufferLoaded", () => {
+        match(env.state)
+          .with(StreamPlayState.BUFFERING, () => setState(StreamPlayState.PLAYING, LOGGER_NAME)(env)())
+          .otherwise(() => {});
+      });
+
+      dashPlayer.on("playbackEnded", () => {
+        pipe(
+          setState(StreamPlayState.FINISHED, LOGGER_NAME),
+          RIO.flatMap(() => emit("ended", {}, LOGGER_NAME)),
+        )(env)();
+      });
+    }),
+  );
+
+export const setupVideoEventListeners: RIO.ReaderIO<DashPlayerEnv, void> = pipe(
+  RIO.ask<DashPlayerEnv>(),
+  RIO.flatMapIO((env) => () => {
+    env.videoElement.addEventListener("timeupdate", () => {
+      emit("timeupdate", { currentTime: getCurrentTimeMs(env.videoElement) }, LOGGER_NAME)(env)();
     });
 
-    dashPlayer.on("playbackStarted", () => {
-      this.#setState(StreamPlayState.PLAYING)();
-    });
-
-    dashPlayer.on("playbackPaused", () => {
-      if (this.#state === StreamPlayState.PLAYING) {
-        this.#setState(StreamPlayState.PAUSED)();
+    env.videoElement.addEventListener("durationchange", () => {
+      if (Number.isFinite(env.videoElement.duration)) {
+        emit("durationchange", { duration: getDurationMs(env.videoElement) }, LOGGER_NAME)(env)();
       }
     });
 
-    dashPlayer.on("bufferStalled", () => {
-      if (this.#state === StreamPlayState.PLAYING) {
-        this.#setState(StreamPlayState.BUFFERING)();
-      }
+    env.videoElement.addEventListener("volumechange", () => {
+      emit(
+        "volumechange",
+        {
+          volume: normalizedToVolume(env.videoElement.volume),
+          muted: env.videoElement.muted,
+        },
+        LOGGER_NAME,
+      )(env)();
     });
 
-    dashPlayer.on("bufferLoaded", () => {
-      if (this.#state === StreamPlayState.BUFFERING) {
-        this.#setState(StreamPlayState.PLAYING)();
-      }
+    document.addEventListener("fullscreenchange", () => {
+      emit("fullscreenchange", { fullscreen: isFullscreen(env.videoElement) }, LOGGER_NAME)(env)();
     });
+  }),
+);
 
-    dashPlayer.on("playbackEnded", () => {
+export const load = (source: MediaSource): RIO.ReaderIO<DashPlayerEnv, void> =>
+  pipe(
+    RIO.ask<DashPlayerEnv>(),
+    RIO.tapIO(() => logger.debug("Loading DASH source:", source.url)),
+    RIO.tapIO((env) => env.setSource(source)),
+    RIO.tapIO((env) => setState(StreamPlayState.CONNECTING, LOGGER_NAME)(env)),
+    RIO.flatMap(() => initDashPlayer),
+    RIO.flatMap((dashPlayer) =>
       pipe(
-        this.#setState(StreamPlayState.FINISHED),
-        IO.flatMap(() => this.#emit("ended", {})),
-      )();
-    });
-  };
-
-  readonly #setupVideoEventListeners = (): IO.IO<void> =>
-    IO.of(() => {
-      this.#videoElement.addEventListener("timeupdate", () => {
-        this.#emit("timeupdate", { currentTime: getCurrentTimeMs(this.#videoElement) })();
-      });
-
-      this.#videoElement.addEventListener("durationchange", () => {
-        if (Number.isFinite(this.#videoElement.duration)) {
-          this.#emit("durationchange", { duration: getDurationMs(this.#videoElement) })();
-        }
-      });
-
-      this.#videoElement.addEventListener("volumechange", () => {
-        this.#emit("volumechange", {
-          volume: normalizedToVolume(this.#videoElement.volume),
-          muted: this.#videoElement.muted,
-        })();
-      });
-
-      document.addEventListener("fullscreenchange", () => {
-        this.#emit("fullscreenchange", { fullscreen: isFullscreen(this.#videoElement) })();
-      });
-    });
-
-  readonly #emit = <T extends PlayerEventType>(
-    type: T,
-    data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-  ): IO.IO<void> =>
-    pipe(
-      IO.of(createPlayerEvent(type, data)),
-      IO.flatMap((event) =>
-        IO.of(() => {
-          for (const listener of this.#listeners[type]) {
-            try {
-              (listener as PlayerEventListener<T>)(event);
-            } catch (err) {
-              logger.error("Event listener error:", err)();
-            }
-          }
-        }),
-      ),
-    );
-
-  readonly #setState =
-    (newState: StreamPlayState): IO.IO<void> =>
-    () => {
-      if (this.#state === newState) return;
-      const previousState = this.#state;
-      this.#state = newState;
-      pipe(
-        logger.debug("State changed:", previousState, "->", newState),
-        IO.flatMap(() => this.#emit("statechange", { state: newState, previousState })),
-      )();
-    };
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Public API
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  get state(): StreamPlayState {
-    return this.#state;
-  }
-
-  get source(): MediaSource | null {
-    return this.#source;
-  }
-
-  get currentTime(): number {
-    return getCurrentTimeMs(this.#videoElement);
-  }
-
-  get duration(): number {
-    return getDurationMs(this.#videoElement);
-  }
-
-  get speed(): number {
-    return this.#currentSpeed;
-  }
-
-  get volume(): number {
-    return normalizedToVolume(this.#videoElement.volume);
-  }
-
-  get muted(): boolean {
-    return this.#videoElement.muted;
-  }
-
-  get fullscreen(): boolean {
-    return isFullscreen(this.#videoElement);
-  }
-
-  getElement = (): HTMLVideoElement => this.#videoElement;
-
-  // Playback Control
-
-  load = (newSource: MediaSource): void => {
-    pipe(
-      logger.debug("Loading DASH source:", newSource.url),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#source = newSource;
-        }),
-      ),
-      IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
-      IO.flatMap(() => this.#initDashPlayer()),
-      IO.flatMap((dashPlayer) =>
-        IO.of(() => {
-          if (newSource.drm) {
+        RIO.ask<DashPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          if (env.source?.drm) {
             dashPlayer.setProtectionData({
-              [newSource.drm.system]: {
-                serverURL: newSource.drm.licenseUrl,
-                httpRequestHeaders: newSource.drm.headers,
+              [env.source.drm.system]: {
+                serverURL: env.source.drm.licenseUrl,
+                httpRequestHeaders: env.source.drm.headers,
               },
             });
           }
-          dashPlayer.attachSource(newSource.url);
+          dashPlayer.attachSource(source.url);
         }),
       ),
-    )();
-  };
+    ),
+  );
 
-  play = (speed = 1): void => {
-    pipe(
-      logger.debug("Play:", speed),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#currentSpeed = speed;
-          this.#videoElement.playbackRate = Math.abs(speed);
-
-          if (speed === 0) {
-            this.#videoElement.pause();
-          } else {
-            this.#dashPlayer?.play();
-          }
+export const play = (speed: number): RIO.ReaderIO<DashPlayerEnv, void> =>
+  pipe(
+    playBase(speed, LOGGER_NAME),
+    RIO.flatMap(() =>
+      pipe(
+        RIO.ask<DashPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          match(speed)
+            .with(0, () => env.videoElement.pause())
+            .otherwise(() => env.dashPlayer?.play());
         }),
       ),
-    )();
-  };
+    ),
+  );
 
-  pause = (): void => {
-    pipe(
-      logger.debug("Pause"),
-      IO.flatMap(() => IO.of(() => this.#dashPlayer?.pause())),
-    )();
-  };
+export const pause: RIO.ReaderIO<DashPlayerEnv, void> = pipe(
+  RIO.ask<DashPlayerEnv>(),
+  RIO.tapIO(() => logger.debug("Pause")),
+  RIO.flatMapIO((env) => () => env.dashPlayer?.pause()),
+);
 
-  stop = (): void => {
-    pipe(
-      logger.debug("Stop"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#dashPlayer?.pause();
-          this.#videoElement.currentTime = 0;
-        }),
-      ),
-      IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
-    )();
-  };
+export const stop: RIO.ReaderIO<DashPlayerEnv, void> = pipe(
+  RIO.ask<DashPlayerEnv>(),
+  RIO.tapIO(() => logger.debug("Stop")),
+  RIO.tapIO((env) => () => {
+    env.dashPlayer?.pause();
+    env.videoElement.currentTime = 0;
+  }),
+  RIO.tapIO((env) => setState(StreamPlayState.STOPPED, LOGGER_NAME)(env)),
+  RIO.map(() => undefined),
+);
 
-  seek = (position: number): void => {
-    pipe(
-      logger.debug("Seek:", position),
-      IO.flatMap(() => IO.of(() => this.#dashPlayer?.seek(msToSeconds(position)))),
-    )();
-  };
+export const seek = (position: number): RIO.ReaderIO<DashPlayerEnv, void> =>
+  pipe(
+    RIO.ask<DashPlayerEnv>(),
+    RIO.tapIO(() => logger.debug("Seek:", position)),
+    RIO.flatMapIO((env) => () => env.dashPlayer?.seek(msToSeconds(position))),
+  );
 
-  release = (): void => {
-    pipe(
-      logger.debug("Release"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#dashPlayer?.reset();
-          this.#dashPlayer = null;
-          this.#source = null;
-        }),
-      ),
-      IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
-    )();
-  };
+export const release: RIO.ReaderIO<DashPlayerEnv, void> = pipe(
+  RIO.ask<DashPlayerEnv>(),
+  RIO.tapIO(() => logger.debug("Release")),
+  RIO.tapIO((env) => () => {
+    env.dashPlayer?.reset();
+  }),
+  RIO.tapIO((env) => env.setDashPlayer(null)),
+  RIO.tapIO((env) => env.setSource(null)),
+  RIO.tapIO((env) => setState(StreamPlayState.IDLE, LOGGER_NAME)(env)),
+  RIO.map(() => undefined),
+);
 
-  // Audio Control
+export const setMuted = (muted: boolean): RIO.ReaderIO<DashPlayerEnv, void> =>
+  pipe(
+    RIO.ask<DashPlayerEnv>(),
+    RIO.flatMapIO((env) => () => env.dashPlayer?.setMute(muted)),
+  );
 
-  setVolume = (volume: number): void => {
-    this.#videoElement.volume = volumeToNormalized(volume);
-  };
+// DashPlayer Class
 
-  setMuted = (muted: boolean): void => {
-    this.#dashPlayer?.setMute(muted);
-  };
+export class DashPlayer implements Player {
+  readonly sourceType = "dash" as const;
+  readonly videoElement: HTMLVideoElement;
 
-  // Display Control
+  readonly #env: DashPlayerEnv;
+  #state: StreamPlayState = StreamPlayState.IDLE;
+  #source: MediaSource | null = null;
+  #currentSpeed = 1;
+  #dashPlayer: dashjs.MediaPlayerClass | null = null;
 
-  setFullscreen = (fullscreen: boolean): void => {
-    if (fullscreen && !document.fullscreenElement) {
-      this.#videoElement.requestFullscreen?.().catch((err) => {
-        logger.warn("Fullscreen request failed:", err)();
-      });
-    } else if (!fullscreen && document.fullscreenElement === this.#videoElement) {
-      document.exitFullscreen?.().catch((err) => {
-        logger.warn("Exit fullscreen failed:", err)();
-      });
-    }
-  };
+  constructor() {
+    this.videoElement = document.createElement("video");
 
-  setSize = (width: number, height: number): void => {
-    this.#videoElement.style.width = `${width}px`;
-    this.#videoElement.style.height = `${height}px`;
-  };
+    this.#env = {
+      state: this.#state,
+      source: this.#source,
+      currentSpeed: this.#currentSpeed,
+      listeners: createEventListeners(),
+      videoElement: this.videoElement,
+      dashPlayer: this.#dashPlayer,
+      setState: (newState) => () => {
+        this.#state = newState;
+        this.#env.state = newState;
+      },
+      setSource: (source) => () => {
+        this.#source = source;
+        this.#env.source = source;
+      },
+      setCurrentSpeed: (speed) => () => {
+        this.#currentSpeed = speed;
+        this.#env.currentSpeed = speed;
+      },
+      setDashPlayer: (player) => () => {
+        this.#dashPlayer = player;
+        this.#env.dashPlayer = player;
+      },
+    };
+  }
 
-  // Event Subscription
+  load = (source: MediaSource): IO.IO<void> => load(source)(this.#env);
+  release = (): IO.IO<void> => release(this.#env);
+  setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
-  on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void => {
-    this.#listeners[type].add(listener as PlayerEventListener<PlayerEventType>);
-  };
+  play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
+  pause = (): IO.IO<void> => pause(this.#env);
+  stop = (): IO.IO<void> => stop(this.#env);
+  seek = (position: number): IO.IO<void> => seek(position)(this.#env);
 
-  off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void => {
-    this.#listeners[type].delete(listener as PlayerEventListener<PlayerEventType>);
-  };
+  setVolume = (volume: number): IO.IO<void> => setVolume(volume)(this.#env);
+  setMuted = (muted: boolean): IO.IO<void> => setMuted(muted)(this.#env);
+  setFullscreen = (fullscreen: boolean): IO.IO<void> => dashSetFullscreen(fullscreen)(this.#env);
+  setSize = (width: number, height: number): IO.IO<void> => setSize(width, height)(this.#env);
+
+  on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    on(type, listener)(this.#env);
+
+  off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    off(type, listener)(this.#env);
 }
 
-type EventListeners = {
-  [K in PlayerEventType]: Set<PlayerEventListener<K>>;
-};
+// Wrappers
 
-const createEventListeners = (): EventListeners => ({
-  statechange: new Set(),
-  timeupdate: new Set(),
-  durationchange: new Set(),
-  volumechange: new Set(),
-  error: new Set(),
-  ended: new Set(),
-  fullscreenchange: new Set(),
-});
+export const dashSetFullscreen = (fullscreen: boolean): RIO.ReaderIO<DashPlayerEnv, void> =>
+  setFullscreen(fullscreen, LOGGER_NAME);
+export const dashSetVolume = setVolume;
+export const dashSetSize = setSize;
+export const dashOn = on;
+export const dashOff = off;
 
-const createPlayerEvent = <T extends PlayerEventType>(
-  type: T,
-  data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-): PlayerEvent<T> => ({ type, timestamp: Date.now(), ...data }) as PlayerEvent<T>;
+// Getters
 
-const createDashError = (event: unknown): PlayerError => ({
-  code: 0,
-  message: "DASH playback error",
-  details: event,
-});
-
-const msToSeconds = (ms: number): number => ms / 1000;
-
-const secondsToMs = (seconds: number): number => Math.floor(seconds * 1000);
-
-const clampVolume = (volume: number): number => Math.max(0, Math.min(100, volume));
-
-const volumeToNormalized = (volume: number): number => clampVolume(volume) / 100;
-
-const normalizedToVolume = (normalized: number): number => Math.round(normalized * 100);
-
-const getCurrentTimeMs = (video: HTMLVideoElement): number => secondsToMs(video.currentTime);
-
-const getDurationMs = (video: HTMLVideoElement): number =>
-  Number.isFinite(video.duration) ? secondsToMs(video.duration) : 0;
-
-const isFullscreen = (element: HTMLVideoElement): boolean => document.fullscreenElement === element;
+export const getState = (state: DashPlayerState): StreamPlayState => state.state;
+export const getSource = (state: DashPlayerState): MediaSource | null => state.source;
+export const getCurrentTime = (state: DashPlayerState): number => getCurrentTimeMs(state.videoElement);
+export const getDuration = (state: DashPlayerState): number => getDurationMs(state.videoElement);
+export const getSpeed = (state: DashPlayerState): number => state.currentSpeed;
+export const getVolume = (state: DashPlayerState): number => normalizedToVolume(state.videoElement.volume);
+export const getMuted = (state: DashPlayerState): boolean => state.videoElement.muted;
+export const getFullscreen = (state: DashPlayerState): boolean => isFullscreen(state.videoElement);
+export const getElement = (state: DashPlayerState): HTMLVideoElement => state.videoElement;

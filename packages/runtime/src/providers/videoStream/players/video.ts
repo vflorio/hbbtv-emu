@@ -2,310 +2,259 @@
 
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
+import type * as IO from "fp-ts/IO";
+import * as RIO from "fp-ts/ReaderIO";
+import { match } from "ts-pattern";
+import type { MediaSource, PlayerEventListener, PlayerEventType } from "../types";
 import { StreamPlayState } from "../types";
+import type { Player } from ".";
+import {
+  createEventListeners,
+  createVideoError,
+  type EventListeners,
+  emit,
+  getCurrentTimeMs,
+  getDurationMs,
+  isFullscreen,
+  loadSourceBase,
+  normalizedToVolume,
+  off,
+  on,
+  type PlayerEnv,
+  pause,
+  playBase,
+  releaseBase,
+  seek,
+  setFullscreen,
+  setMuted,
+  setSize,
+  setState,
+  setVolume,
+  stop,
+} from "./common";
 
-const logger = createLogger("HtmlVideoPlayer");
+const LOGGER_NAME = "HtmlVideoPlayer";
+const logger = createLogger(LOGGER_NAME);
+
+// State
+
+export type HtmlVideoPlayerState = {
+  state: StreamPlayState;
+  source: MediaSource | null;
+  currentSpeed: number;
+  videoElement: HTMLVideoElement;
+  listeners: EventListeners;
+};
+
+export const createHtmlVideoPlayerState = (): HtmlVideoPlayerState => ({
+  state: StreamPlayState.IDLE,
+  source: null,
+  currentSpeed: 1,
+  videoElement: document.createElement("video"),
+  listeners: createEventListeners(),
+});
+
+// Environment
+
+export type HtmlVideoPlayerEnv = PlayerEnv;
+
+export const createHtmlVideoPlayerEnv = (state: HtmlVideoPlayerState): HtmlVideoPlayerEnv => ({
+  state: state.state,
+  source: state.source,
+  currentSpeed: state.currentSpeed,
+  listeners: state.listeners,
+  videoElement: state.videoElement,
+  setState: (newState: StreamPlayState) => () => {
+    state.state = newState;
+  },
+  setSource: (source: MediaSource | null) => () => {
+    state.source = source;
+  },
+  setCurrentSpeed: (speed: number) => () => {
+    state.currentSpeed = speed;
+  },
+});
+
+// Methods
+
+export const setupVideoEventListeners: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = pipe(
+  RIO.ask<HtmlVideoPlayerEnv>(),
+  RIO.flatMapIO((env) => () => {
+    env.videoElement.addEventListener("loadstart", () => {
+      match(env.state)
+        .with(StreamPlayState.IDLE, () => setState(StreamPlayState.CONNECTING, LOGGER_NAME)(env)())
+        .otherwise(() => {});
+    });
+
+    env.videoElement.addEventListener("playing", () => {
+      setState(StreamPlayState.PLAYING, LOGGER_NAME)(env)();
+    });
+
+    env.videoElement.addEventListener("pause", () => {
+      match(env.state)
+        .with(StreamPlayState.PLAYING, () => setState(StreamPlayState.PAUSED, LOGGER_NAME)(env)())
+        .otherwise(() => {});
+    });
+
+    env.videoElement.addEventListener("waiting", () => {
+      match(env.state)
+        .with(StreamPlayState.PLAYING, () => setState(StreamPlayState.BUFFERING, LOGGER_NAME)(env)())
+        .otherwise(() => {});
+    });
+
+    env.videoElement.addEventListener("ended", () => {
+      pipe(
+        setState(StreamPlayState.FINISHED, LOGGER_NAME),
+        RIO.flatMap(() => emit("ended", {}, LOGGER_NAME)),
+      )(env)();
+    });
+
+    env.videoElement.addEventListener("error", () => {
+      pipe(
+        setState(StreamPlayState.ERROR, LOGGER_NAME),
+        RIO.flatMap(() => emit("error", { error: createVideoError(env.videoElement) }, LOGGER_NAME)),
+      )(env)();
+    });
+
+    env.videoElement.addEventListener("timeupdate", () => {
+      emit("timeupdate", { currentTime: getCurrentTimeMs(env.videoElement) }, LOGGER_NAME)(env)();
+    });
+
+    env.videoElement.addEventListener("durationchange", () => {
+      if (Number.isFinite(env.videoElement.duration)) {
+        emit("durationchange", { duration: getDurationMs(env.videoElement) }, LOGGER_NAME)(env)();
+      }
+    });
+
+    env.videoElement.addEventListener("volumechange", () => {
+      emit(
+        "volumechange",
+        {
+          volume: normalizedToVolume(env.videoElement.volume),
+          muted: env.videoElement.muted,
+        },
+        LOGGER_NAME,
+      )(env)();
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      emit("fullscreenchange", { fullscreen: isFullscreen(env.videoElement) }, LOGGER_NAME)(env)();
+    });
+  }),
+);
+
+export const load = (source: MediaSource): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
+  pipe(
+    loadSourceBase(source, LOGGER_NAME),
+    RIO.flatMap(() =>
+      pipe(
+        RIO.ask<HtmlVideoPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          env.videoElement.src = source.url;
+          env.videoElement.load();
+        }),
+      ),
+    ),
+  );
+
+export const play = (speed: number): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
+  pipe(
+    playBase(speed, LOGGER_NAME),
+    RIO.flatMap(() =>
+      pipe(
+        RIO.ask<HtmlVideoPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          match(speed)
+            .with(0, () => env.videoElement.pause())
+            .otherwise(() => {
+              env.videoElement.play().catch((err: unknown) => {
+                logger.error("Play failed:", err)();
+                pipe(
+                  setState(StreamPlayState.ERROR, LOGGER_NAME),
+                  RIO.flatMap(() => emit("error", { error: { code: 0, message: String(err) } }, LOGGER_NAME)),
+                )(env)();
+              });
+            });
+        }),
+      ),
+    ),
+  );
+
+export const release: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = releaseBase(LOGGER_NAME);
 
 export class HtmlVideoPlayer implements Player {
-  readonly #videoElement: HTMLVideoElement;
-  readonly #listeners: EventListeners;
+  readonly sourceType = "video" as const;
+  readonly videoElement: HTMLVideoElement;
+
+  readonly #env: HtmlVideoPlayerEnv;
   #state: StreamPlayState = StreamPlayState.IDLE;
   #source: MediaSource | null = null;
   #currentSpeed = 1;
 
   constructor() {
-    this.#videoElement = document.createElement("video");
-    this.#listeners = createEventListeners();
-    this.#setupVideoEventListeners()();
-  }
+    this.videoElement = document.createElement("video");
 
-  readonly #setupVideoEventListeners = (): IO.IO<void> => () => {
-    this.#videoElement.addEventListener("loadstart", () => {
-      if (this.#state === StreamPlayState.IDLE) {
-        this.#setState(StreamPlayState.CONNECTING)();
-      }
-    });
-
-    this.#videoElement.addEventListener("playing", () => {
-      this.#setState(StreamPlayState.PLAYING)();
-    });
-
-    this.#videoElement.addEventListener("pause", () => {
-      if (this.#state === StreamPlayState.PLAYING) {
-        this.#setState(StreamPlayState.PAUSED)();
-      }
-    });
-
-    this.#videoElement.addEventListener("waiting", () => {
-      if (this.#state === StreamPlayState.PLAYING) {
-        this.#setState(StreamPlayState.BUFFERING)();
-      }
-    });
-
-    this.#videoElement.addEventListener("ended", () => {
-      pipe(
-        this.#setState(StreamPlayState.FINISHED),
-        IO.flatMap(() => this.#emit("ended", {})),
-      )();
-    });
-
-    this.#videoElement.addEventListener("error", () => {
-      pipe(
-        this.#setState(StreamPlayState.ERROR),
-        IO.flatMap(() => this.#emit("error", { error: createVideoError(this.#videoElement) })),
-      )();
-    });
-
-    this.#videoElement.addEventListener("timeupdate", () => {
-      this.#emit("timeupdate", { currentTime: getCurrentTimeMs(this.#videoElement) })();
-    });
-
-    this.#videoElement.addEventListener("durationchange", () => {
-      if (Number.isFinite(this.#videoElement.duration)) {
-        this.#emit("durationchange", { duration: getDurationMs(this.#videoElement) })();
-      }
-    });
-
-    this.#videoElement.addEventListener("volumechange", () => {
-      this.#emit("volumechange", {
-        volume: normalizedToVolume(this.#videoElement.volume),
-        muted: this.#videoElement.muted,
-      })();
-    });
-
-    document.addEventListener("fullscreenchange", () => {
-      this.#emit("fullscreenchange", { fullscreen: isFullscreen(this.#videoElement) })();
-    });
-  };
-
-  readonly #emit = <T extends PlayerEventType>(
-    type: T,
-    data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-  ): IO.IO<void> =>
-    pipe(
-      IO.of(createPlayerEvent(type, data)),
-      IO.flatMap((event) => () => {
-        for (const listener of this.#listeners[type]) {
-          try {
-            (listener as PlayerEventListener<T>)(event);
-          } catch (err) {
-            logger.error("Event listener error:", err)();
-          }
-        }
-      }),
-    );
-
-  readonly #setState =
-    (newState: StreamPlayState): IO.IO<void> =>
-    () => {
-      if (this.#state === newState) return;
-      const previousState = this.#state;
-      this.#state = newState;
-      pipe(
-        logger.debug("State changed:", previousState, "->", newState),
-        IO.flatMap(() => this.#emit("statechange", { state: newState, previousState })),
-      )();
-    };
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Public API
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  get state(): StreamPlayState {
-    return this.#state;
-  }
-
-  get source(): MediaSource | null {
-    return this.#source;
-  }
-
-  get currentTime(): number {
-    return getCurrentTimeMs(this.#videoElement);
-  }
-
-  get duration(): number {
-    return getDurationMs(this.#videoElement);
-  }
-
-  get speed(): number {
-    return this.#currentSpeed;
-  }
-
-  get volume(): number {
-    return normalizedToVolume(this.#videoElement.volume);
-  }
-
-  get muted(): boolean {
-    return this.#videoElement.muted;
-  }
-
-  get fullscreen(): boolean {
-    return isFullscreen(this.#videoElement);
-  }
-
-  getElement = (): HTMLVideoElement => this.#videoElement;
-
-  // Playback Control
-
-  load = (newSource: MediaSource): void => {
-    pipe(
-      logger.debug("Loading source:", newSource.url),
-      IO.flatMap(() => () => {
-        this.#source = newSource;
-        this.#videoElement.autoplay = newSource.autoPlay ?? false;
-        this.#videoElement.muted = newSource.muted ?? false;
-        this.#videoElement.loop = newSource.loop ?? false;
-        this.#videoElement.src = newSource.url;
-        this.#videoElement.load();
-      }),
-      IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
-    )();
-  };
-
-  play = (speed = 1): void => {
-    pipe(
-      logger.debug("Play:", speed),
-      IO.flatMap(() => () => {
+    this.#env = {
+      state: this.#state,
+      source: this.#source,
+      currentSpeed: this.#currentSpeed,
+      listeners: createEventListeners(),
+      videoElement: this.videoElement,
+      setState: (newState) => () => {
+        this.#state = newState;
+        this.#env.state = newState;
+      },
+      setSource: (source) => () => {
+        this.#source = source;
+        this.#env.source = source;
+      },
+      setCurrentSpeed: (speed) => () => {
         this.#currentSpeed = speed;
-        this.#videoElement.playbackRate = Math.abs(speed);
+        this.#env.currentSpeed = speed;
+      },
+    };
+  }
 
-        if (speed === 0) {
-          this.#videoElement.pause();
-        } else {
-          this.#videoElement.play().catch((err) => {
-            logger.error("Play failed:", err)();
-            pipe(
-              this.#setState(StreamPlayState.ERROR),
-              IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
-            )();
-          });
-        }
-      }),
-    )();
-  };
+  load = (source: MediaSource): IO.IO<void> => load(source)(this.#env);
+  release = (): IO.IO<void> => release(this.#env);
+  setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
-  pause = (): void => {
-    pipe(
-      logger.debug("Pause"),
-      IO.flatMap(() => () => this.#videoElement.pause()),
-    )();
-  };
+  play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
+  pause = (): IO.IO<void> => htmlVideoPause(this.#env);
+  stop = (): IO.IO<void> => htmlVideoStop(this.#env);
+  seek = (position: number): IO.IO<void> => htmlVideoSeek(position)(this.#env);
 
-  stop = (): void => {
-    pipe(
-      logger.debug("Stop"),
-      IO.flatMap(() => () => {
-        this.#videoElement.pause();
-        this.#videoElement.currentTime = 0;
-      }),
-      IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
-    )();
-  };
+  setVolume = (volume: number): IO.IO<void> => setVolume(volume)(this.#env);
+  setMuted = (muted: boolean): IO.IO<void> => setMuted(muted)(this.#env);
+  setFullscreen = (fullscreen: boolean): IO.IO<void> => htmlVideoSetFullscreen(fullscreen)(this.#env);
+  setSize = (width: number, height: number): IO.IO<void> => setSize(width, height)(this.#env);
 
-  seek = (position: number): void => {
-    pipe(
-      logger.debug("Seek:", position),
-      IO.flatMap(() => () => {
-        const posSeconds = msToSeconds(position);
-        if (posSeconds >= 0 && posSeconds <= this.#videoElement.duration) {
-          this.#videoElement.currentTime = posSeconds;
-        }
-      }),
-    )();
-  };
+  on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    on(type, listener)(this.#env);
 
-  release = (): void => {
-    pipe(
-      logger.debug("Release"),
-      IO.flatMap(() => () => {
-        this.#videoElement.pause();
-        this.#videoElement.removeAttribute("src");
-        this.#videoElement.load();
-        this.#source = null;
-      }),
-      IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
-    )();
-  };
-
-  // Audio Control
-
-  setVolume = (volume: number): void => {
-    this.#videoElement.volume = volumeToNormalized(volume);
-  };
-
-  setMuted = (muted: boolean): void => {
-    this.#videoElement.muted = muted;
-  };
-
-  // Display Control
-
-  setFullscreen = (fullscreen: boolean): void => {
-    if (fullscreen && !document.fullscreenElement) {
-      this.#videoElement.requestFullscreen?.().catch((err) => {
-        logger.warn("Fullscreen request failed:", err)();
-      });
-    } else if (!fullscreen && document.fullscreenElement === this.#videoElement) {
-      document.exitFullscreen?.().catch((err) => {
-        logger.warn("Exit fullscreen failed:", err)();
-      });
-    }
-  };
-
-  setSize = (width: number, height: number): void => {
-    this.#videoElement.style.width = `${width}px`;
-    this.#videoElement.style.height = `${height}px`;
-  };
-
-  // Event Subscription
-
-  on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void => {
-    this.#listeners[type].add(listener as PlayerEventListener<PlayerEventType>);
-  };
-
-  off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void => {
-    this.#listeners[type].delete(listener as PlayerEventListener<PlayerEventType>);
-  };
+  off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    off(type, listener)(this.#env);
 }
 
-type EventListeners = {
-  [K in PlayerEventType]: Set<PlayerEventListener<K>>;
-};
+export const htmlVideoPause: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = pause(LOGGER_NAME);
+export const htmlVideoStop: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = stop(LOGGER_NAME);
+export const htmlVideoSeek = (position: number): RIO.ReaderIO<HtmlVideoPlayerEnv, void> => seek(position, LOGGER_NAME);
+export const htmlVideoSetFullscreen = (fullscreen: boolean): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
+  setFullscreen(fullscreen, LOGGER_NAME);
+export const htmlVideoSetVolume = setVolume;
+export const htmlVideoSetMuted = setMuted;
+export const htmlVideoSetSize = setSize;
+export const htmlVideoOn = on;
+export const htmlVideoOff = off;
 
-const createEventListeners = (): EventListeners => ({
-  statechange: new Set(),
-  timeupdate: new Set(),
-  durationchange: new Set(),
-  volumechange: new Set(),
-  error: new Set(),
-  ended: new Set(),
-  fullscreenchange: new Set(),
-});
+// Getters
 
-const createPlayerEvent = <T extends PlayerEventType>(
-  type: T,
-  data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-): PlayerEvent<T> => ({ type, timestamp: Date.now(), ...data }) as PlayerEvent<T>;
-
-const createVideoError = (video: HTMLVideoElement): PlayerError => ({
-  code: video.error?.code ?? 0,
-  message: video.error?.message ?? "Unknown error",
-});
-
-const msToSeconds = (ms: number): number => ms / 1000;
-
-const secondsToMs = (seconds: number): number => Math.floor(seconds * 1000);
-
-const clampVolume = (volume: number): number => Math.max(0, Math.min(100, volume));
-
-const volumeToNormalized = (volume: number): number => clampVolume(volume) / 100;
-
-const normalizedToVolume = (normalized: number): number => Math.round(normalized * 100);
-
-const getCurrentTimeMs = (video: HTMLVideoElement): number => secondsToMs(video.currentTime);
-
-const getDurationMs = (video: HTMLVideoElement): number =>
-  Number.isFinite(video.duration) ? secondsToMs(video.duration) : 0;
-
-const isFullscreen = (element: HTMLVideoElement): boolean => document.fullscreenElement === element;
+export const getState = (state: HtmlVideoPlayerState): StreamPlayState => state.state;
+export const getSource = (state: HtmlVideoPlayerState): MediaSource | null => state.source;
+export const getCurrentTime = (state: HtmlVideoPlayerState): number => getCurrentTimeMs(state.videoElement);
+export const getDuration = (state: HtmlVideoPlayerState): number => getDurationMs(state.videoElement);
+export const getSpeed = (state: HtmlVideoPlayerState): number => state.currentSpeed;
+export const getVolume = (state: HtmlVideoPlayerState): number => normalizedToVolume(state.videoElement.volume);
+export const getMuted = (state: HtmlVideoPlayerState): boolean => state.videoElement.muted;
+export const getFullscreen = (state: HtmlVideoPlayerState): boolean => isFullscreen(state.videoElement);
+export const getElement = (state: HtmlVideoPlayerState): HTMLVideoElement => state.videoElement;

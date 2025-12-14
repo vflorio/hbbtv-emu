@@ -2,7 +2,7 @@ import { type ClassType, createLogger } from "@hbb-emu/core";
 import { DEFAULT_FULL_SCREEN, DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH, type OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
 
 const logger = createLogger("VideoBroadcast");
 

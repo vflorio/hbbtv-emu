@@ -1,7 +1,7 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
 import { StreamPlayState } from "../../providers";
-import type { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
 import type { ChannelAPI } from "./channel";
 
 const logger = createLogger("VideoBroadcast:Controller");

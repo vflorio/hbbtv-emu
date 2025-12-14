@@ -19,7 +19,7 @@ import {
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { StreamPlayState } from "../providers/videoStream";
-import { ObjectVideoStream } from "../providers/videoStream/objectVideoStream";
+import { ObjectVideoStream } from "../providers/videoStream/videoStream";
 
 const logger = createLogger("AVControlVideo");
 
@@ -144,13 +144,13 @@ export class AVControlVideo
   // ═══════════════════════════════════════════════════════════════════════════
 
   get playPosition(): number | undefined {
-    const time = this.player.currentTime;
+    const time = this.videoElement.currentTime * 1000; // convert to ms
     return time > 0 ? time : undefined;
   }
 
   get playTime(): number | undefined {
-    const duration = this.player.duration;
-    return duration > 0 ? duration : undefined;
+    const duration = this.videoElement.duration * 1000; // convert to ms
+    return duration > 0 && Number.isFinite(duration) ? duration : undefined;
   }
 
   get playState(): OIPF.AV.Control.PlayState {
@@ -269,9 +269,9 @@ export class AVControlVideo
     pipe(
       logger.debug("seek:", pos),
       IO.map(() => {
-        const duration = this.player.duration;
+        const duration = this.videoElement.duration * 1000;
         if (pos >= 0 && pos <= duration) {
-          this.videoStreamSeek(pos);
+          this.videoStreamSeek(pos)();
           this.onPlayPositionChanged?.(pos);
           return true;
         }

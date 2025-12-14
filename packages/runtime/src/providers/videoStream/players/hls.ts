@@ -2,362 +2,345 @@
 
 import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
+import type * as IO from "fp-ts/IO";
+import * as RIO from "fp-ts/ReaderIO";
 import type Hls from "hls.js";
-import type { MediaSource, Player, PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType } from "../types";
+import { match } from "ts-pattern";
+import type { Player } from "../..";
+import type { MediaSource, PlayerEventListener, PlayerEventType } from "../types";
 import { StreamPlayState } from "../types";
+import {
+  createEventListeners,
+  createHlsError,
+  type EventListeners,
+  emit,
+  getCurrentTimeMs,
+  getDurationMs,
+  isFullscreen,
+  msToSeconds,
+  normalizedToVolume,
+  off,
+  on,
+  type PlayerEnv,
+  playBase,
+  setFullscreen,
+  setMuted as setMutedBase,
+  setSize,
+  setState,
+  setVolume,
+} from "./common";
 
-const logger = createLogger("HlsPlayer");
+const LOGGER_NAME = "HlsPlayer";
+const logger = createLogger(LOGGER_NAME);
+
+// State
+
+export type HlsPlayerState = {
+  state: StreamPlayState;
+  source: MediaSource | null;
+  currentSpeed: number;
+  videoElement: HTMLVideoElement;
+  listeners: EventListeners;
+  hlsPlayer: Hls | null;
+};
+
+export const createHlsPlayerState = (): HlsPlayerState => ({
+  state: StreamPlayState.IDLE,
+  source: null,
+  currentSpeed: 1,
+  videoElement: document.createElement("video"),
+  listeners: createEventListeners(),
+  hlsPlayer: null,
+});
+
+// Environment
+
+export type HlsPlayerEnv = PlayerEnv & {
+  hlsPlayer: Hls | null;
+  setHlsPlayer: (player: Hls | null) => IO.IO<void>;
+};
+
+export const createHlsPlayerEnv = (state: HlsPlayerState): HlsPlayerEnv => ({
+  state: state.state,
+  source: state.source,
+  currentSpeed: state.currentSpeed,
+  listeners: state.listeners,
+  videoElement: state.videoElement,
+  hlsPlayer: state.hlsPlayer,
+  setState: (newState: StreamPlayState) => () => {
+    state.state = newState;
+  },
+  setSource: (source: MediaSource | null) => () => {
+    state.source = source;
+  },
+  setCurrentSpeed: (speed: number) => () => {
+    state.currentSpeed = speed;
+  },
+  setHlsPlayer: (player: Hls | null) => () => {
+    state.hlsPlayer = player;
+  },
+});
+
+// Methods
+
+const initHlsPlayer = async (env: HlsPlayerEnv): Promise<Hls> => {
+  if (env.hlsPlayer) {
+    return env.hlsPlayer;
+  }
+
+  const HlsModule = await import("hls.js");
+  const HlsClass = HlsModule.default;
+
+  if (!HlsClass.isSupported()) {
+    throw new Error("HLS.js is not supported in this browser");
+  }
+
+  const hls = new HlsClass({
+    enableWorker: true,
+    lowLatencyMode: false,
+  });
+
+  hls.attachMedia(env.videoElement);
+  setupHlsEventHandlers(hls, HlsClass, env);
+  env.setHlsPlayer(hls)();
+
+  return hls;
+};
+
+const setupHlsEventHandlers = (hls: Hls, HlsClass: typeof import("hls.js").default, env: HlsPlayerEnv): void => {
+  hls.on(HlsClass.Events.ERROR, (_event, data) => {
+    if (data.fatal) {
+      pipe(
+        setState(StreamPlayState.ERROR, LOGGER_NAME),
+        RIO.flatMap(() => emit("error", { error: createHlsError(data) }, LOGGER_NAME)),
+      )(env)();
+    }
+  });
+
+  hls.on(HlsClass.Events.MANIFEST_PARSED, () => {
+    logger.debug("HLS manifest parsed")();
+  });
+
+  hls.on(HlsClass.Events.FRAG_BUFFERED, () => {
+    match(env.state)
+      .with(StreamPlayState.BUFFERING, () => setState(StreamPlayState.PLAYING, LOGGER_NAME)(env)())
+      .otherwise(() => {});
+  });
+};
+
+export const setupVideoEventListeners: RIO.ReaderIO<HlsPlayerEnv, void> = pipe(
+  RIO.ask<HlsPlayerEnv>(),
+  RIO.flatMapIO((env) => () => {
+    env.videoElement.addEventListener("playing", () => {
+      setState(StreamPlayState.PLAYING, LOGGER_NAME)(env)();
+    });
+
+    env.videoElement.addEventListener("pause", () => {
+      match(env.state)
+        .with(StreamPlayState.PLAYING, () => setState(StreamPlayState.PAUSED, LOGGER_NAME)(env)())
+        .otherwise(() => {});
+    });
+
+    env.videoElement.addEventListener("ended", () => {
+      pipe(
+        setState(StreamPlayState.FINISHED, LOGGER_NAME),
+        RIO.flatMap(() => emit("ended", {}, LOGGER_NAME)),
+      )(env)();
+    });
+
+    env.videoElement.addEventListener("timeupdate", () => {
+      emit("timeupdate", { currentTime: getCurrentTimeMs(env.videoElement) }, LOGGER_NAME)(env)();
+    });
+
+    env.videoElement.addEventListener("durationchange", () => {
+      if (Number.isFinite(env.videoElement.duration)) {
+        emit("durationchange", { duration: getDurationMs(env.videoElement) }, LOGGER_NAME)(env)();
+      }
+    });
+
+    env.videoElement.addEventListener("volumechange", () => {
+      emit(
+        "volumechange",
+        {
+          volume: normalizedToVolume(env.videoElement.volume),
+          muted: env.videoElement.muted,
+        },
+        LOGGER_NAME,
+      )(env)();
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      emit("fullscreenchange", { fullscreen: isFullscreen(env.videoElement) }, LOGGER_NAME)(env)();
+    });
+  }),
+);
+
+export const load = (source: MediaSource): RIO.ReaderIO<HlsPlayerEnv, void> =>
+  pipe(
+    RIO.ask<HlsPlayerEnv>(),
+    RIO.tapIO(() => logger.debug("Loading HLS source:", source.url)),
+    RIO.tapIO((env) => env.setSource(source)),
+    RIO.tapIO((env) => setState(StreamPlayState.CONNECTING, LOGGER_NAME)(env)),
+    RIO.flatMapIO((env) => () => {
+      initHlsPlayer(env)
+        .then((hls) => {
+          hls.loadSource(source.url);
+        })
+        .catch((err) => {
+          logger.error("HLS init failed:", err)();
+          pipe(
+            setState(StreamPlayState.ERROR, LOGGER_NAME),
+            RIO.flatMap(() => emit("error", { error: { code: 0, message: String(err) } }, LOGGER_NAME)),
+          )(env)();
+        });
+    }),
+  );
+
+export const play = (speed: number): RIO.ReaderIO<HlsPlayerEnv, void> =>
+  pipe(
+    playBase(speed, LOGGER_NAME),
+    RIO.flatMap(() =>
+      pipe(
+        RIO.ask<HlsPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          match(speed)
+            .with(0, () => env.videoElement.pause())
+            .otherwise(() => {
+              env.videoElement.play().catch((err: unknown) => {
+                logger.error("Play failed:", err)();
+                pipe(
+                  setState(StreamPlayState.ERROR, LOGGER_NAME),
+                  RIO.flatMap(() => emit("error", { error: { code: 0, message: String(err) } }, LOGGER_NAME)),
+                )(env)();
+              });
+            });
+        }),
+      ),
+    ),
+  );
+
+export const pause: RIO.ReaderIO<HlsPlayerEnv, void> = pipe(
+  RIO.ask<HlsPlayerEnv>(),
+  RIO.tapIO(() => logger.debug("Pause")),
+  RIO.flatMapIO((env) => () => env.videoElement.pause()),
+);
+
+export const stop: RIO.ReaderIO<HlsPlayerEnv, void> = pipe(
+  RIO.ask<HlsPlayerEnv>(),
+  RIO.tapIO(() => logger.debug("Stop")),
+  RIO.tapIO((env) => () => {
+    env.videoElement.pause();
+    env.videoElement.currentTime = 0;
+  }),
+  RIO.tapIO((env) => setState(StreamPlayState.STOPPED, LOGGER_NAME)(env)),
+  RIO.map(() => undefined),
+);
+
+export const seek = (position: number): RIO.ReaderIO<HlsPlayerEnv, void> =>
+  pipe(
+    RIO.ask<HlsPlayerEnv>(),
+    RIO.tapIO(() => logger.debug("Seek:", position)),
+    RIO.flatMapIO((env) => () => {
+      const posSeconds = msToSeconds(position);
+      if (posSeconds >= 0 && posSeconds <= env.videoElement.duration) {
+        env.videoElement.currentTime = posSeconds;
+      }
+    }),
+  );
+
+export const release: RIO.ReaderIO<HlsPlayerEnv, void> = pipe(
+  RIO.ask<HlsPlayerEnv>(),
+  RIO.tapIO(() => logger.debug("Release")),
+  RIO.tapIO((env) => () => {
+    env.hlsPlayer?.destroy();
+  }),
+  RIO.tapIO((env) => env.setHlsPlayer(null)),
+  RIO.tapIO((env) => env.setSource(null)),
+  RIO.tapIO((env) => setState(StreamPlayState.IDLE, LOGGER_NAME)(env)),
+  RIO.map(() => undefined),
+);
+
+export const setMuted = setMutedBase;
+
+// HlsPlayer Class
 
 export class HlsPlayer implements Player {
-  readonly #videoElement: HTMLVideoElement;
-  readonly #listeners: EventListeners;
-  #hlsPlayer: Hls | null = null;
+  readonly sourceType = "hls" as const;
+  readonly videoElement: HTMLVideoElement;
+
+  readonly #env: HlsPlayerEnv;
   #state: StreamPlayState = StreamPlayState.IDLE;
   #source: MediaSource | null = null;
   #currentSpeed = 1;
+  #hlsPlayer: Hls | null = null;
 
   constructor() {
-    this.#videoElement = document.createElement("video");
-    this.#listeners = createEventListeners();
-    this.#setupVideoEventListeners()();
-  }
+    this.videoElement = document.createElement("video");
 
-  readonly #initHlsPlayer = async (): Promise<Hls> => {
-    if (this.#hlsPlayer) {
-      return this.#hlsPlayer;
-    }
-
-    // Dynamic import to avoid loading hls.js if not needed
-    const HlsModule = await import("hls.js");
-    const HlsClass = HlsModule.default;
-
-    if (!HlsClass.isSupported()) {
-      throw new Error("HLS.js is not supported in this browser");
-    }
-
-    this.#hlsPlayer = new HlsClass({
-      enableWorker: true,
-      lowLatencyMode: false,
-    });
-
-    this.#hlsPlayer.attachMedia(this.#videoElement);
-
-    this.#setupHlsEventHandlers(this.#hlsPlayer, HlsClass);
-
-    return this.#hlsPlayer;
-  };
-
-  readonly #setupHlsEventHandlers = (hls: Hls, HlsClass: typeof import("hls.js").default): void => {
-    hls.on(HlsClass.Events.ERROR, (_event, data) => {
-      if (data.fatal) {
-        pipe(
-          this.#setState(StreamPlayState.ERROR),
-          IO.flatMap(() => this.#emit("error", { error: createHlsError(data) })),
-        )();
-      }
-    });
-
-    hls.on(HlsClass.Events.MANIFEST_PARSED, () => {
-      logger.debug("HLS manifest parsed")();
-    });
-
-    hls.on(HlsClass.Events.FRAG_BUFFERED, () => {
-      if (this.#state === StreamPlayState.BUFFERING) {
-        this.#setState(StreamPlayState.PLAYING)();
-      }
-    });
-  };
-
-  readonly #setupVideoEventListeners = (): IO.IO<void> =>
-    IO.of(() => {
-      this.#videoElement.addEventListener("playing", () => {
-        this.#setState(StreamPlayState.PLAYING)();
-      });
-
-      this.#videoElement.addEventListener("pause", () => {
-        if (this.#state === StreamPlayState.PLAYING) {
-          this.#setState(StreamPlayState.PAUSED)();
-        }
-      });
-
-      this.#videoElement.addEventListener("ended", () => {
-        pipe(
-          this.#setState(StreamPlayState.FINISHED),
-          IO.flatMap(() => this.#emit("ended", {})),
-        )();
-      });
-
-      this.#videoElement.addEventListener("timeupdate", () => {
-        this.#emit("timeupdate", { currentTime: getCurrentTimeMs(this.#videoElement) })();
-      });
-
-      this.#videoElement.addEventListener("durationchange", () => {
-        if (Number.isFinite(this.#videoElement.duration)) {
-          this.#emit("durationchange", { duration: getDurationMs(this.#videoElement) })();
-        }
-      });
-
-      this.#videoElement.addEventListener("volumechange", () => {
-        this.#emit("volumechange", {
-          volume: normalizedToVolume(this.#videoElement.volume),
-          muted: this.#videoElement.muted,
-        })();
-      });
-
-      document.addEventListener("fullscreenchange", () => {
-        this.#emit("fullscreenchange", { fullscreen: isFullscreen(this.#videoElement) })();
-      });
-    });
-
-  readonly #emit = <T extends PlayerEventType>(
-    type: T,
-    data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-  ): IO.IO<void> =>
-    pipe(
-      IO.of(createPlayerEvent(type, data)),
-      IO.flatMap((event) =>
-        IO.of(() => {
-          for (const listener of this.#listeners[type]) {
-            try {
-              (listener as PlayerEventListener<T>)(event);
-            } catch (err) {
-              logger.error("Event listener error:", err)();
-            }
-          }
-        }),
-      ),
-    );
-
-  readonly #setState =
-    (newState: StreamPlayState): IO.IO<void> =>
-    () => {
-      if (this.#state === newState) return;
-      const previousState = this.#state;
-      this.#state = newState;
-      pipe(
-        logger.debug("State changed:", previousState, "->", newState),
-        IO.flatMap(() => this.#emit("statechange", { state: newState, previousState })),
-      )();
+    this.#env = {
+      state: this.#state,
+      source: this.#source,
+      currentSpeed: this.#currentSpeed,
+      listeners: createEventListeners(),
+      videoElement: this.videoElement,
+      hlsPlayer: this.#hlsPlayer,
+      setState: (newState) => () => {
+        this.#state = newState;
+        this.#env.state = newState;
+      },
+      setSource: (source) => () => {
+        this.#source = source;
+        this.#env.source = source;
+      },
+      setCurrentSpeed: (speed) => () => {
+        this.#currentSpeed = speed;
+        this.#env.currentSpeed = speed;
+      },
+      setHlsPlayer: (player) => () => {
+        this.#hlsPlayer = player;
+        this.#env.hlsPlayer = player;
+      },
     };
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Public API
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  get state(): StreamPlayState {
-    return this.#state;
   }
 
-  get source(): MediaSource | null {
-    return this.#source;
-  }
+  load = (source: MediaSource): IO.IO<void> => load(source)(this.#env);
+  release = (): IO.IO<void> => release(this.#env);
+  setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
-  get currentTime(): number {
-    return getCurrentTimeMs(this.#videoElement);
-  }
+  play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
+  pause = (): IO.IO<void> => pause(this.#env);
+  stop = (): IO.IO<void> => stop(this.#env);
+  seek = (position: number): IO.IO<void> => seek(position)(this.#env);
 
-  get duration(): number {
-    return getDurationMs(this.#videoElement);
-  }
+  setVolume = (volume: number): IO.IO<void> => setVolume(volume)(this.#env);
+  setMuted = (muted: boolean): IO.IO<void> => setMuted(muted)(this.#env);
+  setFullscreen = (fullscreen: boolean): IO.IO<void> => setFullscreen(fullscreen, LOGGER_NAME)(this.#env);
+  setSize = (width: number, height: number): IO.IO<void> => setSize(width, height)(this.#env);
 
-  get speed(): number {
-    return this.#currentSpeed;
-  }
+  on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    on(type, listener)(this.#env);
 
-  get volume(): number {
-    return normalizedToVolume(this.#videoElement.volume);
-  }
-
-  get muted(): boolean {
-    return this.#videoElement.muted;
-  }
-
-  get fullscreen(): boolean {
-    return isFullscreen(this.#videoElement);
-  }
-
-  getElement = (): HTMLVideoElement => this.#videoElement;
-
-  // Playback Control
-
-  load = (newSource: MediaSource): void => {
-    pipe(
-      logger.debug("Loading HLS source:", newSource.url),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#source = newSource;
-        }),
-      ),
-      IO.flatMap(() => this.#setState(StreamPlayState.CONNECTING)),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#initHlsPlayer()
-            .then((hls) => {
-              hls.loadSource(newSource.url);
-            })
-            .catch((err) => {
-              logger.error("HLS init failed:", err)();
-              pipe(
-                this.#setState(StreamPlayState.ERROR),
-                IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
-              )();
-            });
-        }),
-      ),
-    )();
-  };
-
-  play = (speed = 1): void => {
-    pipe(
-      logger.debug("Play:", speed),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#currentSpeed = speed;
-          this.#videoElement.playbackRate = Math.abs(speed);
-
-          if (speed === 0) {
-            this.#videoElement.pause();
-          } else {
-            this.#videoElement.play().catch((err) => {
-              logger.error("Play failed:", err)();
-              pipe(
-                this.#setState(StreamPlayState.ERROR),
-                IO.flatMap(() => this.#emit("error", { error: { code: 0, message: String(err) } })),
-              )();
-            });
-          }
-        }),
-      ),
-    )();
-  };
-
-  pause = (): void => {
-    pipe(
-      logger.debug("Pause"),
-      IO.flatMap(() => IO.of(() => this.#videoElement.pause())),
-    )();
-  };
-
-  stop = (): void => {
-    pipe(
-      logger.debug("Stop"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#videoElement.pause();
-          this.#videoElement.currentTime = 0;
-        }),
-      ),
-      IO.flatMap(() => this.#setState(StreamPlayState.STOPPED)),
-    )();
-  };
-
-  seek = (position: number): void => {
-    pipe(
-      logger.debug("Seek:", position),
-      IO.flatMap(() =>
-        IO.of(() => {
-          const posSeconds = msToSeconds(position);
-          if (posSeconds >= 0 && posSeconds <= this.#videoElement.duration) {
-            this.#videoElement.currentTime = posSeconds;
-          }
-        }),
-      ),
-    )();
-  };
-
-  release = (): void => {
-    pipe(
-      logger.debug("Release"),
-      IO.flatMap(() =>
-        IO.of(() => {
-          this.#hlsPlayer?.destroy();
-          this.#hlsPlayer = null;
-          this.#source = null;
-        }),
-      ),
-      IO.flatMap(() => this.#setState(StreamPlayState.IDLE)),
-    )();
-  };
-
-  // Audio Control
-
-  setVolume = (volume: number): void => {
-    this.#videoElement.volume = volumeToNormalized(volume);
-  };
-
-  setMuted = (muted: boolean): void => {
-    this.#videoElement.muted = muted;
-  };
-
-  // Display Control
-
-  setFullscreen = (fullscreen: boolean): void => {
-    if (fullscreen && !document.fullscreenElement) {
-      this.#videoElement.requestFullscreen?.().catch((err) => {
-        logger.warn("Fullscreen request failed:", err)();
-      });
-    } else if (!fullscreen && document.fullscreenElement === this.#videoElement) {
-      document.exitFullscreen?.().catch((err) => {
-        logger.warn("Exit fullscreen failed:", err)();
-      });
-    }
-  };
-
-  setSize = (width: number, height: number): void => {
-    this.#videoElement.style.width = `${width}px`;
-    this.#videoElement.style.height = `${height}px`;
-  };
-
-  // Event Subscription
-
-  on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void => {
-    this.#listeners[type].add(listener as PlayerEventListener<PlayerEventType>);
-  };
-
-  off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): void => {
-    this.#listeners[type].delete(listener as PlayerEventListener<PlayerEventType>);
-  };
+  off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    off(type, listener)(this.#env);
 }
 
-type EventListeners = {
-  [K in PlayerEventType]: Set<PlayerEventListener<K>>;
-};
+// Wrapper
 
-const createEventListeners = (): EventListeners => ({
-  statechange: new Set(),
-  timeupdate: new Set(),
-  durationchange: new Set(),
-  volumechange: new Set(),
-  error: new Set(),
-  ended: new Set(),
-  fullscreenchange: new Set(),
-});
+export const hlsSetFullscreen = (fullscreen: boolean): RIO.ReaderIO<HlsPlayerEnv, void> =>
+  setFullscreen(fullscreen, LOGGER_NAME);
+export const hlsSetVolume = setVolume;
+export const hlsSetSize = setSize;
+export const hlsOn = on;
+export const hlsOff = off;
 
-const createPlayerEvent = <T extends PlayerEventType>(
-  type: T,
-  data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-): PlayerEvent<T> => ({ type, timestamp: Date.now(), ...data }) as PlayerEvent<T>;
+// Getters
 
-const createHlsError = (data: { type: string; details: string }): PlayerError => ({
-  code: data.details ? 1 : 0,
-  message: `HLS error: ${data.type} - ${data.details}`,
-  details: data,
-});
-
-const msToSeconds = (ms: number): number => ms / 1000;
-
-const secondsToMs = (seconds: number): number => Math.floor(seconds * 1000);
-
-const clampVolume = (volume: number): number => Math.max(0, Math.min(100, volume));
-
-const volumeToNormalized = (volume: number): number => clampVolume(volume) / 100;
-
-const normalizedToVolume = (normalized: number): number => Math.round(normalized * 100);
-
-const getCurrentTimeMs = (video: HTMLVideoElement): number => secondsToMs(video.currentTime);
-
-const getDurationMs = (video: HTMLVideoElement): number =>
-  Number.isFinite(video.duration) ? secondsToMs(video.duration) : 0;
-
-const isFullscreen = (element: HTMLVideoElement): boolean => document.fullscreenElement === element;
+export const getState = (state: HlsPlayerState): StreamPlayState => state.state;
+export const getSource = (state: HlsPlayerState): MediaSource | null => state.source;
+export const getCurrentTime = (state: HlsPlayerState): number => getCurrentTimeMs(state.videoElement);
+export const getDuration = (state: HlsPlayerState): number => getDurationMs(state.videoElement);
+export const getSpeed = (state: HlsPlayerState): number => state.currentSpeed;
+export const getVolume = (state: HlsPlayerState): number => normalizedToVolume(state.videoElement.volume);
+export const getMuted = (state: HlsPlayerState): boolean => state.videoElement.muted;
+export const getFullscreen = (state: HlsPlayerState): boolean => isFullscreen(state.videoElement);
+export const getElement = (state: HlsPlayerState): HTMLVideoElement => state.videoElement;

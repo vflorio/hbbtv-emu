@@ -1,8 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
-import { DEFAULT_BROADCAST_PLAY_STATE, type OIPF } from "@hbb-emu/oipf";
-import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import type { ObjectVideoStream } from "../../providers/videoStream/objectVideoStream";
+import type { OIPF } from "@hbb-emu/oipf";
+import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
 
 const logger = createLogger("VideoBroadcast:StreamEvent");
 
