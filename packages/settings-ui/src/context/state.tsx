@@ -1,6 +1,6 @@
 import {
   type ChannelConfig,
-  DEFAULT_HBBTV_CONFIG,
+  DEFAULT_EXTENSION_STATE,
   type ExtensionState,
   type StreamEventConfig,
 } from "@hbb-emu/extension-common";
@@ -12,7 +12,7 @@ export interface AppState {
 }
 
 const initialState: AppState = {
-  config: DEFAULT_HBBTV_CONFIG,
+  config: DEFAULT_EXTENSION_STATE,
   isLoading: true,
 };
 

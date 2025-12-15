@@ -1,7 +1,7 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import {
   type ChannelConfig,
-  DEFAULT_HBBTV_CONFIG,
+  DEFAULT_EXTENSION_STATE,
   type ExtensionState,
   type MessageClient,
 } from "@hbb-emu/extension-common";
@@ -22,7 +22,7 @@ export const WithBridge = <T extends ClassType<Render & MessageClient>>(Base: T)
           (error) =>
             pipe(
               T.fromIO(logger.warn("Failed to load state, using default:", error.message)),
-              T.map(() => DEFAULT_HBBTV_CONFIG),
+              T.map(() => DEFAULT_EXTENSION_STATE),
             ),
           (envelope) => T.of(envelope.message.payload as ExtensionState),
         ),

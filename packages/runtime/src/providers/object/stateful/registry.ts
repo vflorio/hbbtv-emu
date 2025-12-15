@@ -12,7 +12,6 @@ import type { AnyOipfDefinition, StateKey } from "../../..";
 
 const logger = createLogger("Registry");
 
-/** Environment for registry operations */
 export type RegistryEnv = Readonly<{
   registryRef: IORef.IORef<InstanceRegistry>;
   objectDefinitions: ReadonlyArray<AnyOipfDefinition>;

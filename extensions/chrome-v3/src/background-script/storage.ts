@@ -1,5 +1,5 @@
 import { createLogger, Storage } from "@hbb-emu/core";
-import { DEFAULT_HBBTV_CONFIG, type ExtensionState, ExtensionStateCodec } from "@hbb-emu/extension-common";
+import { DEFAULT_EXTENSION_STATE, type ExtensionState, ExtensionStateCodec } from "@hbb-emu/extension-common";
 import { ChromeStorageAdapter } from "@hbb-emu/runtime-chrome";
 import { pipe } from "fp-ts/function";
 import * as T from "fp-ts/Task";
@@ -21,7 +21,7 @@ export const loadConfigFromStorage = (app: Instance): T.Task<void> =>
       (error) =>
         pipe(
           T.fromIO(logger.warn("Failed to load config, using defaults:", error)),
-          T.flatMap(() => T.fromIO(app.runState(setConfig(DEFAULT_HBBTV_CONFIG)))),
+          T.flatMap(() => T.fromIO(app.runState(setConfig(DEFAULT_EXTENSION_STATE)))),
         ),
       (config) =>
         pipe(

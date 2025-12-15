@@ -7,7 +7,6 @@ import * as RTE from "fp-ts/ReaderTaskEither";
 import { match } from "ts-pattern";
 import {
   type ChannelRegistryEnv,
-  createChannelRegistryEnv,
   loadSource,
   type MediaSource,
   releasePlayer,
@@ -48,9 +47,8 @@ export interface ChannelAPI {
 export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements ChannelAPI {
     #withChannelEnv = {
+      ...this.env,
       ...createChannelEnv(this),
-      ...createChannelRegistryEnv(this.extensionState),
-      ...createChannelVideoStreamEnv(this.videoStreamEnv),
     };
 
     _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
@@ -156,8 +154,8 @@ export const createChannelEnv = (instance: ChannelAPI): ChannelEnv => ({
 });
 
 export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): ChannelVideoStreamEnv => ({
-  play: videoStreamEnv.playerPlay(),
-  stop: videoStreamEnv.playerStop,
+  play: videoStreamEnv.player.play(),
+  stop: videoStreamEnv.player.stop(),
   destroy: releasePlayer(videoStreamEnv),
   loadSource: (source) => loadSource(source)(videoStreamEnv),
 });

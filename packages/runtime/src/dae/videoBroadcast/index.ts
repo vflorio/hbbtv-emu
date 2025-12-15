@@ -1,9 +1,9 @@
 import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
-import { DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
-import { ObjectVideoStream, type VideoStreamEnv } from "../../providers/videoStream/videoStream";
-import { WithChannel } from "./channel";
+import type { ChannelRegistryEnv } from "../../providers";
+import { ObjectVideoStream } from "../../providers/videoStream/videoStream";
+import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
 import { WithComponent } from "./component";
 import { WithController } from "./controller";
 import { WithDisplay } from "./display";
@@ -13,20 +13,19 @@ import { WithVolume } from "./volume";
 
 export type VideoBroadcastEnv = ObjectVideoStream &
   Readonly<{
-    extensionState: ExtensionState;
-    videoStreamEnv: VideoStreamEnv;
+    env: ChannelRegistryEnv & ChannelVideoStreamEnv;
   }>;
 
 class BaseVideoBroadcast extends ObjectVideoStream implements VideoBroadcastEnv {
-  extensionState: ExtensionState;
+  readonly env: ChannelRegistryEnv & ChannelVideoStreamEnv;
 
-  constructor(extensionState?: ExtensionState) {
+  constructor(env: { channelRegistry: ChannelRegistryEnv; videoStream: ChannelVideoStreamEnv }) {
     super();
-    this.extensionState = extensionState ?? DEFAULT_EXTENSION_STATE;
-  }
 
-  get videoStreamEnv(): VideoStreamEnv {
-    return this._videoStreamEnv;
+    this.env = {
+      ...env.channelRegistry,
+      ...env.videoStream,
+    };
   }
 }
 

@@ -9,12 +9,13 @@ import {
   initializeOipfObjectFactory,
   type OipfObjectFactoryEnv,
 } from "./apis/objectFactory";
-import { createObjectProviderEnv, initializeObjectProvider, type ObjectProviderEnv } from "./providers";
 import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
-  initializeChannelRegistry,
-} from "./providers/channelRegistry/channelRegistryOld";
+  createObjectProviderEnv,
+  initializeObjectProvider,
+  type ObjectProviderEnv,
+} from "./providers";
 import { applyExternalState } from "./providers/object/stateful/state";
 import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./providers/userAgent/userAgent";
 
@@ -22,7 +23,6 @@ const logger = createLogger("Runtime");
 
 export type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv & ChannelRegistryEnv;
 
-/** Handle returned by runtime initialization for state updates */
 export type RuntimeHandle = Readonly<{
   /** Apply external state updates to all registered OIPF objects */
   updateState: (state: Partial<HbbTVState>) => IO.IO<void>;
@@ -32,7 +32,6 @@ export const runtime: RIO.ReaderIO<RuntimeEnv, RuntimeHandle> = (env) =>
   pipe(
     logger.info("Initializing"),
     IO.tap(() => initializeUserAgent(env)),
-    IO.tap(() => initializeChannelRegistry(env)),
     IO.tap(() => initializeOipfObjectFactory(env)),
     IO.tap(() => initializeObjectProvider(env)),
     IO.map(() => createRuntimeHandle(env)),
