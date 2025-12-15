@@ -1,6 +1,6 @@
 import type { ClassType } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf";
-import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
+import type { VideoBroadcastEnv } from ".";
 
 export interface MiscAPI {
   // State
@@ -15,7 +15,7 @@ export interface MiscAPI {
   onDRMRightsError: OIPF.DAE.Broadcast.VideoBroadcast["onDRMRightsError"];
 }
 
-export const WithMisc = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithMisc = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements MiscAPI {
     _programmes: OIPF.DAE.Broadcast.Programme[] = [];
 

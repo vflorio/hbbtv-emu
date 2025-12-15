@@ -1,17 +1,17 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
 import { StreamPlayState } from "../../providers";
-import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
+import type { VideoBroadcastEnv } from ".";
 import type { ChannelAPI } from "./channel";
 
 const logger = createLogger("VideoBroadcast:Controller");
 
-export const WithController = <T extends ClassType<ObjectVideoStream & ChannelAPI>>(Base: T) =>
+export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAPI>>(Base: T) =>
   class extends Base {
     constructor(...args: any[]) {
       super(...args);
 
-      this.onStreamStateChange((streamState) => {
+      this.env.onStreamStateChange((streamState) => {
         const broadcastState = mapStreamToVideoBroadcast(streamState);
         this.setPlayState(broadcastState);
 

@@ -98,8 +98,20 @@ export const releasePlayer: RIO.ReaderIO<VideoStreamEnv, void> = pipe(
   RIO.flatMapIO((env) => env.player.release()),
 );
 
-// State
+// FIXME
+export const createStandaloneVideoStreamEnv = (): VideoStreamEnv => {
+  let player: Player = createPlayer("video");
+  player.setupListeners()();
 
+  return {
+    player,
+    setPlayer: (newPlayer) => () => {
+      player = newPlayer;
+    },
+  };
+};
+
+// FIXME
 export class ObjectVideoStream {
   #stateChangeListeners: Set<StateChangeListener> = new Set();
   #videoStreamEnvCache: VideoStreamEnv | null = null;

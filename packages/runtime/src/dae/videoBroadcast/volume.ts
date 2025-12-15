@@ -1,6 +1,6 @@
 import type { ClassType } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf";
-import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
+import type { VideoBroadcastEnv } from ".";
 
 export interface VolumeAPI {
   // State
@@ -11,17 +11,17 @@ export interface VolumeAPI {
   getVolume: OIPF.DAE.Broadcast.VideoBroadcast["getVolume"];
 }
 
-export const WithVolume = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithVolume = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements VolumeAPI {
     _volume = 100;
     _muted = false;
 
     setVolume = (volume: number): boolean => {
-      this.videoStreamSetVolume(volume)();
+      this.env.setVolume(volume)();
       return true;
     };
 
     getVolume = (): number => {
-      return Math.round(this.videoElement.volume * 100);
+      return this.env.getVolume();
     };
   };

@@ -9,16 +9,13 @@ import {
   registerMatchers,
   startObserver,
 } from "./connector";
-import { oipfObjectDefinitions } from "./definitions";
 import { createStatefulEnv, initializeStatefulRegistry, type StatefulEnv } from "./stateful";
 
 const logger = createLogger("Object Provider");
 
 export type ObjectProviderEnv = StatefulEnv & ConnectorEnv;
 
-export const createObjectProviderEnv = (
-  objectDefinitions: ReadonlyArray<AnyOipfDefinition> = oipfObjectDefinitions,
-): ObjectProviderEnv => ({
+export const createObjectProviderEnv = (objectDefinitions: ReadonlyArray<AnyOipfDefinition>): ObjectProviderEnv => ({
   ...createStatefulEnv(objectDefinitions),
   ...createConnectorObserverEnv(),
 });

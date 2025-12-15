@@ -1,25 +1,20 @@
 import {
   type ApplicationManagerState,
-  AV_CONTROL_DASH_MIME_TYPE,
-  AV_CONTROL_VIDEO_MP4_MIME_TYPE,
-  type AVControlState,
-  isValidAvControlDash,
-  isValidAvControlVideoMp4,
   OIPF,
   type OipfCapabilitiesState,
   type OipfConfigurationState,
   type VideoBroadcastState,
 } from "@hbb-emu/oipf";
-import type { ObjectDefinition } from "../..";
-import { AVControlVideo } from "../../av";
+import type { AnyOipfDefinition, FactoryEnv, ObjectDefinition } from "../..";
 import { OipfApplicationManager } from "../../dae/applicationManager";
 import { OipfCapabilities } from "../../dae/capabilities";
 import { OipfConfiguration } from "../../dae/configuration";
 import { VideoBroadcast } from "../../dae/videoBroadcast";
+import { createChannelVideoStreamEnv } from "../../dae/videoBroadcast/channel";
 
 // DAE Object Definitions
 
-export const oipfApplicationManagerDefinition: ObjectDefinition<
+const oipfApplicationManagerDefinition: ObjectDefinition<
   OipfApplicationManager,
   ApplicationManagerState,
   "applicationManager"
@@ -35,24 +30,19 @@ export const oipfApplicationManagerDefinition: ObjectDefinition<
   subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
-export const oipfCapabilitiesDefinition: ObjectDefinition<OipfCapabilities, OipfCapabilitiesState, "oipfCapabilities"> =
-  {
-    name: "OipfCapabilities",
-    selector: `object[type="${OIPF.DAE.Capabilities.MIME_TYPE}"]`,
-    predicate: OIPF.DAE.Capabilities.isValidElement,
-    factory: () => new OipfCapabilities(),
-    stateKey: "oipfCapabilities",
-    attachStrategy: "non-visual",
-    applyState: (instance, state) => instance.applyState(state ?? {}),
-    getState: (instance) => instance.getState(),
-    subscribe: (instance, callback) => instance.subscribe(callback),
-  };
+const oipfCapabilitiesDefinition: ObjectDefinition<OipfCapabilities, OipfCapabilitiesState, "oipfCapabilities"> = {
+  name: "OipfCapabilities",
+  selector: `object[type="${OIPF.DAE.Capabilities.MIME_TYPE}"]`,
+  predicate: OIPF.DAE.Capabilities.isValidElement,
+  factory: () => new OipfCapabilities(),
+  stateKey: "oipfCapabilities",
+  attachStrategy: "non-visual",
+  applyState: (instance, state) => instance.applyState(state ?? {}),
+  getState: (instance) => instance.getState(),
+  subscribe: (instance, callback) => instance.subscribe(callback),
+};
 
-export const oipfConfigurationDefinition: ObjectDefinition<
-  OipfConfiguration,
-  OipfConfigurationState,
-  "oipfConfiguration"
-> = {
+const oipfConfigurationDefinition: ObjectDefinition<OipfConfiguration, OipfConfigurationState, "oipfConfiguration"> = {
   name: "OipfConfiguration",
   selector: `object[type="${OIPF.DAE.Configuration.MIME_TYPE}"]`,
   predicate: OIPF.DAE.Configuration.isValidElement,
@@ -64,51 +54,35 @@ export const oipfConfigurationDefinition: ObjectDefinition<
   subscribe: (instance, callback) => instance.subscribe(callback),
 };
 
-export const videoBroadcastDefinition: ObjectDefinition<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> = {
+const createVideoBroadcastDefinition = (
+  env: FactoryEnv,
+): ObjectDefinition<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> => ({
   name: "VideoBroadcast",
   selector: `object[type="${OIPF.DAE.Broadcast.MIME_TYPE}"]`,
   predicate: OIPF.DAE.Broadcast.isValidElement,
-  factory: () => new VideoBroadcast(),
+  factory: () =>
+    new VideoBroadcast({
+      channelRegistry: env.channelRegistry,
+      videoStream: createChannelVideoStreamEnv(env.createVideoStreamEnv()),
+    }),
   stateKey: "videoBroadcast",
   attachStrategy: "visual",
   applyState: (instance, state) => instance.applyState(state ?? {}),
   getState: (instance) => instance.getState(),
   subscribe: (instance, callback) => instance.subscribe(callback),
-};
+});
 
-// A/V Control Definitions
+// TODO: AVControlVideo
+// const createAvControlDefinitions = (env: FactoryEnv) => [...]
 
-export const avVideoMp4Definition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
-  name: "AvVideoMp4",
-  selector: `object[type="${AV_CONTROL_VIDEO_MP4_MIME_TYPE}"]`,
-  predicate: isValidAvControlVideoMp4,
-  factory: () => new AVControlVideo(),
-  stateKey: "avControls",
-  attachStrategy: "visual",
-  applyState: (instance, state) => instance.applyState(state ?? {}),
-  getState: (instance) => instance.getState(),
-  subscribe: (instance, callback) => instance.subscribe(callback),
-};
-
-export const avVideoDashDefinition: ObjectDefinition<AVControlVideo, AVControlState, "avControls"> = {
-  name: "AvVideoDash",
-  selector: `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
-  predicate: isValidAvControlDash,
-  factory: () => new AVControlVideo(),
-  stateKey: "avControls",
-  attachStrategy: "visual",
-  applyState: (instance, state) => instance.applyState(state ?? {}),
-  getState: (instance) => instance.getState(),
-  subscribe: (instance, callback) => instance.subscribe(callback),
-};
-
-// Export all definitions
-
-export const oipfObjectDefinitions = [
+const staticDefinitions: ReadonlyArray<AnyOipfDefinition> = [
   oipfApplicationManagerDefinition,
   oipfCapabilitiesDefinition,
   oipfConfigurationDefinition,
-  videoBroadcastDefinition,
-  avVideoMp4Definition,
-  avVideoDashDefinition,
+];
+
+export const createObjectDefinitions = (env: FactoryEnv): ReadonlyArray<AnyOipfDefinition> => [
+  ...staticDefinitions,
+  createVideoBroadcastDefinition(env),
+  // TODO: ...createAvControlDefinitions(env),
 ];

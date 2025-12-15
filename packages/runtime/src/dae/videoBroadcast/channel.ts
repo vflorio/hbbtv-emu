@@ -11,6 +11,7 @@ import {
   type MediaSource,
   releasePlayer,
   resolveChannel,
+  type StreamPlayState,
   type VideoStreamEnv,
 } from "../../providers";
 import type { VideoBroadcastEnv } from ".";
@@ -132,10 +133,22 @@ export type ChannelEnv = {
 };
 
 export type ChannelVideoStreamEnv = {
+  // Element
+  videoElement: HTMLVideoElement;
+  // Playback
   play: IO.IO<void>;
   stop: IO.IO<void>;
   destroy: IO.IO<void>;
   loadSource: (source: MediaSource) => IO.IO<void>;
+  // Display
+  setSize: (width: number, height: number) => IO.IO<void>;
+  setFullscreen: (fullscreen: boolean) => IO.IO<void>;
+  // Volume
+  setVolume: (volume: number) => IO.IO<void>;
+  setMuted: (muted: boolean) => IO.IO<void>;
+  getVolume: IO.IO<number>;
+  // Events
+  onStreamStateChange: (listener: (state: StreamPlayState, previousState: StreamPlayState) => void) => () => void;
 };
 
 export const createChannelEnv = (instance: ChannelAPI): ChannelEnv => ({
@@ -154,10 +167,25 @@ export const createChannelEnv = (instance: ChannelAPI): ChannelEnv => ({
 });
 
 export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): ChannelVideoStreamEnv => ({
+  // Element
+  videoElement: videoStreamEnv.player.videoElement,
+  // Playback
   play: videoStreamEnv.player.play(),
   stop: videoStreamEnv.player.stop(),
   destroy: releasePlayer(videoStreamEnv),
   loadSource: (source) => loadSource(source)(videoStreamEnv),
+  // Display
+  setSize: (width, height) => videoStreamEnv.player.setSize(width, height),
+  setFullscreen: (fullscreen) => videoStreamEnv.player.setFullscreen(fullscreen),
+  // Volume
+  setVolume: (volume) => videoStreamEnv.player.setVolume(volume),
+  setMuted: (muted) => videoStreamEnv.player.setMuted(muted),
+  getVolume: () => Math.round(videoStreamEnv.player.videoElement.volume * 100),
+  // Events
+  onStreamStateChange: (listener) => {
+    videoStreamEnv.player.on("statechange", (event) => listener(event.state, event.previousState))();
+    return () => videoStreamEnv.player.off("statechange", (event) => listener(event.state, event.previousState))();
+  },
 });
 
 // Methods

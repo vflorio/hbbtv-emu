@@ -2,7 +2,7 @@ import { type ClassType, createLogger } from "@hbb-emu/core";
 import { DEFAULT_FULL_SCREEN, DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH, type OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { ObjectVideoStream } from "../../providers/videoStream/videoStream";
+import type { VideoBroadcastEnv } from ".";
 
 const logger = createLogger("VideoBroadcast");
 
@@ -20,7 +20,7 @@ export interface DisplayAPI {
   setFullScreen: OIPF.DAE.Broadcast.VideoBroadcast["setFullScreen"];
 }
 
-export const WithDisplay = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
+export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements DisplayAPI {
     onfocus: OIPF.DAE.Broadcast.OnFocusHandler | null = null;
     onblur: OIPF.DAE.Broadcast.OnBlurHandler | null = null;
@@ -40,7 +40,7 @@ export const WithDisplay = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
     set width(value: number) {
       if (!this._fullScreen) {
         this._width = value;
-        this.videoStreamSetSize(value, this._height);
+        this.env.setSize(value, this._height)();
       }
     }
 
@@ -51,7 +51,7 @@ export const WithDisplay = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
     set height(value: number) {
       if (!this._fullScreen) {
         this._height = value;
-        this.videoStreamSetSize(this._width, value);
+        this.env.setSize(this._width, value)();
       }
     }
 
@@ -64,7 +64,7 @@ export const WithDisplay = <T extends ClassType<ObjectVideoStream>>(Base: T) =>
           IO.of(() => {
             if (this._fullScreen !== fullscreen) {
               this._fullScreen = fullscreen;
-              this.videoStreamSetFullscreen(fullscreen);
+              this.env.setFullscreen(fullscreen)();
               this.onFullScreenChange?.();
             }
           })(),

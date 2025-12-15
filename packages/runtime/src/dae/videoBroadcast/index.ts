@@ -2,7 +2,6 @@ import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallbac
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
 import type { ChannelRegistryEnv } from "../../providers";
-import { ObjectVideoStream } from "../../providers/videoStream/videoStream";
 import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
 import { WithComponent } from "./component";
 import { WithController } from "./controller";
@@ -11,17 +10,14 @@ import { WithMisc } from "./misc";
 import { WithStreamEvent } from "./streamEvent";
 import { WithVolume } from "./volume";
 
-export type VideoBroadcastEnv = ObjectVideoStream &
-  Readonly<{
-    env: ChannelRegistryEnv & ChannelVideoStreamEnv;
-  }>;
+export type VideoBroadcastEnv = Readonly<{
+  env: ChannelRegistryEnv & ChannelVideoStreamEnv;
+}>;
 
-class BaseVideoBroadcast extends ObjectVideoStream implements VideoBroadcastEnv {
+class BaseVideoBroadcast implements VideoBroadcastEnv {
   readonly env: ChannelRegistryEnv & ChannelVideoStreamEnv;
 
   constructor(env: { channelRegistry: ChannelRegistryEnv; videoStream: ChannelVideoStreamEnv }) {
-    super();
-
     this.env = {
       ...env.channelRegistry,
       ...env.videoStream,

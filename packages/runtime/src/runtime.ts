@@ -4,6 +4,7 @@ import type { HbbTVState } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
+import type { FactoryEnv } from ".";
 import {
   createOipfObjectFactoryEnv,
   initializeOipfObjectFactory,
@@ -13,9 +14,11 @@ import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
   createObjectProviderEnv,
+  createStandaloneVideoStreamEnv,
   initializeObjectProvider,
   type ObjectProviderEnv,
 } from "./providers";
+import { createObjectDefinitions } from "./providers/object/definitions";
 import { applyExternalState } from "./providers/object/stateful/state";
 import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./providers/userAgent/userAgent";
 
@@ -47,9 +50,25 @@ const createRuntimeHandle = (env: RuntimeEnv): RuntimeHandle => ({
     ),
 });
 
-export const createRuntimeEnv = (extensionState: ExtensionState): RuntimeEnv => ({
-  ...createUserAgentEnv(extensionState),
-  ...createChannelRegistryEnv(extensionState),
-  ...createOipfObjectFactoryEnv(),
-  ...createObjectProviderEnv(),
+/** Create FactoryEnv for object instantiation */
+const createFactoryEnv = (channelRegistryEnv: ChannelRegistryEnv): FactoryEnv => ({
+  channelRegistry: channelRegistryEnv,
+  createVideoStreamEnv: createStandaloneVideoStreamEnv,
 });
+
+export const createRuntimeEnv = (extensionState: ExtensionState): RuntimeEnv => {
+  // 1. Create base envs
+  const channelRegistryEnv = createChannelRegistryEnv(extensionState);
+  const factoryEnv = createFactoryEnv(channelRegistryEnv);
+
+  // 2. Create object definitions with env closed over (key step in Reader pattern)
+  const objectDefinitions = createObjectDefinitions(factoryEnv);
+
+  // 3. Build complete runtime env
+  return {
+    ...createUserAgentEnv(extensionState),
+    ...channelRegistryEnv,
+    ...createOipfObjectFactoryEnv(),
+    ...createObjectProviderEnv(objectDefinitions),
+  };
+};
