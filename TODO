@@ -1,6 +1,24 @@
-API = (ChannelRegistry, VideoStream)
+Runtime Objects
 
-AV e DAE estendono un base object stateful, le classi devono fungere solo da wrapper ad un core completamente fp e con pattern reader
+// types.ts
+type OipfPolyfill<T extends Stateful<S>, S, K extends StateKey> = {
+  name: string;
+  connector: OipfConnector;
+  factory: OipfFactory<T>;
+  stateful: {
+    stateKey: K;
+    defaults: S;
+  };
+  // Le operazioni applyState/getState/subscribe sono implicite 
+  // perché T extends Stateful<S>
+};
+
+// Il provider usa direttamente l'interfaccia Stateful
+const syncInstance = <T extends Stateful<S>, S>(
+  instance: T,
+  externalState: Partial<S>,
+): IO.IO<void> => instance.applyState(externalState);
+
 
 REFACTOR TODO:
     - Runtime VideoBroadcast stream integration

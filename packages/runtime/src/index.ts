@@ -1,7 +1,8 @@
 import type { Stateful } from "@hbb-emu/core";
 import type { HbbTVState, OIPF } from "@hbb-emu/oipf";
 import type * as IO from "fp-ts/IO";
-import type { ChannelRegistryEnv, VideoStreamEnv } from "./providers";
+import type { ChannelRegistryEnv } from "./subsystems/channelRegistry";
+import type { VideoStreamEnv } from "./subsystems/videoStream";
 
 // State slice key in HbbTVState
 export type StateKey = keyof HbbTVState;
@@ -15,16 +16,17 @@ export type NonVisualOipfObject =
   | OIPF.DAE.Capabilities.Capabilities
   | OIPF.DAE.Configuration.Configuration;
 
+// OIPF objects whose properties can be proxied by a VideoStream (A/V objects & VideoBroadcast)
+export type VisualOipfObject = WithVideoElement & (OIPF.AV.Control.AVControlObject | OIPF.DAE.Broadcast.VideoBroadcast);
+
+// FIXME
 // Visual objects that have a video element
 export interface WithVideoElement {
   readonly videoElement: HTMLVideoElement;
 }
-
-// OIPF objects whose properties can be proxied by a VideoStream (A/V objects & VideoBroadcast)
-export type VisualOipfObject = WithVideoElement & (OIPF.AV.Control.AVControlObject | OIPF.DAE.Broadcast.VideoBroadcast);
-
+// FIXME
 // Factory environment for creating OIPF objects that need runtime dependencies
-export type FactoryEnv = Readonly<{
+export type VideoBroadcastPolyfillEnv = Readonly<{
   channelRegistry: ChannelRegistryEnv;
   createVideoStreamEnv: () => VideoStreamEnv;
 }>;

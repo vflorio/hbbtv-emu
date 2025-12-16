@@ -4,23 +4,23 @@ import type { HbbTVState } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
-import type { FactoryEnv } from ".";
+import type { VideoBroadcastPolyfillEnv } from ".";
 import {
   createOipfObjectFactoryEnv,
   initializeOipfObjectFactory,
   type OipfObjectFactoryEnv,
-} from "./apis/objectFactory";
+} from "./apis/dae/objectFactory";
+import { createObjectProviderEnv, initializeObjectProvider, type ObjectProviderEnv } from "./provider";
+import { createObjectDefinitions } from "./provider/definitions";
+import { applyExternalState } from "./provider/stateful/state";
 import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
-  createObjectProviderEnv,
   createStandaloneVideoStreamEnv,
-  initializeObjectProvider,
-  type ObjectProviderEnv,
-} from "./providers";
-import { createObjectDefinitions } from "./providers/object/definitions";
-import { applyExternalState } from "./providers/object/stateful/state";
-import { createUserAgentEnv, initializeUserAgent, type UserAgentEnv } from "./providers/userAgent/userAgent";
+  createUserAgentEnv,
+  initializeUserAgent,
+  type UserAgentEnv,
+} from "./subsystems";
 
 const logger = createLogger("Runtime");
 
@@ -41,7 +41,6 @@ export const runtime: RIO.ReaderIO<RuntimeEnv, RuntimeHandle> = (env) =>
     IO.tap(() => logger.info("Initialized")),
   );
 
-/** Create runtime handle with state update capabilities */
 const createRuntimeHandle = (env: RuntimeEnv): RuntimeHandle => ({
   updateState: (state) =>
     pipe(
@@ -50,21 +49,15 @@ const createRuntimeHandle = (env: RuntimeEnv): RuntimeHandle => ({
     ),
 });
 
-/** Create FactoryEnv for object instantiation */
-const createFactoryEnv = (channelRegistryEnv: ChannelRegistryEnv): FactoryEnv => ({
+const createFactoryEnv = (channelRegistryEnv: ChannelRegistryEnv): VideoBroadcastPolyfillEnv => ({
   channelRegistry: channelRegistryEnv,
   createVideoStreamEnv: createStandaloneVideoStreamEnv,
 });
 
 export const createRuntimeEnv = (extensionState: ExtensionState): RuntimeEnv => {
-  // 1. Create base envs
   const channelRegistryEnv = createChannelRegistryEnv(extensionState);
   const factoryEnv = createFactoryEnv(channelRegistryEnv);
-
-  // 2. Create object definitions with env closed over (key step in Reader pattern)
   const objectDefinitions = createObjectDefinitions(factoryEnv);
-
-  // 3. Build complete runtime env
   return {
     ...createUserAgentEnv(extensionState),
     ...channelRegistryEnv,
