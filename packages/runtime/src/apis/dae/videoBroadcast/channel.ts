@@ -8,10 +8,10 @@ import { match } from "ts-pattern";
 import {
   type ChannelRegistryEnv,
   loadSource,
+  type PlayerPlayState,
   releasePlayer,
   resolveChannel,
   type VideoStreamEnv,
-  type VideoStreamPlayState,
   type VideoStreamSource,
 } from "../../../subsystems";
 import type { VideoBroadcastEnv } from ".";
@@ -148,9 +148,7 @@ export type ChannelVideoStreamEnv = {
   setMuted: (muted: boolean) => IO.IO<void>;
   getVolume: IO.IO<number>;
   // Events
-  onStreamStateChange: (
-    listener: (state: VideoStreamPlayState, previousState: VideoStreamPlayState) => void,
-  ) => () => void;
+  onStreamStateChange: (listener: (state: PlayerPlayState, previousState: PlayerPlayState) => void) => () => void;
 };
 
 export const createChannelEnv = (instance: ChannelAPI): ChannelEnv => ({

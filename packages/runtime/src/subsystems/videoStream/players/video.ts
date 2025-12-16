@@ -1,194 +1,25 @@
-// HTML Video Player - native HTMLVideoElement implementation
-
 import { createLogger } from "@hbb-emu/core";
+import { addEventListener } from "@hbb-emu/core/dom";
+import { sequenceT } from "fp-ts/Apply";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
 import { match } from "ts-pattern";
-import type { PlayerEventListener, PlayerEventType, VideoStreamSource } from "../types";
-import { VideoStreamPlayState } from "../types";
-import type { Player } from ".";
-import {
-  createEventListeners,
-  createVideoError,
-  type EventListeners,
-  emit,
-  getCurrentTimeMs,
-  getDurationMs,
-  isFullscreen,
-  loadSourceBase,
-  normalizedToVolume,
-  off,
-  on,
-  type PlayerEnv,
-  pause,
-  playBase,
-  releaseBase,
-  seek,
-  setFullscreen,
-  setMuted,
-  setSize,
-  setState,
-  setVolume,
-  stop,
-} from "./common";
+import type { Player, PlayerEventListener, PlayerEventType, PlayerSource } from ".";
+import { PlayerPlayState } from ".";
+import * as PlayerCommon from "./common";
 
-const LOGGER_NAME = "HtmlVideoPlayer";
-const logger = createLogger(LOGGER_NAME);
+const logger = createLogger("HtmlVideoPlayer");
 
-// State
-
-export type HtmlVideoPlayerState = {
-  state: VideoStreamPlayState;
-  source: VideoStreamSource | null;
-  currentSpeed: number;
-  videoElement: HTMLVideoElement;
-  listeners: EventListeners;
-};
-
-export const createHtmlVideoPlayerState = (): HtmlVideoPlayerState => ({
-  state: VideoStreamPlayState.IDLE,
-  source: null,
-  currentSpeed: 1,
-  videoElement: document.createElement("video"),
-  listeners: createEventListeners(),
-});
-
-// Environment
-
-export type HtmlVideoPlayerEnv = PlayerEnv;
-
-export const createHtmlVideoPlayerEnv = (state: HtmlVideoPlayerState): HtmlVideoPlayerEnv => ({
-  state: state.state,
-  source: state.source,
-  currentSpeed: state.currentSpeed,
-  listeners: state.listeners,
-  videoElement: state.videoElement,
-  setState: (newState: VideoStreamPlayState) => () => {
-    state.state = newState;
-  },
-  setSource: (source: VideoStreamSource | null) => () => {
-    state.source = source;
-  },
-  setCurrentSpeed: (speed: number) => () => {
-    state.currentSpeed = speed;
-  },
-});
-
-// Methods
-
-export const setupVideoEventListeners: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = pipe(
-  RIO.ask<HtmlVideoPlayerEnv>(),
-  RIO.flatMapIO((env) => () => {
-    env.videoElement.addEventListener("loadstart", () => {
-      match(env.state)
-        .with(VideoStreamPlayState.IDLE, () => setState(VideoStreamPlayState.CONNECTING, LOGGER_NAME)(env)())
-        .otherwise(() => {});
-    });
-
-    env.videoElement.addEventListener("playing", () => {
-      setState(VideoStreamPlayState.PLAYING, LOGGER_NAME)(env)();
-    });
-
-    env.videoElement.addEventListener("pause", () => {
-      match(env.state)
-        .with(VideoStreamPlayState.PLAYING, () => setState(VideoStreamPlayState.PAUSED, LOGGER_NAME)(env)())
-        .otherwise(() => {});
-    });
-
-    env.videoElement.addEventListener("waiting", () => {
-      match(env.state)
-        .with(VideoStreamPlayState.PLAYING, () => setState(VideoStreamPlayState.BUFFERING, LOGGER_NAME)(env)())
-        .otherwise(() => {});
-    });
-
-    env.videoElement.addEventListener("ended", () => {
-      pipe(
-        setState(VideoStreamPlayState.FINISHED, LOGGER_NAME),
-        RIO.flatMap(() => emit("ended", {}, LOGGER_NAME)),
-      )(env)();
-    });
-
-    env.videoElement.addEventListener("error", () => {
-      pipe(
-        setState(VideoStreamPlayState.ERROR, LOGGER_NAME),
-        RIO.flatMap(() => emit("error", { error: createVideoError(env.videoElement) }, LOGGER_NAME)),
-      )(env)();
-    });
-
-    env.videoElement.addEventListener("timeupdate", () => {
-      emit("timeupdate", { currentTime: getCurrentTimeMs(env.videoElement) }, LOGGER_NAME)(env)();
-    });
-
-    env.videoElement.addEventListener("durationchange", () => {
-      if (Number.isFinite(env.videoElement.duration)) {
-        emit("durationchange", { duration: getDurationMs(env.videoElement) }, LOGGER_NAME)(env)();
-      }
-    });
-
-    env.videoElement.addEventListener("volumechange", () => {
-      emit(
-        "volumechange",
-        {
-          volume: normalizedToVolume(env.videoElement.volume),
-          muted: env.videoElement.muted,
-        },
-        LOGGER_NAME,
-      )(env)();
-    });
-
-    document.addEventListener("fullscreenchange", () => {
-      emit("fullscreenchange", { fullscreen: isFullscreen(env.videoElement) }, LOGGER_NAME)(env)();
-    });
-  }),
-);
-
-export const load = (source: VideoStreamSource): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
-  pipe(
-    loadSourceBase(source, LOGGER_NAME),
-    RIO.flatMap(() =>
-      pipe(
-        RIO.ask<HtmlVideoPlayerEnv>(),
-        RIO.flatMapIO((env) => () => {
-          env.videoElement.src = source.url;
-          env.videoElement.load();
-        }),
-      ),
-    ),
-  );
-
-export const play = (speed: number): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
-  pipe(
-    playBase(speed, LOGGER_NAME),
-    RIO.flatMap(() =>
-      pipe(
-        RIO.ask<HtmlVideoPlayerEnv>(),
-        RIO.flatMapIO((env) => () => {
-          match(speed)
-            .with(0, () => env.videoElement.pause())
-            .otherwise(() => {
-              env.videoElement.play().catch((err: unknown) => {
-                logger.error("Play failed:", err)();
-                pipe(
-                  setState(VideoStreamPlayState.ERROR, LOGGER_NAME),
-                  RIO.flatMap(() => emit("error", { error: { code: 0, message: String(err) } }, LOGGER_NAME)),
-                )(env)();
-              });
-            });
-        }),
-      ),
-    ),
-  );
-
-export const release: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = releaseBase(LOGGER_NAME);
+type HtmlVideoPlayerEnv = PlayerCommon.PlayerEnv;
 
 export class HtmlVideoPlayer implements Player {
   readonly sourceType = "video" as const;
   readonly videoElement: HTMLVideoElement;
 
   readonly #env: HtmlVideoPlayerEnv;
-  #state: VideoStreamPlayState = VideoStreamPlayState.IDLE;
-  #source: VideoStreamSource | null = null;
+  #state: PlayerPlayState = PlayerPlayState.IDLE;
+  #source: PlayerSource | null = null;
   #currentSpeed = 1;
 
   constructor() {
@@ -198,7 +29,7 @@ export class HtmlVideoPlayer implements Player {
       state: this.#state,
       source: this.#source,
       currentSpeed: this.#currentSpeed,
-      listeners: createEventListeners(),
+      listeners: PlayerCommon.createEventListeners(),
       videoElement: this.videoElement,
       setState: (newState) => () => {
         this.#state = newState;
@@ -215,46 +46,109 @@ export class HtmlVideoPlayer implements Player {
     };
   }
 
-  load = (source: VideoStreamSource): IO.IO<void> => load(source)(this.#env);
-  release = (): IO.IO<void> => release(this.#env);
+  load = (source: PlayerSource): IO.IO<void> => load(source)(this.#env);
+  release = (): IO.IO<void> => PlayerCommon.release()(this.#env);
   setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
   play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
-  pause = (): IO.IO<void> => htmlVideoPause(this.#env);
-  stop = (): IO.IO<void> => htmlVideoStop(this.#env);
-  seek = (position: number): IO.IO<void> => htmlVideoSeek(position)(this.#env);
+  pause = (): IO.IO<void> => PlayerCommon.pause()(this.#env);
+  stop = (): IO.IO<void> => PlayerCommon.stop()(this.#env);
+  seek = (position: number): IO.IO<void> => PlayerCommon.seek(position)(this.#env);
 
-  setVolume = (volume: number): IO.IO<void> => setVolume(volume)(this.#env);
-  setMuted = (muted: boolean): IO.IO<void> => setMuted(muted)(this.#env);
-  setFullscreen = (fullscreen: boolean): IO.IO<void> => htmlVideoSetFullscreen(fullscreen)(this.#env);
-  setSize = (width: number, height: number): IO.IO<void> => setSize(width, height)(this.#env);
+  setVolume = (volume: number): IO.IO<void> => PlayerCommon.setVolume(volume)(this.#env);
+  setMuted = (muted: boolean): IO.IO<void> => PlayerCommon.setMuted(muted)(this.#env);
+  setFullscreen = (fullscreen: boolean): IO.IO<void> => PlayerCommon.setFullscreen(fullscreen)(this.#env);
+  setSize = (width: number, height: number): IO.IO<void> => PlayerCommon.setSize(width, height)(this.#env);
 
   on = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
-    on(type, listener)(this.#env);
+    PlayerCommon.on(type, listener)(this.#env);
 
   off = <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
-    off(type, listener)(this.#env);
+    PlayerCommon.off(type, listener)(this.#env);
 }
 
-export const htmlVideoPause: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = pause(LOGGER_NAME);
-export const htmlVideoStop: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = stop(LOGGER_NAME);
-export const htmlVideoSeek = (position: number): RIO.ReaderIO<HtmlVideoPlayerEnv, void> => seek(position, LOGGER_NAME);
-export const htmlVideoSetFullscreen = (fullscreen: boolean): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
-  setFullscreen(fullscreen, LOGGER_NAME);
-export const htmlVideoSetVolume = setVolume;
-export const htmlVideoSetMuted = setMuted;
-export const htmlVideoSetSize = setSize;
-export const htmlVideoOn = on;
-export const htmlVideoOff = off;
+// Methods
 
-// Getters
+const setupVideoEventListeners: RIO.ReaderIO<HtmlVideoPlayerEnv, void> = (env) =>
+  sequenceT(IO.Applicative)(
+    addEventListener(env.videoElement)("loadstart")(() =>
+      match(env.state)
+        .with(PlayerPlayState.IDLE, () => PlayerCommon.setState(PlayerPlayState.CONNECTING)(env)())
+        .otherwise(() => {}),
+    ),
+    addEventListener(env.videoElement)("playing")(() => PlayerCommon.setState(PlayerPlayState.PLAYING)(env)()),
+    addEventListener(env.videoElement)("pause")(() =>
+      match(env.state)
+        .with(PlayerPlayState.PLAYING, () => PlayerCommon.setState(PlayerPlayState.PAUSED)(env)())
+        .otherwise(() => {}),
+    ),
+    addEventListener(env.videoElement)("waiting")(() =>
+      match(env.state)
+        .with(PlayerPlayState.PLAYING, () => PlayerCommon.setState(PlayerPlayState.BUFFERING)(env)())
+        .otherwise(() => {}),
+    ),
+    addEventListener(env.videoElement)("ended")(() =>
+      pipe(
+        PlayerCommon.setState(PlayerPlayState.FINISHED),
+        RIO.flatMap(() => PlayerCommon.emit("ended", {})),
+      )(env)(),
+    ),
+    addEventListener(env.videoElement)("error")(() =>
+      pipe(
+        PlayerCommon.setState(PlayerPlayState.ERROR),
+        RIO.flatMap(() => PlayerCommon.emit("error", { error: PlayerCommon.createVideoError(env.videoElement) })),
+      )(env)(),
+    ),
+    addEventListener(env.videoElement)("timeupdate")(() =>
+      PlayerCommon.emit("timeupdate", { currentTime: PlayerCommon.getCurrentTimeMs(env.videoElement) })(env)(),
+    ),
+    addEventListener(env.videoElement)("durationchange")(() =>
+      PlayerCommon.emit("durationchange", { duration: PlayerCommon.getDurationMs(env.videoElement) })(env)(),
+    ),
+    addEventListener(env.videoElement)("volumechange")(() =>
+      PlayerCommon.emit("volumechange", {
+        volume: PlayerCommon.normalizedToVolume(env.videoElement.volume),
+        muted: env.videoElement.muted,
+      })(env)(),
+    ),
+    addEventListener(document)("fullscreenchange")(() =>
+      PlayerCommon.emit("fullscreenchange", { fullscreen: PlayerCommon.isFullscreen(env.videoElement) })(env)(),
+    ),
+  );
 
-export const getState = (state: HtmlVideoPlayerState): VideoStreamPlayState => state.state;
-export const getSource = (state: HtmlVideoPlayerState): VideoStreamSource | null => state.source;
-export const getCurrentTime = (state: HtmlVideoPlayerState): number => getCurrentTimeMs(state.videoElement);
-export const getDuration = (state: HtmlVideoPlayerState): number => getDurationMs(state.videoElement);
-export const getSpeed = (state: HtmlVideoPlayerState): number => state.currentSpeed;
-export const getVolume = (state: HtmlVideoPlayerState): number => normalizedToVolume(state.videoElement.volume);
-export const getMuted = (state: HtmlVideoPlayerState): boolean => state.videoElement.muted;
-export const getFullscreen = (state: HtmlVideoPlayerState): boolean => isFullscreen(state.videoElement);
-export const getElement = (state: HtmlVideoPlayerState): HTMLVideoElement => state.videoElement;
+const load = (source: PlayerSource): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
+  pipe(
+    PlayerCommon.loadSource(source),
+    RIO.flatMap(() =>
+      pipe(
+        RIO.ask<HtmlVideoPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          env.videoElement.src = source.url;
+          env.videoElement.load();
+        }),
+      ),
+    ),
+  );
+
+const play = (speed: number): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
+  pipe(
+    PlayerCommon.play(speed),
+    RIO.flatMap(() =>
+      pipe(
+        RIO.ask<HtmlVideoPlayerEnv>(),
+        RIO.flatMapIO((env) => () => {
+          match(speed)
+            .with(0, () => env.videoElement.pause())
+            .otherwise(() => {
+              env.videoElement.play().catch((err: unknown) => {
+                logger.error("Play failed:", err)();
+                pipe(
+                  PlayerCommon.setState(PlayerPlayState.ERROR),
+                  RIO.flatMap(() => PlayerCommon.emit("error", { error: { code: 0, message: String(err) } })),
+                )(env)();
+              });
+            });
+        }),
+      ),
+    ),
+  );

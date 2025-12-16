@@ -1,10 +1,15 @@
-import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
 import { match } from "ts-pattern";
-import type { PlayerError, PlayerEvent, PlayerEventListener, PlayerEventType, VideoStreamSource } from "../types";
-import { VideoStreamPlayState } from "../types";
+import {
+  type PlayerError,
+  type PlayerEvent,
+  type PlayerEventListener,
+  type PlayerEventType,
+  PlayerPlayState,
+  type PlayerSource,
+} from ".";
 
 export type EventListeners = {
   [K in PlayerEventType]: Set<PlayerEventListener<K>>;
@@ -13,13 +18,13 @@ export type EventListeners = {
 // Environment
 
 export type PlayerEnv = {
-  state: VideoStreamPlayState;
-  source: VideoStreamSource | null;
+  state: PlayerPlayState;
+  source: PlayerSource | null;
   currentSpeed: number;
   listeners: EventListeners;
   videoElement: HTMLVideoElement;
-  setState: (state: VideoStreamPlayState) => IO.IO<void>;
-  setSource: (source: VideoStreamSource | null) => IO.IO<void>;
+  setState: (state: PlayerPlayState) => IO.IO<void>;
+  setSource: (source: PlayerSource | null) => IO.IO<void>;
   setCurrentSpeed: (speed: number) => IO.IO<void>;
 };
 
@@ -28,38 +33,32 @@ export type PlayerEnv = {
 export const emit = <T extends PlayerEventType>(
   type: T,
   data: Omit<PlayerEvent<T>, "type" | "timestamp">,
-  loggerName: string,
 ): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
     RIO.tapIO((env) => () => {
       const event = createPlayerEvent(type, data);
-      const logger = createLogger(loggerName);
       for (const listener of env.listeners[type]) {
         try {
           (listener as PlayerEventListener<T>)(event);
-        } catch (err) {
-          logger.error("Event listener error:", err)();
-        }
+        } catch {}
       }
     }),
     RIO.map(() => undefined),
   );
 
-export const setState = (newState: VideoStreamPlayState, loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const setState = (newState: PlayerPlayState): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
     RIO.flatMap((env) =>
       match(env.state === newState)
         .with(true, () => RIO.of<PlayerEnv, void>(undefined))
         .with(false, () => {
-          const logger = createLogger(loggerName);
           const previousState = env.state;
           return pipe(
             RIO.of<PlayerEnv, void>(undefined),
             RIO.tapIO(() => env.setState(newState)),
-            RIO.tapIO(() => logger.debug("State changed:", previousState, "->", newState)),
-            RIO.flatMap(() => emit("statechange", { state: newState, previousState }, loggerName)),
+            RIO.flatMap(() => emit("statechange", { state: newState, previousState })),
           );
         })
         .exhaustive(),
@@ -123,23 +122,21 @@ export const createHlsError = (data: { type: string; details: string }): PlayerE
 
 // Methods - Playback Control
 
-export const loadSourceBase = (source: VideoStreamSource, loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const loadSource = (source: PlayerSource): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
-    RIO.tapIO(() => createLogger(loggerName).debug("Loading source:", source.url)),
     RIO.tapIO((env) => env.setSource(source)),
     RIO.tapIO((env) => () => {
       env.videoElement.autoplay = source.autoPlay ?? false;
       env.videoElement.muted = source.muted ?? false;
       env.videoElement.loop = source.loop ?? false;
     }),
-    RIO.flatMap(() => setState(VideoStreamPlayState.CONNECTING, loggerName)),
+    RIO.flatMap(() => setState(PlayerPlayState.CONNECTING)),
   );
 
-export const playBase = (speed: number, loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const play = (speed: number): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
-    RIO.tapIO(() => createLogger(loggerName).debug("Play:", speed)),
     RIO.tapIO((env) => env.setCurrentSpeed(speed)),
     RIO.tapIO((env) => () => {
       env.videoElement.playbackRate = Math.abs(speed);
@@ -147,29 +144,26 @@ export const playBase = (speed: number, loggerName: string): RIO.ReaderIO<Player
     RIO.map(() => undefined),
   );
 
-export const pause = (loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const pause = (): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
-    RIO.tapIO(() => createLogger(loggerName).debug("Pause")),
     RIO.tapIO((env) => () => env.videoElement.pause()),
     RIO.map(() => undefined),
   );
 
-export const stop = (loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const stop = (): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
-    RIO.tapIO(() => createLogger(loggerName).debug("Stop")),
     RIO.tapIO((env) => () => {
       env.videoElement.pause();
       env.videoElement.currentTime = 0;
     }),
-    RIO.flatMap(() => setState(VideoStreamPlayState.STOPPED, loggerName)),
+    RIO.flatMap(() => setState(PlayerPlayState.STOPPED)),
   );
 
-export const seek = (position: number, loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const seek = (position: number): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
-    RIO.tapIO(() => createLogger(loggerName).debug("Seek:", position)),
     RIO.tapIO((env) => () => {
       const posSeconds = msToSeconds(position);
       if (posSeconds >= 0 && posSeconds <= env.videoElement.duration) {
@@ -179,17 +173,16 @@ export const seek = (position: number, loggerName: string): RIO.ReaderIO<PlayerE
     RIO.map(() => undefined),
   );
 
-export const releaseBase = (loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const release = (): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
-    RIO.tapIO(() => createLogger(loggerName).debug("Release")),
     RIO.tapIO((env) => () => {
       env.videoElement.pause();
       env.videoElement.removeAttribute("src");
       env.videoElement.load();
     }),
     RIO.tapIO((env) => env.setSource(null)),
-    RIO.flatMap(() => setState(VideoStreamPlayState.IDLE, loggerName)),
+    RIO.flatMap(() => setState(PlayerPlayState.IDLE)),
   );
 
 // Methods - Audio Control
@@ -214,19 +207,14 @@ export const setMuted = (muted: boolean): RIO.ReaderIO<PlayerEnv, void> =>
 
 // Methods - Display Control
 
-export const setFullscreen = (fullscreen: boolean, loggerName: string): RIO.ReaderIO<PlayerEnv, void> =>
+export const setFullscreen = (fullscreen: boolean): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
     RIO.tapIO((env) => () => {
-      const logger = createLogger(loggerName);
       if (fullscreen && !document.fullscreenElement) {
-        env.videoElement.requestFullscreen?.().catch((err: unknown) => {
-          logger.warn("Fullscreen request failed:", err)();
-        });
+        env.videoElement.requestFullscreen?.();
       } else if (!fullscreen && document.fullscreenElement === env.videoElement) {
-        document.exitFullscreen?.().catch((err: unknown) => {
-          logger.warn("Exit fullscreen failed:", err)();
-        });
+        document.exitFullscreen?.();
       }
     }),
     RIO.map(() => undefined),
