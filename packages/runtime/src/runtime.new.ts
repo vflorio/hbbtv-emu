@@ -1,26 +1,11 @@
 import { createLogger } from "@hbb-emu/core";
 import type { ExtensionState } from "@hbb-emu/extension-common";
-import {
-  DEFAULT_BROADCAST_PLAY_STATE,
-  DEFAULT_FULL_SCREEN,
-  DEFAULT_KEYSET_VALUE,
-  DEFAULT_OIPF_CAPABILITIES,
-  DEFAULT_OIPF_CONFIGURATION,
-  DEFAULT_VIDEO_HEIGHT,
-  DEFAULT_VIDEO_WIDTH,
-  type HbbTVState,
-  type OIPF,
-  type OipfCapabilitiesState,
-  type OipfConfigurationState,
-} from "@hbb-emu/oipf";
+import type { HbbTVState } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/controlVideo";
-import { createBindings as createDefaultBindings } from "./apis/bindings";
 import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
-  createCurrentChannelEnv,
   createDefaultVideoStreamEnv,
   createUserAgentEnv,
   initializeUserAgent,
@@ -37,43 +22,13 @@ const logger = createLogger("RuntimeService");
 
 /**
  * Environment for creating OIPF bindings.
- * Provides dependencies needed by OIPF objects (VideoBroadcast, ApplicationManager, etc).
+ * Provides dependencies needed by visual objects (VideoBroadcast, AVControl).
  */
 export type BindingsEnv = Readonly<{
   /** Channel configuration for VideoBroadcast */
   channelRegistry: ChannelRegistryEnv;
   /** Factory for creating VideoStream instances */
   createVideoStream: () => VideoStreamEnv;
-  /**
-   * Returns the current channel from the active VideoBroadcast.
-   * Used by ApplicationPrivateData.currentChannel.
-   */
-  getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
-  /**
-   * Sets the current channel.
-   * Called by VideoBroadcast when channel changes.
-   */
-  setCurrentChannel: (channel: OIPF.DAE.Broadcast.Channel | null) => void;
-
-  /** Default keyset bitmask for newly created applications */
-  defaultKeysetValue: number;
-
-  /** Default state for Capabilities object */
-  defaultOipfCapabilities: OipfCapabilitiesState;
-
-  /** Default state for Configuration object */
-  defaultOipfConfiguration: OipfConfigurationState;
-
-  /** Defaults for newly created VideoBroadcast objects */
-  defaultVideoBroadcast: Readonly<{
-    fullScreen: boolean;
-    width: number;
-    height: number;
-    playState: OIPF.DAE.Broadcast.PlayState;
-  }>;
-
-  /** Defaults for newly created A/V Control objects */
-  defaultAvControlVideo: AVControlVideoDefaults;
 }>;
 
 /**
@@ -93,7 +48,7 @@ export type RuntimeEnv = Readonly<{
 // Runtime API
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type Runtime = Readonly<{
+export type RuntimeApi = Readonly<{
   /**
    * Starts the runtime: initializes all subsystems and begins DOM observation.
    */
@@ -119,7 +74,7 @@ export type Runtime = Readonly<{
 // Runtime Service
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class RuntimeService implements Runtime {
+export class RuntimeService implements RuntimeApi {
   readonly #env: RuntimeEnv;
   readonly #provider: ProviderService;
 
@@ -183,58 +138,16 @@ export class RuntimeService implements Runtime {
  */
 export const createRuntimeEnv = (
   extensionState: ExtensionState,
-  createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding> = createDefaultBindings,
+  createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding>,
 ): RuntimeEnv => {
   const channelRegistry = createChannelRegistryEnv(extensionState);
-  const currentChannelEnv = createCurrentChannelEnv();
 
   return {
     userAgent: createUserAgentEnv(extensionState),
     bindings: {
       channelRegistry,
       createVideoStream: createDefaultVideoStreamEnv,
-      getCurrentChannel: currentChannelEnv.getCurrentChannel,
-      setCurrentChannel: currentChannelEnv.setCurrentChannel,
-      defaultKeysetValue: DEFAULT_KEYSET_VALUE,
-      defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
-      defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
-      defaultVideoBroadcast: {
-        fullScreen: DEFAULT_FULL_SCREEN,
-        width: DEFAULT_VIDEO_WIDTH,
-        height: DEFAULT_VIDEO_HEIGHT,
-        playState: DEFAULT_BROADCAST_PLAY_STATE,
-      },
-      defaultAvControlVideo: DEFAULT_AV_CONTROL_VIDEO_DEFAULTS,
     },
     createBindings,
   };
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Convenience handle
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type RuntimeHandle = Readonly<{
-  /** Applies a partial HbbTV state update */
-  updateState: (state: Partial<HbbTVState>) => IO.IO<void>;
-  /** Reads current state from the runtime */
-  collectState: () => IO.IO<GlobalState>;
-  /** Stops DOM observation and tears down runtime services */
-  stop: () => IO.IO<void>;
-}>;
-
-/**
- * Starts the runtime and returns a small handle used by the extension.
- */
-export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
-  pipe(
-    IO.of(new RuntimeService(env)),
-    IO.tap((service) => service.start()),
-    IO.map(
-      (service): RuntimeHandle => ({
-        updateState: service.applyState,
-        collectState: service.collectState,
-        stop: service.stop,
-      }),
-    ),
-  );

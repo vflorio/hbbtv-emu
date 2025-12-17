@@ -1,39 +1,35 @@
 import type * as IO from "fp-ts/IO";
 
+export type EventMapOf<T extends EventTarget> = T extends Window
+  ? WindowEventMap
+  : T extends Document
+    ? DocumentEventMap
+    : T extends HTMLMediaElement
+      ? HTMLMediaElementEventMap
+      : T extends HTMLElement
+        ? HTMLElementEventMap
+        : Record<string, Event>;
+
 export const addEventListener =
-  <K extends keyof HTMLElementEventMap>(type: K) =>
-  (listener: (event: HTMLElementEventMap[K]) => void, options?: boolean | AddEventListenerOptions) =>
-  (element: HTMLElement): IO.IO<void> =>
+  <Target extends EventTarget>(target: Target) =>
+  <K extends Extract<keyof EventMapOf<Target>, string>>(type: K) =>
+  (listener: (event: EventMapOf<Target>[K]) => void, options?: boolean | AddEventListenerOptions): IO.IO<void> =>
   () =>
-    element.addEventListener(type, listener, options);
+    target.addEventListener(type, listener as unknown as EventListener, options);
 
 export const addEventListenerIO =
-  <K extends keyof HTMLElementEventMap>(type: K) =>
-  (listener: (event: HTMLElementEventMap[K]) => IO.IO<void>, options?: boolean | AddEventListenerOptions) =>
-  (element: HTMLElement): IO.IO<void> =>
+  <Target extends EventTarget>(target: Target) =>
+  <K extends Extract<keyof EventMapOf<Target>, string>>(type: K) =>
+  (listener: (event: EventMapOf<Target>[K]) => IO.IO<void>, options?: boolean | AddEventListenerOptions): IO.IO<void> =>
   () =>
-    element.addEventListener(type, (e) => listener(e)(), options);
-
-export const addEventListenerGeneric =
-  (type: string) =>
-  (listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) =>
-  (target: EventTarget): IO.IO<void> =>
-  () =>
-    target.addEventListener(type, listener, options);
-
-export const addEventListenerGenericIO =
-  (type: string) =>
-  (listener: (event: Event) => IO.IO<void>, options?: boolean | AddEventListenerOptions) =>
-  (target: EventTarget): IO.IO<void> =>
-  () =>
-    target.addEventListener(type, (e) => listener(e)(), options);
+    target.addEventListener(type, (e) => listener(e as EventMapOf<Target>[K])(), options);
 
 export const removeEventListener =
-  <K extends keyof HTMLElementEventMap>(type: K) =>
-  (listener: (event: HTMLElementEventMap[K]) => void, options?: boolean | EventListenerOptions) =>
-  (element: HTMLElement): IO.IO<void> =>
+  <Target extends EventTarget>(target: Target) =>
+  <K extends Extract<keyof EventMapOf<Target>, string>>(type: K) =>
+  (listener: (event: EventMapOf<Target>[K]) => void, options?: boolean | EventListenerOptions): IO.IO<void> =>
   () =>
-    element.removeEventListener(type, listener, options);
+    target.removeEventListener(type, listener as unknown as EventListener, options);
 
 export const dispatchEvent =
   <T>(type: string, detail?: T) =>
