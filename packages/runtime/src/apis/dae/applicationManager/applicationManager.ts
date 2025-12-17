@@ -86,7 +86,7 @@ export class OipfApplicationManager
 
   applyState = (state: Partial<ApplicationManagerState>): IO.IO<void> => this.stateful.applyState(state);
 
-  getState = (): IO.IO<Partial<ApplicationManagerState>> => this.stateful.getState();
+  getState: IO.IO<Partial<ApplicationManagerState>> = this.stateful.getState;
 
   subscribe = (callback: OnStateChangeCallback<ApplicationManagerState>): IO.IO<() => void> =>
     this.stateful.subscribe(callback);

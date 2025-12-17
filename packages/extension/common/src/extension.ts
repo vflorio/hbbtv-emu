@@ -11,11 +11,30 @@ export const StreamEventConfigCodec = t.intersection([
   t.type({
     id: t.string,
     enabled: t.boolean,
-    delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
+  }),
+  t.partial({
+    label: t.string,
+    scheduleMode: t.union([t.literal("timestamps"), t.literal("interval"), t.literal("delay")]),
+    delaySeconds: t.number,
+    atSeconds: t.number,
+    intervalSeconds: t.number,
+    offsetSeconds: t.number,
   }),
 ]);
 
 export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream Event Scheduling (per channel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const StreamEventScheduleModeCodec = t.union([
+  t.literal("timestamps"),
+  t.literal("interval"),
+  t.literal("delay"),
+]);
+
+export type StreamEventScheduleMode = t.TypeOf<typeof StreamEventScheduleModeCodec>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel Config
@@ -68,11 +87,13 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
     du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
   });
 
-const streamEvent = (eventName: string, payload: string, delaySeconds: number): StreamEventConfig => ({
+const streamEvent = (label: string, payload: string, delaySeconds: number): StreamEventConfig => ({
   id: randomUUID(),
   enabled: true,
+  label,
+  scheduleMode: "delay",
   delaySeconds,
-  eventName,
+  eventName: "default",
   targetURL: "http://localhost:8000",
   text: payload,
   data: textToHex(payload),
@@ -92,9 +113,9 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
       enableStreamEvents: true,
       streamEvents: [
         // Ciclo: PREP -> (10s) -> GO -> (10s) -> END -> (10s) -> PREP...
-        streamEvent("PREP", dasEventPayload("1"), 10), // Dopo 10s dall'inizio/fine ciclo
-        streamEvent("GO", dasEventPayload("2"), 10), // Dopo 10s da PREP
-        streamEvent("END", dasEventPayload("3"), 10), // Dopo 10s da GO, poi ricomincia
+        streamEvent("PREP", dasEventPayload("1"), 10), // ogni 10s
+        streamEvent("GO", dasEventPayload("2"), 20), // ogni 20s
+        streamEvent("END", dasEventPayload("3"), 30), // ogni 30s
       ],
     },
   ],

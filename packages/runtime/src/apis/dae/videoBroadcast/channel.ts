@@ -175,6 +175,7 @@ export const createChannelEnv = (instance: ChannelAPI & VideoBroadcastEnv): Chan
   setCurrentChannel: (channel) => () => {
     instance._currentChannel = channel;
     instance.env.onCurrentChannelChange(channel);
+    instance.env.streamEventScheduler.setCurrentChannel(channel)();
   },
   onChannelChangeError: (channel, errorCode) => {
     instance.onChannelChangeError?.(channel, errorCode);
@@ -190,8 +191,8 @@ export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): Cha
 
     // Playback
     play: stream.play(),
-    stop: stream.stop(),
-    destroy: stream.release(),
+    stop: stream.stop,
+    destroy: stream.release,
     loadSource: (source) => stream.loadSource(source),
 
     // Display

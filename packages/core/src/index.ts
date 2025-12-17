@@ -1,3 +1,4 @@
+export * from "./channelTriplet";
 export * from "./dom";
 export * from "./domObserver";
 export * from "./hex";

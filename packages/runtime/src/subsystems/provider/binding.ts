@@ -53,7 +53,7 @@ export type OipfFactory<T> = () => T;
  *
  * The constraint `T extends Stateful<S>` ensures the instance provides:
  * - applyState(state: Partial<S>): IO<void>
- * - getState(): IO<Partial<S>>
+ * - getState: IO<Partial<S>>
  * - subscribe(callback: (state: Partial<S>) => IO<void>): IO<() => void>
  */
 export type OipfBinding<T extends Stateful<S>, S, K extends StateKey> = Readonly<{
@@ -72,7 +72,7 @@ export type OipfBinding<T extends Stateful<S>, S, K extends StateKey> = Readonly
  */
 export interface AnyStateful {
   applyState: (state: Partial<unknown>) => IO.IO<void>;
-  getState: () => IO.IO<Partial<unknown>>;
+  getState: IO.IO<Partial<unknown>>;
   subscribe: (callback: (state: Partial<unknown>) => IO.IO<void>) => IO.IO<() => void>;
 }
 

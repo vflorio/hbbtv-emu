@@ -9,7 +9,7 @@ export default function Settings() {
   const { save } = useCommonActions();
 
   const hbbtvVersion = config.hbbtv?.oipfCapabilities?.hbbtvVersion ?? "2.0.1";
-  const defaultUserAgent = buildDefaultUserAgent(hbbtvVersion);
+  const defaultUserAgent = buildDefaultUserAgent({ hbbtvVersion });
 
   const [userAgent, setUserAgent] = useState(config.userAgent ?? defaultUserAgent);
   const [isEditing, setIsEditing] = useState(false);

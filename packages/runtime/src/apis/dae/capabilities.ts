@@ -45,7 +45,7 @@ export class OipfCapabilities implements OIPF.DAE.Capabilities.Capabilities, Sta
 
   applyState = (state: Partial<OipfCapabilitiesState>): IO.IO<void> => this.stateful.applyState(state);
 
-  getState = (): IO.IO<Partial<OipfCapabilitiesState>> => this.stateful.getState();
+  getState: IO.IO<Partial<OipfCapabilitiesState>> = this.stateful.getState;
 
   subscribe = (callback: OnStateChangeCallback<OipfCapabilitiesState>): IO.IO<() => void> =>
     this.stateful.subscribe(callback);

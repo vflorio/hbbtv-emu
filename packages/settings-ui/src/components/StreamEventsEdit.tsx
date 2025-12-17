@@ -1,15 +1,19 @@
 import { hexToText, isValidHex, randomUUID, textToHex } from "@hbb-emu/core";
-import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig, StreamEventConfig, StreamEventScheduleMode } from "@hbb-emu/extension-common";
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   AppBar,
   Box,
   Button,
+  FormControl,
   IconButton,
+  InputLabel,
   List,
   ListItem,
   ListItemText,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Toolbar,
@@ -24,12 +28,17 @@ import { useChannelActions } from "../hooks/useChannelActions";
 interface EventFormData extends Omit<StreamEventConfig, "id"> {}
 
 const defaultEventFormData: EventFormData = {
+  label: "",
   status: "trigger",
   eventName: "",
   data: "",
   text: "",
   targetURL: "dvb://current.ait",
+  scheduleMode: "delay",
   delaySeconds: 10,
+  atSeconds: 0,
+  intervalSeconds: 10,
+  offsetSeconds: 0,
   enabled: true,
 };
 
@@ -61,12 +70,17 @@ export default function StreamEventsEdit() {
   const handleEditEvent = (event: StreamEventConfig) => {
     setEditingEvent(event);
     setFormData({
+      label: event.label ?? "",
       eventName: event.eventName,
       data: event.data,
       text: event.text || "",
       status: event.status || "trigger",
       targetURL: event.targetURL || "dvb://current.ait",
-      delaySeconds: event.delaySeconds,
+      scheduleMode: (event.scheduleMode as StreamEventScheduleMode | undefined) ?? "delay",
+      delaySeconds: event.delaySeconds ?? 0,
+      atSeconds: event.atSeconds ?? 0,
+      intervalSeconds: event.intervalSeconds ?? 10,
+      offsetSeconds: event.offsetSeconds ?? 0,
       enabled: event.enabled !== false,
     });
     setShowForm(true);
@@ -133,6 +147,31 @@ export default function StreamEventsEdit() {
         <Box sx={{ p: 2 }}>
           <Stack gap={2}>
             <TextField
+              label="Label"
+              value={formData.label}
+              onChange={(e) => setFormData((prev) => ({ ...prev, label: e.target.value }))}
+              fullWidth
+              helperText="Shown in the settings list (optional)"
+            />
+
+            <FormControl fullWidth>
+              <InputLabel id="event-schedule-mode-label">Scheduling Mode</InputLabel>
+              <Select
+                labelId="event-schedule-mode-label"
+                label="Scheduling Mode"
+                value={(formData.scheduleMode as StreamEventScheduleMode | undefined) ?? "delay"}
+                onChange={(e) => {
+                  const mode = e.target.value as StreamEventScheduleMode;
+                  setFormData((prev) => ({ ...prev, scheduleMode: mode }));
+                }}
+              >
+                <MenuItem value="timestamps">Manual timestamps</MenuItem>
+                <MenuItem value="interval">Fixed interval</MenuItem>
+                <MenuItem value="delay">Delay from cycle start</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
               label="DSM-CC Event Name"
               value={formData.eventName}
               onChange={(e) => setFormData((prev) => ({ ...prev, eventName: e.target.value }))}
@@ -177,20 +216,72 @@ export default function StreamEventsEdit() {
                   : "Hex-encoded payload. Editing this will update the text automatically."
               }
             />
-            <TextField
-              label="Delay (seconds)"
-              type="number"
-              value={formData.delaySeconds}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  delaySeconds: Number.parseInt(e.target.value, 10) || 0,
-                }))
-              }
-              fullWidth
-              inputProps={{ min: 0 }}
-              helperText="Delay in seconds before this event fires"
-            />
+            {formData.scheduleMode === "timestamps" && (
+              <TextField
+                label="Timestamp (seconds from start)"
+                type="number"
+                value={formData.atSeconds}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    atSeconds: Number.parseInt(e.target.value, 10) || 0,
+                  }))
+                }
+                fullWidth
+                inputProps={{ min: 0 }}
+                helperText="Absolute time from start of the cycle"
+              />
+            )}
+
+            {formData.scheduleMode === "delay" && (
+              <TextField
+                label="Delay (seconds)"
+                type="number"
+                value={formData.delaySeconds}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    delaySeconds: Number.parseInt(e.target.value, 10) || 0,
+                  }))
+                }
+                fullWidth
+                inputProps={{ min: 0 }}
+                helperText="Delay in seconds before this event fires (relative)"
+              />
+            )}
+
+            {formData.scheduleMode === "interval" && (
+              <Stack gap={2}>
+                <TextField
+                  label="Interval (seconds)"
+                  type="number"
+                  value={formData.intervalSeconds ?? 10}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      intervalSeconds: Number.parseInt(e.target.value, 10) || 1,
+                    }))
+                  }
+                  fullWidth
+                  inputProps={{ min: 1 }}
+                  helperText="Event fires every N seconds"
+                />
+                <TextField
+                  label="Offset (seconds)"
+                  type="number"
+                  value={formData.offsetSeconds ?? 0}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      offsetSeconds: Number.parseInt(e.target.value, 10) || 0,
+                    }))
+                  }
+                  fullWidth
+                  inputProps={{ min: 0 }}
+                  helperText="Optional delay before the interval starts"
+                />
+              </Stack>
+            )}
             <TextField
               label="Target URL"
               value={formData.targetURL}
@@ -254,8 +345,15 @@ export default function StreamEventsEdit() {
                 }
               >
                 <ListItemText
-                  primary={event.eventName}
-                  secondary={`Delay: ${event.delaySeconds}s | ${event.enabled ? "Enabled" : "Disabled"}`}
+                  primary={event.label?.trim() ? event.label : event.eventName}
+                  secondary={(() => {
+                    const mode = (event.scheduleMode as StreamEventScheduleMode | undefined) ?? "delay";
+                    if (mode === "timestamps")
+                      return `At: ${event.atSeconds ?? 0}s | ${event.enabled ? "Enabled" : "Disabled"}`;
+                    if (mode === "interval")
+                      return `Every: ${event.intervalSeconds ?? 10}s (+${event.offsetSeconds ?? 0}s) | ${event.enabled ? "Enabled" : "Disabled"}`;
+                    return `Delay: ${event.delaySeconds ?? 0}s | ${event.enabled ? "Enabled" : "Disabled"}`;
+                  })()}
                 />
               </ListItem>
             ))}

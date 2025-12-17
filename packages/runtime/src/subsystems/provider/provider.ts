@@ -13,7 +13,7 @@ import {
   InstanceRegistry,
 } from "./registry";
 
-const logger = createLogger("ProviderService");
+const logger = createLogger("Provider:Service");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider API
@@ -23,12 +23,12 @@ export type ProviderApi = Readonly<{
   /**
    * Starts the provider: begins observing DOM for OIPF elements.
    */
-  start: () => IO.IO<void>;
+  start: IO.IO<void>;
 
   /**
    * Stops the provider: stops DOM observation.
    */
-  stop: () => IO.IO<void>;
+  stop: IO.IO<void>;
 
   /**
    * Applies external state to all managed instances.
@@ -38,7 +38,7 @@ export type ProviderApi = Readonly<{
   /**
    * Collects current state from all managed instances.
    */
-  collectState: () => IO.IO<GlobalState>;
+  collectState: IO.IO<GlobalState>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,23 +63,23 @@ export class ProviderService implements ProviderApi {
   /**
    * Initializes and starts the provider.
    */
-  start = (): IO.IO<void> =>
+  start: IO.IO<void> = () =>
     pipe(
       this.#initializeRegistry(),
       IO.flatMap(() => this.#registerMatchers()),
       IO.flatMap(() => this.#registerRemovalHandler()),
       IO.flatMap(() => this.#observer.start()),
-      IO.tap(() => () => logger.info("Provider started")()),
-    );
+      IO.tap(() => logger.info("Started")),
+    )();
 
   /**
    * Stops the provider.
    */
-  stop = (): IO.IO<void> =>
+  stop: IO.IO<void> = () =>
     pipe(
       this.#observer.stop(),
-      IO.tap(() => () => logger.info("Provider stopped")()),
-    );
+      IO.tap(() => logger.info("Stopped")),
+    )();
 
   /**
    * Applies external state to all managed instances.
@@ -100,7 +100,7 @@ export class ProviderService implements ProviderApi {
   /**
    * Collects current state from all managed instances.
    */
-  collectState = (): IO.IO<GlobalState> => () => {
+  collectState: IO.IO<GlobalState> = () => {
     const base = collectState(this.#registry)();
     const avControls = this.#collectAvControlsState()();
 
@@ -130,11 +130,9 @@ export class ProviderService implements ProviderApi {
   #handleDetection = (binding: AnyOipfBinding, detected: DetectedElement): IO.IO<void> =>
     pipe(
       IO.of(binding.factory()),
-      IO.tap((instance) =>
-        IO.of(() => {
-          this.#elementInstances.set(detected.element, { stateKey: binding.name, instance });
-        }),
-      ),
+      IO.tap((instance) => () => {
+        this.#elementInstances.set(detected.element, { stateKey: binding.name, instance });
+      }),
       IO.tap((instance) => this.#registerInstance(binding, instance)),
       IO.tap((instance) => applyAttachStrategy(binding.connector.attachStrategy, detected, instance)),
       IO.map(() => undefined),
@@ -144,14 +142,12 @@ export class ProviderService implements ProviderApi {
     pipe(
       IO.of(this.#elementInstances.get(element)),
       IO.tap(() => detachAttachedElement(element)),
-      IO.tap((entry) =>
-        IO.of(() => {
-          if (!entry) return;
-          this.#registry.removeInstance(entry.stateKey, entry.instance)();
-          this.#elementInstances.delete(element);
-          this.#avControlIds.delete(element);
-        }),
-      ),
+      IO.tap((entry) => () => {
+        if (!entry) return;
+        this.#registry.removeInstance(entry.stateKey, entry.instance)();
+        this.#elementInstances.delete(element);
+        this.#avControlIds.delete(element);
+      }),
       IO.map(() => undefined),
     );
 
@@ -195,7 +191,7 @@ export class ProviderService implements ProviderApi {
       if (entry.stateKey !== "avControls") continue;
 
       const key = this.#getAvControlKeyForElement(element);
-      result[key] = entry.instance.getState()();
+      result[key] = entry.instance.getState();
     }
 
     return result;

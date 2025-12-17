@@ -74,10 +74,15 @@ export const WithDomObserver = <T extends ClassType>(Base: T) =>
           (observer) =>
             pipe(
               logger.info("stopping"),
-              IO.tap(() => () => observer.disconnect()),
+              IO.tap(() => disconnectObserver(observer)),
               IO.flatMap(() => this.observerRef.write(O.none)),
             ),
         ),
       ),
     );
   };
+
+const disconnectObserver =
+  (observer: MutationObserver): IO.IO<void> =>
+  () =>
+    observer.disconnect();

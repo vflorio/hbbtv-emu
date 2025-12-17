@@ -87,6 +87,7 @@ export class ContentScriptService implements ContentScript {
                 pipe(
                   logger.debug("Saving runtime handle"),
                   IO.flatMap(() => this.#app.runState(setRuntimeHandle(handle))),
+                  IO.flatMap(() => this.#updateRuntimeState(extensionState)),
                 ),
               ),
             ),
@@ -117,6 +118,7 @@ export class ContentScriptService implements ContentScript {
           (handle) =>
             pipe(
               logger.debug("Updating HbbTV runtime state"),
+              IO.flatMap(() => handle.updateExtensionState(extensionState)),
               IO.flatMap(() => handle.updateState(extensionState.hbbtv)),
             ),
         ),

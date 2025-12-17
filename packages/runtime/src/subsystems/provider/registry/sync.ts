@@ -52,7 +52,7 @@ export const collectState =
     for (const stateKey of registry.getStateKeys()) {
       const instance = registry.getFirstInstance(stateKey);
       if (instance) {
-        state[stateKey] = instance.getState()();
+        state[stateKey] = instance.getState();
       }
     }
 

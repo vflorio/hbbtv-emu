@@ -7,16 +7,20 @@ import * as RA from "fp-ts/ReadonlyArray";
 
 const logger = createLogger("OipfObjectFactory");
 
+const defineWindowBinding =
+  (instance: unknown, key: string): IO.IO<void> =>
+  () => {
+    Object.defineProperty(window, key, {
+      value: instance,
+      writable: false,
+      configurable: true,
+    });
+  };
+
 const injectToWindow = (instance: unknown, key: string): IO.IO<void> =>
   pipe(
     logger.debug("Injecting to window:", key),
-    IO.flatMap(() => () => {
-      Object.defineProperty(window, key, {
-        value: instance,
-        writable: false,
-        configurable: true,
-      });
-    }),
+    IO.tap(() => defineWindowBinding(instance, key)),
     IO.tap(() => logger.debug("Inject strategy complete for:", key)),
   );
 

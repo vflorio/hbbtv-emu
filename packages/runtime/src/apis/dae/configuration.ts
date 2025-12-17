@@ -53,7 +53,7 @@ export class OipfConfiguration implements OIPF.DAE.Configuration.Configuration, 
 
   applyState = (state: Partial<OipfConfigurationState>): IO.IO<void> => this.stateful.applyState(state);
 
-  getState = (): IO.IO<Partial<OipfConfigurationState>> => this.stateful.getState();
+  getState: IO.IO<Partial<OipfConfigurationState>> = this.stateful.getState;
 
   subscribe = (callback: OnStateChangeCallback<OipfConfigurationState>): IO.IO<() => void> =>
     this.stateful.subscribe(callback);

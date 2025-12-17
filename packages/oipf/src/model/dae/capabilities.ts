@@ -72,9 +72,28 @@ export const getHbbtvVersion = (oipfVersion: string): string | undefined =>
 /**
  * Build default User-Agent string for a given HbbTV version.
  */
-export const buildDefaultUserAgent = (hbbtvVersion: string): string => {
+export const buildDefaultUserAgent = (opts: {
+  hbbtvVersion: string;
+  vendor?: string;
+  model?: string;
+  vendorVersion?: string;
+  firmwareVersion?: string;
+  ceHtmlVersion?: string;
+  client?: string;
+}): string => {
+  const {
+    client = "hbbtv-emu/0.1.0", // FIXME: Get from package.json
+    hbbtvVersion,
+    vendor = "Vendor",
+    model = "ModelName",
+    vendorVersion = "0.1.0",
+    firmwareVersion = "0.1.0",
+    ceHtmlVersion = "1.0",
+  } = opts;
+
   const oipfVersion = getOipfVersion(hbbtvVersion) ?? "1.4.1";
-  return `Mozilla/5.0 (SmartTV; HbbTV/${oipfVersion} (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH`;
+
+  return `Mozilla/5.0 (SmartTV; HbbTV/${oipfVersion} (+DL;${vendor}/${model};${vendorVersion};${firmwareVersion};) CE-HTML/${ceHtmlVersion} ${client})`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
