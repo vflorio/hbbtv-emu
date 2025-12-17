@@ -113,12 +113,3 @@ export class ProviderService implements ProviderApi {
     return this.#registry.addInstance(binding.stateful.stateKey, instance, stateChangeHandler);
   };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Factory
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Creates a new ProviderService with the given environment.
- */
-export const createProviderService = (env: ProviderEnv): ProviderService => new ProviderService(env);

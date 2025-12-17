@@ -4,11 +4,21 @@ import type * as IO from "fp-ts/IO";
 import type { ChannelRegistryEnv } from "./subsystems/channelRegistry";
 import type { VideoStreamEnv } from "./subsystems/videoStream";
 
+export * from "./apis/bindings";
+export * from "./runtime.new";
+export * from "./subsystems/provider";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy Types (for compatibility during migration)
+// ─────────────────────────────────────────────────────────────────────────────
+
 // State slice key in HbbTVState
-export type StateKey = keyof HbbTVState;
+/** @deprecated Use StateKey from subsystems/provider instead */
+export type LegacyStateKey = keyof HbbTVState;
 
 // Definition of attach strategies for OIPF objects
-export type AttachStrategy = "non-visual" | "visual";
+/** @deprecated Use AttachStrategy from subsystems/provider instead */
+export type LegacyAttachStrategy = "non-visual" | "visual";
 
 // OIPF objects whose properties can be copied to the HTMLObjectElement (non-visual objects)
 export type NonVisualOipfObject =
@@ -16,35 +26,35 @@ export type NonVisualOipfObject =
   | OIPF.DAE.Capabilities.Capabilities
   | OIPF.DAE.Configuration.Configuration;
 
-// OIPF objects whose properties can be proxied by a VideoStream (A/V objects & VideoBroadcast)
-export type VisualOipfObject = WithVideoElement & (OIPF.AV.Control.AVControlObject | OIPF.DAE.Broadcast.VideoBroadcast);
-
-// FIXME
 // Visual objects that have a video element
 export interface WithVideoElement {
   readonly videoElement: HTMLVideoElement;
 }
-// FIXME
+
+// OIPF objects whose properties can be proxied by a VideoStream (A/V objects & VideoBroadcast)
+export type VisualOipfObject = WithVideoElement & (OIPF.AV.Control.AVControlObject | OIPF.DAE.Broadcast.VideoBroadcast);
+
 // Factory environment for creating OIPF objects that need runtime dependencies
+/** @deprecated Use BindingsEnv from runtime.new instead */
 export type VideoBroadcastPolyfillEnv = Readonly<{
   channelRegistry: ChannelRegistryEnv;
   createVideoStreamEnv: () => VideoStreamEnv;
 }>;
 
 // Definition for an OIPF object with state sync
-export type ObjectDefinition<T extends Stateful<S>, S, K extends StateKey> = Readonly<{
+/** @deprecated Use OipfBinding from subsystems/provider instead */
+export type ObjectDefinition<T extends Stateful<S>, S, K extends LegacyStateKey> = Readonly<{
   name: string;
   selector: string;
   predicate: (element: Element) => element is HTMLObjectElement;
   factory: () => T;
   stateKey: K;
-  attachStrategy: AttachStrategy;
+  attachStrategy: LegacyAttachStrategy;
   applyState: (instance: T, state: Partial<S>) => IO.IO<void>;
   getState: (instance: T) => IO.IO<Partial<S>>;
   subscribe: (instance: T, callback: (state: Partial<S>) => IO.IO<void>) => IO.IO<() => void>;
 }>;
 
 // Type alias for any OIPF object definition
-export type AnyOipfDefinition = ObjectDefinition<any, any, StateKey>;
-
-export * from "./runtime";
+/** @deprecated Use AnyOipfBinding from subsystems/provider instead */
+export type AnyOipfDefinition = ObjectDefinition<any, any, LegacyStateKey>;

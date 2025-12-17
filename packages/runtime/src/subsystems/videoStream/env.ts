@@ -19,6 +19,9 @@ export const createDefaultVideoStreamEnv = (): VideoStreamEnv => ({
   detectSourceType,
 });
 
+/** @deprecated Use createDefaultVideoStreamEnv instead */
+export const createStandaloneVideoStreamEnv = createDefaultVideoStreamEnv;
+
 const detectSourceType = (url: string): PlayerSourceType =>
   match(url.toLowerCase())
     .when(
