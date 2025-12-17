@@ -1,67 +1,240 @@
 import { createLogger } from "@hbb-emu/core";
 import type { ExtensionState } from "@hbb-emu/extension-common";
-import type { HbbTVState } from "@hbb-emu/oipf";
+import {
+  DEFAULT_BROADCAST_PLAY_STATE,
+  DEFAULT_FULL_SCREEN,
+  DEFAULT_KEYSET_VALUE,
+  DEFAULT_OIPF_CAPABILITIES,
+  DEFAULT_OIPF_CONFIGURATION,
+  DEFAULT_VIDEO_HEIGHT,
+  DEFAULT_VIDEO_WIDTH,
+  type HbbTVState,
+  type OIPF,
+  type OipfCapabilitiesState,
+  type OipfConfigurationState,
+} from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type * as RIO from "fp-ts/ReaderIO";
-import type { VideoBroadcastPolyfillEnv } from ".";
-import {
-  createOipfObjectFactoryEnv,
-  initializeOipfObjectFactory,
-  type OipfObjectFactoryEnv,
-} from "./apis/dae/objectFactory";
-import { createObjectProviderEnv, initializeObjectProvider, type ObjectProviderEnv } from "./provider";
-import { createObjectDefinitions } from "./provider/definitions";
-import { applyExternalState } from "./provider/stateful/state";
+import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/controlVideo";
+import { createBindings as createDefaultBindings } from "./apis/bindings";
 import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
-  createStandaloneVideoStreamEnv,
+  createCurrentChannelEnv,
+  createDefaultVideoStreamEnv,
   createUserAgentEnv,
   initializeUserAgent,
   type UserAgentEnv,
+  type VideoStreamEnv,
 } from "./subsystems";
+import { type AnyOipfBinding, createProviderEnv, type GlobalState, ProviderService } from "./subsystems/provider";
 
-const logger = createLogger("Runtime");
+const logger = createLogger("RuntimeService");
 
-export type RuntimeEnv = UserAgentEnv & OipfObjectFactoryEnv & ObjectProviderEnv & ChannelRegistryEnv;
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime Environment
+// ─────────────────────────────────────────────────────────────────────────────
 
-export type RuntimeHandle = Readonly<{
-  /** Apply external state updates to all registered OIPF objects */
-  updateState: (state: Partial<HbbTVState>) => IO.IO<void>;
+/**
+ * Environment for creating OIPF bindings.
+ * Provides dependencies needed by OIPF objects (VideoBroadcast, ApplicationManager, etc).
+ */
+export type BindingsEnv = Readonly<{
+  /** Channel configuration for VideoBroadcast */
+  channelRegistry: ChannelRegistryEnv;
+  /** Factory for creating VideoStream instances */
+  createVideoStream: () => VideoStreamEnv;
+  /**
+   * Returns the current channel from the active VideoBroadcast.
+   * Used by ApplicationPrivateData.currentChannel.
+   */
+  getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
+  /**
+   * Sets the current channel.
+   * Called by VideoBroadcast when channel changes.
+   */
+  setCurrentChannel: (channel: OIPF.DAE.Broadcast.Channel | null) => void;
+
+  /** Default keyset bitmask for newly created applications */
+  defaultKeysetValue: number;
+
+  /** Default state for Capabilities object */
+  defaultOipfCapabilities: OipfCapabilitiesState;
+
+  /** Default state for Configuration object */
+  defaultOipfConfiguration: OipfConfigurationState;
+
+  /** Defaults for newly created VideoBroadcast objects */
+  defaultVideoBroadcast: Readonly<{
+    fullScreen: boolean;
+    width: number;
+    height: number;
+    playState: OIPF.DAE.Broadcast.PlayState;
+  }>;
+
+  /** Defaults for newly created A/V Control objects */
+  defaultAvControlVideo: AVControlVideoDefaults;
 }>;
 
-export const runtime: RIO.ReaderIO<RuntimeEnv, RuntimeHandle> = (env) =>
-  pipe(
-    logger.info("Initializing"),
-    IO.tap(() => initializeUserAgent(env)),
-    IO.tap(() => initializeOipfObjectFactory(env)),
-    IO.tap(() => initializeObjectProvider(env)),
-    IO.map(() => createRuntimeHandle(env)),
-    IO.tap(() => logger.info("Initialized")),
-  );
+/**
+ * Complete runtime environment.
+ * All dependencies needed to initialize and run the HbbTV runtime.
+ */
+export type RuntimeEnv = Readonly<{
+  /** User agent configuration and override capabilities */
+  userAgent: UserAgentEnv;
+  /** Environment for creating bindings */
+  bindings: BindingsEnv;
+  /** Factory function that creates all OIPF bindings */
+  createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding>;
+}>;
 
-const createRuntimeHandle = (env: RuntimeEnv): RuntimeHandle => ({
-  updateState: (state) =>
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type Runtime = Readonly<{
+  /**
+   * Starts the runtime: initializes all subsystems and begins DOM observation.
+   */
+  start: () => IO.IO<void>;
+
+  /**
+   * Stops the runtime: stops DOM observation.
+   */
+  stop: () => IO.IO<void>;
+
+  /**
+   * Applies external state to all managed OIPF objects.
+   */
+  applyState: (state: Partial<HbbTVState>) => IO.IO<void>;
+
+  /**
+   * Collects current state from all managed OIPF objects.
+   */
+  collectState: () => IO.IO<GlobalState>;
+}>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime Service
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class RuntimeService implements Runtime {
+  readonly #env: RuntimeEnv;
+  readonly #provider: ProviderService;
+
+  constructor(env: RuntimeEnv) {
+    this.#env = env;
+
+    // Create bindings with the bindings environment
+    const bindings = env.createBindings(env.bindings);
+
+    // Create provider with bindings
+    const providerEnv = createProviderEnv(bindings);
+    this.#provider = new ProviderService(providerEnv);
+  }
+
+  /**
+   * Starts the runtime.
+   */
+  start = (): IO.IO<void> =>
     pipe(
-      logger.debug("Updating runtime state"),
-      IO.flatMap(() => applyExternalState(state)(env)),
-    ),
-});
+      logger.info("Starting runtime"),
+      IO.tap(() => initializeUserAgent(this.#env.userAgent)),
+      IO.tap(() => this.#provider.start()),
+      IO.tap(() => logger.info("Runtime started")),
+    );
 
-const createFactoryEnv = (channelRegistryEnv: ChannelRegistryEnv): VideoBroadcastPolyfillEnv => ({
-  channelRegistry: channelRegistryEnv,
-  createVideoStreamEnv: createStandaloneVideoStreamEnv,
-});
+  /**
+   * Stops the runtime.
+   */
+  stop = (): IO.IO<void> =>
+    pipe(
+      logger.info("Stopping runtime"),
+      IO.tap(() => this.#provider.stop()),
+      IO.tap(() => logger.info("Runtime stopped")),
+    );
 
-export const createRuntimeEnv = (extensionState: ExtensionState): RuntimeEnv => {
-  const channelRegistryEnv = createChannelRegistryEnv(extensionState);
-  const factoryEnv = createFactoryEnv(channelRegistryEnv);
-  const objectDefinitions = createObjectDefinitions(factoryEnv);
+  /**
+   * Applies external state to all managed OIPF objects.
+   */
+  applyState = (state: Partial<HbbTVState>): IO.IO<void> =>
+    pipe(
+      logger.debug("Applying state"),
+      IO.tap(() => this.#provider.applyState(state as GlobalState)),
+    );
+
+  /**
+   * Collects current state from all managed OIPF objects.
+   */
+  collectState = (): IO.IO<GlobalState> => this.#provider.collectState();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Factory
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Creates a RuntimeEnv from extension state.
+ *
+ * @param extensionState - State from the browser extension
+ * @param createBindings - Factory function to create all OIPF bindings
+ * @returns Complete runtime environment
+ */
+export const createRuntimeEnv = (
+  extensionState: ExtensionState,
+  createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding> = createDefaultBindings,
+): RuntimeEnv => {
+  const channelRegistry = createChannelRegistryEnv(extensionState);
+  const currentChannelEnv = createCurrentChannelEnv();
+
   return {
-    ...createUserAgentEnv(extensionState),
-    ...channelRegistryEnv,
-    ...createOipfObjectFactoryEnv(),
-    ...createObjectProviderEnv(objectDefinitions),
+    userAgent: createUserAgentEnv(extensionState),
+    bindings: {
+      channelRegistry,
+      createVideoStream: createDefaultVideoStreamEnv,
+      getCurrentChannel: currentChannelEnv.getCurrentChannel,
+      setCurrentChannel: currentChannelEnv.setCurrentChannel,
+      defaultKeysetValue: DEFAULT_KEYSET_VALUE,
+      defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
+      defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
+      defaultVideoBroadcast: {
+        fullScreen: DEFAULT_FULL_SCREEN,
+        width: DEFAULT_VIDEO_WIDTH,
+        height: DEFAULT_VIDEO_HEIGHT,
+        playState: DEFAULT_BROADCAST_PLAY_STATE,
+      },
+      defaultAvControlVideo: DEFAULT_AV_CONTROL_VIDEO_DEFAULTS,
+    },
+    createBindings,
   };
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convenience handle
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RuntimeHandle = Readonly<{
+  /** Applies a partial HbbTV state update */
+  updateState: (state: Partial<HbbTVState>) => IO.IO<void>;
+  /** Reads current state from the runtime */
+  collectState: () => IO.IO<GlobalState>;
+  /** Stops DOM observation and tears down runtime services */
+  stop: () => IO.IO<void>;
+}>;
+
+/**
+ * Starts the runtime and returns a small handle used by the extension.
+ */
+export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
+  pipe(
+    IO.of(new RuntimeService(env)),
+    IO.tap((service) => service.start()),
+    IO.map(
+      (service): RuntimeHandle => ({
+        updateState: service.applyState,
+        collectState: service.collectState,
+        stop: service.stop,
+      }),
+    ),
+  );

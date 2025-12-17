@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { VideoStreamEnv } from "./env";
-import type { Player, PlayerSource, PlayerSourceType } from "./players";
+import type { Player, PlayerEventListener, PlayerEventType, PlayerSource, PlayerSourceType } from "./players";
 
 const resolveSourceType = (deps: VideoStreamEnv, source: PlayerSource): PlayerSourceType =>
   source.type ?? deps.detectSourceType(source.url);
@@ -17,17 +17,32 @@ export type VideoStreamApi = Readonly<{
   play: (speed?: number) => IO.IO<void>;
   pause: () => IO.IO<void>;
   stop: () => IO.IO<void>;
+  seek: (position: number) => IO.IO<void>;
 
   /** Resource management */
   release: () => IO.IO<void>;
+
+  /** Audio control */
+  setVolume: (volume: number) => IO.IO<void>;
+  setMuted: (muted: boolean) => IO.IO<void>;
+
+  /** Display control */
+  setFullscreen: (fullscreen: boolean) => IO.IO<void>;
+  setSize: (width: number, height: number) => IO.IO<void>;
+
+  /** Event handling */
+  on: <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>) => IO.IO<void>;
+  off: <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>) => IO.IO<void>;
 }>;
 
 export class VideoStreamService implements VideoStreamApi {
   #player: Player;
+  #externalListeners: Map<PlayerEventType, Set<PlayerEventListener<any>>>;
 
   constructor(private readonly env: VideoStreamEnv) {
     this.#player = env.createPlayer("video");
     this.#player.setupListeners()();
+    this.#externalListeners = new Map();
   }
 
   get videoElement(): HTMLVideoElement {
@@ -49,6 +64,13 @@ export class VideoStreamService implements VideoStreamApi {
       const next = this.env.createPlayer(sourceType);
       next.setupListeners()();
       this.#player = next;
+
+      // Re-attach external listeners to the new player
+      for (const [type, listeners] of this.#externalListeners.entries()) {
+        for (const listener of listeners) {
+          this.#player.on(type as any, listener as any)();
+        }
+      }
     };
 
   loadSource = (source: PlayerSource): IO.IO<void> =>
@@ -61,6 +83,30 @@ export class VideoStreamService implements VideoStreamApi {
   play = (speed?: number): IO.IO<void> => this.#player.play(speed);
   pause = (): IO.IO<void> => this.#player.pause();
   stop = (): IO.IO<void> => this.#player.stop();
+  seek = (position: number): IO.IO<void> => this.#player.seek(position);
 
   release = (): IO.IO<void> => this.#player.release();
+
+  setVolume = (volume: number): IO.IO<void> => this.#player.setVolume(volume);
+  setMuted = (muted: boolean): IO.IO<void> => this.#player.setMuted(muted);
+
+  setFullscreen = (fullscreen: boolean): IO.IO<void> => this.#player.setFullscreen(fullscreen);
+  setSize = (width: number, height: number): IO.IO<void> => this.#player.setSize(width, height);
+
+  on =
+    <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    () => {
+      const set = this.#externalListeners.get(type) ?? new Set<PlayerEventListener<any>>();
+      set.add(listener as any);
+      this.#externalListeners.set(type, set);
+      this.#player.on(type, listener)();
+    };
+
+  off =
+    <T extends PlayerEventType>(type: T, listener: PlayerEventListener<T>): IO.IO<void> =>
+    () => {
+      const set = this.#externalListeners.get(type);
+      set?.delete(listener as any);
+      this.#player.off(type, listener)();
+    };
 }

@@ -9,41 +9,72 @@ import { type ApplicationManagerState, ApplicationManagerStateCodec, type OIPF }
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
-import { createApplication } from "./application";
+import { type ApplicationEnv, createApplication } from "./application";
 
 const logger = createLogger("OipfApplicationManager");
+
+/**
+ * Environment for ApplicationManager.
+ * Provides access to the current broadcast channel for ApplicationPrivateData.
+ */
+export type ApplicationManagerEnv = Readonly<{
+  /** Returns the current channel from the active VideoBroadcast */
+  getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
+
+  /** Creates a Keyset instance for new ApplicationPrivateData */
+  createKeyset: () => OIPF.DAE.ApplicationManager.Keyset;
+}>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ApplicationManager
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** WeakMap cache for applications per document */
-const applicationCache = new WeakMap<Document, OIPF.DAE.ApplicationManager.Application>();
+/**
+ * Application cache per ApplicationManager instance.
+ * WeakMap keyed by Document to allow garbage collection.
+ */
+type ApplicationCache = WeakMap<Document, OIPF.DAE.ApplicationManager.Application>;
 
-/** Pure function to get or create application for a document */
-const getOrCreateApplication = (doc: Document): IO.IO<OIPF.DAE.ApplicationManager.Application> =>
-  pipe(
-    IO.of(applicationCache.get(doc)),
-    IO.map(O.fromNullable),
-    IO.flatMap(
-      O.match(
-        () =>
-          pipe(
-            logger.debug("Creating new Application for document"),
-            IO.map(() => {
-              const app = createApplication(doc);
-              applicationCache.set(doc, app);
-              return app;
-            }),
-          ),
-        (existingApp) => IO.of(existingApp),
+/**
+ * Creates a function to get or create an application for a document.
+ */
+const createGetOrCreateApplication =
+  (cache: ApplicationCache, env: ApplicationEnv) =>
+  (doc: Document): IO.IO<OIPF.DAE.ApplicationManager.Application> =>
+    pipe(
+      IO.of(cache.get(doc)),
+      IO.map(O.fromNullable),
+      IO.flatMap(
+        O.match(
+          () =>
+            pipe(
+              logger.debug("Creating new Application for document"),
+              IO.map(() => {
+                const app = createApplication(doc, env);
+                cache.set(doc, app);
+                return app;
+              }),
+            ),
+          (existingApp) => IO.of(existingApp),
+        ),
       ),
-    ),
-  );
+    );
 
 export class OipfApplicationManager
   implements OIPF.DAE.ApplicationManager.ApplicationManager, Stateful<ApplicationManagerState>
 {
+  readonly #env: ApplicationManagerEnv;
+  readonly #applicationCache: ApplicationCache = new WeakMap();
+  readonly #getOrCreateApplication: (doc: Document) => IO.IO<OIPF.DAE.ApplicationManager.Application>;
+
+  constructor(env: ApplicationManagerEnv) {
+    this.#env = env;
+    this.#getOrCreateApplication = createGetOrCreateApplication(this.#applicationCache, {
+      getCurrentChannel: this.#env.getCurrentChannel,
+      createKeyset: this.#env.createKeyset,
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
@@ -79,7 +110,7 @@ export class OipfApplicationManager
                 logger.warn("No document available"),
                 IO.map(() => null),
               ),
-            (doc): IO.IO<OIPF.DAE.ApplicationManager.Application | null> => getOrCreateApplication(doc),
+            (doc): IO.IO<OIPF.DAE.ApplicationManager.Application | null> => this.#getOrCreateApplication(doc),
           ),
         ),
       ),

@@ -18,8 +18,8 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { StreamPlayState } from "../providers/videoStream";
-import { ObjectVideoStream } from "../providers/videoStream/videoStream";
+import type { VideoStreamEnv } from "../../subsystems/videoStream";
+import { type PlayerError, PlayerPlayState, VideoStreamService } from "../../subsystems/videoStream";
 
 const logger = createLogger("AVControlVideo");
 
@@ -27,10 +27,9 @@ const logger = createLogger("AVControlVideo");
 // A/V Control Video
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class AVControlVideo
-  extends ObjectVideoStream
-  implements OIPF.AV.Control.AVControlVideo, Stateful<AVControlState>
-{
+export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<AVControlState> {
+  readonly #stream: VideoStreamService;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
   // ═══════════════════════════════════════════════════════════════════════════
@@ -96,8 +95,19 @@ export class AVControlVideo
   // Constructor
   // ═══════════════════════════════════════════════════════════════════════════
 
-  constructor() {
-    super();
+  constructor(env: AVControlVideoEnv) {
+    this.#stream = new VideoStreamService(env.videoStream);
+
+    this._mimeType = env.defaults.mimeType;
+    this._data = env.defaults.data;
+    this._playState = env.defaults.playState;
+    this._speed = env.defaults.speed;
+    this._volume = env.defaults.volume;
+    this._muted = env.defaults.muted;
+    this._width = env.defaults.width;
+    this._height = env.defaults.height;
+    this._fullScreen = env.defaults.fullScreen;
+
     this.setupBackendEventListeners();
     logger.info("Initialized")();
   }
@@ -107,25 +117,29 @@ export class AVControlVideo
   // ═════════════════════════════════════════════════════════════════════════════
 
   setupBackendEventListeners = (): void => {
-    // Map stream state changes to HbbTV playState
-    this.onStreamStateChange((streamState) => {
-      const avControlState = mapStreamToAvControl(streamState);
-      this.setPlayState(avControlState);
-    });
+    this.#stream.on("statechange", (event) => {
+      this.setPlayState(mapPlayerToAvControl(event.state));
+    })();
 
-    // Map time updates
-    this.onPlayerEvent("timeupdate", (event) => {
+    this.#stream.on("timeupdate", (event) => {
       this.onPlayPositionChanged?.(event.currentTime);
-    });
+    })();
 
-    // Map errors
-    this.onPlayerEvent("error", (event) => {
-      this._error = this.mapErrorCode(event.error.code);
-    });
+    this.#stream.on("fullscreenchange", (event) => {
+      if (this._fullScreen !== event.fullscreen) {
+        this._fullScreen = event.fullscreen;
+        this.onFullScreenChange?.(event.fullscreen);
+      }
+    })();
+
+    this.#stream.on("error", (event) => {
+      this._error = this.mapErrorCode(event.error);
+      this.setPlayState(OIPF.AV.Control.PlayState.ERROR);
+    })();
   };
 
-  mapErrorCode = (code: number): OIPF.AV.Control.ErrorCode => {
-    switch (code) {
+  mapErrorCode = (error: PlayerError): OIPF.AV.Control.ErrorCode => {
+    switch (error.code) {
       case 1: // MEDIA_ERR_ABORTED
         return OIPF.AV.Control.ErrorCode.UNIDENTIFIED;
       case 2: // MEDIA_ERR_NETWORK
@@ -138,6 +152,10 @@ export class AVControlVideo
         return OIPF.AV.Control.ErrorCode.UNIDENTIFIED;
     }
   };
+
+  get videoElement(): HTMLVideoElement {
+    return this.#stream.videoElement;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Properties (readonly)
@@ -179,7 +197,8 @@ export class AVControlVideo
       IO.flatMap(() => {
         // Stop current playback if data changes
         if (this._data !== url && this._playState !== OIPF.AV.Control.PlayState.STOPPED) {
-          this.videoStreamStop();
+          this.#stream.stop()();
+          this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
         }
         return IO.of(undefined);
       }),
@@ -187,10 +206,10 @@ export class AVControlVideo
         IO.of(() => {
           this._data = url;
           if (url) {
-            // FIXME
-            this.loadSource({ url, type: "video" })();
+            this.#stream.loadSource({ url, type: "video" })();
           } else {
-            this.releasePlayer()();
+            this.#stream.release()();
+            this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
           }
         }),
       ),
@@ -206,7 +225,7 @@ export class AVControlVideo
       this._width = value;
       const numericWidth = Number.parseInt(value, 10);
       if (!Number.isNaN(numericWidth)) {
-        this.videoStreamSetSize(numericWidth, Number.parseInt(this._height, 10) || 0);
+        this.#stream.setSize(numericWidth, Number.parseInt(this._height, 10) || 0)();
       }
     }
   }
@@ -220,7 +239,7 @@ export class AVControlVideo
       this._height = value;
       const numericHeight = Number.parseInt(value, 10);
       if (!Number.isNaN(numericHeight)) {
-        this.videoStreamSetSize(Number.parseInt(this._width, 10) || 0, numericHeight);
+        this.#stream.setSize(Number.parseInt(this._width, 10) || 0, numericHeight)();
       }
     }
   }
@@ -244,11 +263,12 @@ export class AVControlVideo
         this._speed = speed;
 
         if (speed === 0) {
-          this.videoStreamPause();
+          this.#stream.pause()();
+          this.setPlayState(OIPF.AV.Control.PlayState.PAUSED);
         } else {
           // Set connecting state before play attempt
           this.setPlayState(OIPF.AV.Control.PlayState.CONNECTING);
-          this.videoStreamPlay(speed);
+          this.#stream.play(speed)();
         }
 
         this.onPlaySpeedChanged?.(speed);
@@ -260,7 +280,8 @@ export class AVControlVideo
     pipe(
       logger.debug("stop"),
       IO.map(() => {
-        this.videoStreamStop();
+        this.#stream.stop()();
+        this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
         return true;
       }),
     )();
@@ -271,7 +292,7 @@ export class AVControlVideo
       IO.map(() => {
         const duration = this.videoElement.duration * 1000;
         if (pos >= 0 && pos <= duration) {
-          this.videoStreamSeek(pos)();
+          this.#stream.seek(pos)();
           this.onPlayPositionChanged?.(pos);
           return true;
         }
@@ -283,7 +304,8 @@ export class AVControlVideo
     pipe(
       logger.debug("setVolume:", volume),
       IO.map(() => {
-        this.videoStreamSetVolume(volume);
+        this._volume = volume;
+        this.#stream.setVolume(volume)();
         return true;
       }),
     )();
@@ -305,7 +327,7 @@ export class AVControlVideo
         IO.of(() => {
           if (this._fullScreen !== fullscreen) {
             this._fullScreen = fullscreen;
-            this.videoStreamSetFullscreen(fullscreen);
+            this.#stream.setFullscreen(fullscreen)();
             this.onFullScreenChange?.(fullscreen);
           }
         }),
@@ -339,22 +361,51 @@ export class AVControlVideo
 // State Mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-const mapStreamToAvControl = (state: StreamPlayState): OIPF.AV.Control.PlayState => {
+export type AVControlVideoDefaults = Readonly<{
+  mimeType: string;
+  data: string;
+  playState: OIPF.AV.Control.PlayState;
+  speed: number;
+  volume: number;
+  muted: boolean;
+  width: string;
+  height: string;
+  fullScreen: boolean;
+}>;
+
+export type AVControlVideoEnv = Readonly<{
+  videoStream: VideoStreamEnv;
+  defaults: AVControlVideoDefaults;
+}>;
+
+export const DEFAULT_AV_CONTROL_VIDEO_DEFAULTS: AVControlVideoDefaults = {
+  mimeType: "",
+  data: DEFAULT_AV_CONTROL_DATA,
+  playState: DEFAULT_AV_CONTROL_PLAY_STATE,
+  speed: DEFAULT_AV_CONTROL_SPEED,
+  volume: 100,
+  muted: false,
+  width: String(DEFAULT_AV_CONTROL_WIDTH),
+  height: String(DEFAULT_AV_CONTROL_HEIGHT),
+  fullScreen: DEFAULT_AV_CONTROL_FULL_SCREEN,
+};
+
+const mapPlayerToAvControl = (state: PlayerPlayState): OIPF.AV.Control.PlayState => {
   switch (state) {
-    case StreamPlayState.IDLE:
-    case StreamPlayState.STOPPED:
+    case PlayerPlayState.IDLE:
+    case PlayerPlayState.STOPPED:
       return OIPF.AV.Control.PlayState.STOPPED;
-    case StreamPlayState.CONNECTING:
+    case PlayerPlayState.CONNECTING:
       return OIPF.AV.Control.PlayState.CONNECTING;
-    case StreamPlayState.BUFFERING:
+    case PlayerPlayState.BUFFERING:
       return OIPF.AV.Control.PlayState.BUFFERING;
-    case StreamPlayState.PLAYING:
+    case PlayerPlayState.PLAYING:
       return OIPF.AV.Control.PlayState.PLAYING;
-    case StreamPlayState.PAUSED:
+    case PlayerPlayState.PAUSED:
       return OIPF.AV.Control.PlayState.PAUSED;
-    case StreamPlayState.FINISHED:
+    case PlayerPlayState.FINISHED:
       return OIPF.AV.Control.PlayState.FINISHED;
-    case StreamPlayState.ERROR:
+    case PlayerPlayState.ERROR:
       return OIPF.AV.Control.PlayState.ERROR;
   }
 };

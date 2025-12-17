@@ -60,30 +60,39 @@ export class ObjectStyleMirror {
   };
 }
 
-const getPropertyDescriptor = (obj: object, key: string): O.Option<PropertyDescriptor> =>
-  pipe(
-    O.fromNullable(Object.getOwnPropertyDescriptor(obj, key)),
-    O.alt(() =>
-      pipe(
-        O.fromNullable(Object.getPrototypeOf(obj)),
-        O.flatMap((proto) => O.fromNullable(Object.getOwnPropertyDescriptor(proto, key))),
-      ),
-    ),
-  );
+const getPropertyDescriptor = (obj: object, key: string): O.Option<PropertyDescriptor> => {
+  // Walk the full prototype chain so mixin-defined accessors/methods are discovered.
+  // Stop before Object.prototype to avoid proxying generic object helpers.
+  let current: object | null = obj;
 
-const collectPropertyKeys = (obj: object): ReadonlyArray<string> =>
-  pipe(
-    [
-      ...Object.keys(obj),
-      ...pipe(
-        O.fromNullable(Object.getPrototypeOf(obj)),
-        O.map(Object.getOwnPropertyNames),
-        O.getOrElse((): string[] => []),
-      ),
-    ],
+  while (current && current !== Object.prototype) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) return O.some(descriptor);
+    current = Object.getPrototypeOf(current);
+  }
+
+  return O.none;
+};
+
+const collectPropertyKeys = (obj: object): ReadonlyArray<string> => {
+  const keys: string[] = [];
+
+  // Own enumerable properties
+  keys.push(...Object.keys(obj));
+
+  // All prototype properties (including non-enumerable), excluding Object.prototype
+  let current: object | null = Object.getPrototypeOf(obj);
+  while (current && current !== Object.prototype) {
+    keys.push(...Object.getOwnPropertyNames(current));
+    current = Object.getPrototypeOf(current);
+  }
+
+  return pipe(
+    keys,
     RA.uniq({ equals: (a, b) => a === b }),
     RA.filter((key) => key !== "constructor"),
   );
+};
 
 const defineProxyMethod =
   (target: object, source: object) =>

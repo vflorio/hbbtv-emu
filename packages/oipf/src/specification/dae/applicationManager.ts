@@ -3,6 +3,8 @@
  * application/oipfApplicationManager
  * -------------------------------------------------------------------- */
 
+import type { Channel } from "./videoBroadcast";
+
 /** Application manager entry point (oipfApplicationManager object). */
 export interface ApplicationManager {
   /** Return the currently running application (Application class). */
@@ -56,9 +58,36 @@ export interface Application {
   ): void;
 }
 
-/** Private data container for vendor-specific extensions. */
+/**
+ * ApplicationPrivateData class
+ *
+ * Used to access the keyset used by the application and the current broadcast
+ * channel of a broadcast-related application.
+ */
 export interface ApplicationPrivateData {
-  [key: string]: unknown;
+  /**
+   * The object of class Keyset, representing the user input events
+   * sent to the HbbTV application.
+   */
+  readonly keyset: Keyset;
+
+  /**
+   * For a broadcast-related application, the value of the property contains
+   * the channel whose AIT is currently controlling the lifecycle of this
+   * application. If no channel is being presented, or if the application
+   * is not broadcast-related, the value of this property will be null.
+   */
+  readonly currentChannel: Channel | null;
+
+  /**
+   * Lets the application developer query information about the current memory
+   * available to the application. This can be used during application development
+   * to find application memory leaks and possibly allow an application to make
+   * decisions related to its caching strategy (e.g. for images).
+   *
+   * @returns The available memory to the application or -1 if the information is not available.
+   */
+  getFreeMem(): number;
 }
 
 /** Keyset controls available remote-control keys. */

@@ -1,8 +1,11 @@
 import type { OIPF } from "@hbb-emu/oipf";
-import { DEFAULT_KEYSET } from "../../../../../oipf/dist/model";
 
 export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
-  currentValue = DEFAULT_KEYSET.value ?? 0;
+  currentValue: number;
+
+  constructor(initialValue = 0) {
+    this.currentValue = initialValue;
+  }
 
   setValue = (mask: number): void => {
     this.currentValue = mask;
@@ -19,4 +22,4 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   };
 }
 
-export const createKeyset = (): OIPF.DAE.ApplicationManager.Keyset => new Keyset();
+export const createKeyset = (initialValue = 0): OIPF.DAE.ApplicationManager.Keyset => new Keyset(initialValue);

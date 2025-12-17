@@ -1,6 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
-import { StreamPlayState } from "../..";
+import { PlayerPlayState } from "../../../subsystems";
 import type { VideoBroadcastEnv } from ".";
 import type { ChannelAPI } from "./channel";
 
@@ -11,12 +11,12 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
     constructor(...args: any[]) {
       super(...args);
 
-      this.env.onStreamStateChange((streamState) => {
+      this.env.onStreamStateChange((streamState: PlayerPlayState) => {
         const broadcastState = mapStreamToVideoBroadcast(streamState);
         this.setPlayState(broadcastState);
 
         // Handle channel change success when presenting
-        if (streamState === StreamPlayState.PLAYING && this._currentChannel) {
+        if (streamState === PlayerPlayState.PLAYING && this._currentChannel) {
           this.onChannelChangeSucceeded?.(this._currentChannel);
         }
       });
@@ -33,19 +33,21 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
     }
   };
 
-const mapStreamToVideoBroadcast = (state: StreamPlayState): OIPF.DAE.Broadcast.PlayState => {
+const mapStreamToVideoBroadcast = (state: PlayerPlayState): OIPF.DAE.Broadcast.PlayState => {
   switch (state) {
-    case StreamPlayState.IDLE:
+    case PlayerPlayState.IDLE:
       return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
-    case StreamPlayState.CONNECTING:
-    case StreamPlayState.BUFFERING:
+    case PlayerPlayState.CONNECTING:
+    case PlayerPlayState.BUFFERING:
       return OIPF.DAE.Broadcast.PlayState.CONNECTING;
-    case StreamPlayState.PLAYING:
-    case StreamPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
+    case PlayerPlayState.PLAYING:
+    case PlayerPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
       return OIPF.DAE.Broadcast.PlayState.PRESENTING;
-    case StreamPlayState.STOPPED:
-    case StreamPlayState.FINISHED:
-    case StreamPlayState.ERROR:
+    case PlayerPlayState.STOPPED:
+    case PlayerPlayState.FINISHED:
+    case PlayerPlayState.ERROR:
+      return OIPF.DAE.Broadcast.PlayState.STOPPED;
+    default:
       return OIPF.DAE.Broadcast.PlayState.STOPPED;
   }
 };

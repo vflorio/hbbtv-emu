@@ -43,7 +43,6 @@ export type {
   OipfBinding,
   OipfConnector,
   OipfFactory,
-  OipfStateful,
   StateKey,
   VisualOipfObject,
 } from "./binding";

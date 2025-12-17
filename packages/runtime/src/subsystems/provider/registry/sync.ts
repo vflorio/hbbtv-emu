@@ -53,12 +53,6 @@ export const collectState =
       const instance = registry.getFirstInstance(stateKey);
       if (instance) {
         state[stateKey] = instance.getState()();
-      } else {
-        // Use defaults from binding
-        const binding = registry.getBinding(stateKey);
-        if (binding) {
-          state[stateKey] = binding.stateful.defaults;
-        }
       }
     }
 

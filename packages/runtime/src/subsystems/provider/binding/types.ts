@@ -45,20 +45,6 @@ export type OipfConnector = Readonly<{
 export type OipfFactory<T> = () => T;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stateful Configuration
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Describes state management for a binding.
- */
-export type OipfStateful<S, K extends StateKey> = Readonly<{
-  /** Key in HbbTVState for this binding's state slice */
-  stateKey: K;
-  /** Default state when no persisted state exists */
-  defaults: S;
-}>;
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Binding Definition
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -71,10 +57,9 @@ export type OipfStateful<S, K extends StateKey> = Readonly<{
  * - subscribe(callback: (state: Partial<S>) => IO<void>): IO<() => void>
  */
 export type OipfBinding<T extends Stateful<S>, S, K extends StateKey> = Readonly<{
-  name: string;
+  name: K;
   connector: OipfConnector;
   factory: OipfFactory<T>;
-  stateful: OipfStateful<S, K>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,13 +81,9 @@ export interface AnyStateful {
  * Use specific `OipfBinding<T, S, K>` when type safety is needed.
  */
 export type AnyOipfBinding = Readonly<{
-  name: string;
+  name: StateKey;
   connector: OipfConnector;
   factory: () => AnyStateful;
-  stateful: Readonly<{
-    stateKey: StateKey;
-    defaults: unknown;
-  }>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────

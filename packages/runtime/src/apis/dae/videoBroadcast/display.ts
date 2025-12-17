@@ -1,5 +1,5 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
-import { DEFAULT_FULL_SCREEN, DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH, type OIPF } from "@hbb-emu/oipf";
+import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { VideoBroadcastEnv } from ".";
@@ -25,9 +25,9 @@ export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
     onfocus: OIPF.DAE.Broadcast.OnFocusHandler | null = null;
     onblur: OIPF.DAE.Broadcast.OnBlurHandler | null = null;
 
-    _fullScreen = DEFAULT_FULL_SCREEN;
-    _width = DEFAULT_VIDEO_WIDTH;
-    _height = DEFAULT_VIDEO_HEIGHT;
+    _fullScreen = this.env.defaults.fullScreen;
+    _width = this.env.defaults.width;
+    _height = this.env.defaults.height;
 
     get fullScreen(): boolean {
       return this._fullScreen;

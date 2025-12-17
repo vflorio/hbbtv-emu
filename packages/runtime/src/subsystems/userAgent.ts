@@ -13,6 +13,7 @@ const logger = createLogger("UserAgent");
 type UserAgentConfig = Readonly<{
   getUserAgent: IO.IO<string | undefined>;
   getHbbTVVersion: IO.IO<string | undefined>;
+  defaultHbbTVVersion: string;
 }>;
 
 /** Provides DOM manipulation for context override */
@@ -60,7 +61,7 @@ export const resolveUserAgent: RIO.ReaderIO<UserAgentConfig, string> = (env) =>
         ? IO.of(userAgent)
         : pipe(
             env.getHbbTVVersion,
-            IO.map((version) => buildDefaultUserAgent(version ?? DEFAULT_HBBTV_VERSION)),
+            IO.map((version) => buildDefaultUserAgent(version ?? env.defaultHbbTVVersion)),
           ),
     ),
   );
@@ -75,5 +76,6 @@ export const initializeUserAgent: RIO.ReaderIO<UserAgentEnv, void> = (env) =>
 export const createUserAgentEnv = (extensionState: ExtensionState): UserAgentEnv => ({
   getUserAgent: () => extensionState.userAgent,
   getHbbTVVersion: () => extensionState.hbbtv.oipfCapabilities?.hbbtvVersion,
+  defaultHbbTVVersion: DEFAULT_HBBTV_VERSION,
   ...navigatorContextOverride,
 });

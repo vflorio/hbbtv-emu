@@ -5,30 +5,34 @@ import {
   type OnStateChangeCallback,
   type Stateful,
 } from "@hbb-emu/core";
-import {
-  DEFAULT_DRM_SYSTEMS,
-  DEFAULT_HBBTV_VERSION,
-  DEFAULT_MEDIA_FORMATS,
-  DEFAULT_UI_PROFILES,
-  type OIPF,
-  type OipfCapabilitiesState,
-  OipfCapabilitiesStateCodec,
-} from "@hbb-emu/oipf";
+import { type OIPF, type OipfCapabilitiesState, OipfCapabilitiesStateCodec } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
 
 const logger = createLogger("OipfCapabilities");
 
+export type OipfCapabilitiesEnv = Readonly<{
+  defaults: OipfCapabilitiesState;
+}>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // OipfCapabilities Class
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class OipfCapabilities implements OIPF.DAE.Capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
-  hbbtvVersion = DEFAULT_HBBTV_VERSION;
-  uiProfiles = [...DEFAULT_UI_PROFILES];
-  drmSystems = [...DEFAULT_DRM_SYSTEMS];
-  mediaFormats = [...DEFAULT_MEDIA_FORMATS];
+  hbbtvVersion: NonNullable<OipfCapabilitiesState["hbbtvVersion"]>;
+  uiProfiles: NonNullable<OipfCapabilitiesState["uiProfiles"]>;
+  drmSystems: NonNullable<OipfCapabilitiesState["drmSystems"]>;
+  mediaFormats: NonNullable<OipfCapabilitiesState["mediaFormats"]>;
+
+  constructor(env: OipfCapabilitiesEnv) {
+    const defaults = env.defaults;
+    this.hbbtvVersion = defaults.hbbtvVersion ?? "";
+    this.uiProfiles = [...(defaults.uiProfiles ?? [])];
+    this.drmSystems = [...(defaults.drmSystems ?? [])];
+    this.mediaFormats = [...(defaults.mediaFormats ?? [])];
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface

@@ -5,15 +5,7 @@ import {
   type OnStateChangeCallback,
   type Stateful,
 } from "@hbb-emu/core";
-import {
-  DEFAULT_COUNTRY_ID,
-  DEFAULT_LANGUAGE,
-  DEFAULT_NETWORK,
-  DEFAULT_PARENTAL_CONTROL,
-  type OIPF,
-  type OipfConfigurationState,
-  OipfConfigurationStateCodec,
-} from "@hbb-emu/oipf";
+import { type OIPF, type OipfConfigurationState, OipfConfigurationStateCodec } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -21,20 +13,34 @@ import * as RR from "fp-ts/ReadonlyRecord";
 
 const logger = createLogger("OipfConfiguration");
 
+export type OipfConfigurationEnv = Readonly<{
+  defaults: OipfConfigurationState;
+}>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration Implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class OipfConfiguration implements OIPF.DAE.Configuration.Configuration, Stateful<OipfConfigurationState> {
-  countryId = DEFAULT_COUNTRY_ID;
-  language = DEFAULT_LANGUAGE;
-  preferredAudioLanguage: string[] = [DEFAULT_LANGUAGE, "eng"];
-  preferredSubtitleLanguage: string[] = [DEFAULT_LANGUAGE, "eng"];
-  network = DEFAULT_NETWORK;
-  parentalControl = DEFAULT_PARENTAL_CONTROL;
+  countryId: NonNullable<OipfConfigurationState["countryId"]>;
+  language: NonNullable<OipfConfigurationState["language"]>;
+  preferredAudioLanguage: NonNullable<OipfConfigurationState["preferredAudioLanguage"]>;
+  preferredSubtitleLanguage: NonNullable<OipfConfigurationState["preferredSubtitleLanguage"]>;
+  network: NonNullable<OipfConfigurationState["network"]>;
+  parentalControl: NonNullable<OipfConfigurationState["parentalControl"]>;
 
   /** Custom key-value store for vendor-specific settings */
   customValues: RR.ReadonlyRecord<string, unknown> = {};
+
+  constructor(env: OipfConfigurationEnv) {
+    const defaults = env.defaults;
+    this.countryId = defaults.countryId ?? "";
+    this.language = defaults.language ?? "";
+    this.preferredAudioLanguage = [...(defaults.preferredAudioLanguage ?? [])];
+    this.preferredSubtitleLanguage = [...(defaults.preferredSubtitleLanguage ?? [])];
+    this.network = defaults.network ?? {};
+    this.parentalControl = defaults.parentalControl ?? {};
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface

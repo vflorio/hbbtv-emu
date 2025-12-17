@@ -1,28 +1,35 @@
 import { createLogger } from "@hbb-emu/core";
-import { DEFAULT_APPLICATION, type OIPF } from "@hbb-emu/oipf";
+import type { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { Keyset } from "./keyset";
+import { type ApplicationPrivateDataEnv, createApplicationPrivateData } from "./privateData";
 
 const logger = createLogger("OipfApplicationManager/Application");
 
-export class Application implements OIPF.DAE.ApplicationManager.Application {
-  privateData: OIPF.DAE.ApplicationManager.ApplicationPrivateData = DEFAULT_APPLICATION.privateData ?? {};
-  keyset: OIPF.DAE.ApplicationManager.Keyset;
+/**
+ * Environment for Application.
+ * Provides access to the current broadcast channel via ApplicationPrivateData.
+ */
+export type ApplicationEnv = ApplicationPrivateDataEnv;
 
-  constructor(private readonly document: Document) {
-    this.keyset = new Keyset();
+export class Application implements OIPF.DAE.ApplicationManager.Application {
+  readonly #document: Document;
+  readonly privateData: OIPF.DAE.ApplicationManager.ApplicationPrivateData;
+
+  constructor(document: Document, env: ApplicationEnv) {
+    this.#document = document;
+    this.privateData = createApplicationPrivateData(env);
   }
 
-  getKeyset = (): OIPF.DAE.ApplicationManager.Keyset => this.keyset;
+  getKeyset = (): OIPF.DAE.ApplicationManager.Keyset => this.privateData.keyset;
 
   show = (): void => {
     pipe(
       logger.debug("Application.show()"),
       IO.flatMap(() =>
         IO.of(() => {
-          if (this.document.body) {
-            this.document.body.style.visibility = "visible";
+          if (this.#document.body) {
+            this.#document.body.style.visibility = "visible";
           }
         }),
       ),
@@ -34,8 +41,8 @@ export class Application implements OIPF.DAE.ApplicationManager.Application {
       logger.debug("Application.hide()"),
       IO.flatMap(() =>
         IO.of(() => {
-          if (this.document.body) {
-            this.document.body.style.visibility = "hidden";
+          if (this.#document.body) {
+            this.#document.body.style.visibility = "hidden";
           }
         }),
       ),
@@ -55,5 +62,5 @@ export class Application implements OIPF.DAE.ApplicationManager.Application {
   };
 }
 
-export const createApplication = (document: Document): OIPF.DAE.ApplicationManager.Application =>
-  new Application(document);
+export const createApplication = (document: Document, env: ApplicationEnv): OIPF.DAE.ApplicationManager.Application =>
+  new Application(document, env);

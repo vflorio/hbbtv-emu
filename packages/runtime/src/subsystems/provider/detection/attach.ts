@@ -1,11 +1,30 @@
-import { createLogger } from "@hbb-emu/core";
-import type * as IO from "fp-ts/IO";
+import { createLogger, insertAfter, ObjectStyleMirror, proxyProperties } from "@hbb-emu/core";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import { match } from "ts-pattern";
 import type { AnyStateful, AttachStrategy, VisualOipfObject } from "../binding";
 import { isVisualObject } from "../binding";
 import type { DetectedElement } from "./observer";
 
 const logger = createLogger("DetectionAttach");
+
+type VisualAttachment = Readonly<{
+  videoElement: HTMLVideoElement;
+  styleMirror: ObjectStyleMirror;
+}>;
+
+const visualAttachments = new WeakMap<HTMLObjectElement, VisualAttachment>();
+
+export const detachAttachedElement =
+  (element: HTMLObjectElement): IO.IO<void> =>
+  () => {
+    const attachment = visualAttachments.get(element);
+    if (!attachment) return;
+
+    attachment.styleMirror.stop();
+    attachment.videoElement.remove();
+    visualAttachments.delete(element);
+  };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Attach Operations
@@ -36,14 +55,18 @@ const attachVisual =
       return;
     }
 
-    // Insert video element after object element
-    detected.element.insertAdjacentElement("afterend", instance.videoElement);
+    const styleMirror = new ObjectStyleMirror(detected.element, instance.videoElement);
 
-    // Mirror styles from object to video
-    mirrorStyles(detected.element, instance.videoElement)();
+    visualAttachments.set(detected.element, {
+      videoElement: instance.videoElement,
+      styleMirror,
+    });
 
-    // Proxy properties
-    proxyProperties(detected.element, instance)();
+    pipe(
+      insertAfter(instance.videoElement)(detected.element),
+      IO.flatMap(() => styleMirror.start),
+      IO.flatMap(() => proxyProperties(detected.element, instance)),
+    )();
   };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,35 +75,8 @@ const attachVisual =
 
 const attachNonVisual =
   (detected: DetectedElement, instance: AnyStateful): IO.IO<void> =>
-  () => {
-    logger.debug("Attaching non-visual element")();
-
-    // Just proxy properties, no visual element
-    proxyProperties(detected.element, instance)();
-  };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Proxies properties from instance to DOM element.
- */
-const proxyProperties =
-  (_element: HTMLObjectElement, _instance: AnyStateful): IO.IO<void> =>
-  () => {
-    // TODO: Implement property proxying
-    // This will copy enumerable properties from instance to element
-    logger.debug("Proxying properties to element")();
-  };
-
-/**
- * Mirrors styles from source element to target element.
- */
-const mirrorStyles =
-  (_source: HTMLObjectElement, _target: HTMLVideoElement): IO.IO<void> =>
-  () => {
-    // TODO: Implement style mirroring
-    // This should sync size, position, visibility, etc.
-    logger.debug("Mirroring styles")();
-  };
+  () =>
+    pipe(
+      logger.debug("Attaching non-visual element"),
+      IO.flatMap(() => proxyProperties(detected.element, instance)),
+    );

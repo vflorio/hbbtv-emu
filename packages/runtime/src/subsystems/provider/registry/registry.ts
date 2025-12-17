@@ -36,7 +36,7 @@ export class InstanceRegistry {
     (bindings: ReadonlyArray<AnyOipfBinding>): IO.IO<void> =>
     () => {
       for (const binding of bindings) {
-        this.#registry.set(binding.stateful.stateKey, {
+        this.#registry.set(binding.name, {
           binding,
           instances: new Set(),
         });

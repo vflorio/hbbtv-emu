@@ -1,19 +1,20 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
-import { DEFAULT_BROADCAST_PLAY_STATE, OIPF } from "@hbb-emu/oipf";
+import { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
-import type * as IO from "fp-ts/IO";
+import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
 import * as RTE from "fp-ts/ReaderTaskEither";
+import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import {
-  type ChannelRegistryEnv,
-  loadSource,
-  type PlayerPlayState,
-  releasePlayer,
-  resolveChannel,
-  type VideoStreamEnv,
-  type VideoStreamSource,
-} from "../../../subsystems";
+import { type ChannelRegistryEnv, resolveChannel } from "../../../subsystems/channelRegistry";
+import type {
+  PlayerEvent,
+  PlayerEventListener,
+  PlayerPlayState,
+  VideoStreamEnv,
+  VideoStreamSource,
+} from "../../../subsystems/videoStream";
+import { VideoStreamService } from "../../../subsystems/videoStream";
 import type { VideoBroadcastEnv } from ".";
 
 const logger = createLogger("VideoBroadcast:Channel");
@@ -52,7 +53,7 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
       ...createChannelEnv(this),
     };
 
-    _playState: OIPF.DAE.Broadcast.PlayState = DEFAULT_BROADCAST_PLAY_STATE;
+    _playState: OIPF.DAE.Broadcast.PlayState = this.env.defaults.playState;
     _currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
 
     get currentChannel(): OIPF.DAE.Broadcast.Channel | null {
@@ -72,7 +73,21 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
       _trickplay?: boolean,
       _contentAccessDescriptorURL?: string,
       _quiet?: OIPF.DAE.Broadcast.QuietMode,
-    ) => setChannel(channel)(this.#withChannelEnv);
+    ): void => {
+      pipe(
+        TE.Do,
+        TE.tapIO(() => logger.debug("setChannel", channel)),
+        TE.flatMap(() => setChannel(channel)(this.#withChannelEnv)),
+        TE.match(
+          (error) =>
+            match(this.onChannelChangeError).when(
+              (handler) => channel && handler,
+              () => this.onChannelChangeError?.(channel as OIPF.DAE.Broadcast.Channel, error),
+            ),
+          IO.of(undefined),
+        ),
+      )();
+    };
 
     bindToCurrentChannel = bindToCurrentChannel(this.#withChannelEnv);
 
@@ -122,8 +137,8 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
 // Environment
 
 export type ChannelEnv = {
-  playState: OIPF.DAE.Broadcast.PlayState;
-  currentChannel: OIPF.DAE.Broadcast.Channel | null;
+  getPlayState: () => OIPF.DAE.Broadcast.PlayState;
+  getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
   setPlayState: (state: OIPF.DAE.Broadcast.PlayState) => IO.IO<void>;
   setCurrentChannel: (channel: OIPF.DAE.Broadcast.Channel | null) => IO.IO<void>;
   onChannelChangeError: (
@@ -151,56 +166,68 @@ export type ChannelVideoStreamEnv = {
   onStreamStateChange: (listener: (state: PlayerPlayState, previousState: PlayerPlayState) => void) => () => void;
 };
 
-export const createChannelEnv = (instance: ChannelAPI): ChannelEnv => ({
-  playState: instance.playState,
-  currentChannel: instance.currentChannel,
+export const createChannelEnv = (instance: ChannelAPI & VideoBroadcastEnv): ChannelEnv => ({
+  getPlayState: () => instance.playState,
+  getCurrentChannel: () => instance.currentChannel,
   setPlayState: (state) => () => {
-    instance._playState = state;
-    instance.onPlayStateChange?.(state);
+    instance.setPlayState(state);
   },
   setCurrentChannel: (channel) => () => {
     instance._currentChannel = channel;
+    instance.env.onCurrentChannelChange(channel);
   },
   onChannelChangeError: (channel, errorCode) => {
     instance.onChannelChangeError?.(channel, errorCode);
   },
 });
 
-export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): ChannelVideoStreamEnv => ({
-  // Element
-  videoElement: videoStreamEnv.player.videoElement,
-  // Playback
-  play: videoStreamEnv.player.play(),
-  stop: videoStreamEnv.player.stop(),
-  destroy: releasePlayer(videoStreamEnv),
-  loadSource: (source) => loadSource(source)(videoStreamEnv),
-  // Display
-  setSize: (width, height) => videoStreamEnv.player.setSize(width, height),
-  setFullscreen: (fullscreen) => videoStreamEnv.player.setFullscreen(fullscreen),
-  // Volume
-  setVolume: (volume) => videoStreamEnv.player.setVolume(volume),
-  setMuted: (muted) => videoStreamEnv.player.setMuted(muted),
-  getVolume: () => Math.round(videoStreamEnv.player.videoElement.volume * 100),
-  // Events
-  onStreamStateChange: (listener) => {
-    videoStreamEnv.player.on("statechange", (event) => listener(event.state, event.previousState))();
-    return () => videoStreamEnv.player.off("statechange", (event) => listener(event.state, event.previousState))();
-  },
-});
+export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): ChannelVideoStreamEnv => {
+  const stream = new VideoStreamService(videoStreamEnv);
+
+  return {
+    // Element
+    videoElement: stream.videoElement,
+
+    // Playback
+    play: stream.play(),
+    stop: stream.stop(),
+    destroy: stream.release(),
+    loadSource: (source) => stream.loadSource(source),
+
+    // Display
+    setSize: (width, height) => stream.setSize(width, height),
+    setFullscreen: (fullscreen) => stream.setFullscreen(fullscreen),
+
+    // Volume
+    setVolume: (volume) => stream.setVolume(volume),
+    setMuted: (muted) => stream.setMuted(muted),
+    getVolume: () => Math.round(stream.videoElement.volume * 100),
+
+    // Events
+    onStreamStateChange: (listener) => {
+      const handler: PlayerEventListener<"statechange"> = (event: PlayerEvent<"statechange">) => {
+        listener(event.state, event.previousState);
+      };
+
+      stream.on("statechange", handler)();
+      return () => stream.off("statechange", handler)();
+    },
+  };
+};
 
 // Methods
 
 export const bindToCurrentChannel = pipe(
   RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
-  RIO.tapIO((env) => logger.debug("bindToCurrentChannel", env.playState, env.currentChannel)),
+  RIO.tapIO((env) => logger.debug("bindToCurrentChannel", env.getPlayState(), env.getCurrentChannel())),
   RIO.flatMap((env) =>
-    match(env.playState)
+    match(env.getPlayState())
       .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.of(null))
-      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.of(env.currentChannel))
+      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.of(env.getCurrentChannel()))
       .otherwise(() =>
         pipe(
           RIO.fromIO(() => env.play),
-          RIO.as(env.currentChannel),
+          RIO.as(env.getCurrentChannel()),
         ),
       ),
   ),
@@ -262,7 +289,7 @@ export const stop = pipe(
   RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
   RIO.tapIO(() => logger.debug("stop")),
   RIO.flatMap((env) =>
-    match(env.playState)
+    match(env.getPlayState())
       .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.Do)
       .otherwise(() =>
         pipe(
@@ -277,7 +304,7 @@ export const release = pipe(
   RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
   RIO.tapIO(() => logger.debug("release")),
   RIO.flatMap((env) =>
-    match(env.playState)
+    match(env.getPlayState())
       .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.Do)
       .otherwise(() =>
         pipe(

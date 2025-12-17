@@ -4,12 +4,21 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
 import * as RA from "fp-ts/ReadonlyArray";
-import { injectStrategy } from "../../provider/connector/attach";
-import { OipfApplicationManager } from "./applicationManager";
-import { OipfCapabilities } from "./capabilities";
-import { OipfConfiguration } from "./configuration";
 
 const logger = createLogger("OipfObjectFactory");
+
+const injectToWindow = (instance: unknown, key: string): IO.IO<void> =>
+  pipe(
+    logger.debug("Injecting to window:", key),
+    IO.flatMap(() => () => {
+      Object.defineProperty(window, key, {
+        value: instance,
+        writable: false,
+        configurable: true,
+      });
+    }),
+    IO.tap(() => logger.debug("Inject strategy complete for:", key)),
+  );
 
 // API Implementation
 
@@ -56,17 +65,20 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
 
   createApplicationManagerObject = (): OIPF.DAE.ApplicationManager.ApplicationManager => {
     logger.debug("createApplicationManagerObject")();
-    return new OipfApplicationManager();
+    //TODO new OipfApplicationManager();
+    return null as unknown as OIPF.DAE.ApplicationManager.ApplicationManager;
   };
 
   createCapabilitiesObject = (): OIPF.DAE.Capabilities.Capabilities => {
     logger.debug("createCapabilitiesObject")();
-    return new OipfCapabilities();
+
+    // TODO new OipfCapabilities();
+    return null as unknown as OIPF.DAE.Capabilities.Capabilities;
   };
 
   createChannelConfig = (): OIPF.DAE.Broadcast.ChannelConfig => {
     logger.debug("createChannelConfig")();
-    // TODO Return a stub ChannelConfig - full implementation requires ChannelList etc.
+    // TODO ChannelEnv
     return {
       channelList: { length: 0, item: () => null },
       favouriteLists: { length: 0, getFavouriteList: () => null },
@@ -77,7 +89,8 @@ export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFacto
 
   createConfigurationObject = (): OIPF.DAE.Configuration.Configuration => {
     logger.debug("createConfigurationObject")();
-    return new OipfConfiguration();
+    // TODO new OipfConfiguration();
+    return null as unknown as OIPF.DAE.Configuration.Configuration;
   };
 
   // Not Implemented Objects
@@ -129,7 +142,7 @@ export type OipfObjectFactoryEnv = {
 export const initializeOipfObjectFactory: RIO.ReaderIO<OipfObjectFactoryEnv, void> = (env) =>
   pipe(
     env.getOipfObjectFactory,
-    IO.flatMap((factory) => injectStrategy(factory, "oipfObjectFactory")),
+    IO.flatMap((factory) => injectToWindow(factory, "oipfObjectFactory")),
   );
 
 export const createOipfObjectFactoryEnv = (): OipfObjectFactoryEnv => ({
