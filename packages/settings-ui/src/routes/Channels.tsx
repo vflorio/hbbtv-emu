@@ -13,9 +13,9 @@ export default function ChannelList() {
   const { upsert } = useChannelActions();
   const {
     isLoading,
-    config: { channels },
+    config: { channels, currentChannel },
   } = useAppState();
-  const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
+  const [expandedChannel, setExpandedChannel] = useState<string | null>(currentChannel?.id ?? null);
 
   const handleAddChannel = async () => {
     const newChannel: ChannelConfig = {
@@ -61,6 +61,7 @@ export default function ChannelList() {
             <ChannelItem
               key={channel.id}
               channel={channel}
+              isActive={currentChannel?.id === channel.id}
               isExpanded={expandedChannel === channel.id}
               onToggleExpand={(expanded) => setExpandedChannel(expanded ? channel.id : null)}
             />
@@ -73,24 +74,21 @@ export default function ChannelList() {
 
 function ChannelItem({
   channel,
+  isActive,
   isExpanded,
   onToggleExpand,
 }: {
   channel: ChannelConfig;
+  isActive: boolean;
   isExpanded: boolean;
   onToggleExpand: (expanded: boolean) => void;
 }) {
-  const isActive = true;
   const { upsert } = useChannelActions();
   const [localChannel, setLocalChannel] = useState(channel);
 
   useEffect(() => {
     setLocalChannel(channel);
   }, [channel]);
-
-  const handleUpdate = async () => {
-    await upsert(localChannel);
-  };
 
   const handleBasicInfoChange = (field: "name" | "mp4Source", value: string) => {
     setLocalChannel((prev) => ({ ...prev, [field]: value }));
@@ -113,22 +111,25 @@ function ChannelItem({
           <ChannelBasicInfo
             name={localChannel.name}
             mp4Source={localChannel.mp4Source}
+            channel={localChannel}
             onChange={handleBasicInfoChange}
+            onSave={upsert}
           />
           <ChannelTimeline mp4Source={localChannel.mp4Source} streamEvents={localChannel.streamEvents || []} />
           <StreamEventsList
             streamEvents={localChannel.streamEvents || []}
+            channel={localChannel}
             onChange={(events) => setLocalChannel((prev) => ({ ...prev, streamEvents: events }))}
+            onSave={upsert}
           />
           <ChannelTriplet
             onid={localChannel.onid}
             tsid={localChannel.tsid}
             sid={localChannel.sid}
+            channel={localChannel}
             onChange={handleTripletChange}
+            onSave={upsert}
           />
-          <Button variant="contained" onClick={handleUpdate} fullWidth sx={{ mt: 2 }}>
-            Save Changes
-          </Button>
         </Stack>
       </AccordionDetails>
     </Accordion>

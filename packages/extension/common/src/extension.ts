@@ -87,14 +87,20 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
     du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
   });
 
-const streamEvent = (label: string, payload: string, delaySeconds: number): StreamEventConfig => ({
+const streamEvent = (
+  label: string,
+  payload: string,
+  offsetSeconds: number,
+  intervalSeconds = 30,
+): StreamEventConfig => ({
   id: randomUUID(),
   enabled: true,
   label,
-  scheduleMode: "delay",
-  delaySeconds,
-  eventName: "default",
-  targetURL: "http://localhost:8000",
+  scheduleMode: "interval",
+  intervalSeconds,
+  offsetSeconds,
+  eventName: "sevent",
+  targetURL: "http://dev-container.enhanced.tools/it/default.ste",
   text: payload,
   data: textToHex(payload),
   status: "trigger",
@@ -106,16 +112,15 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
     {
       id: "channel-1",
       name: "Channel 1",
-      mp4Source: "https://www.w3schools.com/html/mov_bbb.mp4",
+      mp4Source: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
       onid: 1,
       tsid: 1,
       sid: 1,
       enableStreamEvents: true,
       streamEvents: [
-        // Ciclo: PREP -> (10s) -> GO -> (10s) -> END -> (10s) -> PREP...
-        streamEvent("PREP", dasEventPayload("1"), 10), // ogni 10s
-        streamEvent("GO", dasEventPayload("2"), 20), // ogni 20s
-        streamEvent("END", dasEventPayload("3"), 30), // ogni 30s
+        streamEvent("PREP", dasEventPayload("1"), 0, 30), // ogni 30s, offset 0s
+        streamEvent("GO", dasEventPayload("2"), 10, 30), // ogni 30s, offset 10s
+        streamEvent("END", dasEventPayload("3"), 20, 30), // ogni 30s, offset 20s
       ],
     },
   ],

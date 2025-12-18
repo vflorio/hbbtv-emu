@@ -1,3 +1,4 @@
+import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { Edit, Save } from "@mui/icons-material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
@@ -17,11 +18,13 @@ interface ChannelTripletProps {
   onid: number;
   tsid: number;
   sid: number;
+  channel: ChannelConfig;
   defaultMode?: "display" | "edit";
   onChange?: (field: "onid" | "tsid" | "sid", value: number) => void;
+  onSave?: (updated: ChannelConfig) => Promise<void>;
 }
 
-export function ChannelTriplet({ onid, tsid, sid, defaultMode, onChange }: ChannelTripletProps) {
+export function ChannelTriplet({ onid, tsid, sid, channel, defaultMode, onChange, onSave }: ChannelTripletProps) {
   const isLocked = defaultMode !== undefined;
   const [mode, setMode] = useState<"display" | "edit">(defaultMode ?? "display");
   const [localOnid, setLocalOnid] = useState(onid);
@@ -38,10 +41,11 @@ export function ChannelTriplet({ onid, tsid, sid, defaultMode, onChange }: Chann
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     onChange?.("onid", localOnid);
     onChange?.("tsid", localTsid);
     onChange?.("sid", localSid);
+    await onSave?.({ ...channel, onid: localOnid, tsid: localTsid, sid: localSid });
     if (!isLocked) setMode("display");
   };
 

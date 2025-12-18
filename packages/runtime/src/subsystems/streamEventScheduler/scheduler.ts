@@ -5,7 +5,6 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
-import * as TE from "fp-ts/TaskEither";
 import type { StreamEventSchedulerApi, StreamEventSchedulerEnv, StreamEventSubscription } from "./";
 import { computeDueStreamEvents, type FiredAtByInstanceId } from "./compute";
 
@@ -36,26 +35,6 @@ type StreamEventSchedulerState = {
   fired: FiredAtByInstanceId;
   listeners: Set<ListenerEntry>;
 };
-
-const findCurrentChannelConfig = (state: StreamEventSchedulerState): ChannelConfig | null => {
-  if (!state.currentTriplet) return null;
-  return state.channels.find(matchesTriplet(state.currentTriplet)) ?? null;
-};
-
-const dispatchToListeners =
-  (state: StreamEventSchedulerState, eventConfig: StreamEventConfig): IO.IO<void> =>
-  () =>
-    pipe(
-      Array.from(state.listeners),
-      RA.filter((entry) => entry.targetURL === eventConfig.targetURL && entry.eventName === eventConfig.eventName),
-      RA.traverse(IO.Applicative)((entry) =>
-        pipe(
-          TE.of(entry),
-          TE.flatMap((entry) => TE.fromIO(() => entry.listener(createStreamEvent(eventConfig)))),
-          TE.tapIO((error) => logger.warn("StreamEvent listener threw", error)),
-        ),
-      ),
-    )();
 
 export class StreamEventScheduler implements StreamEventSchedulerApi {
   readonly #env: StreamEventSchedulerEnv;
@@ -206,6 +185,32 @@ export const createStreamEventScheduler = (
   env: StreamEventSchedulerEnv = defaultStreamEventSchedulerEnv,
 ): StreamEventSchedulerApi => new StreamEventScheduler(initialChannels, env);
 
+const findCurrentChannelConfig = (state: StreamEventSchedulerState): ChannelConfig | null => {
+  if (!state.currentTriplet) return null;
+  return state.channels.find(matchesTriplet(state.currentTriplet)) ?? null;
+};
+
+const dispatchToListeners =
+  (state: StreamEventSchedulerState, eventConfig: StreamEventConfig): IO.IO<void> =>
+  () => {
+    const event = createStreamEvent(eventConfig);
+    pipe(
+      Array.from(state.listeners),
+      RA.filter((entry) => entry.targetURL === eventConfig.targetURL && entry.eventName === eventConfig.eventName),
+      RA.map(
+        (entry): IO.IO<void> =>
+          () => {
+            try {
+              entry.listener(event);
+            } catch (error) {
+              logger.warn("StreamEvent listener threw", error)();
+            }
+          },
+      ),
+      RA.sequence(IO.Applicative),
+    )();
+  };
+
 const toTriplet = (channel: OIPF.DAE.Broadcast.Channel): ChannelTriplet | null =>
   pipe(toChannelTriplet(channel), O.toNullable);
 
@@ -230,7 +235,7 @@ class StreamEvent extends Event implements OIPF.DAE.Broadcast.StreamEvent {
   }
 }
 
-const createStreamEvent = (
+export const createStreamEvent = (
   config: Pick<StreamEventConfig, "eventName" | "data" | "text" | "status">,
 ): OIPF.DAE.Broadcast.StreamEvent =>
   new StreamEvent(config.eventName, config.data, config.text ?? "", config.status ?? "trigger");

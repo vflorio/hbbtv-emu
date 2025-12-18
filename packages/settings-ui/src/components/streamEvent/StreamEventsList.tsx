@@ -1,13 +1,15 @@
 import { randomUUID } from "@hbb-emu/core";
-import type { StreamEventConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import { Add, ExpandMore } from "@mui/icons-material";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Typography } from "@mui/material";
 import { StreamEventItem } from "./StreamEventItem";
 
 interface StreamEventsListProps {
   streamEvents: StreamEventConfig[];
+  channel: ChannelConfig;
   defaultMode?: "display" | "edit";
   onChange?: (events: StreamEventConfig[]) => void;
+  onSave?: (updated: ChannelConfig) => Promise<void>;
 }
 
 const defaultStreamEvent: Omit<StreamEventConfig, "id"> = {
@@ -22,22 +24,28 @@ const defaultStreamEvent: Omit<StreamEventConfig, "id"> = {
   delaySeconds: 10,
 };
 
-export function StreamEventsList({ streamEvents, defaultMode, onChange }: StreamEventsListProps) {
+export function StreamEventsList({ streamEvents, channel, defaultMode, onChange, onSave }: StreamEventsListProps) {
   const isLocked = defaultMode !== undefined;
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     const newEvent: StreamEventConfig = {
       id: randomUUID(),
       ...defaultStreamEvent,
     };
-    onChange?.([...streamEvents, newEvent]);
+    const updatedEvents = [...streamEvents, newEvent];
+    onChange?.(updatedEvents);
+    await onSave?.({ ...channel, streamEvents: updatedEvents });
   };
 
-  const handleDeleteEvent = (id: string) => {
-    onChange?.(streamEvents.filter((e) => e.id !== id));
+  const handleDeleteEvent = async (id: string) => {
+    const updatedEvents = streamEvents.filter((e) => e.id !== id);
+    onChange?.(updatedEvents);
+    await onSave?.({ ...channel, streamEvents: updatedEvents });
   };
 
-  const handleSaveEvent = (updated: StreamEventConfig) => {
-    onChange?.(streamEvents.map((e) => (e.id === updated.id ? updated : e)));
+  const handleSaveEvent = async (updated: StreamEventConfig) => {
+    const updatedEvents = streamEvents.map((e) => (e.id === updated.id ? updated : e));
+    onChange?.(updatedEvents);
+    await onSave?.({ ...channel, streamEvents: updatedEvents });
   };
 
   return (

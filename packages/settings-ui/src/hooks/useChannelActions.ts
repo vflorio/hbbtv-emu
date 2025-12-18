@@ -32,9 +32,11 @@ export const useChannelActions = () => {
 
   const play = useCallback(
     async (channel: ChannelConfig) => {
+      dispatch({ type: "SET_CURRENT_CHANNEL", payload: channel });
+      await sideEffects.save({ ...config, currentChannel: channel });
       await sideEffects.playChannel(channel);
     },
-    [sideEffects],
+    [sideEffects, dispatch, config],
   );
 
   return { upsert, remove, play };

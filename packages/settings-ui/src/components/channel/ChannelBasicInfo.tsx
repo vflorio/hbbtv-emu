@@ -1,3 +1,4 @@
+import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { Edit, Save } from "@mui/icons-material";
 import { IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { type ChangeEvent, useState } from "react";
@@ -5,19 +6,22 @@ import { type ChangeEvent, useState } from "react";
 interface ChannelBasicInfoProps {
   name: string;
   mp4Source: string;
+  channel: ChannelConfig;
   defaultMode?: "display" | "edit";
   onChange?: (field: "name" | "mp4Source", value: string) => void;
+  onSave?: (updated: ChannelConfig) => Promise<void>;
 }
 
-export function ChannelBasicInfo({ name, mp4Source, defaultMode, onChange }: ChannelBasicInfoProps) {
+export function ChannelBasicInfo({ name, mp4Source, channel, defaultMode, onChange, onSave }: ChannelBasicInfoProps) {
   const isLocked = defaultMode !== undefined;
   const [mode, setMode] = useState<"display" | "edit">(defaultMode ?? "display");
   const [localName, setLocalName] = useState(name);
   const [localMp4Source, setLocalMp4Source] = useState(mp4Source);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     onChange?.("name", localName);
     onChange?.("mp4Source", localMp4Source);
+    await onSave?.({ ...channel, name: localName, mp4Source: localMp4Source });
     if (!isLocked) setMode("display");
   };
 
