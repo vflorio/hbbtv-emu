@@ -1,7 +1,8 @@
 import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf";
-import type * as IO from "fp-ts/IO";
-import type { ChannelRegistryEnv } from "../../../subsystems";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import type { ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
 import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
 import { WithComponent } from "./component";
 import { WithController } from "./controller";
@@ -24,23 +25,33 @@ export type VideoBroadcastDefaults = Readonly<{
 
 export type VideoBroadcastEnv = Readonly<{
   env: ChannelRegistryEnv &
-    ChannelVideoStreamEnv & { onCurrentChannelChange: SetCurrentChannelCallback; defaults: VideoBroadcastDefaults };
+    ChannelVideoStreamEnv & {
+      onCurrentChannelChange: SetCurrentChannelCallback;
+      streamEventScheduler: StreamEventSchedulerApi;
+      defaults: VideoBroadcastDefaults;
+    };
 }>;
 
 class BaseVideoBroadcast implements VideoBroadcastEnv {
   readonly env: ChannelRegistryEnv &
-    ChannelVideoStreamEnv & { onCurrentChannelChange: SetCurrentChannelCallback; defaults: VideoBroadcastDefaults };
+    ChannelVideoStreamEnv & {
+      onCurrentChannelChange: SetCurrentChannelCallback;
+      streamEventScheduler: StreamEventSchedulerApi;
+      defaults: VideoBroadcastDefaults;
+    };
 
   constructor(env: {
     channelRegistry: ChannelRegistryEnv;
     videoStream: ChannelVideoStreamEnv;
     onCurrentChannelChange: SetCurrentChannelCallback;
+    streamEventScheduler: StreamEventSchedulerApi;
     defaults: VideoBroadcastDefaults;
   }) {
     this.env = {
       ...env.channelRegistry,
       ...env.videoStream,
       onCurrentChannelChange: env.onCurrentChannelChange,
+      streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaults,
     };
   }
@@ -83,9 +94,24 @@ export class VideoBroadcast extends VideoBroadcastAPI implements Stateful<VideoB
     this,
   );
 
-  applyState = (state: Partial<VideoBroadcastState>): IO.IO<void> => this.stateful.applyState(state);
+  applyState = (state: Partial<VideoBroadcastState>): IO.IO<void> =>
+    pipe(
+      this.stateful.applyState(state),
+      IO.tap(() => {
+        const propagateCurrentChannel: IO.IO<void> = () => {
+          // When state sets currentChannel directly, propagate side-effects
+          // that would normally be triggered by setChannel().
+          if (!("currentChannel" in state)) return;
+          const channel = this.currentChannel;
+          this.env.onCurrentChannelChange(channel);
+          this.env.streamEventScheduler.setCurrentChannel(channel)();
+        };
 
-  getState = (): IO.IO<Partial<VideoBroadcastState>> => this.stateful.getState();
+        return propagateCurrentChannel;
+      }),
+    );
+
+  getState: IO.IO<Partial<VideoBroadcastState>> = this.stateful.getState;
 
   subscribe = (callback: OnStateChangeCallback<VideoBroadcastState>): IO.IO<() => void> =>
     this.stateful.subscribe(callback);

@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import Panel from "../components/Panel";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
 
 // Visibility options
@@ -120,138 +121,10 @@ export default function ApplicationTab() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Application Manager
-      </Typography>
-
-      <Stack spacing={3} sx={{ mt: 3 }}>
-        {/* Application Info */}
-        <Typography variant="h6">Owner Application</Typography>
-
-        <TextField
-          label="Application ID"
-          value={appId}
-          onChange={(e) => {
-            setAppId(e.target.value);
-            setIsEditing(true);
-          }}
-          placeholder="app-123"
-          fullWidth
-        />
-
-        <TextField
-          label="Application Name"
-          value={appName}
-          onChange={(e) => {
-            setAppName(e.target.value);
-            setIsEditing(true);
-          }}
-          placeholder="My HbbTV App"
-          fullWidth
-        />
-
-        <TextField
-          label="Application URL"
-          value={appUrl}
-          onChange={(e) => {
-            setAppUrl(e.target.value);
-            setIsEditing(true);
-          }}
-          placeholder="https://example.com/app"
-          fullWidth
-        />
-
-        {/* Visibility */}
-        <FormControl fullWidth>
-          <InputLabel>Visibility</InputLabel>
-          <Select
-            value={visibility}
-            label="Visibility"
-            onChange={(e) => {
-              setVisibility(e.target.value as "visible" | "hidden");
-              setIsEditing(true);
-            }}
-          >
-            {VISIBILITY_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Lifecycle */}
-        <FormControl fullWidth>
-          <InputLabel>Lifecycle</InputLabel>
-          <Select
-            value={lifecycle}
-            label="Lifecycle"
-            onChange={(e) => {
-              setLifecycle(e.target.value as "active" | "inactive" | "destroyed");
-              setIsEditing(true);
-            }}
-          >
-            {LIFECYCLE_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Keyset */}
-        <FormControl fullWidth>
-          <InputLabel>Keyset Mask</InputLabel>
-          <Select
-            value={keysetValue}
-            label="Keyset Mask"
-            onChange={(e) => {
-              setKeysetValue(e.target.value as number);
-              setIsEditing(true);
-            }}
-          >
-            {KEYSET_PRESETS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Custom Keyset Input */}
-        <TextField
-          type="number"
-          label="Custom Keyset Value"
-          value={keysetValue}
-          onChange={(e) => {
-            setKeysetValue(parseInt(e.target.value, 10) || 0);
-            setIsEditing(true);
-          }}
-          inputProps={{ min: 0, max: 255 }}
-          helperText="Enter a custom keyset mask value (0-255)"
-        />
-
-        {/* Manager Settings */}
-        <Typography variant="h6" sx={{ mt: 2 }}>
-          Manager Settings
-        </Typography>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={videoTransparency}
-              onChange={(e) => {
-                setVideoTransparency(e.target.checked);
-                setIsEditing(true);
-              }}
-            />
-          }
-          label="Video Transparency"
-        />
-
-        {/* Action Buttons */}
-        {isEditing && (
+    <Panel
+      title="Application Manager"
+      actions={
+        isEditing && (
           <Stack direction="row" spacing={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
@@ -260,8 +133,132 @@ export default function ApplicationTab() {
               Cancel
             </Button>
           </Stack>
-        )}
-      </Stack>
-    </Box>
+        )
+      }
+    >
+      {/* Application Info */}
+      <Typography variant="h6">Owner Application</Typography>
+
+      <TextField
+        label="Application ID"
+        value={appId}
+        onChange={(e) => {
+          setAppId(e.target.value);
+          setIsEditing(true);
+        }}
+        placeholder="app-123"
+        fullWidth
+      />
+
+      <TextField
+        label="Application Name"
+        value={appName}
+        onChange={(e) => {
+          setAppName(e.target.value);
+          setIsEditing(true);
+        }}
+        placeholder="My HbbTV App"
+        fullWidth
+      />
+
+      <TextField
+        label="Application URL"
+        value={appUrl}
+        onChange={(e) => {
+          setAppUrl(e.target.value);
+          setIsEditing(true);
+        }}
+        placeholder="https://example.com/app"
+        fullWidth
+      />
+
+      {/* Visibility */}
+      <FormControl fullWidth>
+        <InputLabel>Visibility</InputLabel>
+        <Select
+          value={visibility}
+          label="Visibility"
+          onChange={(e) => {
+            setVisibility(e.target.value as "visible" | "hidden");
+            setIsEditing(true);
+          }}
+        >
+          {VISIBILITY_OPTIONS.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Lifecycle */}
+      <FormControl fullWidth>
+        <InputLabel>Lifecycle</InputLabel>
+        <Select
+          value={lifecycle}
+          label="Lifecycle"
+          onChange={(e) => {
+            setLifecycle(e.target.value as "active" | "inactive" | "destroyed");
+            setIsEditing(true);
+          }}
+        >
+          {LIFECYCLE_OPTIONS.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Keyset */}
+      <FormControl fullWidth>
+        <InputLabel>Keyset Mask</InputLabel>
+        <Select
+          value={keysetValue}
+          label="Keyset Mask"
+          onChange={(e) => {
+            setKeysetValue(e.target.value as number);
+            setIsEditing(true);
+          }}
+        >
+          {KEYSET_PRESETS.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Custom Keyset Input */}
+      <TextField
+        type="number"
+        label="Custom Keyset Value"
+        value={keysetValue}
+        onChange={(e) => {
+          setKeysetValue(parseInt(e.target.value, 10) || 0);
+          setIsEditing(true);
+        }}
+        inputProps={{ min: 0, max: 255 }}
+        helperText="Enter a custom keyset mask value (0-255)"
+      />
+
+      {/* Manager Settings */}
+      <Typography variant="h6" sx={{ mt: 2 }}>
+        Manager Settings
+      </Typography>
+
+      <FormControlLabel
+        control={
+          <Switch
+            checked={videoTransparency}
+            onChange={(e) => {
+              setVideoTransparency(e.target.checked);
+              setIsEditing(true);
+            }}
+          />
+        }
+        label="Video Transparency"
+      />
+    </Panel>
   );
 }

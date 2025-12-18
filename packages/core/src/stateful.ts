@@ -51,7 +51,7 @@ export interface Stateful<S> {
   applyState: (state: Partial<S>) => IO.IO<void>;
 
   /** Get current state from instance properties */
-  getState: () => IO.IO<Partial<S>>;
+  getState: IO.IO<Partial<S>>;
 
   /** Subscribe to state changes. Returns unsubscribe function. */
   subscribe: (callback: OnStateChangeCallback<S>) => IO.IO<() => void>;
@@ -330,7 +330,7 @@ export const createStatefulMethods = <S extends object, T extends object>(
   instance: T,
 ): Stateful<S> => ({
   applyState: (state: Partial<S>) => applyState(schema)(instance)(state),
-  getState: () => readState(schema)(instance)(),
+  getState: readState(schema)(instance)(),
   subscribe: (callback) => subscribe<S>(instance)(callback),
   notifyStateChange: (changedKeys) => notifyStateChange(schema)(instance)(changedKeys),
 });

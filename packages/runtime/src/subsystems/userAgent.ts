@@ -61,7 +61,7 @@ export const resolveUserAgent: RIO.ReaderIO<UserAgentConfig, string> = (env) =>
         ? IO.of(userAgent)
         : pipe(
             env.getHbbTVVersion,
-            IO.map((version) => buildDefaultUserAgent(version ?? env.defaultHbbTVVersion)),
+            IO.map((version) => buildDefaultUserAgent({ hbbtvVersion: version ?? env.defaultHbbTVVersion })),
           ),
     ),
   );

@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import Panel from "../components/Panel";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
 
 // Broadcast PlayState enum values
@@ -94,11 +95,21 @@ export default function VideoBroadcastTab() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Video/Broadcast
-      </Typography>
-
+    <Panel
+      title="Broadcast"
+      actions={
+        isEditing && (
+          <Stack direction="row" spacing={2}>
+            <Button variant="contained" onClick={handleSave}>
+              Save
+            </Button>
+            <Button variant="outlined" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </Stack>
+        )
+      }
+    >
       <Stack spacing={3} sx={{ mt: 3 }}>
         {/* Play State */}
         <FormControl fullWidth>
@@ -205,19 +216,7 @@ export default function VideoBroadcastTab() {
             </Typography>
           </Box>
         )}
-
-        {/* Action Buttons */}
-        {isEditing && (
-          <Stack direction="row" spacing={2}>
-            <Button variant="contained" onClick={handleSave}>
-              Save
-            </Button>
-            <Button variant="outlined" onClick={handleCancel}>
-              Cancel
-            </Button>
-          </Stack>
-        )}
       </Stack>
-    </Box>
+    </Panel>
   );
 }

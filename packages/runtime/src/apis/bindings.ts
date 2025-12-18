@@ -90,6 +90,7 @@ export const createVideoBroadcastBinding = (
       channelRegistry: env.channelRegistry,
       videoStream: createChannelVideoStreamEnv(env.createVideoStream()),
       onCurrentChannelChange: env.setCurrentChannel,
+      streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaultVideoBroadcast,
     }),
 });

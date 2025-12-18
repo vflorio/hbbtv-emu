@@ -1,4 +1,9 @@
-import { createLogger } from "@hbb-emu/core";
+import {
+  type ChannelTriplet as CoreChannelTriplet,
+  createLogger,
+  matchesChannelTriplet,
+  toChannelTriplet,
+} from "@hbb-emu/core";
 import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
@@ -8,7 +13,7 @@ import * as RA from "fp-ts/ReadonlyArray";
 
 const logger = createLogger("ChannelRegistry");
 
-export type ChannelTriplet = Pick<OIPF.DAE.Broadcast.Channel, "onid" | "tsid" | "sid">;
+export type ChannelTriplet = CoreChannelTriplet;
 
 /** Result of channel URL resolution */
 export type ChannelResolution = Readonly<{
@@ -37,7 +42,7 @@ const channelNotFound: ResolveChannelError = { _tag: "ChannelNotFound" };
 const noStreamUrl: ResolveChannelError = { _tag: "NoStreamUrl" };
 
 const matchesTriplet = (triplet: ChannelTriplet) => (config: ChannelConfig) =>
-  config.onid === triplet.onid && config.tsid === triplet.tsid && config.sid === triplet.sid;
+  matchesChannelTriplet(triplet)({ onid: config.onid, tsid: config.tsid, sid: config.sid });
 
 const findChannelByTriplet =
   (triplet: ChannelTriplet) =>
@@ -70,10 +75,9 @@ export const resolveChannel = (
   channel: OIPF.DAE.Broadcast.Channel,
 ): RTE.ReaderTaskEither<ChannelRegistryEnv, OIPF.DAE.Broadcast.ChannelChangeErrorCode, ChannelResolution> =>
   pipe(
-    resolveChannelUrl({
-      onid: channel.onid,
-      tsid: channel.tsid,
-      sid: channel.sid,
-    }),
+    channel,
+    toChannelTriplet,
+    RTE.fromOption(() => OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL),
+    RTE.flatMap(resolveChannelUrl),
     RTE.mapLeft(() => OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL),
   );

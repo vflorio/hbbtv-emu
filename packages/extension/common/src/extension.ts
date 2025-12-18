@@ -11,11 +11,30 @@ export const StreamEventConfigCodec = t.intersection([
   t.type({
     id: t.string,
     enabled: t.boolean,
-    delaySeconds: t.number, // Delay in secondi prima di questo evento (rispetto al precedente o all'inizio del ciclo)
+  }),
+  t.partial({
+    label: t.string,
+    scheduleMode: t.union([t.literal("timestamps"), t.literal("interval"), t.literal("delay")]),
+    delaySeconds: t.number,
+    atSeconds: t.number,
+    intervalSeconds: t.number,
+    offsetSeconds: t.number,
   }),
 ]);
 
 export type StreamEventConfig = t.TypeOf<typeof StreamEventConfigCodec>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream Event Scheduling (per channel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const StreamEventScheduleModeCodec = t.union([
+  t.literal("timestamps"),
+  t.literal("interval"),
+  t.literal("delay"),
+]);
+
+export type StreamEventScheduleMode = t.TypeOf<typeof StreamEventScheduleModeCodec>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel Config
@@ -68,12 +87,20 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
     du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
   });
 
-const streamEvent = (eventName: string, payload: string, delaySeconds: number): StreamEventConfig => ({
+const streamEvent = (
+  label: string,
+  payload: string,
+  offsetSeconds: number,
+  intervalSeconds = 30,
+): StreamEventConfig => ({
   id: randomUUID(),
   enabled: true,
-  delaySeconds,
-  eventName,
-  targetURL: "http://localhost:8000",
+  label,
+  scheduleMode: "interval",
+  intervalSeconds,
+  offsetSeconds,
+  eventName: "sevent",
+  targetURL: "http://dev-container.enhanced.tools/it/default.ste",
   text: payload,
   data: textToHex(payload),
   status: "trigger",
@@ -85,16 +112,15 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
     {
       id: "channel-1",
       name: "Channel 1",
-      mp4Source: "https://www.w3schools.com/html/mov_bbb.mp4",
+      mp4Source: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
       onid: 1,
       tsid: 1,
       sid: 1,
       enableStreamEvents: true,
       streamEvents: [
-        // Ciclo: PREP -> (10s) -> GO -> (10s) -> END -> (10s) -> PREP...
-        streamEvent("PREP", dasEventPayload("1"), 10), // Dopo 10s dall'inizio/fine ciclo
-        streamEvent("GO", dasEventPayload("2"), 10), // Dopo 10s da PREP
-        streamEvent("END", dasEventPayload("3"), 10), // Dopo 10s da GO, poi ricomincia
+        streamEvent("PREP", dasEventPayload("1"), 0, 30), // ogni 30s, offset 0s
+        streamEvent("GO", dasEventPayload("2"), 10, 30), // ogni 30s, offset 10s
+        streamEvent("END", dasEventPayload("3"), 20, 30), // ogni 30s, offset 20s
       ],
     },
   ],

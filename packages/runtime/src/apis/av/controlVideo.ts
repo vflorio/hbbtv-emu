@@ -58,7 +58,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
 
   applyState = (state: Partial<AVControlState>): IO.IO<void> => this.stateful.applyState(state);
 
-  getState = (): IO.IO<Partial<AVControlState>> => this.stateful.getState();
+  getState: IO.IO<Partial<AVControlState>> = this.stateful.getState;
 
   subscribe = (callback: OnStateChangeCallback<AVControlState>): IO.IO<() => void> => this.stateful.subscribe(callback);
 
@@ -197,7 +197,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
       IO.flatMap(() => {
         // Stop current playback if data changes
         if (this._data !== url && this._playState !== OIPF.AV.Control.PlayState.STOPPED) {
-          this.#stream.stop()();
+          this.#stream.stop();
           this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
         }
         return IO.of(undefined);
@@ -208,7 +208,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
           if (url) {
             this.#stream.loadSource({ url, type: "video" })();
           } else {
-            this.#stream.release()();
+            this.#stream.release();
             this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
           }
         }),
@@ -263,7 +263,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
         this._speed = speed;
 
         if (speed === 0) {
-          this.#stream.pause()();
+          this.#stream.pause();
           this.setPlayState(OIPF.AV.Control.PlayState.PAUSED);
         } else {
           // Set connecting state before play attempt
@@ -280,7 +280,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
     pipe(
       logger.debug("stop"),
       IO.map(() => {
-        this.#stream.stop()();
+        this.#stream.stop();
         this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
         return true;
       }),

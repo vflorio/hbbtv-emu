@@ -15,12 +15,12 @@ export type VideoStreamApi = Readonly<{
 
   /** Playback controls */
   play: (speed?: number) => IO.IO<void>;
-  pause: () => IO.IO<void>;
-  stop: () => IO.IO<void>;
+  pause: IO.IO<void>;
+  stop: IO.IO<void>;
   seek: (position: number) => IO.IO<void>;
 
   /** Resource management */
-  release: () => IO.IO<void>;
+  release: IO.IO<void>;
 
   /** Audio control */
   setVolume: (volume: number) => IO.IO<void>;
@@ -81,11 +81,11 @@ export class VideoStreamService implements VideoStreamApi {
     );
 
   play = (speed?: number): IO.IO<void> => this.#player.play(speed);
-  pause = (): IO.IO<void> => this.#player.pause();
-  stop = (): IO.IO<void> => this.#player.stop();
+  pause: IO.IO<void> = () => this.#player.pause()();
+  stop: IO.IO<void> = () => this.#player.stop()();
   seek = (position: number): IO.IO<void> => this.#player.seek(position);
 
-  release = (): IO.IO<void> => this.#player.release();
+  release: IO.IO<void> = () => this.#player.release()();
 
   setVolume = (volume: number): IO.IO<void> => this.#player.setVolume(volume);
   setMuted = (muted: boolean): IO.IO<void> => this.#player.setMuted(muted);
