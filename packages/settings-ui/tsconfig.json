@@ -1,6 +1,7 @@
 {
   "extends": ["../../tsconfig.base.json", "@tsconfig/vite-react/tsconfig.json"],
   "compilerOptions": {
+    "erasableSyntaxOnly": false,
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "declaration": true,

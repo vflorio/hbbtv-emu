@@ -1,6 +1,7 @@
 import { buildDefaultUserAgent } from "@hbb-emu/oipf";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
+import Panel from "../components/Panel";
 import { useAppState } from "../context/state";
 import { useCommonActions } from "../hooks/useCommonActions";
 
@@ -47,10 +48,21 @@ export default function Settings() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Common
-      </Typography>
+    <Panel
+      title="Common"
+      actions={
+        isEditing && (
+          <Stack direction="row" spacing={2}>
+            <Button variant="contained" onClick={handleSave}>
+              Save
+            </Button>
+            <Button variant="outlined" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </Stack>
+        )
+      }
+    >
       <Stack spacing={3} sx={{ mt: 3 }}>
         <Stack spacing={1} alignItems="flex-start">
           <TextField
@@ -73,17 +85,7 @@ export default function Settings() {
         <Alert severity="warning" sx={{ mt: -2 }}>
           Changing the User-Agent may require a page reload to take effect.
         </Alert>
-        {isEditing && (
-          <Stack direction="row" spacing={2}>
-            <Button variant="contained" onClick={handleSave}>
-              Save
-            </Button>
-            <Button variant="outlined" onClick={handleCancel}>
-              Cancel
-            </Button>
-          </Stack>
-        )}
       </Stack>
-    </Box>
+    </Panel>
   );
 }

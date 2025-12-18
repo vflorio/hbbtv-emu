@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import Panel from "../components/Panel";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
 
 // ISO 639-2/B language codes
@@ -161,164 +162,10 @@ export default function ConfigurationTab() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        OIPF Configuration
-      </Typography>
-
-      <Stack spacing={3} sx={{ mt: 3 }}>
-        {/* Country */}
-        <FormControl fullWidth>
-          <InputLabel>Country</InputLabel>
-          <Select
-            value={countryId}
-            label="Country"
-            onChange={(e) => {
-              setCountryId(e.target.value);
-              setIsEditing(true);
-            }}
-          >
-            {COUNTRY_OPTIONS.map((c) => (
-              <MenuItem key={c.code} value={c.code}>
-                {c.label} ({c.code})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Primary Language */}
-        <FormControl fullWidth>
-          <InputLabel>Primary Language</InputLabel>
-          <Select
-            value={language}
-            label="Primary Language"
-            onChange={(e) => {
-              setLanguage(e.target.value);
-              setIsEditing(true);
-            }}
-          >
-            {LANGUAGE_OPTIONS.map((l) => (
-              <MenuItem key={l.code} value={l.code}>
-                {l.label} ({l.code})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Preferred Audio Languages */}
-        <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            Preferred Audio Languages (in order)
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
-            {preferredAudioLanguage.map((lang, idx) => (
-              <Chip key={lang} label={`${idx + 1}. ${lang}`} onDelete={() => removeAudioLang(lang)} sx={{ mb: 1 }} />
-            ))}
-          </Stack>
-          <Stack direction="row" spacing={1}>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <Select value={newAudioLang} displayEmpty onChange={(e) => setNewAudioLang(e.target.value)}>
-                <MenuItem value="" disabled>
-                  Select language
-                </MenuItem>
-                {LANGUAGE_OPTIONS.filter((l) => !preferredAudioLanguage.includes(l.code)).map((l) => (
-                  <MenuItem key={l.code} value={l.code}>
-                    {l.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <IconButton onClick={addAudioLang} color="primary" disabled={!newAudioLang}>
-              <Add />
-            </IconButton>
-          </Stack>
-        </Box>
-
-        {/* Preferred Subtitle Languages */}
-        <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            Preferred Subtitle Languages (in order)
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
-            {preferredSubtitleLanguage.map((lang, idx) => (
-              <Chip key={lang} label={`${idx + 1}. ${lang}`} onDelete={() => removeSubtitleLang(lang)} sx={{ mb: 1 }} />
-            ))}
-          </Stack>
-          <Stack direction="row" spacing={1}>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <Select value={newSubtitleLang} displayEmpty onChange={(e) => setNewSubtitleLang(e.target.value)}>
-                <MenuItem value="" disabled>
-                  Select language
-                </MenuItem>
-                {LANGUAGE_OPTIONS.filter((l) => !preferredSubtitleLanguage.includes(l.code)).map((l) => (
-                  <MenuItem key={l.code} value={l.code}>
-                    {l.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <IconButton onClick={addSubtitleLang} color="primary" disabled={!newSubtitleLang}>
-              <Add />
-            </IconButton>
-          </Stack>
-        </Box>
-
-        {/* Network */}
-        <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            Network
-          </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={networkOnline}
-                onChange={(e) => {
-                  setNetworkOnline(e.target.checked);
-                  setIsEditing(true);
-                }}
-              />
-            }
-            label="Online"
-          />
-        </Box>
-
-        {/* Parental Control */}
-        <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            Parental Control
-          </Typography>
-          <Stack spacing={2}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={parentalEnabled}
-                  onChange={(e) => {
-                    setParentalEnabled(e.target.checked);
-                    setIsEditing(true);
-                  }}
-                />
-              }
-              label="Enabled"
-            />
-            {parentalEnabled && (
-              <TextField
-                type="number"
-                label="Rating Threshold"
-                value={parentalRating}
-                onChange={(e) => {
-                  setParentalRating(parseInt(e.target.value, 10) || 0);
-                  setIsEditing(true);
-                }}
-                inputProps={{ min: 0, max: 18 }}
-                sx={{ maxWidth: 200 }}
-                helperText="Minimum age rating (0-18)"
-              />
-            )}
-          </Stack>
-        </Box>
-
-        {/* Action Buttons */}
-        {isEditing && (
+    <Panel
+      title="Configuration"
+      actions={
+        isEditing && (
           <Stack direction="row" spacing={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
@@ -327,8 +174,158 @@ export default function ConfigurationTab() {
               Cancel
             </Button>
           </Stack>
-        )}
-      </Stack>
-    </Box>
+        )
+      }
+    >
+      {/* Country */}
+      <FormControl fullWidth>
+        <InputLabel>Country</InputLabel>
+        <Select
+          value={countryId}
+          label="Country"
+          onChange={(e) => {
+            setCountryId(e.target.value);
+            setIsEditing(true);
+          }}
+        >
+          {COUNTRY_OPTIONS.map((c) => (
+            <MenuItem key={c.code} value={c.code}>
+              {c.label} ({c.code})
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Primary Language */}
+      <FormControl fullWidth>
+        <InputLabel>Primary Language</InputLabel>
+        <Select
+          value={language}
+          label="Primary Language"
+          onChange={(e) => {
+            setLanguage(e.target.value);
+            setIsEditing(true);
+          }}
+        >
+          {LANGUAGE_OPTIONS.map((l) => (
+            <MenuItem key={l.code} value={l.code}>
+              {l.label} ({l.code})
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Preferred Audio Languages */}
+      <Box>
+        <Typography variant="subtitle1" gutterBottom>
+          Preferred Audio Languages (in order)
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+          {preferredAudioLanguage.map((lang, idx) => (
+            <Chip key={lang} label={`${idx + 1}. ${lang}`} onDelete={() => removeAudioLang(lang)} sx={{ mb: 1 }} />
+          ))}
+        </Stack>
+        <Stack direction="row" spacing={1}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select value={newAudioLang} displayEmpty onChange={(e) => setNewAudioLang(e.target.value)}>
+              <MenuItem value="" disabled>
+                Select language
+              </MenuItem>
+              {LANGUAGE_OPTIONS.filter((l) => !preferredAudioLanguage.includes(l.code)).map((l) => (
+                <MenuItem key={l.code} value={l.code}>
+                  {l.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <IconButton onClick={addAudioLang} color="primary" disabled={!newAudioLang}>
+            <Add />
+          </IconButton>
+        </Stack>
+      </Box>
+
+      {/* Preferred Subtitle Languages */}
+      <Box>
+        <Typography variant="subtitle1" gutterBottom>
+          Preferred Subtitle Languages (in order)
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+          {preferredSubtitleLanguage.map((lang, idx) => (
+            <Chip key={lang} label={`${idx + 1}. ${lang}`} onDelete={() => removeSubtitleLang(lang)} sx={{ mb: 1 }} />
+          ))}
+        </Stack>
+        <Stack direction="row" spacing={1}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select value={newSubtitleLang} displayEmpty onChange={(e) => setNewSubtitleLang(e.target.value)}>
+              <MenuItem value="" disabled>
+                Select language
+              </MenuItem>
+              {LANGUAGE_OPTIONS.filter((l) => !preferredSubtitleLanguage.includes(l.code)).map((l) => (
+                <MenuItem key={l.code} value={l.code}>
+                  {l.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <IconButton onClick={addSubtitleLang} color="primary" disabled={!newSubtitleLang}>
+            <Add />
+          </IconButton>
+        </Stack>
+      </Box>
+
+      {/* Network */}
+      <Box>
+        <Typography variant="subtitle1" gutterBottom>
+          Network
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={networkOnline}
+              onChange={(e) => {
+                setNetworkOnline(e.target.checked);
+                setIsEditing(true);
+              }}
+            />
+          }
+          label="Online"
+        />
+      </Box>
+
+      {/* Parental Control */}
+      <Box>
+        <Typography variant="subtitle1" gutterBottom>
+          Parental Control
+        </Typography>
+        <Stack spacing={2}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={parentalEnabled}
+                onChange={(e) => {
+                  setParentalEnabled(e.target.checked);
+                  setIsEditing(true);
+                }}
+              />
+            }
+            label="Enabled"
+          />
+          {parentalEnabled && (
+            <TextField
+              type="number"
+              label="Rating Threshold"
+              value={parentalRating}
+              onChange={(e) => {
+                setParentalRating(parseInt(e.target.value, 10) || 0);
+                setIsEditing(true);
+              }}
+              inputProps={{ min: 0, max: 18 }}
+              sx={{ maxWidth: 200 }}
+              helperText="Minimum age rating (0-18)"
+            />
+          )}
+        </Stack>
+      </Box>
+    </Panel>
   );
 }
