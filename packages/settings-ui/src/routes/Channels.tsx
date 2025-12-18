@@ -1,19 +1,9 @@
 import { randomUUID } from "@hbb-emu/core";
 import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { Add as AddIcon, ExpandMore } from "@mui/icons-material";
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Button,
-  Chip,
-  Divider,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
-import { ChannelBasicInfo, ChannelTriplet } from "../components/channel";
+import { ChannelBasicInfo, ChannelTimeline, ChannelTriplet } from "../components/channel";
 import Panel from "../components/Panel";
 import { StreamEventsList } from "../components/streamEvent";
 import { useAppState } from "../context/state";
@@ -125,6 +115,7 @@ function ChannelItem({
             mp4Source={localChannel.mp4Source}
             onChange={handleBasicInfoChange}
           />
+          <ChannelTimeline mp4Source={localChannel.mp4Source} streamEvents={localChannel.streamEvents || []} />
           <StreamEventsList
             streamEvents={localChannel.streamEvents || []}
             onChange={(events) => setLocalChannel((prev) => ({ ...prev, streamEvents: events }))}

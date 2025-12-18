@@ -9,10 +9,7 @@ import {
 import { CssBaseline, createTheme, Divider, List, ListItemButton, Stack, ThemeProvider } from "@mui/material";
 import { createContext, useContext, useState } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
-import { match } from "ts-pattern";
-import ChannelEdit from "./components/ChannelEdit";
 import { Acrylic } from "./components/materials";
-import StreamEventsEdit from "./components/StreamEventsEdit";
 import { type SideEffects, StateProvider } from "./context/state";
 import ApplicationTab from "./routes/ApplicationManager";
 import CapabilitiesTab from "./routes/Capabilities";
@@ -107,9 +104,6 @@ export function Settings({ sideEffects }: { sideEffects: SideEffects }) {
         <HashRouter>
           <Routes>
             <Route path="/" element={<MainLayout />} />
-            <Route path="/channel/new" element={<ChannelEdit />} />
-            <Route path="/channel/:id" element={<ChannelEdit />} />
-            <Route path="/channel/:id/events" element={<StreamEventsEdit />} />
           </Routes>
         </HashRouter>
       </ThemeProvider>

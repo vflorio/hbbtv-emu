@@ -22,11 +22,11 @@ export function StreamEventData({
   onTargetURLChange,
 }: StreamEventDataProps) {
   return (
-    <>
-      <Typography variant="caption" color="primary" sx={{ fontWeight: 600, mb: 1, display: "block" }}>
+    <Stack gap={2}>
+      <Typography variant="caption" color="primary">
         HbbTV Event Data
       </Typography>
-      <Stack gap={1.5}>
+      <Stack gap={2}>
         {mode === "edit" ? (
           <>
             <TextField
@@ -115,6 +115,6 @@ export function StreamEventData({
           </>
         )}
       </Stack>
-    </>
+    </Stack>
   );
 }

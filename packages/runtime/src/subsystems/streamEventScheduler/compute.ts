@@ -1,7 +1,7 @@
+import { cycleDurationMsFor, msFromSeconds, occurrencesBetween } from "@hbb-emu/core";
 import type { StreamEventConfig, StreamEventScheduleMode } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import * as N from "fp-ts/number";
-import * as O from "fp-ts/Option";
 import * as Ord from "fp-ts/Ord";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as Str from "fp-ts/string";
@@ -14,43 +14,6 @@ export type DueOccurrence = Readonly<{
   scheduledAtMs: number;
   event: StreamEventConfig;
 }>;
-
-export type Occurrence = Readonly<{ instanceId: string; scheduledAtMs: number }>;
-
-export const occurrencesBetween = (
-  startMs: number,
-  endMs: number,
-  baseMs: number,
-  periodMs: number,
-  offsetMs: number,
-  instanceIdPrefix: string,
-): ReadonlyArray<Readonly<Occurrence>> =>
-  pipe(
-    O.Do,
-    O.bind("periodMs", () => (periodMs > 0 ? O.some(periodMs) : O.none)),
-    O.bind("firstAt", () => O.some(baseMs + offsetMs)),
-    O.filter(({ firstAt }) => endMs >= firstAt),
-    O.bind("fromK", ({ firstAt, periodMs }) => O.some(Math.max(0, Math.floor((startMs - firstAt) / periodMs)))),
-    O.bind("toK", ({ firstAt, periodMs }) => O.some(Math.max(0, Math.floor((endMs - firstAt) / periodMs)))),
-    O.bind("count", ({ fromK, toK }) =>
-      pipe(
-        toK - fromK + 1,
-        O.fromPredicate((count) => count > 0),
-      ),
-    ),
-    O.map(({ fromK, count, firstAt, periodMs }) =>
-      pipe(
-        // Safety cap: tick should normally cover a narrow window.
-        RA.makeBy(Math.min(count, 8192), (i) => fromK + i),
-        RA.map((k) => ({
-          instanceId: `${instanceIdPrefix}::${k}`,
-          scheduledAtMs: firstAt + k * periodMs,
-        })),
-        RA.filter((o) => o.scheduledAtMs >= startMs && o.scheduledAtMs <= endMs),
-      ),
-    ),
-    O.getOrElse((): ReadonlyArray<Occurrence> => RA.empty),
-  );
 
 const compactFiredMemory = (params: {
   nowMs: number;
@@ -155,10 +118,3 @@ export const computeDueStreamEvents = (params: {
 
 const resolveScheduleMode = (event: StreamEventConfig): StreamEventScheduleMode =>
   (event.scheduleMode as StreamEventScheduleMode | undefined) ?? "delay";
-
-const clampMs = (ms: number): number => Math.max(0, Math.floor(ms));
-
-const msFromSeconds = (seconds: number | undefined, fallback: number): number =>
-  clampMs(((typeof seconds === "number" ? seconds : fallback) ?? fallback) * 1000);
-
-const cycleDurationMsFor = (atMs: number): number => Math.max(1000, atMs + 1000);

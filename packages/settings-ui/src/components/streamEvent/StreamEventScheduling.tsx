@@ -22,21 +22,21 @@ export function StreamEventScheduling({
   onChange,
 }: StreamEventSchedulingProps) {
   return (
-    <>
-      <Typography variant="caption" color="primary" sx={{ fontWeight: 600, mb: 1, display: "block" }}>
+    <Stack gap={2}>
+      <Typography variant="caption" color="primary">
         Scheduling
       </Typography>
-      <Stack gap={1.5}>
+      <Stack gap={2}>
         {mode === "edit" ? (
           <>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth>
               <InputLabel>Schedule Mode</InputLabel>
               <Select
                 label="Schedule Mode"
                 value={scheduleMode}
                 onChange={(e) => onChange("scheduleMode", e.target.value)}
               >
-                <MenuItem value="delay">Delay from cycle start</MenuItem>
+                <MenuItem value="delay">Delay from start</MenuItem>
                 <MenuItem value="interval">Fixed interval</MenuItem>
                 <MenuItem value="timestamps">Manual timestamps</MenuItem>
               </Select>
@@ -51,7 +51,6 @@ export function StreamEventScheduling({
                   onChange("delaySeconds", Number.parseInt(e.target.value, 10) || 0)
                 }
                 fullWidth
-                size="small"
                 inputProps={{ min: 0 }}
                 helperText="Delay before event fires (relative)"
               />
@@ -67,7 +66,6 @@ export function StreamEventScheduling({
                     onChange("intervalSeconds", Number.parseInt(e.target.value, 10) || 1)
                   }
                   fullWidth
-                  size="small"
                   inputProps={{ min: 1 }}
                   helperText="Event fires every N seconds"
                 />
@@ -79,7 +77,6 @@ export function StreamEventScheduling({
                     onChange("offsetSeconds", Number.parseInt(e.target.value, 10) || 0)
                   }
                   fullWidth
-                  size="small"
                   inputProps={{ min: 0 }}
                   helperText="Delay before interval starts"
                 />
@@ -95,9 +92,8 @@ export function StreamEventScheduling({
                   onChange("atSeconds", Number.parseInt(e.target.value, 10) || 0)
                 }
                 fullWidth
-                size="small"
                 inputProps={{ min: 0 }}
-                helperText="Absolute time from cycle start"
+                helperText="Absolute time from start"
               />
             )}
           </>
@@ -148,6 +144,6 @@ export function StreamEventScheduling({
           </>
         )}
       </Stack>
-    </>
+    </Stack>
   );
 }

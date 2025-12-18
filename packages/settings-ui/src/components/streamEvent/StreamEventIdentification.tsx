@@ -10,11 +10,11 @@ interface StreamEventIdentificationProps {
 
 export function StreamEventIdentification({ label, eventName, mode, onChange }: StreamEventIdentificationProps) {
   return (
-    <>
-      <Typography variant="caption" color="primary" sx={{ fontWeight: 600, mb: 1, display: "block" }}>
+    <Stack gap={2}>
+      <Typography variant="caption" color="primary">
         Event Identification
       </Typography>
-      <Stack gap={1.5}>
+      <Stack gap={2}>
         {mode === "edit" ? (
           <>
             <TextField
@@ -54,6 +54,6 @@ export function StreamEventIdentification({ label, eventName, mode, onChange }: 
           </>
         )}
       </Stack>
-    </>
+    </Stack>
   );
 }

@@ -6,6 +6,7 @@
     "@emotion/styled": "11.14.1",
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/runtime": "workspace:*",
     "@hbb-emu/oipf": "workspace:*",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
