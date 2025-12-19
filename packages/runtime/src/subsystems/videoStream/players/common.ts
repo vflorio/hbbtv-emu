@@ -40,7 +40,7 @@ export const emit = <T extends PlayerEventType>(
       const event = createPlayerEvent(type, data);
       for (const listener of env.listeners[type]) {
         try {
-          (listener as PlayerEventListener<T>)(event);
+          listener(event);
         } catch {}
       }
     }),

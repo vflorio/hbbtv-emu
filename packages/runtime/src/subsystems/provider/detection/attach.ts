@@ -45,6 +45,17 @@ export const applyAttachStrategy =
 // Visual Attach
 // ─────────────────────────────────────────────────────────────────────────────
 
+const syncInitialProperties =
+  (element: HTMLObjectElement, instance: object): IO.IO<void> =>
+  () => {
+    // Sync properties that were set on the element before detection
+    const data = element.getAttribute("data");
+    if (data && "data" in instance) {
+      logger.debug("Syncing initial data property:", data)();
+      (instance as any).data = data;
+    }
+  };
+
 const attachVisual =
   (detected: DetectedElement, instance: AnyStateful & VisualOipfObject): IO.IO<void> =>
   () => {
@@ -66,6 +77,7 @@ const attachVisual =
       insertAfter(instance.videoElement)(detected.element),
       IO.flatMap(() => styleMirror.start),
       IO.flatMap(() => proxyProperties(detected.element, instance)),
+      IO.flatMap(() => syncInitialProperties(detected.element, instance)),
     )();
   };
 
@@ -79,4 +91,5 @@ const attachNonVisual =
     pipe(
       logger.debug("Attaching non-visual element"),
       IO.flatMap(() => proxyProperties(detected.element, instance)),
+      IO.flatMap(() => syncInitialProperties(detected.element, instance)),
     );

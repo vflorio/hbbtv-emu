@@ -202,17 +202,15 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
         }
         return IO.of(undefined);
       }),
-      IO.tap(() =>
-        IO.of(() => {
-          this._data = url;
-          if (url) {
-            this.#stream.loadSource({ url, type: "video" })();
-          } else {
-            this.#stream.release();
-            this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
-          }
-        }),
-      ),
+      IO.tap(() => () => {
+        this._data = url;
+        if (url) {
+          this.#stream.loadSource({ url })();
+        } else {
+          this.#stream.release();
+          this.setPlayState(OIPF.AV.Control.PlayState.STOPPED);
+        }
+      }),
     )();
   }
 

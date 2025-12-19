@@ -27,8 +27,8 @@ export class HlsPlayer implements Player {
   #currentSpeed = 1;
   #hlsPlayer: Hls | null = null;
 
-  constructor() {
-    this.videoElement = document.createElement("video");
+  constructor(videoElement?: HTMLVideoElement) {
+    this.videoElement = videoElement ?? document.createElement("video");
 
     this.#env = {
       state: this.#state,
@@ -54,6 +54,13 @@ export class HlsPlayer implements Player {
         this.#env.hlsPlayer = player;
       },
     };
+
+    // If videoElement was provided (reused from another player), reset it
+    if (videoElement) {
+      // Clear any existing src to ensure clean state
+      videoElement.removeAttribute("src");
+      videoElement.load();
+    }
   }
 
   load = (source: PlayerSource): IO.IO<void> => load(source)(this.#env);

@@ -22,8 +22,8 @@ export class HtmlVideoPlayer implements Player {
   #source: PlayerSource | null = null;
   #currentSpeed = 1;
 
-  constructor() {
-    this.videoElement = document.createElement("video");
+  constructor(videoElement?: HTMLVideoElement) {
+    this.videoElement = videoElement ?? document.createElement("video");
 
     this.#env = {
       state: this.#state,
@@ -44,6 +44,13 @@ export class HtmlVideoPlayer implements Player {
         this.#env.currentSpeed = speed;
       },
     };
+
+    // If videoElement was provided (reused from another player), reset it
+    if (videoElement) {
+      // Clear any existing src to ensure clean state
+      videoElement.removeAttribute("src");
+      videoElement.load();
+    }
   }
 
   load = (source: PlayerSource): IO.IO<void> => load(source)(this.#env);
