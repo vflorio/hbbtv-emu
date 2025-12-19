@@ -7,7 +7,9 @@ import {
   onBridgeContextReceived,
   onBridgeScriptReady,
   onContentScriptReady,
+  onDispatchKey,
   onGetState,
+  onPlayChannel,
   onStateUpdated,
 } from "./handlers";
 import { loadConfigFromStorage } from "./storage";
@@ -27,6 +29,8 @@ const initialize = (app: Instance): T.Task<void> =>
           IO.flatMap(() => app.subscribe("BRIDGE_CONTEXT_RECEIVED", onBridgeContextReceived(app))),
           IO.flatMap(() => app.subscribe("GET_STATE", onGetState(app))),
           IO.flatMap(() => app.subscribe("STATE_UPDATED", onStateUpdated(app))),
+          IO.flatMap(() => app.subscribe("PLAY_CHANNEL", onPlayChannel(app))),
+          IO.flatMap(() => app.subscribe("DISPATCH_KEY", onDispatchKey(app))),
         ),
       ),
     ),

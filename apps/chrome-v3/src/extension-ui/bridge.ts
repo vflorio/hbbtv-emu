@@ -33,4 +33,7 @@ export const WithBridge = <T extends ClassType<Render & MessageClient>>(Base: T)
 
     override playChannel = (channel: ChannelConfig): Promise<void> =>
       pipe(T.fromIO(this.send("BACKGROUND_SCRIPT", { type: "PLAY_CHANNEL", payload: channel })), T.asUnit)();
+
+    override dispatchKey = (keyCode: number): Promise<void> =>
+      pipe(T.fromIO(this.send("BACKGROUND_SCRIPT", { type: "DISPATCH_KEY", payload: keyCode })), T.asUnit)();
   };

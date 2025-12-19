@@ -1,10 +1,9 @@
 import {
-  Apps as AppsIcon,
-  LiveTv as BroadcastIcon,
   Memory as CapabilitiesIcon,
   Tv as ChannelsIcon,
   Tune as CommonIcon,
   Settings as ConfigIcon,
+  Dialpad as RemoteIcon,
 } from "@mui/icons-material";
 import { CssBaseline, createTheme, Divider, List, ListItemButton, Stack, ThemeProvider } from "@mui/material";
 import { createContext, useContext, useState } from "react";
@@ -16,6 +15,7 @@ import CapabilitiesTab from "./routes/Capabilities";
 import ChannelList from "./routes/Channels";
 import Common from "./routes/Common";
 import ConfigurationTab from "./routes/Configuration";
+import RemoteControl from "./routes/RemoteControl";
 import VideoBroadcastTab from "./routes/VideoBroadcast";
 
 export const BASE_SIZE = 56;
@@ -23,6 +23,15 @@ export const BASE_SIZE = 56;
 const theme = createTheme({
   palette: {
     mode: "dark",
+  },
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 400,
+      md: 500,
+      lg: 700,
+      xl: 900,
+    },
   },
 });
 
@@ -37,16 +46,17 @@ const SidebarContext = createContext<SidebarState>({
 });
 
 enum Section {
+  RemoteControl,
   Channels,
   Capabilities,
   Configuration,
-  VideoBroadcast,
   Application,
+  VideoBroadcast,
   Common,
 }
 
 function MainLayout() {
-  const [activeSection, setActiveSection] = useState<Section>(Section.Channels);
+  const [activeSection, setActiveSection] = useState<Section>(Section.RemoteControl);
   return (
     <SidebarContext.Provider value={{ activeSection, setActiveSection }}>
       <Stack width={"100%"} direction={"row"}>
@@ -58,6 +68,7 @@ function MainLayout() {
           {activeSection === Section.Configuration && <ConfigurationTab />}
           {activeSection === Section.VideoBroadcast && <VideoBroadcastTab />}
           {activeSection === Section.Application && <ApplicationTab />}
+          {activeSection === Section.RemoteControl && <RemoteControl />}
           {activeSection === Section.Common && <Common />}
         </Stack>
       </Stack>
@@ -69,11 +80,12 @@ function Sidebar() {
   const { activeSection, setActiveSection } = useContext(SidebarContext);
 
   const menuItems = [
+    { id: Section.RemoteControl, Icon: <RemoteIcon /> },
     { id: Section.Channels, Icon: <ChannelsIcon /> },
     { id: Section.Capabilities, Icon: <CapabilitiesIcon /> },
     { id: Section.Configuration, Icon: <ConfigIcon /> },
-    { id: Section.VideoBroadcast, Icon: <BroadcastIcon /> },
-    { id: Section.Application, Icon: <AppsIcon /> },
+    //{ id: Section.VideoBroadcast, Icon: <BroadcastIcon /> },
+    //{ id: Section.Application, Icon: <AppsIcon /> },
     { id: Section.Common, Icon: <CommonIcon /> },
   ];
 

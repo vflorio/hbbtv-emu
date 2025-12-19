@@ -10,6 +10,7 @@ createRoot(document.getElementById("root")!).render(
         load: async () => DEFAULT_EXTENSION_STATE,
         save: async () => {},
         playChannel: async () => {},
+        dispatchKey: async () => {},
         subscribe: () => () => {},
       }}
     />

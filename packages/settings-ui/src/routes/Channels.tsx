@@ -15,7 +15,7 @@ export default function ChannelList() {
     isLoading,
     config: { channels, currentChannel },
   } = useAppState();
-  const [expandedChannel, setExpandedChannel] = useState<string | null>(currentChannel?.id ?? null);
+  const [expandedChannel, setExpandedChannel] = useState<string | null>(currentChannel?.id ?? channels[0]?.id ?? null);
 
   const handleAddChannel = async () => {
     const newChannel: ChannelConfig = {
