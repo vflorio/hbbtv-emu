@@ -27,6 +27,7 @@ export interface Render {
   loadState: () => Promise<ExtensionState>;
   saveState: (state: ExtensionState) => Promise<void>;
   playChannel: (channel: ChannelConfig) => Promise<void>;
+  dispatchKey: (keyCode: number) => Promise<void>;
 }
 
 export const WithRender = <T extends ClassType<AppStateManager>>(Base: T) =>
@@ -49,7 +50,9 @@ export const WithRender = <T extends ClassType<AppStateManager>>(Base: T) =>
         this.runState(removeStateChangeListener(callback))();
       };
     };
-
+    dispatchKey = async (keyCode: number): Promise<void> => {
+      throw notImplementedError("dispatchKey not implemented");
+    };
     notifyStateUpdate = (state: ExtensionState): IO.IO<void> =>
       pipe(
         logger.debug("Notifying state change listeners"),
@@ -78,6 +81,7 @@ export const WithRender = <T extends ClassType<AppStateManager>>(Base: T) =>
                           save: this.saveState,
                           subscribe: this.subscribe,
                           playChannel: this.playChannel,
+                          dispatchKey: this.dispatchKey,
                         }}
                       />
                     </StrictMode>,

@@ -92,6 +92,62 @@ export const onContentScriptReady =
       ),
     );
 
+export const onPlayChannel =
+  (app: Instance): Handler<{ type: "PLAY_CHANNEL"; payload: ExtensionState["channels"][number] }> =>
+  (envelope) =>
+    runTask(
+      pipe(
+        T.fromIO(logger.info("PLAY_CHANNEL received, broadcasting to all HbbTV tabs")),
+        T.flatMap(() => T.fromIO(app.runState(getTabs))),
+        T.flatMap((tabs) =>
+          pipe(
+            tabs,
+            RS.toReadonlyArray(N.Ord),
+            RA.map((tabId) =>
+              pipe(
+                app.publish("CONTENT_SCRIPT", envelope.message, { tabId }),
+                TE.matchE(
+                  (error) => T.fromIO(logger.error(`Failed to send PLAY_CHANNEL to tab ${tabId}:`, error)),
+                  () => T.fromIO(logger.debug(`PLAY_CHANNEL sent to tab ${tabId}`)),
+                ),
+              ),
+            ),
+            T.sequenceArray,
+            T.asUnit,
+          ),
+        ),
+      ),
+    );
+
+export const onDispatchKey =
+  (app: Instance): Handler<{ type: "DISPATCH_KEY"; payload: number }> =>
+  (envelope) =>
+    runTask(
+      pipe(
+        T.fromIO(
+          logger.info(`DISPATCH_KEY received (keyCode: ${envelope.message.payload}), broadcasting to all HbbTV tabs`),
+        ),
+        T.flatMap(() => T.fromIO(app.runState(getTabs))),
+        T.flatMap((tabs) =>
+          pipe(
+            tabs,
+            RS.toReadonlyArray(N.Ord),
+            RA.map((tabId) =>
+              pipe(
+                app.publish("CONTENT_SCRIPT", envelope.message, { tabId }),
+                TE.matchE(
+                  (error) => T.fromIO(logger.error(`Failed to send DISPATCH_KEY to tab ${tabId}:`, error)),
+                  () => T.fromIO(logger.debug(`DISPATCH_KEY sent to tab ${tabId}`)),
+                ),
+              ),
+            ),
+            T.sequenceArray,
+            T.asUnit,
+          ),
+        ),
+      ),
+    );
+
 const sendBridgeContext = (app: Instance, tabId: number): TE.TaskEither<unknown, void> =>
   app.publish("BRIDGE_SCRIPT", { type: "UPDATE_BRIDGE_CONTEXT", payload: { tabId } }, { tabId });
 

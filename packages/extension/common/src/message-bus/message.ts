@@ -26,6 +26,7 @@ export type Message =
   | { type: "GET_STATE"; payload: null }
   | { type: "STATE_UPDATED"; payload: ExtensionState }
   | { type: "PLAY_CHANNEL"; payload: ChannelConfig }
+  | { type: "DISPATCH_KEY"; payload: number }
   | { type: "DISPATCH_STREAM_EVENT"; payload: StreamEventConfig };
 
 export const MessageCodec: t.Type<Message> = t.union([
@@ -36,6 +37,7 @@ export const MessageCodec: t.Type<Message> = t.union([
   t.type({ type: t.literal("GET_STATE"), payload: t.null }),
   t.type({ type: t.literal("STATE_UPDATED"), payload: ExtensionStateCodec }),
   t.type({ type: t.literal("PLAY_CHANNEL"), payload: ChannelConfigCodec }),
+  t.type({ type: t.literal("DISPATCH_KEY"), payload: t.number }),
   t.type({ type: t.literal("DISPATCH_STREAM_EVENT"), payload: StreamEventConfigCodec }),
 ]);
 

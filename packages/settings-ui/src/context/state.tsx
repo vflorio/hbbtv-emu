@@ -25,6 +25,8 @@ export interface SideEffects {
   subscribe: (callback: (state: ExtensionState) => void) => () => void;
   /** Play a channel (side effect) */
   playChannel: (channel: ChannelConfig) => Promise<void>;
+  /** Dispatch a remote control key event */
+  dispatchKey: (keyCode: number) => Promise<void>;
 }
 
 interface StateContextValue {

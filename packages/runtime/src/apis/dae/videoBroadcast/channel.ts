@@ -219,18 +219,30 @@ export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): Cha
 // Methods
 
 export const bindToCurrentChannel = pipe(
-  RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
+  RIO.ask<ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv>(),
   RIO.tapIO((env) => logger.debug("bindToCurrentChannel", env.getPlayState(), env.getCurrentChannel())),
   RIO.flatMap((env) =>
     match(env.getPlayState())
       .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.of(null))
-      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.of(env.getCurrentChannel()))
-      .otherwise(() =>
-        pipe(
-          RIO.fromIO(() => env.play),
-          RIO.as(env.getCurrentChannel()),
-        ),
-      ),
+      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () =>
+        match(env.getCurrentChannel())
+          .with(null, () => RIO.of(null))
+          .otherwise((channel) =>
+            pipe(
+              RIO.fromIO(() =>
+                pipe(
+                  playChannel(channel)(env),
+                  TE.match(
+                    (error) => env.onChannelChangeError(channel, error),
+                    () => undefined,
+                  ),
+                )(),
+              ),
+              RIO.as(channel),
+            ),
+          ),
+      )
+      .otherwise(() => pipe(RIO.fromIO(env.play), RIO.as(env.getCurrentChannel()))),
   ),
 );
 

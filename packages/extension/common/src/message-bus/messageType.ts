@@ -10,6 +10,7 @@ export type MessageType =
   | "STATE_UPDATED"
   | "GET_STATE"
   | "PLAY_CHANNEL"
+  | "DISPATCH_KEY"
   | "DISPATCH_STREAM_EVENT";
 
 export const MessageTypeCodec = t.union([
@@ -20,6 +21,7 @@ export const MessageTypeCodec = t.union([
   t.literal("STATE_UPDATED"),
   t.literal("GET_STATE"),
   t.literal("PLAY_CHANNEL"),
+  t.literal("DISPATCH_KEY"),
   t.literal("DISPATCH_STREAM_EVENT"),
 ]);
 

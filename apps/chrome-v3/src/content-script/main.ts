@@ -4,6 +4,7 @@ import { createRuntimeEnv, runtime } from "@hbb-emu/runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
+import * as S from "fp-ts/State";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { App, type Instance } from "./app";
@@ -28,6 +29,8 @@ export class ContentScriptService implements ContentScript {
       T.fromIO(logger.info("Starting")),
       T.flatMap(() => this.#requestAndWaitForConfig()),
       T.flatMap(() => T.fromIO(this.#setupStateSubscription())),
+      T.flatMap(() => T.fromIO(this.#setupPlayChannelHandler())),
+      T.flatMap(() => T.fromIO(this.#setupDispatchKeyHandler())),
       T.flatMap(() => T.fromIO(this.#initializeHbbTV())),
       T.flatMap(() => this.#notifyReady()),
       T.flatMap(() => T.fromIO(logger.info("Started"))),
@@ -104,6 +107,80 @@ export class ContentScriptService implements ContentScript {
             logger.info("State update received", envelope.message.payload),
             IO.flatMap(() => this.#app.runState(setConfig(envelope.message.payload))),
             IO.flatMap(() => this.#updateRuntimeState(envelope.message.payload)),
+          ),
+        ),
+      ),
+    );
+
+  #setupPlayChannelHandler = (): IO.IO<void> =>
+    pipe(
+      logger.debug("Setting up PLAY_CHANNEL handler"),
+      IO.flatMap(() =>
+        this.#app.on("PLAY_CHANNEL", (envelope) =>
+          pipe(
+            logger.info("PLAY_CHANNEL received", envelope.message.payload),
+            IO.flatMap(() =>
+              this.#app.runState(
+                pipe(
+                  getRuntimeHandle,
+                  S.flatMap((handleOpt) =>
+                    pipe(
+                      handleOpt,
+                      O.match(
+                        () => S.of(IO.of(logger.warn("No runtime handle, cannot play channel")())),
+                        (handle) =>
+                          S.of(
+                            pipe(
+                              logger.debug("Playing channel via runtime"),
+                              IO.flatMap(() =>
+                                handle.updateState({
+                                  videoBroadcast: { currentChannel: envelope.message.payload },
+                                }),
+                              ),
+                            ),
+                          ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            IO.flatten,
+          ),
+        ),
+      ),
+    );
+
+  #setupDispatchKeyHandler = (): IO.IO<void> =>
+    pipe(
+      logger.debug("Setting up DISPATCH_KEY handler"),
+      IO.flatMap(() =>
+        this.#app.on("DISPATCH_KEY", (envelope) =>
+          pipe(
+            logger.info("DISPATCH_KEY received", envelope.message.payload),
+            IO.flatMap(() =>
+              this.#app.runState(
+                pipe(
+                  getRuntimeHandle,
+                  S.flatMap((handleOpt) =>
+                    pipe(
+                      handleOpt,
+                      O.match(
+                        () => S.of(IO.of(logger.warn("No runtime handle, cannot dispatch key")())),
+                        (handle) =>
+                          S.of(
+                            pipe(
+                              logger.debug("Dispatching key via runtime:", envelope.message.payload),
+                              IO.flatMap(() => handle.dispatchKey(envelope.message.payload)),
+                            ),
+                          ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            IO.flatten,
           ),
         ),
       ),

@@ -22,9 +22,12 @@ import {
   createChannelRegistryEnv,
   createCurrentChannelEnv,
   createDefaultVideoStreamEnv,
+  createRemoteControlEnv,
   createStreamEventScheduler,
   createUserAgentEnv,
+  dispatchRemoteKey,
   initializeUserAgent,
+  type RemoteControlEnv,
   type StreamEventSchedulerApi,
   type UserAgentEnv,
   type VideoStreamEnv,
@@ -88,6 +91,8 @@ export type BindingsEnv = Readonly<{
 export type RuntimeEnv = Readonly<{
   /** User agent configuration and override capabilities */
   userAgent: UserAgentEnv;
+  /** Remote control key dispatching */
+  remoteControl: RemoteControlEnv;
   /** Environment for creating bindings */
   bindings: BindingsEnv;
   /** Factory function that creates all OIPF bindings */
@@ -118,6 +123,11 @@ export type Runtime = Readonly<{
    * Collects current state from all managed OIPF objects.
    */
   collectState: IO.IO<GlobalState>;
+
+  /**
+   * Dispatches a remote control key event.
+   */
+  dispatchKey: (keyCode: number) => IO.IO<void>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +187,11 @@ export class RuntimeService implements Runtime {
   collectState: IO.IO<GlobalState> = () => this.#provider.collectState();
 
   /**
+   * Dispatches a remote control key event.
+   */
+  dispatchKey = (keyCode: number): IO.IO<void> => dispatchRemoteKey(keyCode)(this.#env.remoteControl);
+
+  /**
    * Updates extension-level config (channels and stream event scheduling).
    * Note: OIPF object instances keep the initial channel registry; this currently
    * updates the stream-event scheduler only.
@@ -209,6 +224,7 @@ export const createRuntimeEnv = (
 
   return {
     userAgent: createUserAgentEnv(extensionState),
+    remoteControl: createRemoteControlEnv(),
     bindings: {
       channelRegistry,
       createVideoStream: createDefaultVideoStreamEnv,
@@ -241,6 +257,8 @@ export type RuntimeHandle = Readonly<{
   updateExtensionState: (state: ExtensionState) => IO.IO<void>;
   /** Reads current state from the runtime */
   collectState: IO.IO<GlobalState>;
+  /** Dispatches a remote control key event */
+  dispatchKey: (keyCode: number) => IO.IO<void>;
   /** Stops DOM observation and tears down runtime services */
   stop: IO.IO<void>;
 }>;
@@ -257,6 +275,7 @@ export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
         updateState: service.applyState,
         updateExtensionState: (state) => service.updateExtensionState(state),
         collectState: service.collectState,
+        dispatchKey: service.dispatchKey,
         stop: service.stop,
       }),
     ),
