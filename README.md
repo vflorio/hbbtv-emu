@@ -32,28 +32,48 @@ pnpm dev
 
 ### Running Specific Applications
 
-**Browser Extension (`app-extension`)**
+**Chrome Extension**
 
-Run the extension in development mode to access the side panel:
+Run the extension in development mode:
 
 ```bash
-pnpm --filter @hbb-emu/app-extension dev
+pnpm --filter @hbb-emu/chrome-v3-extension dev
 ```
 
-Load the extension in your browser by pointing to the `packages/app-extension/dist` directory.
+Load the extension in Chrome by pointing to the `apps/chrome-v3/dist` directory.
 
-**Web Application (`app-web`)**
+**Demo UI**
 
-Run the standalone web app that loads the HbbTV API into the DOM of a non-HbbTV HTML application:
+Run the demo web application:
 
 ```bash
-pnpm --filter @hbb-emu/app-web dev
+pnpm --filter @hbb-emu/demo-ui dev:app
+```
+
+**Runtime Demo**
+
+Run the standalone runtime demo:
+
+```bash
+pnpm --filter @hbb-emu/runtime-demo dev
 ```
 
 Clean build artifacts:
 
 ```bash
 pnpm clean
+```
+
+Format code:
+
+```bash
+pnpm format
+```
+
+Lint code:
+
+```bash
+pnpm lint
 ```
 
 ## Package Management
@@ -67,14 +87,21 @@ pnpm syncpack:check
 Fix version mismatches:
 
 ```bash
+- `@hbb-emu/runtime-demo` - Pure runtime demo (no extension dependencies)
 pnpm syncpack:fix
 ```
 
 ## Packages
 
-- `@hbb-emu/core` - Shared utilities and types
-- `@hbb-emu/hbbtv-api` - HbbTV API implementation
-- `@hbb-emu/message-bus` - Extension messaging system
-- `@hbb-emu/ui` - React UI components
-- `@hbb-emu/app-extension` - Browser extension
-- `@hbb-emu/app-web` - Web application
+**Applications**
+- `@hbb-emu/chrome-v3-extension` - Chrome MV3 extension
+- `@hbb-emu/demo-ui` - Demo web application
+
+**Core Libraries**
+- `@hbb-emu/core` - Shared utilities, DOM helpers, and storage
+- `@hbb-emu/oipf` - OIPF object models and validation
+- `@hbb-emu/runtime` - HbbTV runtime implementation
+- `@hbb-emu/settings-ui` - Settings UI components
+- `@hbb-emu/extension-common` - Shared extension utilities
+- `@hbb-emu/runtime-chrome` - Chrome-specific runtime
+- `@hbb-emu/runtime-web` - Web-specific runtime
