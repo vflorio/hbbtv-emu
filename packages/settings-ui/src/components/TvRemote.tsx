@@ -64,7 +64,7 @@ const KEY_CODES = {
 const spacing = {
   xs: 0.5,
   sm: 1,
-  md: 1.5,
+  md: 2,
 };
 
 export function TvRemote({ handleKeyPress }: { handleKeyPress: (keyCode: number) => void }) {

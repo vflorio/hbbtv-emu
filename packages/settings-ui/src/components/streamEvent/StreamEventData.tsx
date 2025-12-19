@@ -104,7 +104,14 @@ export function StreamEventData({
                 </Typography>
               </Box>
             </Stack>
-            <Stack direction="row" justifyContent="space-between">
+            <Stack
+              gap={1}
+              direction={{
+                xs: "column",
+                md: "row",
+              }}
+              justifyContent="space-between"
+            >
               <Typography variant="body2" color="text.secondary">
                 Target URL
               </Typography>

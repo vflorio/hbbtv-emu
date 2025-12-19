@@ -1,30 +1,4 @@
-Runtime Objects
-
-// types.ts
-type OipfPolyfill<T extends Stateful<S>, S, K extends StateKey> = {
-  name: string;
-  connector: OipfConnector;
-  factory: OipfFactory<T>;
-  stateful: {
-    stateKey: K;
-    defaults: S;
-  };
-  // Le operazioni applyState/getState/subscribe sono implicite 
-  // perché T extends Stateful<S>
-};
-
-// Il provider usa direttamente l'interfaccia Stateful
-const syncInstance = <T extends Stateful<S>, S>(
-  instance: T,
-  externalState: Partial<S>,
-): IO.IO<void> => instance.applyState(externalState);
-
-
-REFACTOR TODO:
-    - Runtime VideoBroadcast stream integration
-    - Estensione deve iniziallizzare la runtime
-    - Playback service connection
-    - aggiornare l'ExtensionState 
-    - Connettere il provider alla config 
-
-    - quando un oggetto viene rimosso dal DOM, scollegalo dalla runtime
+- Logger Env: console controllabile da Extension State (quindi UI)
+- Possibilità di importare files locali nello storage dell'estensione
+- Import MPEG-TS + parsing del carousel DSM-CC
+- Chrome V2: creare estensione + Inject Strategy

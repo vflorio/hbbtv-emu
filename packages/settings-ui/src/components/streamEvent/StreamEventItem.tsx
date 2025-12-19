@@ -87,7 +87,11 @@ export function StreamEventItem({ event, defaultMode, onDelete, onSave }: Stream
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
             {scheduleMode === "delay" && `Delay: ${formData.delaySeconds ?? 0}s`}
-            {scheduleMode === "interval" && `Every: ${formData.intervalSeconds ?? 10}s`}
+            {scheduleMode === "interval" && (
+              <>
+                Every: {formData.intervalSeconds ?? 10}s <br /> Offset: {formData.offsetSeconds ?? 0}s
+              </>
+            )}
             {scheduleMode === "timestamps" && `At: ${formData.atSeconds ?? 0}s`}
           </Typography>
         </Stack>
