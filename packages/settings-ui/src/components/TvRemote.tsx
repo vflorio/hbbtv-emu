@@ -11,6 +11,7 @@ import {
   Pause,
   PlayArrow,
   Stop,
+  Undo,
   VolumeDown,
   VolumeUp,
 } from "@mui/icons-material";
@@ -134,7 +135,7 @@ export function TvRemote({ handleKeyPress }: { handleKeyPress: (keyCode: number)
         <TvRemoteButton
           label="BACK"
           keyCode={KEY_CODES.VK_BACK}
-          icon={<ArrowBack />}
+          icon={<Undo />}
           variant="contained"
           color="info"
           onClick={handleKeyPress}

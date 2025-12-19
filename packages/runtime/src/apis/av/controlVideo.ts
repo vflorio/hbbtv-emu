@@ -27,8 +27,11 @@ const logger = createLogger("AVControlVideo");
 // A/V Control Video
 // ─────────────────────────────────────────────────────────────────────────────
 
-export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<AVControlState> {
+export class AVControlVideo
+  implements Omit<OIPF.AV.Control.AVControlVideo, keyof AVControlVideoEventHandlers>, Stateful<AVControlState>
+{
   readonly #stream: VideoStreamService;
+  readonly #eventHandlers: AVControlVideoEventHandlers;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Stateful Interface
@@ -81,22 +84,12 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
   _selectedComponents: Record<string, unknown> = {};
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Event Handlers
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  onPlayStateChange: OIPF.AV.Control.OnPlayStateChangeHandler | null = null;
-  onPlayPositionChanged: OIPF.AV.Control.OnPlayPositionChangedHandler | null = null;
-  onPlaySpeedChanged: OIPF.AV.Control.OnPlaySpeedChangedHandler | null = null;
-  onFullScreenChange: OIPF.AV.Control.OnFullScreenChangeHandler | null = null;
-  onfocus: (() => void) | null = null;
-  onblur: (() => void) | null = null;
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // Constructor
   // ═══════════════════════════════════════════════════════════════════════════
 
   constructor(env: AVControlVideoEnv) {
     this.#stream = new VideoStreamService(env.videoStream);
+    this.#eventHandlers = env.eventHandlers;
 
     this._mimeType = env.defaults.mimeType;
     this._data = env.defaults.data;
@@ -122,13 +115,13 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
     })();
 
     this.#stream.on("timeupdate", (event) => {
-      this.onPlayPositionChanged?.(event.currentTime);
+      this.#eventHandlers.onPlayPositionChanged?.(event.currentTime);
     })();
 
     this.#stream.on("fullscreenchange", (event) => {
       if (this._fullScreen !== event.fullscreen) {
         this._fullScreen = event.fullscreen;
-        this.onFullScreenChange?.(event.fullscreen);
+        this.#eventHandlers.onFullScreenChange?.(event.fullscreen);
       }
     })();
 
@@ -269,7 +262,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
           this.#stream.play(speed)();
         }
 
-        this.onPlaySpeedChanged?.(speed);
+        this.#eventHandlers.onPlaySpeedChanged?.(speed);
         return true;
       }),
     )();
@@ -291,7 +284,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
         const duration = this.videoElement.duration * 1000;
         if (pos >= 0 && pos <= duration) {
           this.#stream.seek(pos)();
-          this.onPlayPositionChanged?.(pos);
+          this.#eventHandlers.onPlayPositionChanged?.(pos);
           return true;
         }
         return false;
@@ -326,7 +319,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
           if (this._fullScreen !== fullscreen) {
             this._fullScreen = fullscreen;
             this.#stream.setFullscreen(fullscreen)();
-            this.onFullScreenChange?.(fullscreen);
+            this.#eventHandlers.onFullScreenChange?.(fullscreen);
           }
         }),
       ),
@@ -339,7 +332,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
       IO.tap(() =>
         IO.of(() => {
           this.videoElement.focus();
-          this.onfocus?.();
+          this.#eventHandlers.onfocus?.();
         }),
       ),
     )();
@@ -350,7 +343,7 @@ export class AVControlVideo implements OIPF.AV.Control.AVControlVideo, Stateful<
       const oldState = this._playState;
       this._playState = newState;
       logger.debug("PlayState changed:", oldState, "->", newState)();
-      this.onPlayStateChange?.(newState);
+      this.#eventHandlers.onPlayStateChange?.(newState);
     }
   };
 }
@@ -371,9 +364,19 @@ export type AVControlVideoDefaults = Readonly<{
   fullScreen: boolean;
 }>;
 
+export interface AVControlVideoEventHandlers {
+  onPlayStateChange: OIPF.AV.Control.AVControlVideo["onPlayStateChange"];
+  onPlayPositionChanged: OIPF.AV.Control.AVControlVideo["onPlayPositionChanged"];
+  onPlaySpeedChanged: OIPF.AV.Control.AVControlVideo["onPlaySpeedChanged"];
+  onFullScreenChange: OIPF.AV.Control.AVControlVideo["onFullScreenChange"];
+  onfocus: OIPF.AV.Control.AVControlVideo["onfocus"];
+  onblur: OIPF.AV.Control.AVControlVideo["onblur"];
+}
+
 export type AVControlVideoEnv = Readonly<{
   videoStream: VideoStreamEnv;
   defaults: AVControlVideoDefaults;
+  eventHandlers: AVControlVideoEventHandlers;
 }>;
 
 export const DEFAULT_AV_CONTROL_VIDEO_DEFAULTS: AVControlVideoDefaults = {

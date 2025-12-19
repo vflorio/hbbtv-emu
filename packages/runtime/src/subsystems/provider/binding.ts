@@ -41,8 +41,10 @@ export type OipfConnector = Readonly<{
 /**
  * Factory function that creates an instance of the binding.
  * Dependencies are closed over at definition time.
+ * The element parameter provides access to the DOM object for extracting
+ * properties like event handlers.
  */
-export type OipfFactory<T> = () => T;
+export type OipfFactory<T> = (element: HTMLObjectElement) => T;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binding Definition
@@ -83,7 +85,7 @@ export interface AnyStateful {
 export type AnyOipfBinding = Readonly<{
   name: StateKey;
   connector: OipfConnector;
-  factory: () => AnyStateful;
+  factory: (element: HTMLObjectElement) => AnyStateful;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────

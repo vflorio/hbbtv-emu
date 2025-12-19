@@ -11,10 +11,6 @@ export interface DisplayAPI {
   fullScreen: OIPF.DAE.Broadcast.VideoBroadcast["fullScreen"];
   width: OIPF.DAE.Broadcast.VideoBroadcast["width"];
   height: OIPF.DAE.Broadcast.VideoBroadcast["height"];
-  // Events
-  onfocus: OIPF.DAE.Broadcast.VideoBroadcast["onfocus"];
-  onblur: OIPF.DAE.Broadcast.VideoBroadcast["onblur"];
-  onFullScreenChange: OIPF.DAE.Broadcast.VideoBroadcast["onFullScreenChange"];
 
   // Methods
   setFullScreen: OIPF.DAE.Broadcast.VideoBroadcast["setFullScreen"];
@@ -22,9 +18,6 @@ export interface DisplayAPI {
 
 export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements DisplayAPI {
-    onfocus: OIPF.DAE.Broadcast.OnFocusHandler | null = null;
-    onblur: OIPF.DAE.Broadcast.OnBlurHandler | null = null;
-
     _fullScreen = this.env.defaults.fullScreen;
     _width = this.env.defaults.width;
     _height = this.env.defaults.height;
@@ -55,8 +48,6 @@ export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
       }
     }
 
-    onFullScreenChange: OIPF.DAE.Broadcast.OnFullScreenChangeHandler | null = null;
-
     setFullScreen = (fullscreen: boolean): void => {
       pipe(
         logger.debug("setFullScreen:", fullscreen),
@@ -65,7 +56,7 @@ export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
             if (this._fullScreen !== fullscreen) {
               this._fullScreen = fullscreen;
               this.env.setFullscreen(fullscreen)();
-              this.onFullScreenChange?.();
+              this.env.eventHandlers.onFullScreenChange(fullscreen);
             }
           })(),
         ),

@@ -23,12 +23,28 @@ export type VideoBroadcastDefaults = Readonly<{
   playState: OIPF.DAE.Broadcast.PlayState;
 }>;
 
+export type VideoBroadcastEventHandlers = Readonly<{
+  onPlayStateChange: (state: OIPF.DAE.Broadcast.PlayState) => void;
+  onFullScreenChange: (fullscreen: boolean) => void;
+  onfocus: () => void;
+  onblur: () => void;
+  onChannelChangeSucceeded: (channel: OIPF.DAE.Broadcast.Channel) => void;
+  onChannelChangeError: (channel: OIPF.DAE.Broadcast.Channel, error: number) => void;
+  onProgrammesChanged: () => void;
+  onParentalRatingChange: (contentId: string, ratings: string[], blocked: boolean) => void;
+  onParentalRatingError: (contentId: string, ratings: string[], drmSystemId: string) => void;
+  onDRMRightsError: (errorState: string, contentId: string, drmSystemId: string, rightsIssuerUrl: string) => void;
+  onSelectedComponentChanged: (componentType: number) => void;
+  onComponentChanged: (componentType: number, added: boolean) => void;
+}>;
+
 export type VideoBroadcastEnv = Readonly<{
   env: ChannelRegistryEnv &
     ChannelVideoStreamEnv & {
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
+      eventHandlers: VideoBroadcastEventHandlers;
     };
 }>;
 
@@ -38,6 +54,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
+      eventHandlers: VideoBroadcastEventHandlers;
     };
 
   constructor(env: {
@@ -46,6 +63,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
     onCurrentChannelChange: SetCurrentChannelCallback;
     streamEventScheduler: StreamEventSchedulerApi;
     defaults: VideoBroadcastDefaults;
+    eventHandlers: VideoBroadcastEventHandlers;
   }) {
     this.env = {
       ...env.channelRegistry,
@@ -53,6 +71,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
       onCurrentChannelChange: env.onCurrentChannelChange,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaults,
+      eventHandlers: env.eventHandlers,
     };
   }
 
@@ -60,6 +79,20 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
     return this.env.videoElement;
   }
 }
+
+type EventHandlerKeys =
+  | "onPlayStateChange"
+  | "onFullScreenChange"
+  | "onfocus"
+  | "onblur"
+  | "onChannelChangeSucceeded"
+  | "onChannelChangeError"
+  | "onProgrammesChanged"
+  | "onParentalRatingChange"
+  | "onParentalRatingError"
+  | "onDRMRightsError"
+  | "onSelectedComponentChanged"
+  | "onComponentChanged";
 
 class VideoBroadcastAPI
   extends compose(
@@ -72,7 +105,7 @@ class VideoBroadcastAPI
     WithMisc,
     WithController,
   )
-  implements OIPF.DAE.Broadcast.VideoBroadcast {}
+  implements Omit<OIPF.DAE.Broadcast.VideoBroadcast, EventHandlerKeys> {}
 
 export class VideoBroadcast extends VideoBroadcastAPI implements Stateful<VideoBroadcastState> {
   readonly stateful = createStatefulMethods(

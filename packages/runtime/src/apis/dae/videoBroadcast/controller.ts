@@ -17,7 +17,7 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
 
         // Handle channel change success when presenting
         if (streamState === PlayerPlayState.PLAYING && this._currentChannel) {
-          this.onChannelChangeSucceeded?.(this._currentChannel);
+          this.env.eventHandlers.onChannelChangeSucceeded(this._currentChannel);
         }
       });
 
