@@ -226,14 +226,17 @@ export const createRuntimeEnv = (
     userAgent: createUserAgentEnv(extensionState),
     remoteControl: createRemoteControlEnv(),
     bindings: {
+      // Subsystem environments
       channelRegistry,
+      streamEventScheduler,
       createVideoStream: createDefaultVideoStreamEnv,
+      // Current channel
       getCurrentChannel: currentChannelEnv.getCurrentChannel,
       setCurrentChannel: currentChannelEnv.setCurrentChannel,
+      // Defaults
       defaultKeysetValue: DEFAULT_KEYSET_VALUE,
       defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
       defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
-      streamEventScheduler,
       defaultVideoBroadcast: {
         fullScreen: DEFAULT_FULL_SCREEN,
         width: DEFAULT_VIDEO_WIDTH,

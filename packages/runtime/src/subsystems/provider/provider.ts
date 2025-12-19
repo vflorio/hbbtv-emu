@@ -129,7 +129,7 @@ export class ProviderService implements ProviderApi {
 
   #handleDetection = (binding: AnyOipfBinding, detected: DetectedElement): IO.IO<void> =>
     pipe(
-      IO.of(binding.factory()),
+      IO.of(binding.factory(detected.element)),
       IO.tap((instance) => () => {
         this.#elementInstances.set(detected.element, { stateKey: binding.name, instance });
       }),

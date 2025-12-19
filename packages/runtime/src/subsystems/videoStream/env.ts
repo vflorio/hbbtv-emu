@@ -3,7 +3,7 @@ import { DashPlayer, HlsPlayer, HtmlVideoPlayer, type Player, type PlayerSourceT
 
 export type VideoStreamEnv = Readonly<{
   /** Creates a Player implementation for a given source type */
-  createPlayer: (sourceType: PlayerSourceType) => Player;
+  createPlayer: (sourceType: PlayerSourceType, videoElement?: HTMLVideoElement) => Player;
 
   /** Determines the best Player type for a URL (if source.type is omitted) */
   detectSourceType: (url: string) => PlayerSourceType;
@@ -31,9 +31,9 @@ const detectSourceType = (url: string): PlayerSourceType =>
     )
     .otherwise(() => "video" as const);
 
-const createPlayer = (sourceType: PlayerSourceType) =>
+const createPlayer = (sourceType: PlayerSourceType, videoElement?: HTMLVideoElement) =>
   match(sourceType)
-    .with("video", () => new HtmlVideoPlayer())
-    .with("dash", () => new DashPlayer())
-    .with("hls", () => new HlsPlayer())
+    .with("video", () => new HtmlVideoPlayer(videoElement))
+    .with("dash", () => new DashPlayer(videoElement))
+    .with("hls", () => new HlsPlayer(videoElement))
     .exhaustive();

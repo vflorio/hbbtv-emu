@@ -38,19 +38,23 @@ export type VideoStreamApi = Readonly<{
 export class VideoStreamService implements VideoStreamApi {
   #player: Player;
   #externalListeners: Map<PlayerEventType, Set<PlayerEventListener<any>>>;
+  readonly #videoElement: HTMLVideoElement;
 
   constructor(private readonly env: VideoStreamEnv) {
-    this.#player = env.createPlayer("video");
+    // Create a single persistent videoElement that will be reused across player switches
+    this.#videoElement = document.createElement("video");
+    this.#player = env.createPlayer("video", this.#videoElement);
     this.#player.setupListeners()();
     this.#externalListeners = new Map();
   }
 
   get videoElement(): HTMLVideoElement {
-    return this.#player.videoElement;
+    return this.#videoElement;
   }
 
   /**
    * Ensures we have the right Player instance for the desired source type.
+   * Reuses the same videoElement to maintain visual attachment consistency.
    */
   private ensurePlayerFor =
     (sourceType: PlayerSourceType): IO.IO<void> =>
@@ -60,8 +64,8 @@ export class VideoStreamService implements VideoStreamApi {
       // release old player
       this.#player.release()();
 
-      // switch to a new player
-      const next = this.env.createPlayer(sourceType);
+      // switch to a new player, reusing the same videoElement
+      const next = this.env.createPlayer(sourceType, this.#videoElement);
       next.setupListeners()();
       this.#player = next;
 

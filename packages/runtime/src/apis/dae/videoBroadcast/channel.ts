@@ -27,10 +27,6 @@ export interface ChannelAPI {
   _currentChannel: OIPF.DAE.Broadcast.VideoBroadcast["currentChannel"];
   playState: OIPF.DAE.Broadcast.VideoBroadcast["playState"];
   _playState: OIPF.DAE.Broadcast.VideoBroadcast["playState"];
-  // Events
-  onChannelChangeSucceeded: OIPF.DAE.Broadcast.VideoBroadcast["onChannelChangeSucceeded"];
-  onChannelChangeError: OIPF.DAE.Broadcast.VideoBroadcast["onChannelChangeError"];
-  onPlayStateChange: OIPF.DAE.Broadcast.VideoBroadcast["onPlayStateChange"];
   // Methods
   bindToCurrentChannel: OIPF.DAE.Broadcast.VideoBroadcast["bindToCurrentChannel"];
   setChannel: OIPF.DAE.Broadcast.VideoBroadcast["setChannel"];
@@ -64,10 +60,6 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
       return this._playState;
     }
 
-    onPlayStateChange: OIPF.DAE.Broadcast.OnPlayStateChangeHandler | null = null;
-    onChannelChangeError: OIPF.DAE.Broadcast.OnChannelChangeErrorHandler | null = null;
-    onChannelChangeSucceeded: OIPF.DAE.Broadcast.OnChannelChangeSucceededHandler | null = null;
-
     setChannel = (
       channel: OIPF.DAE.Broadcast.Channel | null,
       _trickplay?: boolean,
@@ -80,10 +72,9 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
         TE.flatMap(() => setChannel(channel)(this.#withChannelEnv)),
         TE.match(
           (error) =>
-            match(this.onChannelChangeError).when(
-              (handler) => channel && handler,
-              () => this.onChannelChangeError?.(channel as OIPF.DAE.Broadcast.Channel, error),
-            ),
+            channel
+              ? this.env.eventHandlers.onChannelChangeError(channel as OIPF.DAE.Broadcast.Channel, error)
+              : undefined,
           IO.of(undefined),
         ),
       )();
@@ -100,7 +91,7 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
         const oldState = this._playState;
         this._playState = newState;
         logger.debug("PlayState changed:", oldState, "->", newState)();
-        this.onPlayStateChange?.(newState);
+        this.env.eventHandlers.onPlayStateChange(newState);
       }
     };
 
@@ -178,7 +169,7 @@ export const createChannelEnv = (instance: ChannelAPI & VideoBroadcastEnv): Chan
     instance.env.streamEventScheduler.setCurrentChannel(channel)();
   },
   onChannelChangeError: (channel, errorCode) => {
-    instance.onChannelChangeError?.(channel, errorCode);
+    instance.env.eventHandlers.onChannelChangeError(channel, errorCode);
   },
 });
 
