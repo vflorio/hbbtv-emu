@@ -32,7 +32,12 @@
         "noAccumulatingSpread": "off"
       },
       "correctness": {
-        "noUnusedPrivateClassMembers": "off"
+        "noUnusedPrivateClassMembers": "off",
+        "useExhaustiveDependencies": "off"
+      },
+      "a11y": {
+        "useMediaCaption": "off",
+        "useAltText": "off"
       }
     }
   },

@@ -259,7 +259,7 @@ export class AVControlVideo
         } else {
           // Set connecting state before play attempt
           this.setPlayState(OIPF.AV.Control.PlayState.CONNECTING);
-          this.#stream.play(speed)();
+          this.#stream.play()();
         }
 
         this.#eventHandlers.onPlaySpeedChanged?.(speed);

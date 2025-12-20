@@ -2,7 +2,7 @@
  * Pattern Matching Helpers
  */
 
-import { match, P } from "ts-pattern";
+import { match } from "ts-pattern";
 import type { PlayerState } from "./state";
 
 // ============================================================================
