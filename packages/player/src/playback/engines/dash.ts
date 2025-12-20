@@ -6,7 +6,7 @@ import { MediaPlayer, type MediaPlayerClass } from "dashjs";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import { PlayerState } from "../../state";
+import { type DASHRepresentation, PlayerState } from "../../state";
 import * as Transitions from "../../transitions";
 import { BasePlayback } from "../base";
 import { EngineNotSupportedError, InitializationError, LoadError, PlaybackError, type PlaybackErrors } from "../errors";
@@ -320,7 +320,7 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
    * Switch to a new DASH representation (for quality switching)
    */
   switchRepresentation(
-    newRepresentation: Transitions.DASHRepresentation,
+    newRepresentation: DASHRepresentation,
     reason: "abr" | "manual" | "constraint",
   ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.QualitySwitching> {
     return pipe(
@@ -336,7 +336,7 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
           return TE.left(new InitializationError("No current quality available", this));
         }
 
-        const currentRepresentationData: Transitions.DASHRepresentation = {
+        const currentRepresentationData: DASHRepresentation = {
           id: `quality-${this.currentQuality.index}`,
           bandwidth: this.currentQuality.bitrate,
           codecs: this.currentQuality.codec || "unknown",

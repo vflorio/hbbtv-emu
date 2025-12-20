@@ -6,7 +6,7 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import Hls, { type ErrorData, Events } from "hls.js";
-import { PlayerState } from "../../state";
+import { type HLSVariant, PlayerState } from "../../state";
 import * as Transitions from "../../transitions";
 import { BasePlayback } from "../base";
 import { EngineNotSupportedError, InitializationError, LoadError, PlaybackError, type PlaybackErrors } from "../errors";
@@ -370,7 +370,7 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
    * Switch to a new HLS variant (for adaptive streaming)
    */
   switchVariant(
-    newVariant: Transitions.HLSVariant,
+    newVariant: HLSVariant,
     reason: "bandwidth" | "manual",
   ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.AdaptiveSwitching> {
     return pipe(
@@ -387,7 +387,7 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
           return TE.left(new InitializationError("No current level available", this));
         }
 
-        const currentVariantData: Transitions.HLSVariant = {
+        const currentVariantData: HLSVariant = {
           bandwidth: currentLevel.bitrate,
           resolution: { width: currentLevel.width, height: currentLevel.height },
           codecs: currentLevel.videoCodec || "unknown",
