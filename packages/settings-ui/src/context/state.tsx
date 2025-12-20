@@ -4,6 +4,8 @@ import {
   type ExtensionState,
   type StreamEventConfig,
 } from "@hbb-emu/extension-common";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer } from "react";
 
 export interface AppState {
@@ -18,15 +20,15 @@ const initialState: AppState = {
 
 export interface SideEffects {
   /** Load initial state from the service */
-  load: () => Promise<ExtensionState>;
+  load: () => TE.TaskEither<unknown, ExtensionState>;
   /** Save state to the service */
-  save: (state: ExtensionState) => Promise<void>;
+  save: (state: ExtensionState) => TE.TaskEither<unknown, void>;
   /** Subscribe to external state updates (returns unsubscribe function) */
   subscribe: (callback: (state: ExtensionState) => void) => () => void;
   /** Play a channel (side effect) */
-  playChannel: (channel: ChannelConfig) => Promise<void>;
+  playChannel: (channel: ChannelConfig) => TE.TaskEither<unknown, void>;
   /** Dispatch a remote control key event */
-  dispatchKey: (keyCode: number) => Promise<void>;
+  dispatchKey: (keyCode: number) => TE.TaskEither<unknown, void>;
 }
 
 interface StateContextValue {
@@ -46,9 +48,18 @@ export function StateProvider({ sideEffects, children }: StateProviderProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    sideEffects.load().then((config) => {
-      dispatch({ type: "SET_CONFIG", payload: config });
-    });
+    pipe(
+      sideEffects.load(),
+      TE.match(
+        (error) => {
+          console.error("Failed to load config:", error);
+          dispatch({ type: "SET_LOADING", payload: false });
+        },
+        (config) => {
+          dispatch({ type: "SET_CONFIG", payload: config });
+        },
+      ),
+    )();
   }, [sideEffects]);
 
   useEffect(() => {

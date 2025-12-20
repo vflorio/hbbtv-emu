@@ -1,6 +1,9 @@
+import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
+import * as RTE from "fp-ts/ReaderTaskEither";
+import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import {
   type PlayerError,
@@ -10,6 +13,8 @@ import {
   PlayerPlayState,
   type PlayerSource,
 } from ".";
+
+const logger = createLogger("PlayerCommon");
 
 export type EventListeners = {
   [K in PlayerEventType]: Set<PlayerEventListener<K>>;
@@ -53,14 +58,13 @@ export const setState = (newState: PlayerPlayState): RIO.ReaderIO<PlayerEnv, voi
     RIO.flatMap((env) =>
       match(env.state === newState)
         .with(true, () => RIO.of<PlayerEnv, void>(undefined))
-        .with(false, () => {
-          const previousState = env.state;
-          return pipe(
+        .with(false, () =>
+          pipe(
             RIO.of<PlayerEnv, void>(undefined),
             RIO.tapIO(() => env.setState(newState)),
-            RIO.flatMap(() => emit("statechange", { state: newState, previousState })),
-          );
-        })
+            RIO.flatMap(() => emit("statechange", { state: newState, previousState: env.state })),
+          ),
+        )
         .exhaustive(),
     ),
   );
@@ -134,21 +138,33 @@ export const loadSource = (source: PlayerSource): RIO.ReaderIO<PlayerEnv, void> 
     RIO.flatMap(() => setState(PlayerPlayState.CONNECTING)),
   );
 
-export const play = (speed: number): RIO.ReaderIO<PlayerEnv, void> =>
+export const play = (speed: number): RTE.ReaderTaskEither<PlayerEnv, Error, void> =>
   pipe(
-    RIO.ask<PlayerEnv>(),
-    RIO.tapIO((env) => env.setCurrentSpeed(speed)),
-    RIO.tapIO((env) => () => {
+    RTE.ask<PlayerEnv>(),
+    RTE.tapIO((env) => env.setCurrentSpeed(speed)),
+    RTE.tapIO((env) => () => {
       env.videoElement.playbackRate = Math.abs(speed);
     }),
-    RIO.map(() => undefined),
+    RTE.flatMap((env) =>
+      speed === 0
+        ? RTE.rightIO<PlayerEnv, Error, void>(() => env.videoElement.pause())
+        : pipe(
+            TE.tryCatch(
+              () => env.videoElement.play(),
+              (error): Error => new Error(String(error)),
+            ),
+            TE.orElseFirstIOK((err) => logger.error("Play failed:", err)),
+            RTE.fromTaskEither,
+          ),
+    ),
+    RTE.tapReaderIO(() => setState(PlayerPlayState.PLAYING)),
   );
 
 export const pause = (): RIO.ReaderIO<PlayerEnv, void> =>
   pipe(
     RIO.ask<PlayerEnv>(),
     RIO.tapIO((env) => () => env.videoElement.pause()),
-    RIO.map(() => undefined),
+    RIO.flatMap(() => setState(PlayerPlayState.PAUSED)),
   );
 
 export const stop = (): RIO.ReaderIO<PlayerEnv, void> =>

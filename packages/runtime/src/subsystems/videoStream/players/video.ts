@@ -1,15 +1,13 @@
-import { createLogger } from "@hbb-emu/core";
 import { addEventListener } from "@hbb-emu/core/dom";
 import { sequenceT } from "fp-ts/Apply";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
+import type * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import type { Player, PlayerEventListener, PlayerEventType, PlayerSource } from ".";
 import { PlayerPlayState } from ".";
 import * as PlayerCommon from "./common";
-
-const logger = createLogger("HtmlVideoPlayer");
 
 type HtmlVideoPlayerEnv = PlayerCommon.PlayerEnv;
 
@@ -45,19 +43,16 @@ export class HtmlVideoPlayer implements Player {
       },
     };
 
-    // If videoElement was provided (reused from another player), reset it
-    if (videoElement) {
-      // Clear any existing src to ensure clean state
-      videoElement.removeAttribute("src");
-      videoElement.load();
-    }
+    if (!videoElement) return;
+    videoElement.removeAttribute("src");
+    videoElement.load();
   }
 
   load = (source: PlayerSource): IO.IO<void> => load(source)(this.#env);
-  release = (): IO.IO<void> => PlayerCommon.release()(this.#env);
   setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
-  play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
+  release = (): IO.IO<void> => PlayerCommon.release()(this.#env);
+  play = (): TE.TaskEither<Error, void> => PlayerCommon.play(1)(this.#env);
   pause = (): IO.IO<void> => PlayerCommon.pause()(this.#env);
   stop = (): IO.IO<void> => PlayerCommon.stop()(this.#env);
   seek = (position: number): IO.IO<void> => PlayerCommon.seek(position)(this.#env);
@@ -132,29 +127,6 @@ const load = (source: PlayerSource): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
         RIO.flatMapIO((env) => () => {
           env.videoElement.src = source.url;
           env.videoElement.load();
-        }),
-      ),
-    ),
-  );
-
-const play = (speed: number): RIO.ReaderIO<HtmlVideoPlayerEnv, void> =>
-  pipe(
-    PlayerCommon.play(speed),
-    RIO.flatMap(() =>
-      pipe(
-        RIO.ask<HtmlVideoPlayerEnv>(),
-        RIO.flatMapIO((env) => () => {
-          match(speed)
-            .with(0, () => env.videoElement.pause())
-            .otherwise(() => {
-              env.videoElement.play().catch((err: unknown) => {
-                logger.error("Play failed:", err)();
-                pipe(
-                  PlayerCommon.setState(PlayerPlayState.ERROR),
-                  RIO.flatMap(() => PlayerCommon.emit("error", { error: { code: 0, message: String(err) } })),
-                )(env)();
-              });
-            });
         }),
       ),
     ),

@@ -4,7 +4,9 @@ import { sequenceT } from "fp-ts/Apply";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
-import Hls from "hls.js";
+import * as RTE from "fp-ts/ReaderTaskEither";
+import type * as TE from "fp-ts/TaskEither";
+import Hls, { Events } from "hls.js";
 import { match } from "ts-pattern";
 import type { Player, PlayerEventListener, PlayerEventType, PlayerSource } from ".";
 import { PlayerPlayState } from ".";
@@ -55,19 +57,16 @@ export class HlsPlayer implements Player {
       },
     };
 
-    // If videoElement was provided (reused from another player), reset it
-    if (videoElement) {
-      // Clear any existing src to ensure clean state
-      videoElement.removeAttribute("src");
-      videoElement.load();
-    }
+    if (!videoElement) return;
+    videoElement.removeAttribute("src");
+    videoElement.load();
   }
 
   load = (source: PlayerSource): IO.IO<void> => load(source)(this.#env);
   release = (): IO.IO<void> => release(this.#env);
   setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
-  play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
+  play = (): TE.TaskEither<Error, void> => play()(this.#env);
   pause = (): IO.IO<void> => PlayerCommon.pause()(this.#env);
   stop = (): IO.IO<void> => PlayerCommon.stop()(this.#env);
   seek = (position: number): IO.IO<void> => PlayerCommon.seek(position)(this.#env);
@@ -119,87 +118,76 @@ const setupVideoEventListeners: RIO.ReaderIO<HlsPlayerEnv, void> = (env) =>
     ),
   );
 
-const initHlsPlayer = async (env: HlsPlayerEnv): Promise<Hls> => {
-  if (env.hlsPlayer) {
-    return env.hlsPlayer;
-  }
+const initHlsPlayer: RTE.ReaderTaskEither<HlsPlayerEnv, Error, Hls> = pipe(
+  RTE.ask<HlsPlayerEnv>(),
+  RTE.map(
+    (env) =>
+      env.hlsPlayer ??
+      new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+      }),
+  ),
+  RTE.tapReaderIO((hls) =>
+    pipe(
+      RIO.ask<HlsPlayerEnv>(),
+      RIO.flatMap((env) =>
+        env.hlsPlayer
+          ? RIO.Do
+          : pipe(
+              RIO.Do,
+              RIO.tapIO(() => IO.of(hls.attachMedia(env.videoElement))),
+              RIO.flatMap(() => setupHlsEventHandlers(hls)),
+              RIO.tapIO(() => env.setHlsPlayer(hls)),
+            ),
+      ),
+    ),
+  ),
+);
 
-  const hls = new Hls({
-    enableWorker: true,
-    lowLatencyMode: false,
-  });
-
-  hls.attachMedia(env.videoElement);
-  setupHlsEventHandlers(hls, Hls, env);
-  env.setHlsPlayer(hls)();
-
-  return hls;
-};
-
-const setupHlsEventHandlers = (hls: Hls, HlsClass: typeof import("hls.js").default, env: HlsPlayerEnv): void => {
-  hls.on(HlsClass.Events.ERROR, (_event, data) => {
-    if (data.fatal) {
-      pipe(
-        PlayerCommon.setState(PlayerPlayState.ERROR),
-        RIO.flatMap(() => PlayerCommon.emit("error", { error: PlayerCommon.createHlsError(data) })),
-      )(env)();
-    }
-  });
-
-  hls.on(HlsClass.Events.MANIFEST_PARSED, () => {
-    logger.debug("HLS manifest parsed")();
-  });
-
-  hls.on(HlsClass.Events.FRAG_BUFFERED, () => {
-    match(env.state)
-      .with(PlayerPlayState.BUFFERING, () => PlayerCommon.setState(PlayerPlayState.PLAYING)(env)())
-      .otherwise(() => {});
-  });
-};
-
-const load = (source: PlayerSource): RIO.ReaderIO<HlsPlayerEnv, void> =>
+const setupHlsEventHandlers = (hls: Hls): RIO.ReaderIO<HlsPlayerEnv, void> =>
   pipe(
     RIO.ask<HlsPlayerEnv>(),
-    RIO.tapIO(() => logger.debug("Loading HLS source:", source.url)),
-    RIO.tapIO((env) => env.setSource(source)),
-    RIO.tapIO((env) => PlayerCommon.setState(PlayerPlayState.CONNECTING)(env)),
-    RIO.flatMapIO((env) => () => {
-      initHlsPlayer(env)
-        .then((hls) => {
-          hls.loadSource(source.url);
-        })
-        .catch((err) => {
-          logger.error("HLS init failed:", err)();
+    RIO.tapIO((env) => () => {
+      hls.on(
+        Events.ERROR,
+        (_event, data) =>
+          data.fatal &&
           pipe(
             PlayerCommon.setState(PlayerPlayState.ERROR),
-            RIO.flatMap(() => PlayerCommon.emit("error", { error: { code: 0, message: String(err) } })),
-          )(env)();
-        });
+            RIO.flatMap(() => PlayerCommon.emit("error", { error: PlayerCommon.createHlsError(data) })),
+          )(env)(),
+      );
+
+      hls.on(Events.MANIFEST_PARSED, () => {
+        logger.debug("HLS manifest parsed")();
+      });
+
+      hls.on(Events.FRAG_BUFFERED, () => {
+        match(env.state)
+          .with(PlayerPlayState.BUFFERING, () => PlayerCommon.setState(PlayerPlayState.PLAYING)(env)())
+          .otherwise(() => {});
+      });
     }),
   );
 
-const play = (speed: number): RIO.ReaderIO<HlsPlayerEnv, void> =>
+const load = (source: PlayerSource): RTE.ReaderTaskEither<HlsPlayerEnv, Error, void> =>
   pipe(
-    PlayerCommon.play(speed),
-    RIO.flatMap(() =>
+    RTE.ask<HlsPlayerEnv>(),
+    RTE.tapIO(() => logger.debug("Loading HLS source:", source.url)),
+    RTE.tapIO((env) => env.setSource(source)),
+    RTE.tapIO((env) => PlayerCommon.setState(PlayerPlayState.CONNECTING)(env)),
+    RTE.flatMap(() =>
       pipe(
-        RIO.ask<HlsPlayerEnv>(),
-        RIO.flatMapIO((env) => () => {
-          match(speed)
-            .with(0, () => env.videoElement.pause())
-            .otherwise(() => {
-              env.videoElement.play().catch((err: unknown) => {
-                logger.error("Play failed:", err)();
-                pipe(
-                  PlayerCommon.setState(PlayerPlayState.ERROR),
-                  RIO.flatMap(() => PlayerCommon.emit("error", { error: { code: 0, message: String(err) } })),
-                )(env)();
-              });
-            });
-        }),
+        initHlsPlayer,
+        RTE.tapIO((hls) => () => hls.loadSource(source.url)),
+        RTE.tapError((err) => RTE.fromIO(() => logger.error("HLS init failed:", err))),
+        RTE.map(() => undefined),
       ),
     ),
   );
+
+const play = (): RTE.ReaderTaskEither<HlsPlayerEnv, Error, void> => PlayerCommon.play(1);
 
 const release: RIO.ReaderIO<HlsPlayerEnv, void> = pipe(
   RIO.ask<HlsPlayerEnv>(),
