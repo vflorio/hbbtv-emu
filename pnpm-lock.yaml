@@ -89,6 +89,52 @@ importers:
         specifier: 7.2.2
         version: 7.2.2(@types/node@24.10.0)(lightningcss@1.30.2)
 
+  apps/demo-runtime:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../../packages/extension/common
+      '@hbb-emu/oipf':
+        specifier: workspace:*
+        version: link:../../packages/oipf
+      '@hbb-emu/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      react:
+        specifier: ^19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.10.4
+      '@types/react':
+        specifier: ^19.2.5
+        version: 19.2.7
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.7)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.2(rolldown-vite@7.2.5(@types/node@24.10.4)(esbuild@0.25.12))
+      babel-plugin-react-compiler:
+        specifier: ^1.0.0
+        version: 1.0.0
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vite:
+        specifier: npm:rolldown-vite@7.2.5
+        version: rolldown-vite@7.2.5(@types/node@24.10.4)(esbuild@0.25.12)
+
   apps/demo-ui:
     dependencies:
       '@hbb-emu/extension-common':
@@ -140,52 +186,6 @@ importers:
       typescript-eslint:
         specifier: ^8.46.4
         version: 8.50.0(eslint@9.39.2)(typescript@5.9.3)
-      vite:
-        specifier: npm:rolldown-vite@7.2.5
-        version: rolldown-vite@7.2.5(@types/node@24.10.4)(esbuild@0.25.12)
-
-  apps/runtime-demo:
-    dependencies:
-      '@hbb-emu/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@hbb-emu/extension-common':
-        specifier: workspace:*
-        version: link:../../packages/extension/common
-      '@hbb-emu/oipf':
-        specifier: workspace:*
-        version: link:../../packages/oipf
-      '@hbb-emu/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      react:
-        specifier: ^19.2.0
-        version: 19.2.0
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.0(react@19.2.0)
-    devDependencies:
-      '@types/node':
-        specifier: ^24.10.1
-        version: 24.10.4
-      '@types/react':
-        specifier: ^19.2.5
-        version: 19.2.7
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.7)
-      '@vitejs/plugin-react':
-        specifier: ^5.1.1
-        version: 5.1.2(rolldown-vite@7.2.5(@types/node@24.10.4)(esbuild@0.25.12))
-      babel-plugin-react-compiler:
-        specifier: ^1.0.0
-        version: 1.0.0
-      globals:
-        specifier: ^16.5.0
-        version: 16.5.0
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
       vite:
         specifier: npm:rolldown-vite@7.2.5
         version: rolldown-vite@7.2.5(@types/node@24.10.4)(esbuild@0.25.12)
@@ -264,6 +264,37 @@ importers:
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
+      io-ts:
+        specifier: 2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/player:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../extension/common
+      '@hbb-emu/oipf':
+        specifier: workspace:*
+        version: link:../oipf
+      dashjs:
+        specifier: ^5.1.0
+        version: 5.1.0
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      hls.js:
+        specifier: ^1.6.15
+        version: 1.6.15
+      ts-pattern:
+        specifier: ^5.9.0
+        version: 5.9.0
+    devDependencies:
       io-ts:
         specifier: 2.2.22
         version: 2.2.22(fp-ts@2.16.11)
