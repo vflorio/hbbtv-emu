@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 function App() {
   const [runtimeHandle, setRuntimeHandle] = useState<RuntimeHandle | null>(null);
   const objectRef = useRef<HTMLObjectElement & OIPF.AV.Control.AVControlObject>(null);
+  const [test] = useState(false);
 
   useEffect(() => {
     console.log("[Runtime] Initializing HbbTV Runtime...");
@@ -45,6 +46,7 @@ function App() {
 
   if (!runtimeHandle) return <div>Initializing HbbTV Runtime...</div>;
 
+  if (!test) return null;
   return (
     <object
       ref={objectRef}
