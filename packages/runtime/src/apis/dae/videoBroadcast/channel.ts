@@ -142,7 +142,7 @@ export type ChannelVideoStreamEnv = {
   // Element
   videoElement: HTMLVideoElement;
   // Playback
-  play: IO.IO<void>;
+  play: TE.TaskEither<Error, void>;
   stop: IO.IO<void>;
   destroy: IO.IO<void>;
   loadSource: (source: VideoStreamSource) => IO.IO<void>;
@@ -182,8 +182,8 @@ export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): Cha
 
     // Playback
     play: stream.play(),
-    stop: stream.stop,
-    destroy: stream.release,
+    stop: stream.stop(),
+    destroy: stream.release(),
     loadSource: (source) => stream.loadSource(source),
 
     // Display

@@ -1,5 +1,6 @@
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import type * as TE from "fp-ts/TaskEither";
 import type { VideoStreamEnv } from "./env";
 import type { Player, PlayerEventListener, PlayerEventType, PlayerSource, PlayerSourceType } from "./players";
 
@@ -14,7 +15,7 @@ export type VideoStreamApi = Readonly<{
   loadSource: (source: PlayerSource) => IO.IO<void>;
 
   /** Playback controls */
-  play: (speed?: number) => IO.IO<void>;
+  play: () => TE.TaskEither<Error, void>;
   pause: IO.IO<void>;
   stop: IO.IO<void>;
   seek: (position: number) => IO.IO<void>;
@@ -84,12 +85,12 @@ export class VideoStreamService implements VideoStreamApi {
       IO.flatMap(() => this.#player.load(source)),
     );
 
-  play = (speed?: number): IO.IO<void> => this.#player.play(speed);
-  pause: IO.IO<void> = () => this.#player.pause()();
-  stop: IO.IO<void> = () => this.#player.stop()();
+  play = (): TE.TaskEither<Error, void> => this.#player.play();
+  pause = (): IO.IO<void> => this.#player.pause();
+  stop = (): IO.IO<void> => this.#player.stop();
   seek = (position: number): IO.IO<void> => this.#player.seek(position);
 
-  release: IO.IO<void> = () => this.#player.release()();
+  release = (): IO.IO<void> => this.#player.release();
 
   setVolume = (volume: number): IO.IO<void> => this.#player.setVolume(volume);
   setMuted = (muted: boolean): IO.IO<void> => this.#player.setMuted(muted);

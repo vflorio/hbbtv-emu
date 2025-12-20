@@ -5,6 +5,8 @@ import { sequenceT } from "fp-ts/Apply";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
+import * as RTE from "fp-ts/ReaderTaskEither";
+import type * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import type { Player, PlayerEventListener, PlayerEventType, PlayerSource } from ".";
 import { PlayerPlayState } from ".";
@@ -67,7 +69,7 @@ export class DashPlayer implements Player {
   release = (): IO.IO<void> => release(this.#env);
   setupListeners = (): IO.IO<void> => setupVideoEventListeners(this.#env);
 
-  play = (speed = 1): IO.IO<void> => play(speed)(this.#env);
+  play = (): TE.TaskEither<Error, void> => play()(this.#env);
   pause = (): IO.IO<void> => PlayerCommon.pause()(this.#env);
   stop = (): IO.IO<void> => PlayerCommon.stop()(this.#env);
   seek = (position: number): IO.IO<void> => seek(position)(this.#env);
@@ -131,21 +133,6 @@ const initDashPlayer: RIO.ReaderIO<DashPlayerEnv, dashjs.MediaPlayerClass> = pip
           RIO.of<DashPlayerEnv, dashjs.MediaPlayerClass>(dashjs.MediaPlayer().create()),
           RIO.tapIO((player) => () => {
             player.initialize(env.videoElement, undefined, false);
-            // Disable auto-restart on completion
-            player.updateSettings({
-              streaming: {
-                buffer: {
-                  fastSwitchEnabled: true,
-                },
-                abr: {
-                  autoSwitchBitrate: {
-                    video: true,
-                  },
-                },
-              },
-            });
-            // Prevent auto-play on completion
-            env.videoElement.loop = false;
           }),
           RIO.tap((player) => setupDashEventHandlers(player)),
           RIO.tapIO((player) => env.setDashPlayer(player)),
@@ -155,8 +142,6 @@ const initDashPlayer: RIO.ReaderIO<DashPlayerEnv, dashjs.MediaPlayerClass> = pip
         pipe(
           RIO.of(player),
           RIO.tapIO(() => () => {
-            // Re-initialize dash.js if videoElement was reused from another player
-            // reset() clears all event listeners and source
             player.reset();
             player.initialize(env.videoElement, undefined, false);
           }),
@@ -171,16 +156,14 @@ const setupDashEventHandlers = (dashPlayer: dashjs.MediaPlayerClass): RIO.Reader
     RIO.ask<DashPlayerEnv>(),
     RIO.flatMapIO((env) => () => {
       dashPlayer.on("error", (event: unknown) => {
-        logger.error("DASH error:", event)();
         pipe(
           PlayerCommon.setState(PlayerPlayState.ERROR),
           RIO.flatMap(() => PlayerCommon.emit("error", { error: PlayerCommon.createDashError(event) })),
+          RIO.tapIO(() => logger.debug(`DASH error event received`, event)),
         )(env)();
       });
 
-      dashPlayer.on("playbackStarted", () => {
-        PlayerCommon.setState(PlayerPlayState.PLAYING)(env)();
-      });
+      dashPlayer.on("playbackStarted", () => PlayerCommon.setState(PlayerPlayState.PLAYING)(env)());
 
       dashPlayer.on("playbackPaused", () => {
         match(env.state)
@@ -201,16 +184,19 @@ const setupDashEventHandlers = (dashPlayer: dashjs.MediaPlayerClass): RIO.Reader
       });
 
       dashPlayer.on("playbackEnded", () => {
-        // dash.js can emit playbackEnded when changing streams (for example in SSAI scenarios),
-        const currentTime = env.videoElement.currentTime;
-        const duration = env.videoElement.duration;
-        const isActuallyEnded = Number.isFinite(duration) && currentTime >= duration - 0.5;
-        if (isActuallyEnded) {
-          pipe(
-            PlayerCommon.setState(PlayerPlayState.FINISHED),
-            RIO.flatMap(() => PlayerCommon.emit("ended", {})),
-          )(env)();
-        }
+        // dash.js can emit playbackEnded when changing streams (for example in SSAI scenarios)
+        const isActuallyEnded =
+          Number.isFinite(env.videoElement.duration) && env.videoElement.currentTime >= env.videoElement.duration - 0.5;
+
+        match(isActuallyEnded)
+          .with(true, () =>
+            pipe(
+              PlayerCommon.setState(PlayerPlayState.FINISHED),
+              RIO.flatMap(() => PlayerCommon.emit("ended", {})),
+            )(env)(),
+          )
+          .with(false, () => {})
+          .exhaustive();
       });
     }),
   );
@@ -239,19 +225,10 @@ const load = (source: PlayerSource): RIO.ReaderIO<DashPlayerEnv, void> =>
     ),
   );
 
-const play = (speed: number): RIO.ReaderIO<DashPlayerEnv, void> =>
+const play = (): RTE.ReaderTaskEither<DashPlayerEnv, Error, void> =>
   pipe(
-    PlayerCommon.play(speed),
-    RIO.flatMap(() =>
-      pipe(
-        RIO.ask<DashPlayerEnv>(),
-        RIO.flatMapIO((env) => () => {
-          match(speed)
-            .with(0, () => env.videoElement.pause())
-            .otherwise(() => env.dashPlayer?.play());
-        }),
-      ),
-    ),
+    PlayerCommon.play(1),
+    RTE.tapReaderIO(() => PlayerCommon.setState(PlayerPlayState.PLAYING)),
   );
 
 const seek = (position: number): RIO.ReaderIO<DashPlayerEnv, void> =>

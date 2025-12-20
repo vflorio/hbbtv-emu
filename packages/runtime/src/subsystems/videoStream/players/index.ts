@@ -1,4 +1,5 @@
 import type * as IO from "fp-ts/IO";
+import type * as TE from "fp-ts/TaskEither";
 
 export { DashPlayer } from "./dash";
 export { HlsPlayer } from "./hls";
@@ -14,7 +15,7 @@ export interface Player {
   setupListeners(): IO.IO<void>;
 
   // Playback control
-  play(speed?: number): IO.IO<void>;
+  play(): TE.TaskEither<Error, void>;
   pause(): IO.IO<void>;
   stop(): IO.IO<void>;
   seek(position: number): IO.IO<void>;
