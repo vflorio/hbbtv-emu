@@ -1,4 +1,4 @@
-export * as Matchers from "./matchers";
 export * from "./playback";
-export * from "./state";
+export * as Matchers from "./state/matchers";
+export * from "./state/types";
 export * as Transitions from "./transitions";

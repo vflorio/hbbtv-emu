@@ -1,8 +1,5 @@
 /**
  * Playback Error System
- *
- * Typed errors for playback operations using discriminated unions
- * instead of exceptions, following fp-ts patterns.
  */
 
 import type { Playback } from "./factory";

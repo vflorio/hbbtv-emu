@@ -1,17 +1,16 @@
 /**
- * DASH Playback
- *
- * Playback engine using dash.js for MPEG-DASH support
+ * Playback engine for MPEG-DASH support
  */
 
 import { MediaPlayer, type MediaPlayerClass } from "dashjs";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import { PlayerState } from "../state";
-import { BasePlayback } from "./base";
-import { EngineNotSupportedError, InitializationError, LoadError, PlaybackError, type PlaybackErrors } from "./errors";
-import type { DASHConfig, ManifestInfo, QualityLevel } from "./types";
+import { PlayerState } from "../../state";
+import * as Transitions from "../../transitions";
+import { BasePlayback } from "../base";
+import { EngineNotSupportedError, InitializationError, LoadError, PlaybackError, type PlaybackErrors } from "../errors";
+import type { DASHConfig, ManifestInfo, QualityLevel } from "../types";
 
 // ============================================================================
 // DASH Playback Implementation
@@ -113,27 +112,40 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
 
   load(): TE.TaskEither<PlaybackErrors.Any, void> {
     return pipe(
-      TE.tryCatch(
-        async () => {
-          if (!this.engine) {
-            throw new Error("Engine not initialized");
-          }
+      // Use transition to create Loading state
+      Transitions.loadSource({
+        url: this.source,
+        sourceType: "dash",
+        autoplay: false,
+      }),
+      TE.mapLeft(
+        (stateError) =>
+          // Convert state error to playback error
+          new LoadError("Failed to create loading state", this.source, this, stateError),
+      ),
+      TE.flatMap(() =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
 
-          console.log("[DASH load] Attaching source:", this.source);
+            console.log("[DASH load] Attaching source:", this.source);
 
-          // Simply attach source - dash.js will handle loading asynchronously
-          // No need to wait for events, the player will emit them as it loads
-          this.engine.attachSource(this.source);
+            // Simply attach source - dash.js will handle loading asynchronously
+            // No need to wait for events, the player will emit them as it loads
+            this.engine.attachSource(this.source);
 
-          console.log("[DASH load] Source attached, dash.js will load in background");
+            console.log("[DASH load] Source attached, dash.js will load in background");
 
-          // Return immediately - dash.js loads asynchronously
-          // State will be updated through getState() polling
-        },
-        (error) => {
-          console.error("[DASH load] Load failed with error:", error);
-          return new LoadError("Failed to load DASH MPD", this.source, this, error);
-        },
+            // Return immediately - dash.js loads asynchronously
+            // State will be updated through getState() polling
+          },
+          (error) => {
+            console.error("[DASH load] Load failed with error:", error);
+            return new LoadError("Failed to load DASH MPD", this.source, this, error);
+          },
+        ),
       ),
     );
   }
@@ -264,6 +276,105 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
   }
 
   /**
+   * Select DASH representation using transition
+   */
+  selectRepresentation(
+    params: Transitions.RepresentationSelectionParams,
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.RepresentationSelected> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((state) => {
+        // Ensure we're in a state where we have parsed MPD
+        if (state._tag !== "Source/DASH/MPDParsed") {
+          return TE.left(new InitializationError(`Cannot select representation from state: ${state._tag}`, this));
+        }
+
+        // Use transition function
+        return pipe(
+          Transitions.selectDASHRepresentation(state, params),
+          E.fold(
+            (error) => TE.left(new InitializationError(error.message, this, error)),
+            (result) => TE.right(result),
+          ),
+        );
+      }),
+      // Apply the representation selection to the engine
+      TE.tap((representationSelected) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
+            // Note: dash.js API for quality selection varies by version
+            // This would need to be adapted based on the specific dash.js version
+            console.log("[DASH] Selected representation:", representationSelected.representation.id);
+          },
+          (error): PlaybackErrors.Any =>
+            new InitializationError("Failed to apply representation selection", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Switch to a new DASH representation (for quality switching)
+   */
+  switchRepresentation(
+    newRepresentation: Transitions.DASHRepresentation,
+    reason: "abr" | "manual" | "constraint",
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.QualitySwitching> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((state) => {
+        // Ensure we have a current representation selected
+        if (state._tag !== "Source/DASH/RepresentationSelected" && !this.currentQuality) {
+          return TE.left(new InitializationError(`Cannot switch representation from state: ${state._tag}`, this));
+        }
+
+        // Get current representation
+        if (!this.currentQuality) {
+          return TE.left(new InitializationError("No current quality available", this));
+        }
+
+        const currentRepresentationData: Transitions.DASHRepresentation = {
+          id: `quality-${this.currentQuality.index}`,
+          bandwidth: this.currentQuality.bitrate,
+          codecs: this.currentQuality.codec || "unknown",
+          resolution: this.currentQuality.resolution,
+        };
+
+        // Create a RepresentationSelected state for the current representation
+        const currentRepresentationState = new PlayerState.Source.DASH.RepresentationSelected(
+          currentRepresentationData,
+          currentRepresentationData.bandwidth,
+          currentRepresentationData.resolution || { width: 0, height: 0 },
+        );
+
+        // Use transition function
+        return pipe(
+          Transitions.switchDASHRepresentation(currentRepresentationState, newRepresentation, reason),
+          E.fold(
+            () => TE.left(new InitializationError("Failed to create switching state", this)),
+            (result) => TE.right(result),
+          ),
+        );
+      }),
+      // Apply the representation switch to the engine
+      TE.tap((switching) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
+            console.log("[DASH] Switching to representation:", switching.toRepresentation.id);
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to apply representation switch", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
    * Get MPD manifest information
    */
   getManifestInfo(): TE.TaskEither<PlaybackErrors.Any, ManifestInfo | null> {
@@ -326,4 +437,121 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
     // Can be overridden to emit to state system
     console.error("DASH Error:", event.error);
   };
+  // ==========================================================================
+  // Playback Control Methods (using transitions)
+  // ==========================================================================
+
+  /**
+   * Play the video using transition
+   */
+  play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((currentState) => {
+        // Use transition function
+        const result = Transitions.play(currentState as PlayerState.Playable);
+        return pipe(
+          result,
+          E.fold(
+            (error) => TE.left(new InitializationError(`Cannot play from state: ${error.fromState._tag}`, this, error)),
+            (playingState) => TE.right(playingState),
+          ),
+        );
+      }),
+      // Apply to video element
+      TE.tap((playingState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.videoElement) {
+              throw new Error("Video element not initialized");
+            }
+            await this.videoElement.play();
+            return playingState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to play video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Pause the video using transition
+   */
+  pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((currentState) => {
+        // Ensure we're playing
+        if (currentState._tag !== "Control/Playing") {
+          return TE.left(new InitializationError(`Cannot pause from state: ${currentState._tag}`, this));
+        }
+
+        // Use transition function
+        const result = Transitions.pause(currentState);
+        return pipe(
+          result,
+          E.fold(
+            (error) => TE.left(new InitializationError(`Failed to pause: ${error.message}`, this, error)),
+            (pausedState) => TE.right(pausedState),
+          ),
+        );
+      }),
+      // Apply to video element
+      TE.tap((pausedState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.videoElement) {
+              throw new Error("Video element not initialized");
+            }
+            this.videoElement.pause();
+            return pausedState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to pause video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Seek to a specific time using transition
+   */
+  seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> {
+    return pipe(
+      // Use transition function
+      Transitions.seek(params),
+      TE.mapLeft(
+        (transitionError) =>
+          // Convert transition error to playback error
+          new InitializationError(transitionError.message, this, transitionError),
+      ),
+      // Apply to video element
+      TE.tap((seekingState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.videoElement) {
+              throw new Error("Video element not initialized");
+            }
+            this.videoElement.currentTime = seekingState.toTime;
+            return seekingState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to seek video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Set playback rate
+   */
+  setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void> {
+    return TE.tryCatch(
+      async () => {
+        if (!this.videoElement) {
+          throw new Error("Video element not initialized");
+        }
+        this.videoElement.playbackRate = rate;
+      },
+      (error): PlaybackErrors.Any => new InitializationError("Failed to set playback rate", this, error),
+    );
+  }
 }

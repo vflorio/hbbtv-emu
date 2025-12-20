@@ -1,7 +1,5 @@
 /**
  * Playback Type Definitions
- *
- * Forward declarations to avoid circular dependencies
  */
 
 import type Hls from "hls.js";

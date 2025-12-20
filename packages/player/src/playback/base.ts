@@ -1,12 +1,6 @@
-/**
- * Base Playback Class
- *
- * Abstract base class providing shared behavior for all playback engines.
- * Follows the pattern from syncpack's BaseSpecifier with fp-ts integration.
- */
-
 import type * as TE from "fp-ts/TaskEither";
 import type { PlayerState } from "../state";
+import type * as Transitions from "../transitions";
 import type { PlaybackErrors } from "./errors";
 import type { PlaybackType } from "./types";
 
@@ -116,4 +110,28 @@ export abstract class BasePlayback<TConfig, TEngine> {
   getConfig(): TConfig {
     return this.config;
   }
+
+  // ==========================================================================
+  // Playback Control Methods (using transitions)
+  // ==========================================================================
+
+  /**
+   * Play the video
+   */
+  abstract play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing>;
+
+  /**
+   * Pause the video
+   */
+  abstract pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused>;
+
+  /**
+   * Seek to a specific time
+   */
+  abstract seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking>;
+
+  /**
+   * Set playback rate
+   */
+  abstract setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void>;
 }

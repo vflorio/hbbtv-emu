@@ -1,12 +1,15 @@
 /**
- * State Transition Functions
+ * Core Transition Functions
+ *
+ * Common playback control transitions (play, pause, seek, etc)
  */
 
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import { type DASHRepresentation, type HLSVariant, PlayerState } from "./state";
+import { PlayerState } from "../state";
+import { TransitionError } from "./errors";
 
 // ============================================================================
 // Transition Context Types
@@ -27,44 +30,8 @@ export interface PlaybackParams {
   readonly playbackRate?: number;
 }
 
-export interface VariantSelectionParams {
-  readonly variant: HLSVariant;
-  readonly reason: "bandwidth" | "manual";
-}
-
-export interface RepresentationSelectionParams {
-  readonly representation: DASHRepresentation;
-  readonly reason: "abr" | "manual" | "constraint";
-}
-
 // ============================================================================
-// Error Types for Transitions
-// ============================================================================
-
-export class TransitionError extends Error {
-  constructor(
-    message: string,
-    readonly fromState: PlayerState.Any,
-    readonly attemptedTransition: string,
-  ) {
-    super(message);
-    this.name = "TransitionError";
-  }
-}
-
-export class LoadError extends Error {
-  constructor(
-    message: string,
-    readonly url: string,
-    readonly sourceType: string,
-  ) {
-    super(message);
-    this.name = "LoadError";
-  }
-}
-
-// ============================================================================
-// State Transition Functions
+// Core State Transition Functions
 // ============================================================================
 
 /**
@@ -230,156 +197,6 @@ export const end = (
   wasLooping = false,
 ): E.Either<never, PlayerState.Control.Ended> =>
   E.right(new PlayerState.Control.Ended(playingState.duration, wasLooping));
-
-// ============================================================================
-// HLS-Specific Transitions
-// ============================================================================
-
-/**
- * Parse HLS manifest
- */
-export const parseHLSManifest = (
-  manifestLoading: PlayerState.Source.HLS.ManifestLoading,
-): TE.TaskEither<PlayerState.Source.HLS.ManifestParseError, PlayerState.Source.HLS.ManifestParsed> =>
-  pipe(
-    TE.tryCatch(
-      async () => {
-        // Simulate manifest parsing
-        const variants: HLSVariant[] = [
-          {
-            bandwidth: 5000000,
-            resolution: { width: 1920, height: 1080 },
-            codecs: "avc1.42E01E, mp4a.40.2",
-            url: `${manifestLoading.url}/variant-1080p.m3u8`,
-          },
-          {
-            bandwidth: 2500000,
-            resolution: { width: 1280, height: 720 },
-            codecs: "avc1.42E01E, mp4a.40.2",
-            url: `${manifestLoading.url}/variant-720p.m3u8`,
-          },
-        ];
-
-        return new PlayerState.Source.HLS.ManifestParsed(
-          manifestLoading.url,
-          variants,
-          120, // duration
-        );
-      },
-      (error) =>
-        new PlayerState.Source.HLS.ManifestParseError(
-          error instanceof Error ? error : new Error(String(error)),
-          0,
-          manifestLoading.url,
-        ),
-    ),
-  );
-
-/**
- * Select HLS variant
- */
-export const selectHLSVariant = (
-  manifestParsed: PlayerState.Source.HLS.ManifestParsed,
-  params: VariantSelectionParams,
-): E.Either<Error, PlayerState.Source.HLS.VariantSelected> =>
-  // Validate variant exists
-  manifestParsed.variants.some((v) => v.url === params.variant.url)
-    ? E.right(
-        new PlayerState.Source.HLS.VariantSelected(params.variant, params.variant.bandwidth, params.variant.resolution),
-      )
-    : E.left(new Error("Variant not found in manifest"));
-
-/**
- * Switch HLS variant (adaptive streaming)
- */
-export const switchHLSVariant = (
-  currentVariant: PlayerState.Source.HLS.VariantSelected,
-  newVariant: HLSVariant,
-  reason: "bandwidth" | "manual",
-): E.Either<never, PlayerState.Source.HLS.AdaptiveSwitching> =>
-  E.right(new PlayerState.Source.HLS.AdaptiveSwitching(currentVariant.variant, newVariant, reason));
-
-// ============================================================================
-// DASH-Specific Transitions
-// ============================================================================
-
-/**
- * Parse DASH MPD
- */
-export const parseDASHMPD = (
-  mpdLoading: PlayerState.Source.DASH.MPDLoading,
-): TE.TaskEither<PlayerState.Source.DASH.MPDParseError, PlayerState.Source.DASH.MPDParsed> =>
-  pipe(
-    TE.tryCatch(
-      async () => {
-        // Simulate MPD parsing
-        const adaptationSets = [
-          {
-            id: "video",
-            contentType: "video" as const,
-            mimeType: "video/mp4",
-            representations: [
-              {
-                id: "video-1080p",
-                bandwidth: 5000000,
-                codecs: "avc1.42E01E",
-                resolution: { width: 1920, height: 1080 },
-              },
-              {
-                id: "video-720p",
-                bandwidth: 2500000,
-                codecs: "avc1.42E01E",
-                resolution: { width: 1280, height: 720 },
-              },
-            ],
-          },
-        ];
-
-        return new PlayerState.Source.DASH.MPDParsed(
-          mpdLoading.url,
-          adaptationSets,
-          120, // duration
-          false, // isDynamic
-        );
-      },
-      (error) =>
-        new PlayerState.Source.DASH.MPDParseError(
-          error instanceof Error ? error : new Error(String(error)),
-          0,
-          mpdLoading.url,
-        ),
-    ),
-  );
-
-/**
- * Select DASH representation
- */
-export const selectDASHRepresentation = (
-  mpdParsed: PlayerState.Source.DASH.MPDParsed,
-  params: RepresentationSelectionParams,
-): E.Either<Error, PlayerState.Source.DASH.RepresentationSelected> =>
-  // Validate representation exists
-  mpdParsed.adaptationSets.some((set) => set.representations.some((r) => r.id === params.representation.id))
-    ? E.right(
-        new PlayerState.Source.DASH.RepresentationSelected(
-          params.representation,
-          params.representation.bandwidth,
-          params.representation.resolution || { width: 0, height: 0 },
-        ),
-      )
-    : E.left(new Error("Representation not found in MPD"));
-
-/**
- * Switch DASH representation (quality switching)
- */
-export const switchDASHRepresentation = (
-  currentRepresentation: PlayerState.Source.DASH.RepresentationSelected,
-  newRepresentation: DASHRepresentation,
-  reason: "abr" | "manual" | "constraint",
-): E.Either<never, PlayerState.Source.DASH.QualitySwitching> =>
-  E.right(
-    new PlayerState.Source.DASH.QualitySwitching(currentRepresentation.representation, newRepresentation, reason),
-  );
 
 // ============================================================================
 // Error Recovery

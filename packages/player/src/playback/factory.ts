@@ -1,18 +1,15 @@
 /**
  * Playback Factory
- *
- * Factory pattern with automatic source type detection for creating
- * appropriate playback instances.
  */
 
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import { DASHPlayback } from "./dash";
+import { DASHPlayback } from "./engines/dash";
+import { HLSPlayback } from "./engines/hls";
+import { NativePlayback } from "./engines/native";
 import { CreationError, type PlaybackErrors } from "./errors";
-import { HLSPlayback } from "./hls";
-import { NativePlayback } from "./native";
 import type { DASHConfig, HLSConfig, NativeConfig, PlaybackConfig, PlaybackType } from "./types";
 
 // ============================================================================

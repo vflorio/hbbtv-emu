@@ -1,15 +1,15 @@
 /**
- * Native HTML5 Playback
- *
  * Playback engine using native HTML5 video element for MP4/WebM/Ogg
  */
 
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import { PlayerState, type TimeRange } from "../state";
-import { BasePlayback } from "./base";
-import { InitializationError, LoadError, type PlaybackErrors } from "./errors";
-import type { NativeConfig } from "./types";
+import { PlayerState, type TimeRange } from "../../state";
+import * as Transitions from "../../transitions";
+import { BasePlayback } from "../base";
+import { InitializationError, LoadError, type PlaybackErrors } from "../errors";
+import type { NativeConfig } from "../types";
 
 // ============================================================================
 // Native Playback Implementation
@@ -70,14 +70,27 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
 
   load(): TE.TaskEither<PlaybackErrors.Any, void> {
     return pipe(
-      TE.tryCatch(
-        async () => {
-          if (!this.engine) {
-            throw new Error("Engine not initialized");
-          }
-          this.engine.load();
-        },
-        (error) => new LoadError("Failed to load native source", this.source, this, error),
+      // Use transition to create Loading state
+      Transitions.loadSource({
+        url: this.source,
+        sourceType: "mp4",
+        autoplay: this.config.autoplay ?? false,
+      }),
+      TE.mapLeft(
+        (stateError) =>
+          // Convert state error to playback error
+          new LoadError("Failed to create loading state", this.source, this, stateError),
+      ),
+      TE.flatMap(() =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
+            this.engine.load();
+          },
+          (error) => new LoadError("Failed to load native source", this.source, this, error),
+        ),
       ),
     );
   }
@@ -258,4 +271,122 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
   private handleError = (_event: Event): void => {
     // Override in subclass if needed
   };
+
+  // ==========================================================================
+  // Playback Control Methods (using transitions)
+  // ==========================================================================
+
+  /**
+   * Play the video using transition
+   */
+  play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((currentState) => {
+        // Use transition function
+        const result = Transitions.play(currentState as PlayerState.Playable);
+        return pipe(
+          result,
+          E.fold(
+            (error) => TE.left(new InitializationError(`Cannot play from state: ${error.fromState._tag}`, this, error)),
+            (playingState) => TE.right(playingState),
+          ),
+        );
+      }),
+      // Apply to video element
+      TE.tap((playingState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Video element not initialized");
+            }
+            await this.engine.play();
+            return playingState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to play video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Pause the video using transition
+   */
+  pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((currentState) => {
+        // Ensure we're playing
+        if (currentState._tag !== "Control/Playing") {
+          return TE.left(new InitializationError(`Cannot pause from state: ${currentState._tag}`, this));
+        }
+
+        // Use transition function
+        const result = Transitions.pause(currentState);
+        return pipe(
+          result,
+          E.fold(
+            (error) => TE.left(new InitializationError(`Failed to pause: ${error.message}`, this, error)),
+            (pausedState) => TE.right(pausedState),
+          ),
+        );
+      }),
+      // Apply to video element
+      TE.tap((pausedState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Video element not initialized");
+            }
+            this.engine.pause();
+            return pausedState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to pause video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Seek to a specific time using transition
+   */
+  seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> {
+    return pipe(
+      // Use transition function
+      Transitions.seek(params),
+      TE.mapLeft(
+        (transitionError) =>
+          // Convert transition error to playback error
+          new InitializationError(transitionError.message, this, transitionError),
+      ),
+      // Apply to video element
+      TE.tap((seekingState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Video element not initialized");
+            }
+            this.engine.currentTime = seekingState.toTime;
+            return seekingState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to seek video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Set playback rate
+   */
+  setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void> {
+    return TE.tryCatch(
+      async () => {
+        if (!this.engine) {
+          throw new Error("Video element not initialized");
+        }
+        this.engine.playbackRate = rate;
+      },
+      (error): PlaybackErrors.Any => new InitializationError("Failed to set playback rate", this, error),
+    );
+  }
 }

@@ -1,17 +1,16 @@
 /**
- * HLS Playback
- *
- * Playback engine using hls.js for HLS (HTTP Live Streaming) support
+ * Playback engine for HLS (HTTP Live Streaming)
  */
 
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import Hls, { type ErrorData, Events } from "hls.js";
-import { PlayerState } from "../state";
-import { BasePlayback } from "./base";
-import { EngineNotSupportedError, InitializationError, LoadError, PlaybackError, type PlaybackErrors } from "./errors";
-import type { HLSConfig, QualityLevel } from "./types";
+import { PlayerState } from "../../state";
+import * as Transitions from "../../transitions";
+import { BasePlayback } from "../base";
+import { EngineNotSupportedError, InitializationError, LoadError, PlaybackError, type PlaybackErrors } from "../errors";
+import type { HLSConfig, QualityLevel } from "../types";
 
 // ============================================================================
 // HLS Playback Implementation
@@ -122,32 +121,45 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
 
   load(): TE.TaskEither<PlaybackErrors.Any, void> {
     return pipe(
-      TE.tryCatch(
-        async () => {
-          if (!this.engine) {
-            throw new Error("Engine not initialized");
-          }
+      // Use transition to create Loading state
+      Transitions.loadSource({
+        url: this.source,
+        sourceType: "hls",
+        autoplay: false,
+      }),
+      TE.mapLeft(
+        (stateError) =>
+          // Convert state error to playback error
+          new LoadError("Failed to create loading state", this.source, this, stateError),
+      ),
+      TE.flatMap(() =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
 
-          this.engine.loadSource(this.source);
+            this.engine.loadSource(this.source);
 
-          // Wait for manifest parsed
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error("Manifest loading timeout"));
-            }, 10000);
+            // Wait for manifest parsed
+            await new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                reject(new Error("Manifest loading timeout"));
+              }, 10000);
 
-            this.engine!.once(Hls.Events.MANIFEST_PARSED, () => {
-              clearTimeout(timeout);
-              resolve();
+              this.engine!.once(Hls.Events.MANIFEST_PARSED, () => {
+                clearTimeout(timeout);
+                resolve();
+              });
+
+              this.engine!.once(Hls.Events.ERROR, (_event, data) => {
+                clearTimeout(timeout);
+                reject(data);
+              });
             });
-
-            this.engine!.once(Hls.Events.ERROR, (_event, data) => {
-              clearTimeout(timeout);
-              reject(data);
-            });
-          });
-        },
-        (error) => new LoadError("Failed to load HLS manifest", this.source, this, error),
+          },
+          (error) => new LoadError("Failed to load HLS manifest", this.source, this, error),
+        ),
       ),
     );
   }
@@ -310,6 +322,113 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
     );
   }
 
+  /**
+   * Select HLS variant using transition
+   */
+  selectVariant(
+    variant: Transitions.VariantSelectionParams,
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.VariantSelected> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((state) => {
+        // Ensure we're in a state where we have parsed manifest
+        if (state._tag !== "Source/HLS/ManifestParsed") {
+          return TE.left(new InitializationError(`Cannot select variant from state: ${state._tag}`, this));
+        }
+
+        // Use transition function
+        return pipe(
+          Transitions.selectHLSVariant(state, variant),
+          E.fold(
+            (error) => TE.left(new InitializationError(error.message, this, error)),
+            (result) => TE.right(result),
+          ),
+        );
+      }),
+      // Apply the variant selection to the engine
+      TE.tap((variantSelected) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
+            // Find the level index for this variant
+            const levelIndex = this.engine.levels.findIndex(
+              (level) => level.bitrate === variantSelected.variant.bandwidth,
+            );
+            if (levelIndex >= 0) {
+              this.engine.currentLevel = levelIndex;
+            }
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to apply variant selection", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Switch to a new HLS variant (for adaptive streaming)
+   */
+  switchVariant(
+    newVariant: Transitions.HLSVariant,
+    reason: "bandwidth" | "manual",
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.AdaptiveSwitching> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((state) => {
+        // Ensure we have a current variant selected
+        if (state._tag !== "Source/HLS/VariantSelected" && !this.currentQuality) {
+          return TE.left(new InitializationError(`Cannot switch variant from state: ${state._tag}`, this));
+        }
+
+        // Get current variant
+        const currentLevel = this.engine?.levels[this.currentQuality?.index ?? 0];
+        if (!currentLevel) {
+          return TE.left(new InitializationError("No current level available", this));
+        }
+
+        const currentVariantData: Transitions.HLSVariant = {
+          bandwidth: currentLevel.bitrate,
+          resolution: { width: currentLevel.width, height: currentLevel.height },
+          codecs: currentLevel.videoCodec || "unknown",
+          url: currentLevel.url[0],
+        };
+
+        // Create a VariantSelected state for the current variant
+        const currentVariantState = new PlayerState.Source.HLS.VariantSelected(
+          currentVariantData,
+          currentVariantData.bandwidth,
+          currentVariantData.resolution,
+        );
+
+        // Use transition function
+        return pipe(
+          Transitions.switchHLSVariant(currentVariantState, newVariant, reason),
+          E.fold(
+            () => TE.left(new InitializationError("Failed to create switching state", this)),
+            (result) => TE.right(result),
+          ),
+        );
+      }),
+      // Apply the variant switch to the engine
+      TE.tap((switching) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.engine) {
+              throw new Error("Engine not initialized");
+            }
+            // Find the level index for the new variant
+            const levelIndex = this.engine.levels.findIndex((level) => level.bitrate === switching.toVariant.bandwidth);
+            if (levelIndex >= 0) {
+              this.engine.currentLevel = levelIndex;
+            }
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to apply variant switch", this, error),
+        ),
+      ),
+    );
+  }
+
   // ==========================================================================
   // Event Management
   // ==========================================================================
@@ -352,4 +471,122 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
     // Can be overridden to emit to state system
     console.error("HLS Error:", data);
   };
+
+  // ==========================================================================
+  // Playback Control Methods (using transitions)
+  // ==========================================================================
+
+  /**
+   * Play the video using transition
+   */
+  play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((currentState) => {
+        // Use transition function
+        const result = Transitions.play(currentState as PlayerState.Playable);
+        return pipe(
+          result,
+          E.fold(
+            (error) => TE.left(new InitializationError(`Cannot play from state: ${error.fromState._tag}`, this, error)),
+            (playingState) => TE.right(playingState),
+          ),
+        );
+      }),
+      // Apply to video element
+      TE.tap((playingState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.videoElement) {
+              throw new Error("Video element not initialized");
+            }
+            await this.videoElement.play();
+            return playingState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to play video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Pause the video using transition
+   */
+  pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> {
+    return pipe(
+      this.getState(),
+      TE.flatMap((currentState) => {
+        // Ensure we're playing
+        if (currentState._tag !== "Control/Playing") {
+          return TE.left(new InitializationError(`Cannot pause from state: ${currentState._tag}`, this));
+        }
+
+        // Use transition function
+        const result = Transitions.pause(currentState);
+        return pipe(
+          result,
+          E.fold(
+            (error) => TE.left(new InitializationError(`Failed to pause: ${error.message}`, this, error)),
+            (pausedState) => TE.right(pausedState),
+          ),
+        );
+      }),
+      // Apply to video element
+      TE.tap((pausedState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.videoElement) {
+              throw new Error("Video element not initialized");
+            }
+            this.videoElement.pause();
+            return pausedState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to pause video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Seek to a specific time using transition
+   */
+  seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> {
+    return pipe(
+      // Use transition function
+      Transitions.seek(params),
+      TE.mapLeft(
+        (transitionError) =>
+          // Convert transition error to playback error
+          new InitializationError(transitionError.message, this, transitionError),
+      ),
+      // Apply to video element
+      TE.tap((seekingState) =>
+        TE.tryCatch(
+          async () => {
+            if (!this.videoElement) {
+              throw new Error("Video element not initialized");
+            }
+            this.videoElement.currentTime = seekingState.toTime;
+            return seekingState;
+          },
+          (error): PlaybackErrors.Any => new InitializationError("Failed to seek video", this, error),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Set playback rate
+   */
+  setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void> {
+    return TE.tryCatch(
+      async () => {
+        if (!this.videoElement) {
+          throw new Error("Video element not initialized");
+        }
+        this.videoElement.playbackRate = rate;
+      },
+      (error): PlaybackErrors.Any => new InitializationError("Failed to set playback rate", this, error),
+    );
+  }
 }
