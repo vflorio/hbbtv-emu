@@ -5,6 +5,7 @@
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
+import { match } from "ts-pattern";
 import { PlayerState, type TimeRange } from "../../state";
 import * as Transitions from "../../transitions";
 import { BasePlayback } from "../base";
@@ -23,19 +24,18 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
   // Engine Creation
   // ==========================================================================
 
-  protected createEngine(): TE.TaskEither<PlaybackErrors.Any, HTMLVideoElement> {
+  protected createEngine = (): TE.TaskEither<PlaybackErrors.Any, HTMLVideoElement> =>
     // For native, the video element IS the engine
-    return this.videoElement
+    this.videoElement
       ? TE.right(this.videoElement)
       : TE.left(new InitializationError("Video element not set before createEngine", this));
-  }
 
   // ==========================================================================
   // Initialization
   // ==========================================================================
 
-  initialize(videoElement: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  initialize = (videoElement: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       TE.tryCatch(
         async () => {
           // Store references
@@ -62,14 +62,13 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
         (error) => new InitializationError("Failed to initialize native playback", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Loading
   // ==========================================================================
 
-  load(): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  load = (): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       // Use transition to create Loading state
       Transitions.loadSource({
         url: this.source,
@@ -93,14 +92,13 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
         ),
       ),
     );
-  }
 
   // ==========================================================================
   // State Management
   // ==========================================================================
 
-  getState(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Any> {
-    return pipe(
+  getState = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Any> =>
+    pipe(
       TE.tryCatch(
         async () => {
           if (!this.engine) {
@@ -119,58 +117,64 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
           }
 
           // Determine state based on video element properties
-          if (video.ended) {
-            return new PlayerState.Control.Ended(video.duration, video.loop);
-          }
-
-          if (video.seeking) {
-            return new PlayerState.Control.Seeking(
-              video.currentTime,
-              video.currentTime, // Target time not directly available
-              video.duration,
+          return match({ video, buffered })
+            .when(
+              ({ video }) => video.ended,
+              ({ video }) => new PlayerState.Control.Ended(video.duration, video.loop),
+            )
+            .when(
+              ({ video }) => video.seeking,
+              ({ video }) =>
+                new PlayerState.Control.Seeking(
+                  video.currentTime,
+                  video.currentTime, // Target time not directly available
+                  video.duration,
+                ),
+            )
+            .when(
+              ({ video }) => video.readyState < 3 && !video.paused,
+              ({ video, buffered }) =>
+                // HAVE_FUTURE_DATA or less while trying to play
+                new PlayerState.Control.Buffering(
+                  video.currentTime,
+                  video.duration,
+                  buffered,
+                  Math.round((video.buffered.length > 0 ? video.buffered.end(0) / video.duration : 0) * 100),
+                ),
+            )
+            .when(
+              ({ video }) => !video.paused,
+              ({ video, buffered }) =>
+                new PlayerState.Control.Playing(video.currentTime, video.duration, buffered, video.playbackRate),
+            )
+            .when(
+              ({ video }) => video.paused && video.currentTime > 0,
+              ({ video, buffered }) => new PlayerState.Control.Paused(video.currentTime, video.duration, buffered),
+            )
+            .otherwise(
+              // Ready but not started
+              ({ video }) =>
+                new PlayerState.Source.MP4.Ready(
+                  this.source,
+                  video.duration || 0,
+                  {
+                    width: video.videoWidth,
+                    height: video.videoHeight,
+                  },
+                  "unknown", // Codec info not easily available
+                ),
             );
-          }
-
-          if (video.readyState < 3 && !video.paused) {
-            // HAVE_FUTURE_DATA or less while trying to play
-            return new PlayerState.Control.Buffering(
-              video.currentTime,
-              video.duration,
-              buffered,
-              Math.round((video.buffered.length > 0 ? video.buffered.end(0) / video.duration : 0) * 100),
-            );
-          }
-
-          if (!video.paused) {
-            return new PlayerState.Control.Playing(video.currentTime, video.duration, buffered, video.playbackRate);
-          }
-
-          if (video.paused && video.currentTime > 0) {
-            return new PlayerState.Control.Paused(video.currentTime, video.duration, buffered);
-          }
-
-          // Ready but not started
-          return new PlayerState.Source.MP4.Ready(
-            this.source,
-            video.duration || 0,
-            {
-              width: video.videoWidth,
-              height: video.videoHeight,
-            },
-            "unknown", // Codec info not easily available
-          );
         },
         (error): PlaybackErrors.Any => new InitializationError("Failed to get playback state", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Cleanup
   // ==========================================================================
 
-  destroy(): TE.TaskEither<never, void> {
-    return pipe(
+  destroy = (): TE.TaskEither<never, void> =>
+    pipe(
       TE.of(() => {
         if (this.engine) {
           // Remove event listeners
@@ -186,13 +190,12 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
       }),
       TE.map(() => undefined),
     );
-  }
 
   // ==========================================================================
   // Event Management
   // ==========================================================================
 
-  private setupNativeEvents(video: HTMLVideoElement): void {
+  private setupNativeEvents = (video: HTMLVideoElement): void => {
     // Core playback events
     video.addEventListener("loadstart", this.handleLoadStart);
     video.addEventListener("loadedmetadata", this.handleLoadedMetadata);
@@ -206,9 +209,9 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
     video.addEventListener("seeked", this.handleSeeked);
     video.addEventListener("waiting", this.handleWaiting);
     video.addEventListener("error", this.handleError);
-  }
+  };
 
-  private removeNativeEvents(video: HTMLVideoElement): void {
+  private removeNativeEvents = (video: HTMLVideoElement): void => {
     video.removeEventListener("loadstart", this.handleLoadStart);
     video.removeEventListener("loadedmetadata", this.handleLoadedMetadata);
     video.removeEventListener("loadeddata", this.handleLoadedData);
@@ -221,7 +224,7 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
     video.removeEventListener("seeked", this.handleSeeked);
     video.removeEventListener("waiting", this.handleWaiting);
     video.removeEventListener("error", this.handleError);
-  }
+  };
 
   // Event handlers (can be overridden or extended)
   private handleLoadStart = (_event: Event): void => {
@@ -279,8 +282,8 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
   /**
    * Play the video using transition
    */
-  play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> {
-    return pipe(
+  play = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> =>
+    pipe(
       this.getState(),
       TE.flatMap((currentState) => {
         // Use transition function
@@ -307,13 +310,12 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
         ),
       ),
     );
-  }
 
   /**
    * Pause the video using transition
    */
-  pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> {
-    return pipe(
+  pause = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> =>
+    pipe(
       this.getState(),
       TE.flatMap((currentState) => {
         // Ensure we're playing
@@ -345,13 +347,12 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
         ),
       ),
     );
-  }
 
   /**
    * Seek to a specific time using transition
    */
-  seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> {
-    return pipe(
+  seek = (params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> =>
+    pipe(
       // Use transition function
       Transitions.seek(params),
       TE.mapLeft(
@@ -373,12 +374,11 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
         ),
       ),
     );
-  }
 
   /**
    * Set playback rate
    */
-  setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void> {
+  setPlaybackRate = (rate: number): TE.TaskEither<PlaybackErrors.Any, void> => {
     return TE.tryCatch(
       async () => {
         if (!this.engine) {
@@ -388,5 +388,5 @@ export class NativePlayback extends BasePlayback<NativeConfig, HTMLVideoElement>
       },
       (error): PlaybackErrors.Any => new InitializationError("Failed to set playback rate", this, error),
     );
-  }
+  };
 }

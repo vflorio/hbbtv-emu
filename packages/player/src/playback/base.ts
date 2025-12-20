@@ -86,30 +86,22 @@ export abstract class BasePlayback<TConfig, TEngine> {
   /**
    * Check if engine is initialized
    */
-  isInitialized(): boolean {
-    return this.engine !== null && this.videoElement !== null;
-  }
+  isInitialized = (): boolean => this.engine !== null && this.videoElement !== null;
 
   /**
    * Get the underlying engine instance (if initialized)
    */
-  getEngine(): TEngine | null {
-    return this.engine;
-  }
+  getEngine = (): TEngine | null => this.engine;
 
   /**
    * Get the video element (if initialized)
    */
-  getVideoElement(): HTMLVideoElement | null {
-    return this.videoElement;
-  }
+  getVideoElement = (): HTMLVideoElement | null => this.videoElement;
 
   /**
    * Get current configuration
    */
-  getConfig(): TConfig {
-    return this.config;
-  }
+  getConfig = (): TConfig => this.config;
 
   // ==========================================================================
   // Playback Control Methods (using transitions)

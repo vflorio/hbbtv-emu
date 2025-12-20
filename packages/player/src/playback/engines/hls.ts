@@ -6,6 +6,7 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import Hls, { type ErrorData, Events } from "hls.js";
+import { match } from "ts-pattern";
 import { type HLSVariant, PlayerState } from "../../state";
 import * as Transitions from "../../transitions";
 import { BasePlayback } from "../base";
@@ -26,8 +27,8 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
   // Engine Creation
   // ==========================================================================
 
-  protected createEngine(): TE.TaskEither<PlaybackErrors.Any, Hls> {
-    return pipe(
+  protected createEngine = (): TE.TaskEither<PlaybackErrors.Any, Hls> =>
+    pipe(
       TE.tryCatch(
         async () => {
           // Check support
@@ -51,14 +52,13 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
             : new InitializationError("Failed to create HLS engine", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Initialization
   // ==========================================================================
 
-  initialize(videoElement: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  initialize = (videoElement: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       TE.tryCatch(
         async () => {
           // Create engine using createEngine result
@@ -113,14 +113,13 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
             : new InitializationError("Failed to initialize HLS playback", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Loading
   // ==========================================================================
 
-  load(): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  load = (): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       // Use transition to create Loading state
       Transitions.loadSource({
         url: this.source,
@@ -162,14 +161,13 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         ),
       ),
     );
-  }
 
   // ==========================================================================
   // State Management
   // ==========================================================================
 
-  getState(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Any> {
-    return pipe(
+  getState = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Any> =>
+    pipe(
       TE.tryCatch(
         async () => {
           if (!this.engine || !this.videoElement) {
@@ -188,23 +186,6 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
             });
           }
 
-          // Check if levels are available (manifest parsed)
-          if (hls.levels.length === 0) {
-            return new PlayerState.Source.HLS.ManifestLoading(this.source);
-          }
-
-          // Check if manifest is parsed
-          if (hls.levels.length > 0 && !this.currentQuality) {
-            const levels = hls.levels.map((level) => ({
-              bandwidth: level.bitrate,
-              resolution: { width: level.width, height: level.height },
-              codecs: level.videoCodec || level.audioCodec || "unknown",
-              url: level.url[0],
-            }));
-
-            return new PlayerState.Source.HLS.ManifestParsed(this.source, levels, video.duration || 0);
-          }
-
           // Check current quality
           if (hls.currentLevel >= 0 && hls.levels[hls.currentLevel]) {
             const level = hls.levels[hls.currentLevel];
@@ -216,36 +197,56 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
             };
           }
 
-          // Standard video states
-          if (video.ended) {
-            return new PlayerState.Control.Ended(video.duration, video.loop);
-          }
+          const getLevels = (hls: Hls) =>
+            hls.levels.map((level) => ({
+              bandwidth: level.bitrate,
+              resolution: { width: level.width, height: level.height },
+              codecs: level.videoCodec || level.audioCodec || "unknown",
+              url: level.url[0],
+            }));
 
-          if (video.seeking) {
-            return new PlayerState.Control.Seeking(video.currentTime, video.currentTime, video.duration);
-          }
-
-          if (video.readyState < 3 && !video.paused) {
-            return new PlayerState.Control.Buffering(video.currentTime, video.duration, buffered, 0);
-          }
-
-          if (!video.paused) {
-            return new PlayerState.Control.Playing(video.currentTime, video.duration, buffered, video.playbackRate);
-          }
-
-          return new PlayerState.Control.Paused(video.currentTime, video.duration, buffered);
+          return match({ video, hls, buffered, currentQuality: this.currentQuality })
+            .when(
+              ({ hls }) => hls.levels.length === 0,
+              () => new PlayerState.Source.HLS.ManifestLoading(this.source),
+            )
+            .when(
+              ({ hls, currentQuality }) => hls.levels.length > 0 && !currentQuality,
+              ({ hls, video }) =>
+                new PlayerState.Source.HLS.ManifestParsed(this.source, getLevels(hls), video.duration || 0),
+            )
+            .when(
+              ({ video }) => video.ended,
+              ({ video }) => new PlayerState.Control.Ended(video.duration, video.loop),
+            )
+            .when(
+              ({ video }) => video.seeking,
+              ({ video }) => new PlayerState.Control.Seeking(video.currentTime, video.currentTime, video.duration),
+            )
+            .when(
+              ({ video }) => video.readyState < 3 && !video.paused,
+              ({ video, buffered }) =>
+                new PlayerState.Control.Buffering(video.currentTime, video.duration, buffered, 0),
+            )
+            .when(
+              ({ video }) => !video.paused,
+              ({ video, buffered }) =>
+                new PlayerState.Control.Playing(video.currentTime, video.duration, buffered, video.playbackRate),
+            )
+            .otherwise(
+              ({ video, buffered }) => new PlayerState.Control.Paused(video.currentTime, video.duration, buffered),
+            );
         },
         (error): PlaybackErrors.Any => new InitializationError("Failed to get HLS playback state", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Cleanup
   // ==========================================================================
 
-  destroy(): TE.TaskEither<never, void> {
-    return pipe(
+  destroy = (): TE.TaskEither<never, void> =>
+    pipe(
       TE.of(() => {
         if (this.engine) {
           // Stop loading and playback first
@@ -268,7 +269,6 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
       }),
       TE.map(() => undefined),
     );
-  }
 
   // ==========================================================================
   // HLS-Specific Methods
@@ -277,15 +277,13 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
   /**
    * Get current quality level
    */
-  getCurrentQuality(): TE.TaskEither<PlaybackErrors.Any, QualityLevel | null> {
-    return TE.right(this.currentQuality);
-  }
+  getCurrentQuality = (): TE.TaskEither<PlaybackErrors.Any, QualityLevel | null> => TE.right(this.currentQuality);
 
   /**
    * Get all available quality levels
    */
-  getAvailableQualities(): TE.TaskEither<PlaybackErrors.Any, QualityLevel[]> {
-    return pipe(
+  getAvailableQualities = (): TE.TaskEither<PlaybackErrors.Any, QualityLevel[]> =>
+    pipe(
       TE.tryCatch(
         async () => {
           if (!this.engine) {
@@ -302,13 +300,12 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         (error): PlaybackErrors.Any => new InitializationError("Failed to get quality levels", this, error),
       ),
     );
-  }
 
   /**
    * Set quality level
    */
-  setQuality(levelIndex: number): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  setQuality = (levelIndex: number): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       TE.tryCatch(
         async () => {
           if (!this.engine) {
@@ -320,15 +317,14 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         (error): PlaybackErrors.Any => new InitializationError("Failed to set quality level", this, error),
       ),
     );
-  }
 
   /**
    * Select HLS variant using transition
    */
-  selectVariant(
+  selectVariant = (
     variant: Transitions.VariantSelectionParams,
-  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.VariantSelected> {
-    return pipe(
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.VariantSelected> =>
+    pipe(
       this.getState(),
       TE.flatMap((state) => {
         // Ensure we're in a state where we have parsed manifest
@@ -364,16 +360,15 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         ),
       ),
     );
-  }
 
   /**
    * Switch to a new HLS variant (for adaptive streaming)
    */
-  switchVariant(
+  switchVariant = (
     newVariant: HLSVariant,
     reason: "bandwidth" | "manual",
-  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.AdaptiveSwitching> {
-    return pipe(
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.HLS.AdaptiveSwitching> =>
+    pipe(
       this.getState(),
       TE.flatMap((state) => {
         // Ensure we have a current variant selected
@@ -427,25 +422,24 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         ),
       ),
     );
-  }
 
   // ==========================================================================
   // Event Management
   // ==========================================================================
 
-  private setupHLSEvents(hls: Hls): void {
+  private setupHLSEvents = (hls: Hls): void => {
     hls.on(Events.MANIFEST_PARSED, this.handleManifestParsed);
     hls.on(Events.LEVEL_SWITCHED, this.handleLevelSwitched);
     hls.on(Events.ERROR, this.handleHLSError);
     hls.on(Events.FRAG_LOADED, this.handleFragmentLoaded);
-  }
+  };
 
-  private removeHLSEvents(hls: Hls): void {
+  private removeHLSEvents = (hls: Hls): void => {
     hls.off(Events.MANIFEST_PARSED, this.handleManifestParsed);
     hls.off(Events.LEVEL_SWITCHED, this.handleLevelSwitched);
     hls.off(Events.ERROR, this.handleHLSError);
     hls.off(Events.FRAG_LOADED, this.handleFragmentLoaded);
-  }
+  };
 
   private handleManifestParsed = (): void => {
     // Override in subclass if needed
@@ -479,8 +473,8 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
   /**
    * Play the video using transition
    */
-  play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> {
-    return pipe(
+  play = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> =>
+    pipe(
       this.getState(),
       TE.flatMap((currentState) => {
         // Use transition function
@@ -507,13 +501,12 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         ),
       ),
     );
-  }
 
   /**
    * Pause the video using transition
    */
-  pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> {
-    return pipe(
+  pause = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> =>
+    pipe(
       this.getState(),
       TE.flatMap((currentState) => {
         // Ensure we're playing
@@ -545,13 +538,12 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         ),
       ),
     );
-  }
 
   /**
    * Seek to a specific time using transition
    */
-  seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> {
-    return pipe(
+  seek = (params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> =>
+    pipe(
       // Use transition function
       Transitions.seek(params),
       TE.mapLeft(
@@ -573,13 +565,12 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
         ),
       ),
     );
-  }
 
   /**
    * Set playback rate
    */
-  setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void> {
-    return TE.tryCatch(
+  setPlaybackRate = (rate: number): TE.TaskEither<PlaybackErrors.Any, void> =>
+    TE.tryCatch(
       async () => {
         if (!this.videoElement) {
           throw new Error("Video element not initialized");
@@ -588,5 +579,4 @@ export class HLSPlayback extends BasePlayback<HLSConfig, Hls> {
       },
       (error): PlaybackErrors.Any => new InitializationError("Failed to set playback rate", this, error),
     );
-  }
 }

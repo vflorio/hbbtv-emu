@@ -6,6 +6,7 @@ import { MediaPlayer, type MediaPlayerClass } from "dashjs";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
+import { match } from "ts-pattern";
 import { type DASHRepresentation, PlayerState } from "../../state";
 import * as Transitions from "../../transitions";
 import { BasePlayback } from "../base";
@@ -27,8 +28,8 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
   // Engine Creation
   // ==========================================================================
 
-  protected createEngine(): TE.TaskEither<PlaybackErrors.Any, MediaPlayerClass> {
-    return pipe(
+  protected createEngine = (): TE.TaskEither<PlaybackErrors.Any, MediaPlayerClass> =>
+    pipe(
       TE.tryCatch(
         async () => {
           // Check if dash.js is available
@@ -60,14 +61,13 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
             : new InitializationError("Failed to create DASH engine", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Initialization
   // ==========================================================================
 
-  initialize(videoElement: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  initialize = (videoElement: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       TE.tryCatch(
         async () => {
           // Create engine using createEngine result
@@ -104,14 +104,13 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
             : new InitializationError("Failed to initialize DASH playback", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Loading
   // ==========================================================================
 
-  load(): TE.TaskEither<PlaybackErrors.Any, void> {
-    return pipe(
+  load = (): TE.TaskEither<PlaybackErrors.Any, void> =>
+    pipe(
       // Use transition to create Loading state
       Transitions.loadSource({
         url: this.source,
@@ -148,14 +147,13 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         ),
       ),
     );
-  }
 
   // ==========================================================================
   // State Management
   // ==========================================================================
 
-  getState(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Any> {
-    return pipe(
+  getState = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Any> =>
+    pipe(
       TE.tryCatch(
         async () => {
           if (!this.engine || !this.videoElement) {
@@ -187,66 +185,64 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
           }
 
           // Standard video states (check these FIRST, before MPD states)
-          if (video.ended) {
-            return new PlayerState.Control.Ended(video.duration, video.loop);
-          }
-
-          if (video.seeking) {
-            return new PlayerState.Control.Seeking(video.currentTime, video.currentTime, video.duration);
-          }
-
-          if (!video.paused && video.readyState >= 3) {
-            return new PlayerState.Control.Playing(video.currentTime, video.duration, buffered, video.playbackRate);
-          }
-
-          if (video.readyState < 3 && !video.paused) {
-            return new PlayerState.Control.Buffering(video.currentTime, video.duration, buffered, 0);
-          }
-
-          if (video.paused && video.readyState >= 2) {
-            return new PlayerState.Control.Paused(video.currentTime, video.duration, buffered);
-          }
-
-          // Check if MPD is being loaded
-          if (!player.isReady()) {
-            return new PlayerState.Source.DASH.MPDLoading(this.source);
-          }
-
-          // Fallback to Paused if ready but not playing
-          if (player.isReady()) {
-            return new PlayerState.Control.Paused(video.currentTime, video.duration, buffered);
-          }
-
-          return new PlayerState.Control.Idle();
+          return match({ video, player, buffered })
+            .when(
+              ({ video }) => video.ended,
+              ({ video }) => new PlayerState.Control.Ended(video.duration, video.loop),
+            )
+            .when(
+              ({ video }) => video.seeking,
+              ({ video }) => new PlayerState.Control.Seeking(video.currentTime, video.currentTime, video.duration),
+            )
+            .when(
+              ({ video }) => !video.paused && video.readyState >= 3,
+              ({ video, buffered }) =>
+                new PlayerState.Control.Playing(video.currentTime, video.duration, buffered, video.playbackRate),
+            )
+            .when(
+              ({ video }) => video.readyState < 3 && !video.paused,
+              ({ video, buffered }) =>
+                new PlayerState.Control.Buffering(video.currentTime, video.duration, buffered, 0),
+            )
+            .when(
+              ({ video }) => video.paused && video.readyState >= 2,
+              ({ video, buffered }) => new PlayerState.Control.Paused(video.currentTime, video.duration, buffered),
+            )
+            .when(
+              ({ player }) => !player.isReady(),
+              () => new PlayerState.Source.DASH.MPDLoading(this.source),
+            )
+            .when(
+              ({ player }) => player.isReady(),
+              ({ video, buffered }) => new PlayerState.Control.Paused(video.currentTime, video.duration, buffered),
+            )
+            .otherwise(() => new PlayerState.Control.Idle());
         },
         (error): PlaybackErrors.Any => new InitializationError("Failed to get DASH playback state", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Cleanup
   // ==========================================================================
 
-  destroy(): TE.TaskEither<never, void> {
-    return pipe(
+  destroy = (): TE.TaskEither<never, void> =>
+    pipe(
       TE.of(() => {
-        if (this.engine) {
-          // Remove event listeners first
-          this.removeDASHEvents(this.engine);
+        if (!this.engine) return;
+        // Remove event listeners first
+        this.removeDASHEvents(this.engine);
 
-          // Reset the player (stops playback and clears buffer)
-          this.engine.reset();
+        // Reset the player (stops playback and clears buffer)
+        this.engine.reset();
 
-          this.engine = null;
-          this.videoElement = null;
-          this.currentQuality = null;
-          this.manifestInfo = null;
-        }
+        this.engine = null;
+        this.videoElement = null;
+        this.currentQuality = null;
+        this.manifestInfo = null;
       }),
       TE.map(() => undefined),
     );
-  }
 
   // ==========================================================================
   // DASH-Specific Methods
@@ -255,33 +251,26 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
   /**
    * Get current quality level
    */
-  getCurrentQuality(): TE.TaskEither<PlaybackErrors.Any, QualityLevel | null> {
-    return TE.right(this.currentQuality);
-  }
+  getCurrentQuality = (): TE.TaskEither<PlaybackErrors.Any, QualityLevel | null> => TE.right(this.currentQuality);
 
   /**
    * Get all available quality levels
    */
-  getAvailableQualities(): TE.TaskEither<PlaybackErrors.Any, QualityLevel[]> {
-    return TE.right(this.manifestInfo?.availableQualities || []);
-  }
+  getAvailableQualities = (): TE.TaskEither<PlaybackErrors.Any, QualityLevel[]> =>
+    TE.right(this.manifestInfo?.availableQualities || []);
 
   /**
-   * Set quality level
+   * TODO Set quality level
    */
-  setQuality(_levelIndex: number): TE.TaskEither<PlaybackErrors.Any, void> {
-    // Note: dash.js quality control API varies by version
-    // This is a simplified implementation
-    return TE.right(undefined);
-  }
+  setQuality = (_levelIndex: number): TE.TaskEither<PlaybackErrors.Any, void> => TE.right(undefined);
 
   /**
    * Select DASH representation using transition
    */
-  selectRepresentation(
+  selectRepresentation = (
     params: Transitions.RepresentationSelectionParams,
-  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.RepresentationSelected> {
-    return pipe(
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.RepresentationSelected> =>
+    pipe(
       this.getState(),
       TE.flatMap((state) => {
         // Ensure we're in a state where we have parsed MPD
@@ -314,16 +303,15 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         ),
       ),
     );
-  }
 
   /**
    * Switch to a new DASH representation (for quality switching)
    */
-  switchRepresentation(
+  switchRepresentation = (
     newRepresentation: DASHRepresentation,
     reason: "abr" | "manual" | "constraint",
-  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.QualitySwitching> {
-    return pipe(
+  ): TE.TaskEither<PlaybackErrors.Any, PlayerState.Source.DASH.QualitySwitching> =>
+    pipe(
       this.getState(),
       TE.flatMap((state) => {
         // Ensure we have a current representation selected
@@ -372,13 +360,12 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         ),
       ),
     );
-  }
 
   /**
    * Get MPD manifest information
    */
-  getManifestInfo(): TE.TaskEither<PlaybackErrors.Any, ManifestInfo | null> {
-    return pipe(
+  getManifestInfo = (): TE.TaskEither<PlaybackErrors.Any, ManifestInfo | null> =>
+    pipe(
       TE.tryCatch(
         async () => {
           if (!this.engine || !this.engine.isReady()) {
@@ -396,25 +383,24 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         (error): PlaybackErrors.Any => new InitializationError("Failed to get manifest info", this, error),
       ),
     );
-  }
 
   // ==========================================================================
   // Event Management
   // ==========================================================================
 
-  private setupDASHEvents(player: MediaPlayerClass): void {
+  private setupDASHEvents = (player: MediaPlayerClass): void => {
     player.on("manifestLoaded", this.handleManifestLoaded);
     player.on("streamInitialized", this.handleStreamInitialized);
     player.on("qualityChangeRequested", this.handleQualityChange);
     player.on("error", this.handleDASHError);
-  }
+  };
 
-  private removeDASHEvents(player: MediaPlayerClass): void {
+  private removeDASHEvents = (player: MediaPlayerClass): void => {
     player.off("manifestLoaded", this.handleManifestLoaded);
     player.off("streamInitialized", this.handleStreamInitialized);
     player.off("qualityChangeRequested", this.handleQualityChange);
     player.off("error", this.handleDASHError);
-  }
+  };
 
   private handleManifestLoaded = (_event: unknown): void => {
     // Trigger manifest info update
@@ -444,8 +430,8 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
   /**
    * Play the video using transition
    */
-  play(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> {
-    return pipe(
+  play = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Playing> =>
+    pipe(
       this.getState(),
       TE.flatMap((currentState) => {
         // Use transition function
@@ -472,13 +458,12 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         ),
       ),
     );
-  }
 
   /**
    * Pause the video using transition
    */
-  pause(): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> {
-    return pipe(
+  pause = (): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Paused> =>
+    pipe(
       this.getState(),
       TE.flatMap((currentState) => {
         // Ensure we're playing
@@ -510,13 +495,12 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         ),
       ),
     );
-  }
 
   /**
    * Seek to a specific time using transition
    */
-  seek(params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> {
-    return pipe(
+  seek = (params: Transitions.SeekParams): TE.TaskEither<PlaybackErrors.Any, PlayerState.Control.Seeking> =>
+    pipe(
       // Use transition function
       Transitions.seek(params),
       TE.mapLeft(
@@ -538,13 +522,12 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
         ),
       ),
     );
-  }
 
   /**
    * Set playback rate
    */
-  setPlaybackRate(rate: number): TE.TaskEither<PlaybackErrors.Any, void> {
-    return TE.tryCatch(
+  setPlaybackRate = (rate: number): TE.TaskEither<PlaybackErrors.Any, void> =>
+    TE.tryCatch(
       async () => {
         if (!this.videoElement) {
           throw new Error("Video element not initialized");
@@ -553,5 +536,4 @@ export class DASHPlayback extends BasePlayback<DASHConfig, MediaPlayerClass> {
       },
       (error): PlaybackErrors.Any => new InitializationError("Failed to set playback rate", this, error),
     );
-  }
 }
