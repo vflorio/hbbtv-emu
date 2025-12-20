@@ -1,33 +1,36 @@
 {
   "name": "@hbb-emu/runtime-demo",
-  "private": true,
   "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "clean": "rm -rf dist",
-    "preview": "vite preview"
-  },
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/oipf": "workspace:*",
     "@hbb-emu/runtime": "workspace:*",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "@mui/material": "7.3.5",
+    "fp-ts": "2.16.11",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "ts-pattern": "5.9.0"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "babel-plugin-react-compiler": "^1.0.0",
-    "globals": "^16.5.0",
-    "typescript": "~5.9.3",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.5",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "babel-plugin-react-compiler": "1.0.0",
+    "globals": "16.5.0",
+    "typescript": "5.9.3",
     "vite": "npm:rolldown-vite@7.2.5"
   },
   "overrides": {
     "vite": "npm:rolldown-vite@7.2.5"
-  }
+  },
+  "private": true,
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "clean": "rm -rf dist",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "type": "module"
 }
