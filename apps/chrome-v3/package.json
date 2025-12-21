@@ -33,7 +33,7 @@
     "build:content-script": "vite build --config vite.content-script.config.ts",
     "build:ui": "vite build",
     "clean": "rm -rf dist",
-    "dev:app": "vite",
+    "app:dev": "vite",
     "preview": "vite preview"
   },
   "type": "module"

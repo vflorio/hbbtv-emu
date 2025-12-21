@@ -8,7 +8,7 @@ import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import { PlayerState } from "../state";
+import { PlayerState, type Resolution, type TimeRange } from "../state";
 import { TransitionError } from "./errors";
 
 // ============================================================================
@@ -27,6 +27,25 @@ export interface SeekParams {
 }
 
 export interface PlaybackParams {
+  readonly playbackRate?: number;
+}
+
+export interface CompleteLoadingOptions {
+  readonly mp4?: {
+    readonly duration?: number;
+    readonly resolution?: Resolution;
+    readonly codec?: string;
+  };
+}
+
+export interface CompleteSeekOptions {
+  readonly buffered?: TimeRange[];
+  readonly playbackRate?: number;
+}
+
+export interface BufferingOptions {
+  readonly buffered?: TimeRange[];
+  readonly bufferProgress?: number;
   readonly playbackRate?: number;
 }
 
@@ -60,6 +79,7 @@ export const loadSource = (
 export const completeLoading = (
   loadingState: PlayerState.Control.Loading,
   sourceType: "mp4" | "hls" | "dash",
+  options?: CompleteLoadingOptions,
 ): TE.TaskEither<PlayerState.Error.Any, PlayerState.Source.Any> =>
   pipe(
     TE.tryCatch(
@@ -71,9 +91,9 @@ export const completeLoading = (
               // Simulate MP4 metadata loading
               new PlayerState.Source.MP4.Ready(
                 loadingState.url,
-                120, // duration
-                { width: 1920, height: 1080 },
-                "avc1.42E01E, mp4a.40.2",
+                options?.mp4?.duration ?? 120,
+                options?.mp4?.resolution ?? { width: 1920, height: 1080 },
+                options?.mp4?.codec ?? "avc1.42E01E, mp4a.40.2",
               ),
           )
           .with(
@@ -157,11 +177,17 @@ export const seek = (params: SeekParams): TE.TaskEither<TransitionError, PlayerS
 export const completeSeek = (
   seekingState: PlayerState.Control.Seeking,
   shouldPlay: boolean,
+  options?: CompleteSeekOptions,
 ): E.Either<never, PlayerState.Control.Playing | PlayerState.Control.Paused> =>
   E.right(
     shouldPlay
-      ? new PlayerState.Control.Playing(seekingState.toTime, seekingState.duration, [], 1.0)
-      : new PlayerState.Control.Paused(seekingState.toTime, seekingState.duration, []),
+      ? new PlayerState.Control.Playing(
+          seekingState.toTime,
+          seekingState.duration,
+          options?.buffered ?? [],
+          options?.playbackRate ?? 1.0,
+        )
+      : new PlayerState.Control.Paused(seekingState.toTime, seekingState.duration, options?.buffered ?? []),
   );
 
 /**
@@ -169,13 +195,14 @@ export const completeSeek = (
  */
 export const startBuffering = (
   playingState: PlayerState.Control.Playing,
+  options?: BufferingOptions,
 ): E.Either<never, PlayerState.Control.Buffering> =>
   E.right(
     new PlayerState.Control.Buffering(
       playingState.currentTime,
       playingState.duration,
-      playingState.buffered,
-      0, // Initial buffer progress
+      options?.buffered ?? playingState.buffered,
+      options?.bufferProgress ?? 0,
     ),
   );
 
@@ -184,9 +211,15 @@ export const startBuffering = (
  */
 export const resumeFromBuffering = (
   bufferingState: PlayerState.Control.Buffering,
+  options?: BufferingOptions,
 ): E.Either<never, PlayerState.Control.Playing> =>
   E.right(
-    new PlayerState.Control.Playing(bufferingState.currentTime, bufferingState.duration, bufferingState.buffered, 1.0),
+    new PlayerState.Control.Playing(
+      bufferingState.currentTime,
+      bufferingState.duration,
+      options?.buffered ?? bufferingState.buffered,
+      options?.playbackRate ?? 1.0,
+    ),
   );
 
 /**

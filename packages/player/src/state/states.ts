@@ -1,5 +1,5 @@
 /**
- * Video Player State Management System
+ * Video Player State Management System (Class Discriminated Unions ADT)
  */
 
 // ============================================================================

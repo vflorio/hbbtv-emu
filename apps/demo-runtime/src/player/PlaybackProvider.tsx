@@ -1,136 +1,74 @@
-import { createLogger } from "@hbb-emu/core";
-import { Matchers, Playback, type PlaybackErrors, type PlayerState } from "@hbb-emu/player";
+import { Matchers, type PlayerEvent, PlayerRuntime, type PlayerState } from "@hbb-emu/player";
 import { Box } from "@mui/material";
-import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
-import * as TE from "fp-ts/TaskEither";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 
 export type PlaybackContextType = {
-  playback: Playback.Any | null;
+  playbackType: string | null;
   playerState: PlayerState.Any | null;
   videoElement: HTMLVideoElement | null;
   error: string | null;
   isLoading: boolean;
   loadSource: (source: string) => void;
+  dispatch: (event: PlayerEvent) => void;
   matcherResults: Record<string, any>;
+  renderVideoElement: () => ReactNode;
 };
 
 const PlaybackContext = createContext<PlaybackContextType | null>(null);
 
-const logger = createLogger("PlaybackProvider");
-
 export function PlaybackProvider({ children }: { children: ReactNode }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playbackRef = useRef<Playback.Any | null>(null);
+  const runtimeRef = useRef<PlayerRuntime | null>(null);
   const playerStateRef = useRef<PlayerState.Any | null>(null);
 
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [playbackReady, setPlaybackReady] = useState(false);
-  const [stateVersion, setStateVersion] = useState(0);
+  const [playbackType, setPlaybackType] = useState<string | null>(null);
+  const [machineIteration, setMachineIteration] = useState(0);
 
-  const [matcherResults, setMatcherResults] = useState<Record<string, any>>({});
+  const [machineStateResults, setMachineStateResults] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (!source || !videoRef.current) {
-      return;
+    if (!runtimeRef.current) {
+      runtimeRef.current = new PlayerRuntime();
+      runtimeRef.current.subscribe((state) => {
+        playerStateRef.current = state;
+        updateMachineStateResults(state);
+        setMachineIteration((current) => current + 1);
+
+        const err = Matchers.getError(state);
+        setError(err ? err.message : null);
+        setIsLoading(Matchers.isLoading(state));
+        setPlaybackType(runtimeRef.current?.getPlaybackType() ?? null);
+      });
     }
 
-    const reset = async () => {
-      if (!playbackRef.current || !videoRef.current) return;
-      await cleanup(playbackRef.current, videoRef.current)();
-      playbackRef.current = null;
-      setPlaybackReady(false);
-    };
+    if (videoRef.current) {
+      runtimeRef.current.mount(videoRef.current);
+    }
 
-    reset().then(() => {
-      if (videoRef.current) {
-        init(source, videoRef.current)();
-      }
-    });
+    return () => {
+      // non distruggiamo il runtime ad ogni unmount del provider
+    };
   }, [source]);
 
   useEffect(() => {
-    if (!playbackReady || !playbackRef.current) return;
-
-    const interval = setInterval(() => {
-      if (playbackRef.current) {
-        updatePlayerState(playbackRef.current)();
-      }
-    }, 1000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [playbackReady]);
+    if (!source || !runtimeRef.current) return;
+    runtimeRef.current.dispatch({ _tag: "Intent/LoadRequested", url: source });
+  }, [source]);
 
   useEffect(() => {
     if (!playerStateRef.current) {
-      setMatcherResults({});
+      setMachineStateResults({});
       return;
     }
 
-    updateMatcherResults(playerStateRef.current);
-  }, [stateVersion]);
+    updateMachineStateResults(playerStateRef.current);
+  }, [machineIteration]);
 
-  const setPlayback =
-    (playback: Playback.Any): IO.IO<void> =>
-    () => {
-      playbackRef.current = playback;
-      setError(null);
-      setIsLoading(false);
-      setPlaybackReady(true);
-    };
-
-  const setPlaybackError =
-    // TODO Differenziare strategia per PlaybackErrors.Fatal|Recoverable
-      (playbackError: PlaybackErrors.Any): IO.IO<void> =>
-      () => {
-        playbackRef.current = null;
-        setError(playbackError.message);
-        setIsLoading(false);
-      };
-
-  const init = (source: string, element: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, Playback.Any> =>
-    pipe(
-      TE.Do,
-      TE.flatMap(() => pipe(Playback.create(source), TE.orElseFirstIOK(setPlaybackError))),
-      TE.tap((playback) => pipe(playback.initialize(element), TE.orElseFirstIOK(setPlaybackError))),
-      TE.tap((playback) => pipe(playback.load(), TE.orElseFirstIOK(setPlaybackError))),
-      TE.tap(TE.fromIOK(setPlayback)),
-      TE.tapIO(() => logger.info("Initialized")),
-    );
-
-  const cleanup = (playback: Playback.Any, element: HTMLVideoElement): TE.TaskEither<PlaybackErrors.Any, {}> =>
-    pipe(
-      TE.Do,
-      TE.tapIO(
-        IO.of(() => {
-          element.pause();
-          element.src = "";
-        }),
-      ),
-      TE.tap(() => pipe(playback.destroy(), TE.orElseFirstIOK(setPlaybackError))),
-      TE.tapIO(() => logger.info("Cleaned up")),
-    );
-
-  const updatePlayerState = (playback: Playback.Any): TE.TaskEither<PlaybackErrors.Any, void> =>
-    pipe(
-      TE.Do,
-      TE.flatMap(() => playback.getState()),
-      TE.map((state) => {
-        playerStateRef.current = state;
-        updateMatcherResults(state);
-        setStateVersion((v) => v + 1);
-      }),
-      TE.orElseFirstIOK(() => logger.error("[Playback Provider] Failed to update state")),
-      TE.tapIO(() => logger.info("[Playback Provider] State updated")),
-    );
-
-  const updateMatcherResults = (state: PlayerState.Any) =>
-    setMatcherResults({
+  const updateMachineStateResults = (state: PlayerState.Any) =>
+    setMachineStateResults({
       // State predicates
       isPlayable: Matchers.isPlayable(state),
       isError: Matchers.isError(state),
@@ -167,33 +105,38 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     });
 
   const loadSource = (newSource: string) => {
-    setIsLoading(true);
-    setPlaybackReady(false);
     setSource(newSource);
+  };
+
+  const dispatch = (event: PlayerEvent) => {
+    runtimeRef.current?.dispatch(event);
   };
 
   return (
     <PlaybackContext.Provider
       value={{
-        playback: playbackRef.current,
+        playbackType,
         playerState: playerStateRef.current,
         videoElement: videoRef.current,
         error,
         isLoading,
         loadSource,
-        matcherResults,
+        dispatch,
+        matcherResults: machineStateResults,
+        renderVideoElement: () => (
+          <Box
+            component="video"
+            ref={videoRef}
+            controls
+            sx={{
+              width: 720,
+              height: "100%",
+              bgcolor: "black",
+            }}
+          />
+        ),
       }}
     >
-      <Box
-        component="video"
-        ref={videoRef}
-        controls
-        sx={{
-          width: "100%",
-          maxHeight: 400,
-          bgcolor: "black",
-        }}
-      />
       {children}
     </PlaybackContext.Provider>
   );

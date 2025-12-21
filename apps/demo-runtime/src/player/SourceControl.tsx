@@ -2,23 +2,22 @@ import { Box, Button, Chip, Paper, Stack, TextField, Typography } from "@mui/mat
 import { useState } from "react";
 import { usePlayback } from "./PlaybackProvider";
 
+const sampleSources = [
+  {
+    label: "MP4 (Big Buck Bunny)",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+  },
+  { label: "HLS (Mux)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" },
+  {
+    label: "DASH (Tears of Steel)",
+    url: "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
+  },
+];
+
 export function SourceControl() {
-  const { loadSource, isLoading, playback } = usePlayback();
-  const [inputSource, setInputSource] = useState("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
-
+  const { loadSource, isLoading, playbackType } = usePlayback();
+  const [inputSource, setInputSource] = useState(sampleSources[0].url);
   const handleLoad = () => loadSource(inputSource.trim());
-
-  const sampleSources = [
-    { label: "HLS (Mux)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" },
-    {
-      label: "MP4 (Big Buck Bunny)",
-      url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    },
-    {
-      label: "DASH (Tears of Steel)",
-      url: "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
-    },
-  ];
 
   return (
     <Paper sx={{ p: 2, mb: 3 }}>
@@ -56,11 +55,11 @@ export function SourceControl() {
           {isLoading ? "Loading..." : "Load"}
         </Button>
       </Stack>
-      {playback && (
+      {playbackType && (
         <Box sx={{ mt: 1.5 }}>
           <Chip
-            label={`Active: ${playback._tag}`}
-            color={playback._tag === "hls" ? "success" : playback._tag === "dash" ? "info" : "warning"}
+            label={`Active: ${playbackType}`}
+            color={playbackType === "hls" ? "success" : playbackType === "dash" ? "info" : "warning"}
             size="small"
           />
         </Box>

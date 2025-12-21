@@ -2,7 +2,7 @@ import { Box, Paper, Stack, Typography } from "@mui/material";
 import { usePlayback } from "./PlaybackProvider";
 
 export function StateInfo() {
-  const { playerState, playback, matcherResults } = usePlayback();
+  const { playerState, playbackType, matcherResults } = usePlayback();
 
   return (
     <Paper sx={{ p: 2, mb: 2 }}>
@@ -29,7 +29,7 @@ export function StateInfo() {
       <Stack direction="row" spacing={2} flexWrap="wrap">
         <Box sx={{ flex: "1 1 45%" }}>
           <Typography variant="body2">
-            <strong>Playback Type:</strong> {playback?._tag || "None"}
+            <strong>Playback Type:</strong> {playbackType || "None"}
           </Typography>
         </Box>
         <Box sx={{ flex: "1 1 45%" }}>

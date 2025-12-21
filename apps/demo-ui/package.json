@@ -27,9 +27,9 @@
   },
   "private": true,
   "scripts": {
-    "clean": "rm -rf dist",
+    "demo:dev": "vite",
     "demo:build": "tsc -b && vite build",
-    "dev:app": "vite",
+    "clean": "rm -rf dist",
     "preview": "vite preview"
   },
   "type": "module"

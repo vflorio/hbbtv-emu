@@ -3,7 +3,7 @@
  */
 
 import { match } from "ts-pattern";
-import type { PlayerState } from "./types";
+import type { PlayerState } from "./states";
 
 // ============================================================================
 // Pattern Matching Utilities

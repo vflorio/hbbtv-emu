@@ -2,13 +2,11 @@ import { Button, Stack } from "@mui/material";
 import { usePlayback } from "./PlaybackProvider";
 
 export function PlayerControls() {
-  const { videoElement, matcherResults } = usePlayback();
+  const { dispatch, matcherResults } = usePlayback();
 
-  const handlePlay = () => videoElement?.play().catch(console.error);
-  const handlePause = () => videoElement?.pause();
-  const handleSeek = (time: number) => {
-    if (videoElement) videoElement.currentTime = time;
-  };
+  const handlePlay = () => dispatch({ _tag: "Intent/PlayRequested" });
+  const handlePause = () => dispatch({ _tag: "Intent/PauseRequested" });
+  const handleSeek = (time: number) => dispatch({ _tag: "Intent/SeekRequested", time });
 
   return (
     <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
