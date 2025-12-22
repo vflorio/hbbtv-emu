@@ -1,6 +1,10 @@
 /**
  * Types used in the Player Runtime system (Interface Discriminated Unions ADT)
  */
+import type * as IO from "fp-ts/IO";
+import type * as IOO from "fp-ts/IOOption";
+import type * as T from "fp-ts/Task";
+import type * as TE from "fp-ts/TaskEither";
 import type { PlaybackType } from "../playback/types";
 import type { TimeRange } from "../state/states";
 
@@ -57,13 +61,21 @@ export type ReduceResult<TState> = {
   readonly effects: readonly PlayerEffect[];
 };
 
-export type PlayerStateListener<TState> = (state: TState) => void;
+export type UnsubscribeFn = () => void;
 
-export interface PlayerRuntime<TState> {
-  getState(): TState;
-  getPlaybackType(): PlaybackType | null;
-  mount(videoElement: HTMLVideoElement): void;
-  destroy(): void;
-  dispatch(event: PlayerEvent): void;
-  subscribe(listener: PlayerStateListener<TState>): () => void;
+export type PlayerRuntimeError =
+  | { readonly _tag: "RuntimeError/NoAdapter"; readonly message: string }
+  | { readonly _tag: "RuntimeError/NoVideoElement"; readonly message: string }
+  | { readonly _tag: "RuntimeError/AttachFailed"; readonly message: string; readonly cause?: unknown }
+  | { readonly _tag: "RuntimeError/DestroyFailed"; readonly message: string; readonly cause?: unknown };
+
+export type PlayerStateListener<T> = (state: T) => void;
+
+export interface PlayerRuntime<T> {
+  getState: IO.IO<T>;
+  getPlaybackType: IOO.IOOption<PlaybackType>;
+  mount: (videoElement: HTMLVideoElement) => TE.TaskEither<PlayerRuntimeError, void>;
+  destroy: TE.TaskEither<PlayerRuntimeError, void>;
+  dispatch: (event: PlayerEvent) => T.Task<void>;
+  subscribe: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
 }

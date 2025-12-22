@@ -1,7 +1,7 @@
+import type * as IO from "fp-ts/IO";
+import type * as T from "fp-ts/Task";
 import type { NativeConfig } from "../../playback/types";
-import type { PlaybackSnapshot, PlayerEngineEvent } from "../types";
-
-type Unsubscribe = () => void;
+import type { PlaybackSnapshot, PlayerEngineEvent, UnsubscribeFn } from "../types";
 
 type Listener = (event: PlayerEngineEvent) => void;
 
@@ -23,57 +23,67 @@ export class NativeAdapter {
 
   constructor(private readonly config: NativeConfig = {}) {}
 
-  subscribe = (listener: Listener): Unsubscribe => {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  };
+  subscribe =
+    (listener: Listener): IO.IO<UnsubscribeFn> =>
+    () => {
+      this.listeners.add(listener);
+      return () => this.listeners.delete(listener);
+    };
 
-  private emit = (event: PlayerEngineEvent) => {
-    for (const listener of this.listeners) listener(event);
-  };
+  private emit =
+    (event: PlayerEngineEvent): IO.IO<void> =>
+    () => {
+      for (const listener of this.listeners) listener(event);
+    };
 
-  mount = (videoElement: HTMLVideoElement): void => {
-    this.video = videoElement;
+  mount =
+    (videoElement: HTMLVideoElement): IO.IO<void> =>
+    () => {
+      this.video = videoElement;
 
-    if (this.config.preload) videoElement.preload = this.config.preload;
-    if (this.config.crossOrigin) videoElement.crossOrigin = this.config.crossOrigin;
-    if (this.config.autoplay !== undefined) videoElement.autoplay = this.config.autoplay;
+      if (this.config.preload) videoElement.preload = this.config.preload;
+      if (this.config.crossOrigin) videoElement.crossOrigin = this.config.crossOrigin;
+      if (this.config.autoplay !== undefined) videoElement.autoplay = this.config.autoplay;
 
-    videoElement.addEventListener("loadedmetadata", this.onLoadedMetadata);
-    videoElement.addEventListener("timeupdate", this.onTimeUpdate);
-    videoElement.addEventListener("playing", this.onPlaying);
-    videoElement.addEventListener("pause", this.onPause);
-    videoElement.addEventListener("waiting", this.onWaiting);
-    videoElement.addEventListener("ended", this.onEnded);
-    videoElement.addEventListener("seeked", this.onSeeked);
-    videoElement.addEventListener("error", this.onError);
+      videoElement.addEventListener("loadedmetadata", this.onLoadedMetadata);
+      videoElement.addEventListener("timeupdate", this.onTimeUpdate);
+      videoElement.addEventListener("playing", this.onPlaying);
+      videoElement.addEventListener("pause", this.onPause);
+      videoElement.addEventListener("waiting", this.onWaiting);
+      videoElement.addEventListener("ended", this.onEnded);
+      videoElement.addEventListener("seeked", this.onSeeked);
+      videoElement.addEventListener("error", this.onError);
 
-    this.emit({ _tag: "Engine/Mounted" });
-  };
+      this.emit({ _tag: "Engine/Mounted" })();
+    };
 
-  load = async (url: string): Promise<void> => {
-    if (!this.video) throw new Error("Video element not mounted");
-    this.url = url;
-    this.video.src = url;
-    this.video.load();
-  };
+  load =
+    (url: string): T.Task<void> =>
+    async () => {
+      if (!this.video) throw new Error("Video element not mounted");
+      this.url = url;
+      this.video.src = url;
+      this.video.load();
+    };
 
-  play = async (): Promise<void> => {
+  play: T.Task<void> = async () => {
     if (!this.video) throw new Error("Video element not mounted");
     await this.video.play();
   };
 
-  pause = async (): Promise<void> => {
+  pause: T.Task<void> = async () => {
     if (!this.video) throw new Error("Video element not mounted");
     this.video.pause();
   };
 
-  seek = async (time: number): Promise<void> => {
-    if (!this.video) throw new Error("Video element not mounted");
-    this.video.currentTime = time;
-  };
+  seek =
+    (time: number): T.Task<void> =>
+    async () => {
+      if (!this.video) throw new Error("Video element not mounted");
+      this.video.currentTime = time;
+    };
 
-  destroy = async (): Promise<void> => {
+  destroy: T.Task<void> = async () => {
     if (!this.video) return;
     const video = this.video;
 

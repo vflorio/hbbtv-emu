@@ -1,32 +1,47 @@
 import { createLogger } from "@hbb-emu/core";
+import * as B from "fp-ts/boolean";
+import { pipe } from "fp-ts/function";
+import type * as IO from "fp-ts/IO";
+import type * as IOO from "fp-ts/IOOption";
+import * as O from "fp-ts/Option";
+import * as RA from "fp-ts/ReadonlyArray";
+import * as T from "fp-ts/Task";
+import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import type { PlaybackType } from "../playback/types";
 import type { PlayerState } from "../state/states";
 import { NativeAdapter } from "./adapters/native";
 import { initialState, reduce } from "./reducer";
-import type { PlayerEffect, PlayerEvent, PlayerRuntime as PlayerRuntimeI, PlayerStateListener } from "./types";
+import type {
+  PlayerEffect,
+  PlayerEvent,
+  PlayerRuntimeError,
+  PlayerRuntime as PlayerRuntimeI,
+  PlayerStateListener,
+  UnsubscribeFn,
+} from "./types";
 
 type AnyAdapter = NativeAdapter;
 
 type RuntimeAdapter = {
   readonly type: PlaybackType;
   readonly name: string;
-  mount(videoElement: HTMLVideoElement): void;
-  load(url: string): Promise<void>;
-  play(): Promise<void>;
-  pause(): Promise<void>;
-  seek(time: number): Promise<void>;
-  destroy(): Promise<void>;
-  subscribe(listener: (event: PlayerEvent) => void): () => void;
+  mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
+  load: (url: string) => T.Task<void>;
+  play: T.Task<void>;
+  pause: T.Task<void>;
+  seek: (time: number) => T.Task<void>;
+  destroy: T.Task<void>;
+  subscribe: (listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>;
 };
 
 export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
   private state: PlayerState.Any = initialState();
-  private playbackType: PlaybackType | null = null;
+  private playbackType: O.Option<PlaybackType> = O.none;
 
-  private videoElement: HTMLVideoElement | null = null;
-  private adapter: RuntimeAdapter | null = null;
-  private adapterUnsub: (() => void) | null = null;
+  private videoElement: O.Option<HTMLVideoElement> = O.none;
+  private adapter: O.Option<RuntimeAdapter> = O.none;
+  private adapterUnsub: O.Option<UnsubscribeFn> = O.none;
 
   private listeners = new Set<PlayerStateListener<PlayerState.Any>>();
 
@@ -35,145 +50,342 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
   private eventQueue: PlayerEvent[] = [];
   private processing = false;
 
-  getState = () => this.state;
+  getState: IO.IO<PlayerState.Any> = () => this.state;
 
-  getPlaybackType = () => this.playbackType;
+  getPlaybackType: IOO.IOOption<PlaybackType> = () => this.playbackType;
 
-  subscribe = (listener: PlayerStateListener<PlayerState.Any>) => {
-    this.listeners.add(listener);
-    listener(this.state);
-    return () => this.listeners.delete(listener);
+  subscribe =
+    (listener: PlayerStateListener<PlayerState.Any>): IO.IO<UnsubscribeFn> =>
+    () => {
+      this.listeners.add(listener);
+      listener(this.state);
+      return () => this.listeners.delete(listener);
+    };
+
+  mount = (videoElement: HTMLVideoElement): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      TE.right(videoElement),
+      TE.tapIO((ve) => () => {
+        this.videoElement = O.some(ve);
+      }),
+      TE.tapTask(() => this.dispatch({ _tag: "Engine/Mounted" })),
+      TE.map(() => undefined),
+    );
+
+  destroy: TE.TaskEither<PlayerRuntimeError, void> = pipe(
+    TE.fromIO(() => this.destroyAdapter()),
+    TE.flatten,
+    TE.tapIO(() => () => {
+      this.listeners.clear();
+    }),
+  );
+
+  dispatch =
+    (event: PlayerEvent): T.Task<void> =>
+    () => {
+      this.eventQueue.push(event);
+      return this.processQueue();
+    };
+
+  private notify: IO.IO<void> = () => {
+    pipe(
+      Array.from(this.listeners),
+      RA.map((listener) => listener(this.state)),
+      () => undefined,
+    );
   };
 
-  mount = (videoElement: HTMLVideoElement) => {
-    this.videoElement = videoElement;
-    this.dispatch({ _tag: "Engine/Mounted" });
+  private processQueue: T.Task<void> = () =>
+    pipe(
+      this.processing,
+      B.fold(
+        () =>
+          pipe(
+            T.fromIO(() => {
+              this.processing = true;
+            }),
+            T.flatMap(() => T.fromIO(this.processAllEvents)),
+            T.tap(() =>
+              T.fromIO(() => {
+                this.processing = false;
+              }),
+            ),
+          )(),
+        T.of(undefined),
+      ),
+    );
+
+  private processAllEvents: IO.IO<void> = () => {
+    const processNext: T.Task<void> = () =>
+      pipe(
+        O.fromNullable(this.eventQueue.shift()),
+        O.match(
+          () => Promise.resolve(undefined), // queue empty -> done
+          (event) =>
+            pipe(
+              // Reduce event
+              T.fromIO(() => {
+                const prev = this.state;
+                const { next, effects } = reduce(prev, event);
+                this.state = next;
+                this.logger.debug("event", event._tag, "prev", prev._tag, "next", next._tag);
+                return effects;
+              }),
+              // Notify listeners
+              T.tap(() => T.fromIO(this.notify)),
+              // Execute effects
+              T.flatMap((effects) =>
+                pipe(
+                  effects,
+                  RA.traverse(T.ApplicativeSeq)((eff) => () => this.runEffect(eff)()),
+                ),
+              ),
+              // Recurse
+              T.flatMap(() => processNext),
+            )(),
+        ),
+      );
+
+    return processNext();
   };
 
-  destroy = () => {
-    this.runEffect({ _tag: "Effect/DestroyAdapter" });
-    this.listeners.clear();
-  };
-
-  dispatch = (event: PlayerEvent) => {
-    this.eventQueue.push(event);
-    this.processQueue();
-  };
-
-  private notify = () => {
-    for (const l of this.listeners) l(this.state);
-  };
-
-  private processQueue = async () => {
-    if (this.processing) return;
-    this.processing = true;
-    try {
-      while (this.eventQueue.length > 0) {
-        const event = this.eventQueue.shift()!;
-
-        const prev = this.state;
-        const { next, effects } = reduce(prev, event);
-        this.state = next;
-
-        this.logger.debug?.("event", (event as any)._tag, "prev", prev._tag, "next", next._tag);
-
-        this.notify();
-
-        for (const eff of effects) {
-          await this.runEffect(eff);
-        }
-      }
-    } finally {
-      this.processing = false;
-    }
-  };
-
-  private runEffect = async (effect: PlayerEffect) =>
+  private runEffect = (effect: PlayerEffect): TE.TaskEither<PlayerRuntimeError, void> =>
     match(effect)
-      .with({ _tag: "Effect/DestroyAdapter" }, async () => {
-        if (this.adapterUnsub) {
-          this.adapterUnsub();
-          this.adapterUnsub = null;
-        }
-        if (this.adapter) {
-          const adapter = this.adapter;
-          this.adapter = null;
-          this.playbackType = null;
-          try {
-            await adapter.destroy();
-          } catch (cause) {
-            this.logger.warn("destroy failed", cause);
-          }
-        }
-      })
-      .with({ _tag: "Effect/CreateAdapter" }, async ({ playbackType, url }) => {
-        this.playbackType = playbackType;
+      .with({ _tag: "Effect/DestroyAdapter" }, () => this.destroyAdapter())
+      .with({ _tag: "Effect/CreateAdapter" }, ({ playbackType, url }) => this.createAdapter(playbackType, url))
+      .with({ _tag: "Effect/AttachVideoElement" }, () => this.attachVideoElement())
+      .with({ _tag: "Effect/LoadSource" }, ({ url }) => this.loadSource(url))
+      .with({ _tag: "Effect/Play" }, () => this.playAdapter())
+      .with({ _tag: "Effect/Pause" }, () => this.pauseAdapter())
+      .with({ _tag: "Effect/Seek" }, ({ time }) => this.seekAdapter(time))
+      .exhaustive();
 
-        if (playbackType !== "native") {
-          this.dispatch({
-            _tag: "Engine/Error",
-            kind: "not-supported",
-            message: `Playback type not supported by runtime yet: ${playbackType}`,
-            url,
-          });
-          return;
+  // Effect implementations
+  private destroyAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      TE.right(undefined),
+      TE.tapIO(() => () => {
+        pipe(
+          this.adapterUnsub,
+          O.map((unsub) => unsub()),
+        );
+        this.adapterUnsub = O.none;
+      }),
+      TE.flatMap(() =>
+        pipe(
+          this.adapter,
+          O.match(
+            () => TE.right<PlayerRuntimeError, void>(undefined),
+            (adapter) =>
+              pipe(
+                TE.right(undefined),
+                TE.tapIO(() => () => {
+                  this.adapter = O.none;
+                  this.playbackType = O.none;
+                }),
+                TE.flatMap(() =>
+                  pipe(
+                    TE.tryCatch(
+                      () => adapter.destroy(),
+                      (cause): PlayerRuntimeError => ({
+                        _tag: "RuntimeError/DestroyFailed",
+                        message: "Adapter destroy failed",
+                        cause,
+                      }),
+                    ),
+                    TE.orElseFirstIOK((error) => () => {
+                      this.logger.warn(
+                        "destroy failed",
+                        error.message,
+                        error._tag === "RuntimeError/DestroyFailed" ? error.cause : undefined,
+                      );
+                    }),
+                  ),
+                ),
+              ),
+          ),
+        ),
+      ),
+    );
+
+  private createAdapter = (playbackType: PlaybackType, url: string): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      TE.right(playbackType),
+      TE.tapIO((pt) => () => {
+        this.playbackType = O.some(pt);
+      }),
+      TE.flatMap((pt) => {
+        if (pt !== "native") {
+          return pipe(
+            this.dispatch({
+              _tag: "Engine/Error",
+              kind: "not-supported",
+              message: `Playback type not supported by runtime yet: ${pt}`,
+              url,
+            }),
+            TE.rightTask,
+          );
         }
 
         const adapter: AnyAdapter = new NativeAdapter();
-        this.adapter = adapter as unknown as RuntimeAdapter;
+        return pipe(
+          TE.right(adapter as unknown as RuntimeAdapter),
+          TE.tapIO((a) => () => {
+            this.adapter = O.some(a);
+            pipe(
+              this.adapterUnsub,
+              O.map((unsub) => unsub()),
+            );
+            this.adapterUnsub = O.some(a.subscribe((e: PlayerEvent) => this.dispatch(e)())());
+          }),
+          TE.map(() => undefined),
+        );
+      }),
+    );
 
-        if (this.adapterUnsub) this.adapterUnsub();
-        this.adapterUnsub = this.adapter.subscribe((e: PlayerEvent) => this.dispatch(e));
-      })
-      .with({ _tag: "Effect/AttachVideoElement" }, async () => {
-        if (!this.adapter) {
-          this.dispatch({ _tag: "Engine/Error", kind: "unknown", message: "No adapter to attach" });
-          return;
-        }
-        if (!this.videoElement) {
-          this.dispatch({ _tag: "Engine/Error", kind: "unknown", message: "No video element mounted" });
-          return;
-        }
-        try {
-          this.adapter.mount(this.videoElement);
-        } catch (cause) {
-          this.dispatch({ _tag: "Engine/Error", kind: "unknown", message: "Attach failed", cause });
-        }
-      })
-      .with({ _tag: "Effect/LoadSource" }, async ({ url }) => {
-        if (!this.adapter) {
-          this.dispatch({ _tag: "Engine/Error", kind: "unknown", message: "No adapter to load source" });
-          return;
-        }
-        try {
-          await this.adapter.load(url);
-        } catch (cause) {
-          this.dispatch({ _tag: "Engine/Error", kind: "network", message: "Load failed", url, cause });
-        }
-      })
-      .with({ _tag: "Effect/Play" }, async () => {
-        if (!this.adapter) return;
-        try {
-          await this.adapter.play();
-        } catch (cause) {
-          this.dispatch({ _tag: "Engine/Error", kind: "media", message: "Play failed", cause });
-        }
-      })
-      .with({ _tag: "Effect/Pause" }, async () => {
-        if (!this.adapter) return;
-        try {
-          await this.adapter.pause();
-        } catch (cause) {
-          this.dispatch({ _tag: "Engine/Error", kind: "media", message: "Pause failed", cause });
-        }
-      })
-      .with({ _tag: "Effect/Seek" }, async ({ time }) => {
-        if (!this.adapter) return;
-        try {
-          await this.adapter.seek(time);
-        } catch (cause) {
-          this.dispatch({ _tag: "Engine/Error", kind: "media", message: "Seek failed", cause });
-        }
-      })
-      .exhaustive();
+  private attachVideoElement = (): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      TE.fromOption(
+        (): PlayerRuntimeError => ({
+          _tag: "RuntimeError/NoAdapter",
+          message: "No adapter to attach",
+        }),
+      )(this.adapter),
+      TE.flatMap((adapter) =>
+        pipe(
+          TE.fromOption(
+            (): PlayerRuntimeError => ({
+              _tag: "RuntimeError/NoVideoElement",
+              message: "No video element mounted",
+            }),
+          )(this.videoElement),
+          TE.flatMap((ve) =>
+            TE.tryCatch(
+              () => Promise.resolve(adapter.mount(ve)()),
+              (cause): PlayerRuntimeError => ({
+                _tag: "RuntimeError/AttachFailed",
+                message: "Attach failed",
+                cause,
+              }),
+            ),
+          ),
+        ),
+      ),
+      TE.orElseFirstTaskK((error) =>
+        this.dispatch({
+          _tag: "Engine/Error",
+          kind: "unknown",
+          message: error.message,
+          cause: "cause" in error ? error.cause : undefined,
+        }),
+      ),
+    );
+
+  private loadSource = (url: string): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      TE.fromOption(
+        (): PlayerRuntimeError => ({
+          _tag: "RuntimeError/NoAdapter",
+          message: "No adapter to load source",
+        }),
+      )(this.adapter),
+      TE.flatMap((adapter) =>
+        pipe(
+          TE.tryCatch(
+            () => adapter.load(url)(),
+            (cause): PlayerRuntimeError => ({
+              _tag: "RuntimeError/AttachFailed",
+              message: "Load failed",
+              cause,
+            }),
+          ),
+          TE.orElseFirstTaskK(() =>
+            this.dispatch({
+              _tag: "Engine/Error",
+              kind: "network",
+              message: "Load failed",
+              url,
+            }),
+          ),
+        ),
+      ),
+    );
+
+  private playAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      this.adapter,
+      O.match(
+        () => TE.right<PlayerRuntimeError, void>(undefined),
+        (adapter) =>
+          pipe(
+            TE.tryCatch(
+              () => adapter.play(),
+              (cause): PlayerRuntimeError => ({
+                _tag: "RuntimeError/AttachFailed",
+                message: "Play failed",
+                cause,
+              }),
+            ),
+            TE.orElseFirstTaskK(() =>
+              this.dispatch({
+                _tag: "Engine/Error",
+                kind: "media",
+                message: "Play failed",
+              }),
+            ),
+          ),
+      ),
+    );
+
+  private pauseAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      this.adapter,
+      O.match(
+        () => TE.right<PlayerRuntimeError, void>(undefined),
+        (adapter) =>
+          pipe(
+            TE.tryCatch(
+              () => adapter.pause(),
+              (cause): PlayerRuntimeError => ({
+                _tag: "RuntimeError/AttachFailed",
+                message: "Pause failed",
+                cause,
+              }),
+            ),
+            TE.orElseFirstTaskK(() =>
+              this.dispatch({
+                _tag: "Engine/Error",
+                kind: "media",
+                message: "Pause failed",
+              }),
+            ),
+          ),
+      ),
+    );
+
+  private seekAdapter = (time: number): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      this.adapter,
+      O.match(
+        () => TE.right<PlayerRuntimeError, void>(undefined),
+        (adapter) =>
+          pipe(
+            TE.tryCatch(
+              () => adapter.seek(time)(),
+              (cause): PlayerRuntimeError => ({
+                _tag: "RuntimeError/AttachFailed",
+                message: "Seek failed",
+                cause,
+              }),
+            ),
+            TE.orElseFirstTaskK(() =>
+              this.dispatch({
+                _tag: "Engine/Error",
+                kind: "media",
+                message: "Seek failed",
+              }),
+            ),
+          ),
+      ),
+    );
 }
