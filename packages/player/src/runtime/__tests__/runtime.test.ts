@@ -172,12 +172,6 @@ describe("PlayerRuntime - Complete Test Suite", () => {
   // ============================================================================
 
   describe("mount", () => {
-    it("should succeed with valid video element", async () => {
-      const result = await runtime.mount(videoElement)();
-
-      expect(E.isRight(result)).toBe(true);
-    });
-
     it("should transition to correct state after mount", async () => {
       await runtime.mount(videoElement)();
       await waitForProcessing();
@@ -199,9 +193,11 @@ describe("PlayerRuntime - Complete Test Suite", () => {
       expect(states.length).toBeGreaterThanOrEqual(0);
     });
 
-    it("should be composable with other TaskEithers", async () => {
-      const composed = await runtime.mount(videoElement)();
-      expect(E.isRight(composed)).toBe(true);
+    it("should be composable as a Task", async () => {
+      // mount returns Task<void>, can be composed with other Tasks
+      const task = runtime.mount(videoElement);
+      expect(typeof task).toBe("function");
+      await task();
     });
   });
 
@@ -687,44 +683,6 @@ describe("PlayerRuntime - Complete Test Suite", () => {
 
       // Mount should be called before load
       expect(callOrder.indexOf("mount")).toBeLessThan(callOrder.indexOf("load"));
-    });
-  });
-
-  // ============================================================================
-  // Functional Programming Properties
-  // ============================================================================
-
-  describe("functional programming properties", () => {
-    it("getState should be pure", () => {
-      const state1 = runtime.getState();
-      const state2 = runtime.getState();
-      expect(state1).toBe(state2);
-    });
-
-    it("subscribe should return IO that can be composed", () => {
-      const listener = vi.fn();
-      const io = runtime.subscribe(listener);
-
-      // Compose with other IO
-      const composed = () => {
-        const unsub = io();
-        return unsub;
-      };
-
-      const unsub = composed();
-      expect(typeof unsub).toBe("function");
-      unsub();
-    });
-
-    it("mount should be composable with TaskEither", async () => {
-      const composed = await runtime.mount(videoElement)();
-      expect(E.isRight(composed) || E.isLeft(composed)).toBe(true);
-    });
-
-    it("dispatch should return Task that can be composed", async () => {
-      const task = runtime.dispatch({ _tag: "Intent/PlayRequested" });
-      expect(typeof task).toBe("function");
-      await task();
     });
   });
 

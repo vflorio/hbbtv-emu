@@ -7,6 +7,7 @@ import type * as T from "fp-ts/Task";
 import type * as TE from "fp-ts/TaskEither";
 import type { PlaybackType } from "../playback/types";
 import type { TimeRange } from "../state/states";
+import type { NativeAdapter } from "./adapters/native";
 
 export type PlayerIntentEvent =
   | { readonly _tag: "Intent/LoadRequested"; readonly url: string }
@@ -56,26 +57,38 @@ export type PlayerEffect =
   | { readonly _tag: "Effect/Pause" }
   | { readonly _tag: "Effect/Seek"; readonly time: number };
 
-export type ReduceResult<TState> = {
-  readonly next: TState;
+export type ReduceResult<T> = {
+  readonly next: T;
   readonly effects: readonly PlayerEffect[];
 };
 
 export type UnsubscribeFn = () => void;
-
-export type PlayerRuntimeError =
-  | { readonly _tag: "RuntimeError/NoAdapter"; readonly message: string }
-  | { readonly _tag: "RuntimeError/NoVideoElement"; readonly message: string }
-  | { readonly _tag: "RuntimeError/AttachFailed"; readonly message: string; readonly cause?: unknown }
-  | { readonly _tag: "RuntimeError/DestroyFailed"; readonly message: string; readonly cause?: unknown };
 
 export type PlayerStateListener<T> = (state: T) => void;
 
 export interface PlayerRuntime<T> {
   getState: IO.IO<T>;
   getPlaybackType: IOO.IOOption<PlaybackType>;
-  mount: (videoElement: HTMLVideoElement) => TE.TaskEither<PlayerRuntimeError, void>;
+  mount: (videoElement: HTMLVideoElement) => T.Task<void>;
   destroy: TE.TaskEither<PlayerRuntimeError, void>;
   dispatch: (event: PlayerEvent) => T.Task<void>;
   subscribe: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
 }
+
+export type PlayerRuntimeError =
+  | { readonly _tag: "RuntimeError/NoAdapter"; readonly message: string }
+  | { readonly _tag: "RuntimeError/NoVideoElement"; readonly message: string };
+
+export type RuntimeAdapter = {
+  readonly type: PlaybackType;
+  readonly name: string;
+  mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
+  load: (url: string) => T.Task<void>;
+  play: T.Task<void>;
+  pause: T.Task<void>;
+  seek: (time: number) => T.Task<void>;
+  destroy: T.Task<void>;
+  subscribe: (listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>;
+};
+
+export type AnyAdapter = NativeAdapter;
