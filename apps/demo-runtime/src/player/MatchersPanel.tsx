@@ -19,7 +19,7 @@ export function MatchersPanel() {
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Matchers Results (Real-time)
+        Matchers
       </Typography>
       <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
         <Paper sx={{ p: 1.5, flex: 1 }}>

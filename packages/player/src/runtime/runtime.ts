@@ -128,18 +128,13 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
                 const prev = this.state;
                 const { next, effects } = reduce(prev, event);
                 this.state = next;
-                this.logger.debug("event", event._tag, "prev", prev._tag, "next", next._tag);
+                this.logger.debug("event", event._tag, "prev", prev._tag, "next", next._tag)();
                 return effects;
               }),
               // Notify listeners
               T.tap(() => T.fromIO(this.notify)),
               // Execute effects
-              T.flatMap((effects) =>
-                pipe(
-                  effects,
-                  RA.traverse(T.ApplicativeSeq)((eff) => () => this.runEffect(eff)()),
-                ),
-              ),
+              T.flatMap((effects) => pipe(effects, RA.traverse(T.ApplicativeSeq)(this.runEffect))),
               // Recurse
               T.flatMap(() => processNext),
             )(),
@@ -193,13 +188,13 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
                         cause,
                       }),
                     ),
-                    TE.orElseFirstIOK((error) => () => {
+                    TE.orElseFirstIOK((error) =>
                       this.logger.warn(
                         "destroy failed",
                         error.message,
                         error._tag === "RuntimeError/DestroyFailed" ? error.cause : undefined,
-                      );
-                    }),
+                      ),
+                    ),
                   ),
                 ),
               ),

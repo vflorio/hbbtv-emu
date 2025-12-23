@@ -17,10 +17,43 @@ vi.mock("../adapters/native", () => ({
 describe("PlayerRuntime - State Machine Transitions", () => {
   let runtime: PlayerRuntime;
   let videoElement: HTMLVideoElement;
+  let mockAdapter: ReturnType<typeof createMockAdapter>;
+  let adapterEventListener: ((event: PlayerEvent) => void) | undefined;
 
   beforeEach(() => {
-    const mockAdapter = createMockAdapter();
-    vi.mocked(NativeAdapter).mockImplementation(() => mockAdapter as any);
+    adapterEventListener = undefined;
+    mockAdapter = createMockAdapter();
+
+    // Capture the event listener when subscribe is called
+    mockAdapter.subscribe.mockImplementation((listener: any) => {
+      adapterEventListener = listener;
+      return () => vi.fn();
+    });
+
+    // Make adapter methods emit appropriate engine events
+    mockAdapter.play.mockImplementation(async () => {
+      await Promise.resolve(); // Let the effect execute first
+      const currentState = runtime.getState();
+      const currentTime = "currentTime" in currentState ? currentState.currentTime : 0;
+      adapterEventListener?.({
+        _tag: "Engine/Playing",
+        snapshot: createSnapshot({ paused: false, currentTime }),
+      });
+    });
+
+    mockAdapter.pause.mockImplementation(async () => {
+      await Promise.resolve(); // Let the effect execute first
+      const currentState = runtime.getState();
+      const currentTime = "currentTime" in currentState ? currentState.currentTime : 0;
+      adapterEventListener?.({
+        _tag: "Engine/Paused",
+        snapshot: createSnapshot({ paused: true, currentTime }),
+      });
+    });
+
+    vi.mocked(NativeAdapter).mockImplementation(function (this: any) {
+      return mockAdapter as any;
+    });
 
     runtime = new PlayerRuntime();
     videoElement = document.createElement("video");
@@ -436,11 +469,11 @@ function createMockAdapter() {
     name: "Native HTML5",
     mount: vi.fn(() => () => {}),
     load: vi.fn(() => async () => {}),
-    play: vi.fn(() => async () => {}),
-    pause: vi.fn(() => async () => {}),
+    play: vi.fn(async () => {}),
+    pause: vi.fn(async () => {}),
     seek: vi.fn(() => async () => {}),
-    destroy: vi.fn(() => async () => {}),
-    subscribe: vi.fn(() => () => unsubscribe),
+    destroy: vi.fn(async () => {}),
+    subscribe: vi.fn((_listener: any) => () => unsubscribe),
   };
 }
 

@@ -1,6 +1,13 @@
-import { Matchers, type PlayerEvent, PlayerRuntime, type PlayerState } from "@hbb-emu/player";
+import { Matchers, type PlayerEvent, PlayerRuntime, type PlayerRuntimeError, type PlayerState } from "@hbb-emu/player";
 import { Box } from "@mui/material";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
+import * as O from "fp-ts/Option";
+import * as T from "fp-ts/Task";
+import * as TE from "fp-ts/TaskEither";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { match, P } from "ts-pattern";
 
 export type PlaybackContextType = {
   playbackType: string | null;
@@ -29,42 +36,102 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const [machineStateResults, setMachineStateResults] = useState<Record<string, any>>({});
 
-  useEffect(() => {
-    if (!runtimeRef.current) {
-      runtimeRef.current = new PlayerRuntime();
-      runtimeRef.current.subscribe((state) => {
-        playerStateRef.current = state;
-        updateMachineStateResults(state);
-        setMachineIteration((current) => current + 1);
+  const createRuntime: IO.IO<PlayerRuntime> = () => {
+    const runtime = new PlayerRuntime();
 
-        const err = Matchers.getError(state);
-        setError(err ? err.message : null);
-        setIsLoading(Matchers.isLoading(state));
-        setPlaybackType(runtimeRef.current?.getPlaybackType() ?? null);
-      });
-    }
+    const onStateChange = (state: PlayerState.Any) => {
+      playerStateRef.current = state;
 
-    if (videoRef.current) {
-      runtimeRef.current.mount(videoRef.current);
-    }
+      updateMachineStateResults(state);
+      setMachineIteration((current) => current + 1);
 
-    return () => {
-      // non distruggiamo il runtime ad ogni unmount del provider
+      setError(Matchers.getError(state)?.message ?? null);
+      setIsLoading(Matchers.isLoading(state));
+
+      setPlaybackType(
+        pipe(
+          IOO.fromNullable(runtimeRef.current),
+          IOO.flatMap((runtime) => IOO.fromOption(runtime.getPlaybackType())),
+          IOO.toNullable,
+        )(),
+      );
     };
+
+    runtime.subscribe(onStateChange);
+
+    return runtime;
+  };
+
+  useEffect(() => {
+    const deps = pipe(
+      O.Do,
+      O.apS("runtime", O.fromNullable(runtimeRef.current)),
+      O.apS("video", O.fromNullable(videoRef.current)),
+    );
+
+    const initializedRuntimeIfNotExists = pipe(
+      O.fromNullable(runtimeRef.current),
+      O.match(
+        () =>
+          pipe(
+            createRuntime,
+            IO.flatMap((runtime) => () => {
+              runtimeRef.current = runtime;
+            }),
+          ),
+        () => IO.of(undefined),
+      ),
+    );
+
+    const updateError =
+      (error: PlayerRuntimeError): IO.IO<void> =>
+      () =>
+        setError(
+          match(error)
+            .with({ message: P.string }, (e) => `Player Runtime Error: ${e.message}`)
+            .otherwise(() => "Player runtime Error: Unknown error"),
+        );
+
+    const mountVideoElement = pipe(
+      deps,
+      O.match(
+        () => T.of(undefined),
+        ({ runtime, video }) =>
+          pipe(
+            runtime.mount(video),
+            TE.matchE(
+              (error) => T.fromIO(() => updateError(error)),
+              () => T.of(undefined),
+            ),
+          ),
+      ),
+    );
+
+    const dispatchLoadIfSourceIsPresent = pipe(
+      O.Do,
+      O.apS("runtime", O.fromNullable(runtimeRef.current)),
+      O.apS("src", O.fromNullable(source)),
+      O.match(
+        () => T.of(undefined),
+        ({ runtime, src }) => runtime.dispatch({ _tag: "Intent/LoadRequested", url: src }),
+      ),
+    );
+
+    pipe(
+      T.fromIO(initializedRuntimeIfNotExists),
+      T.flatMap(() => mountVideoElement),
+      T.flatMap(() => dispatchLoadIfSourceIsPresent),
+    )();
   }, [source]);
 
   useEffect(() => {
-    if (!source || !runtimeRef.current) return;
-    runtimeRef.current.dispatch({ _tag: "Intent/LoadRequested", url: source });
-  }, [source]);
-
-  useEffect(() => {
-    if (!playerStateRef.current) {
-      setMachineStateResults({});
-      return;
-    }
-
-    updateMachineStateResults(playerStateRef.current);
+    pipe(
+      O.fromNullable(playerStateRef.current),
+      O.match(
+        () => setMachineStateResults({}),
+        (state) => updateMachineStateResults(state),
+      ),
+    );
   }, [machineIteration]);
 
   const updateMachineStateResults = (state: PlayerState.Any) =>
