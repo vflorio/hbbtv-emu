@@ -33,6 +33,7 @@ export type PlayerEngineEvent =
   | { readonly _tag: "Engine/Mounted" }
   | {
       readonly _tag: "Engine/MetadataLoaded";
+      readonly playbackType: PlaybackType;
       readonly url: string;
       readonly duration: number;
       readonly width: number;
@@ -46,11 +47,135 @@ export type PlayerEngineEvent =
   | { readonly _tag: "Engine/Seeked"; readonly snapshot: PlaybackSnapshot }
   | {
       readonly _tag: "Engine/Error";
-      readonly kind: "not-supported" | "network" | "media" | "unknown";
+      readonly kind: "not-supported" | "network" | "media" | "decode" | "unknown";
       readonly message: string;
       readonly url?: string;
+      readonly codec?: string;
+      readonly cause?: unknown;
+    }
+  // Native-specific events
+  | {
+      readonly _tag: "Engine/Native/ProgressiveLoading";
+      readonly url: string;
+      readonly bytesLoaded: number;
+      readonly bytesTotal: number;
+      readonly canPlayThrough: boolean;
+    }
+  // HLS-specific events
+  | {
+      readonly _tag: "Engine/HLS/ManifestLoading";
+      readonly url: string;
+    }
+  | {
+      readonly _tag: "Engine/HLS/ManifestParsed";
+      readonly url: string;
+      readonly variants: readonly HLSVariantInfo[];
+      readonly duration: number;
+    }
+  | {
+      readonly _tag: "Engine/HLS/VariantSelected";
+      readonly variant: HLSVariantInfo;
+      readonly bandwidth: number;
+      readonly resolution: { width: number; height: number };
+    }
+  | {
+      readonly _tag: "Engine/HLS/SegmentLoading";
+      readonly segmentIndex: number;
+      readonly totalSegments: number;
+      readonly currentTime: number;
+    }
+  | {
+      readonly _tag: "Engine/HLS/AdaptiveSwitching";
+      readonly fromVariant: HLSVariantInfo;
+      readonly toVariant: HLSVariantInfo;
+      readonly reason: "bandwidth" | "manual";
+    }
+  | {
+      readonly _tag: "Engine/HLS/ManifestParseError";
+      readonly url: string;
+      readonly retryCount: number;
+      readonly message: string;
+      readonly cause?: unknown;
+    }
+  | {
+      readonly _tag: "Engine/HLS/SegmentLoadError";
+      readonly segmentIndex: number;
+      readonly segmentUrl: string;
+      readonly retryCount: number;
+      readonly message: string;
+      readonly cause?: unknown;
+    }
+  // DASH-specific events
+  | {
+      readonly _tag: "Engine/DASH/MPDLoading";
+      readonly url: string;
+    }
+  | {
+      readonly _tag: "Engine/DASH/MPDParsed";
+      readonly url: string;
+      readonly adaptationSets: readonly DASHAdaptationSetInfo[];
+      readonly duration: number;
+      readonly isDynamic: boolean;
+    }
+  | {
+      readonly _tag: "Engine/DASH/RepresentationSelected";
+      readonly representation: DASHRepresentationInfo;
+      readonly bandwidth: number;
+      readonly resolution: { width: number; height: number };
+    }
+  | {
+      readonly _tag: "Engine/DASH/SegmentDownloading";
+      readonly segmentIndex: number;
+      readonly mediaType: "video" | "audio";
+      readonly bytesLoaded: number;
+      readonly bytesTotal: number;
+    }
+  | {
+      readonly _tag: "Engine/DASH/QualitySwitching";
+      readonly fromRepresentation: DASHRepresentationInfo;
+      readonly toRepresentation: DASHRepresentationInfo;
+      readonly reason: "abr" | "manual" | "constraint";
+    }
+  | {
+      readonly _tag: "Engine/DASH/MPDParseError";
+      readonly url: string;
+      readonly retryCount: number;
+      readonly message: string;
+      readonly cause?: unknown;
+    }
+  | {
+      readonly _tag: "Engine/DASH/SegmentDownloadError";
+      readonly segmentIndex: number;
+      readonly mediaType: "video" | "audio";
+      readonly retryCount: number;
+      readonly message: string;
       readonly cause?: unknown;
     };
+
+// Supporting types for HLS events
+export interface HLSVariantInfo {
+  readonly bandwidth: number;
+  readonly resolution: { width: number; height: number };
+  readonly codecs: string;
+  readonly url: string;
+  readonly frameRate?: number;
+}
+
+// Supporting types for DASH events
+export interface DASHAdaptationSetInfo {
+  readonly id: string;
+  readonly contentType: "video" | "audio" | "text";
+  readonly mimeType: string;
+  readonly representationCount: number;
+}
+
+export interface DASHRepresentationInfo {
+  readonly id: string;
+  readonly bandwidth: number;
+  readonly codecs: string;
+  readonly resolution?: { width: number; height: number };
+  readonly frameRate?: number;
+}
 
 // =============================================================================
 // EFFECTS - Side Effects to be Executed
@@ -113,6 +238,29 @@ export type PlayerRuntimeError =
     };
 
 // =============================================================================
+// ERRORS - Adapter Error Types
+// =============================================================================
+
+export type AdapterError =
+  | { readonly _tag: "AdapterError/VideoElementNotMounted"; readonly message: string }
+  | {
+      readonly _tag: "AdapterError/LoadFailed";
+      readonly message: string;
+      readonly url: string;
+      readonly cause?: unknown;
+    }
+  | { readonly _tag: "AdapterError/PlayFailed"; readonly message: string; readonly cause?: unknown }
+  | { readonly _tag: "AdapterError/PauseFailed"; readonly message: string; readonly cause?: unknown }
+  | {
+      readonly _tag: "AdapterError/SeekFailed";
+      readonly message: string;
+      readonly time: number;
+      readonly cause?: unknown;
+    }
+  | { readonly _tag: "AdapterError/DestroyFailed"; readonly message: string; readonly cause?: unknown }
+  | { readonly _tag: "AdapterError/NotSupported"; readonly message: string; readonly adapterType: string };
+
+// =============================================================================
 // ADAPTERS - Runtime Adapter Interface
 // =============================================================================
 
@@ -120,11 +268,11 @@ export type RuntimeAdapter = {
   readonly type: PlaybackType;
   readonly name: string;
   mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
-  load: (url: string) => T.Task<void>;
-  play: T.Task<void>;
-  pause: T.Task<void>;
-  seek: (time: number) => T.Task<void>;
-  destroy: T.Task<void>;
+  load: (url: string) => TE.TaskEither<AdapterError, void>;
+  play: TE.TaskEither<AdapterError, void>;
+  pause: TE.TaskEither<AdapterError, void>;
+  seek: (time: number) => TE.TaskEither<AdapterError, void>;
+  destroy: TE.TaskEither<AdapterError, void>;
   subscribe: (listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>;
 };
 

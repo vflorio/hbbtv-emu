@@ -149,10 +149,10 @@ export namespace PlayerState {
   // --------------------------------------------------------------------------
 
   export namespace Source {
-    // MP4 (Progressive) States
-    export namespace MP4 {
+    // Native (Progressive) States
+    export namespace Native {
       export class Ready extends PlayableState {
-        readonly _tag = "Source/MP4/Ready" as const;
+        readonly _tag = "Source/Native/Ready" as const;
 
         constructor(
           readonly url: string,
@@ -165,7 +165,7 @@ export namespace PlayerState {
       }
 
       export class ProgressiveLoading extends PlayableState {
-        readonly _tag = "Source/MP4/ProgressiveLoading" as const;
+        readonly _tag = "Source/Native/ProgressiveLoading" as const;
 
         constructor(
           readonly url: string,
@@ -178,7 +178,7 @@ export namespace PlayerState {
       }
 
       export class DecodeError extends FatalError {
-        readonly _tag = "Source/MP4/DecodeError" as const;
+        readonly _tag = "Source/Native/DecodeError" as const;
 
         constructor(
           error: Error,
@@ -194,6 +194,18 @@ export namespace PlayerState {
 
     // HLS (HTTP Live Streaming) States
     export namespace HLS {
+      export class Ready extends PlayableState {
+        readonly _tag = "Source/HLS/Ready" as const;
+
+        constructor(
+          readonly url: string,
+          readonly duration: number,
+          readonly resolution: Resolution,
+        ) {
+          super();
+        }
+      }
+
       export class ManifestLoading extends PlayableState {
         readonly _tag = "Source/HLS/ManifestLoading" as const;
 
@@ -276,6 +288,7 @@ export namespace PlayerState {
       }
 
       export type Any =
+        | Ready
         | ManifestLoading
         | ManifestParsed
         | VariantSelected
@@ -287,6 +300,18 @@ export namespace PlayerState {
 
     // DASH (Dynamic Adaptive Streaming) States
     export namespace DASH {
+      export class Ready extends PlayableState {
+        readonly _tag = "Source/DASH/Ready" as const;
+
+        constructor(
+          readonly url: string,
+          readonly duration: number,
+          readonly resolution: Resolution,
+        ) {
+          super();
+        }
+      }
+
       export class MPDLoading extends PlayableState {
         readonly _tag = "Source/DASH/MPDLoading" as const;
 
@@ -371,6 +396,7 @@ export namespace PlayerState {
       }
 
       export type Any =
+        | Ready
         | MPDLoading
         | MPDParsed
         | RepresentationSelected
@@ -380,7 +406,7 @@ export namespace PlayerState {
         | SegmentDownloadError;
     }
 
-    export type Any = MP4.Any | HLS.Any | DASH.Any;
+    export type Any = Native.Any | HLS.Any | DASH.Any;
   }
 
   // --------------------------------------------------------------------------

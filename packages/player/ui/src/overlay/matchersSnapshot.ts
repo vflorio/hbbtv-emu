@@ -25,9 +25,9 @@ export const getMatcherSnapshot = (playerState: PlayerState.Any | null): Matcher
         { key: "isFatal", label: "isFatal", value: false },
         { key: "isControlState", label: "isControlState", value: false },
         { key: "isSourceState", label: "isSourceState", value: false },
+        { key: "isNativeState", label: "isNativeState", value: false },
         { key: "isHLSState", label: "isHLSState", value: false },
         { key: "isDASHState", label: "isDASHState", value: false },
-        { key: "isMP4State", label: "isMP4State", value: false },
       ],
       status: [
         { key: "isPlaying", label: "isPlaying", value: false },
@@ -58,7 +58,7 @@ export const getMatcherSnapshot = (playerState: PlayerState.Any | null): Matcher
       { key: "isSourceState", label: "isSourceState", value: Matchers.isSourceState(playerState) },
       { key: "isHLSState", label: "isHLSState", value: Matchers.isHLSState(playerState) },
       { key: "isDASHState", label: "isDASHState", value: Matchers.isDASHState(playerState) },
-      { key: "isMP4State", label: "isMP4State", value: Matchers.isMP4State(playerState) },
+      { key: "isNativeState", label: "isNativeState", value: Matchers.isNativeState(playerState) },
     ],
     status: [
       { key: "isPlaying", label: "isPlaying", value: Matchers.isPlaying(playerState) },

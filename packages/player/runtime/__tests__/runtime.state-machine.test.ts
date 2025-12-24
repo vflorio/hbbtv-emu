@@ -44,7 +44,7 @@ describe("PlayerRuntime - State Machine", () => {
     expect(runtime.getState()._tag).toBe("Control/Loading");
   });
 
-  it("Loading -> Source/MP4/Ready on MetadataLoaded", async () => {
+  it("Loading -> Source/Native/Ready on MetadataLoaded", async () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
 
@@ -56,7 +56,7 @@ describe("PlayerRuntime - State Machine", () => {
       height: 1080,
     })();
 
-    expect(runtime.getState()._tag).toBe("Source/MP4/Ready");
+    expect(runtime.getState()._tag).toBe("Source/Native/Ready");
   });
 
   it("Paused -> Playing on PlayRequested (and calls adapter.play)", async () => {

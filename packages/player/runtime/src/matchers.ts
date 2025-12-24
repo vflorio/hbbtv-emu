@@ -88,8 +88,8 @@ export const isDASHState = (state: PlayerState.Any): state is PlayerState.Source
 /**
  * Type guard: Check if state is MP4-specific
  */
-export const isMP4State = (state: PlayerState.Any): state is PlayerState.Source.MP4.Any =>
-  state._tag.startsWith("Source/MP4/");
+export const isNativeState = (state: PlayerState.Any): state is PlayerState.Source.Native.Any =>
+  state._tag.startsWith("Source/Native/");
 
 /**
  * Type guard: Check if state has time information
@@ -124,13 +124,15 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Control/Ended" }, () => "Playback ended")
 
     // MP4 states
-    .with({ _tag: "Source/MP4/Ready" }, (s) => `MP4 Ready (${s.resolution.width}x${s.resolution.height})`)
+    .with({ _tag: "Source/Native/Ready" }, (s) => `Native Ready (${s.resolution.width}x${s.resolution.height})`)
     .with(
-      { _tag: "Source/MP4/ProgressiveLoading" },
-      (s) => `Loading MP4: ${Math.round((s.bytesLoaded / s.bytesTotal) * 100)}%`,
+      { _tag: "Source/Native/ProgressiveLoading" },
+      (s) =>
+        `Loading: ${formatBytes(s.bytesLoaded)} / ${s.bytesTotal > 0 ? formatBytes(s.bytesTotal) : "unknown"}${s.canPlayThrough ? " (can play)" : ""}`,
     )
 
     // HLS states
+    .with({ _tag: "Source/HLS/Ready" }, (s) => `HLS Ready (${s.resolution.width}x${s.resolution.height})`)
     .with({ _tag: "Source/HLS/ManifestLoading" }, () => "Loading HLS manifest")
     .with({ _tag: "Source/HLS/ManifestParsed" }, (s) => `HLS manifest parsed (${s.variants.length} variants)`)
     .with(
@@ -141,6 +143,7 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Source/HLS/AdaptiveSwitching" }, (s) => `Switching quality (${s.reason})`)
 
     // DASH states
+    .with({ _tag: "Source/DASH/Ready" }, (s) => `DASH Ready (${s.resolution.width}x${s.resolution.height})`)
     .with({ _tag: "Source/DASH/MPDLoading" }, () => "Loading DASH MPD")
     .with({ _tag: "Source/DASH/MPDParsed" }, (s) => `MPD parsed (${s.adaptationSets.length} adaptation sets)`)
     .with(
@@ -157,7 +160,7 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Error/Abort" }, (s) => `Aborted: ${s.reason}`)
 
     // Format-specific errors
-    .with({ _tag: "Source/MP4/DecodeError" }, (s) => `MP4 decode error: ${s.error.message}`)
+    .with({ _tag: "Source/Native/DecodeError" }, (s) => `MP4 decode error: ${s.error.message}`)
     .with({ _tag: "Source/HLS/ManifestParseError" }, (s) => `HLS manifest error (retry ${s.retryCount})`)
     .with({ _tag: "Source/HLS/SegmentLoadError" }, (s) => `HLS segment error (retry ${s.retryCount})`)
     .with({ _tag: "Source/DASH/MPDParseError" }, (s) => `DASH MPD error (retry ${s.retryCount})`)
@@ -221,7 +224,7 @@ export const isLoading = (state: PlayerState.Any): boolean =>
     .with({ _tag: "Source/HLS/SegmentLoading" }, () => true)
     .with({ _tag: "Source/DASH/MPDLoading" }, () => true)
     .with({ _tag: "Source/DASH/SegmentDownloading" }, () => true)
-    .with({ _tag: "Source/MP4/ProgressiveLoading" }, () => true)
+    .with({ _tag: "Source/Native/ProgressiveLoading" }, () => true)
     .otherwise(() => false);
 
 /**
@@ -254,8 +257,8 @@ export const matchDASHState = <T>(state: PlayerState.Source.DASH.Any): Match<Pla
 /**
  * Match on MP4-specific states
  */
-export const matchMP4State = <T>(state: PlayerState.Source.MP4.Any): Match<PlayerState.Source.MP4.Any, T> =>
-  match<PlayerState.Source.MP4.Any, T>(state);
+export const matchMP4State = <T>(state: PlayerState.Source.Native.Any): Match<PlayerState.Source.Native.Any, T> =>
+  match<PlayerState.Source.Native.Any, T>(state);
 
 /**
  * Get current quality information (works for HLS and DASH)
@@ -268,13 +271,21 @@ export const getQualityInfo = (state: PlayerState.Any) =>
       resolution: s.resolution,
       variant: s.variant,
     }))
+    .with({ _tag: "Source/HLS/Ready" }, (s) => ({
+      type: "hls" as const,
+      resolution: s.resolution,
+    }))
     .with({ _tag: "Source/DASH/RepresentationSelected" }, (s) => ({
       type: "dash" as const,
       bandwidth: s.bandwidth,
       resolution: s.resolution,
       representation: s.representation,
     }))
-    .with({ _tag: "Source/MP4/Ready" }, (s) => ({
+    .with({ _tag: "Source/DASH/Ready" }, (s) => ({
+      type: "dash" as const,
+      resolution: s.resolution,
+    }))
+    .with({ _tag: "Source/Native/Ready" }, (s) => ({
       type: "mp4" as const,
       resolution: s.resolution,
       codec: s.codec,
@@ -298,3 +309,14 @@ const formatTime = (seconds: number) => {
  * Format bandwidth in Mbps
  */
 const formatBandwidth = (bps: number) => `${(bps / 1_000_000).toFixed(1)} Mbps`;
+
+/**
+ * Format bytes in a human-readable format
+ */
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`;
+};

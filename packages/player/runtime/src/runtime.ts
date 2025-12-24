@@ -203,6 +203,16 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     cause,
   });
 
+  private adapterFailureFromError = (
+    operation: Extract<PlayerRuntimeError, { _tag: "CoreError/AdapterFailure" }>["operation"],
+    adapterError: import("./types").AdapterError,
+  ): PlayerRuntimeError => ({
+    _tag: "CoreError/AdapterFailure",
+    operation,
+    message: adapterError.message,
+    cause: adapterError,
+  });
+
   private destroyAdapter = (): TE.TaskEither<PlayerRuntimeError, void> => {
     const notifyAndUnsub = pipe(
       TE.fromIO(() => this.adapterUnsubscribe),
@@ -225,10 +235,8 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
           () => TE.right(undefined),
           (adapter) =>
             pipe(
-              TE.tryCatch(
-                () => adapter.destroy(),
-                (cause) => this.adapterFailure("destroy", "Adapter destroy failed", cause),
-              ),
+              adapter.destroy,
+              TE.mapLeft((adapterError) => this.adapterFailureFromError("destroy", adapterError)),
               TE.matchE(
                 (error) =>
                   pipe(
@@ -297,9 +305,9 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
-        TE.tryCatch(
-          () => adapter.load(url)(),
-          (cause) => this.adapterFailure("load", "Adapter load failed", cause),
+        pipe(
+          adapter.load(url),
+          TE.mapLeft((adapterError) => this.adapterFailureFromError("load", adapterError)),
         ),
       ),
     );
@@ -308,9 +316,9 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
-        TE.tryCatch(
-          () => adapter.play(),
-          (cause) => this.adapterFailure("play", "Adapter play failed", cause),
+        pipe(
+          adapter.play,
+          TE.mapLeft((adapterError) => this.adapterFailureFromError("play", adapterError)),
         ),
       ),
     );
@@ -319,9 +327,9 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
-        TE.tryCatch(
-          () => adapter.pause(),
-          (cause) => this.adapterFailure("pause", "Adapter pause failed", cause),
+        pipe(
+          adapter.pause,
+          TE.mapLeft((adapterError) => this.adapterFailureFromError("pause", adapterError)),
         ),
       ),
     );
@@ -330,9 +338,9 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
-        TE.tryCatch(
-          () => adapter.seek(time)(),
-          (cause) => this.adapterFailure("seek", "Adapter seek failed", cause),
+        pipe(
+          adapter.seek(time),
+          TE.mapLeft((adapterError) => this.adapterFailureFromError("seek", adapterError)),
         ),
       ),
     );
