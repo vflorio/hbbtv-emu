@@ -1,33 +1,31 @@
-import type { PlayerEvent, UnsubscribeFn } from "@hbb-emu/player-core";
+import type { CoreAdapter, PlaybackType, PlayerEvent, UnsubscribeFn } from "@hbb-emu/player-core";
 import type * as IO from "fp-ts/IO";
 import type * as T from "fp-ts/Task";
 import { type Mock, vi } from "vitest";
 
-export type MockAdapter = {
-  readonly type: string;
-  readonly name: string;
-  mount: Mock<() => IO.IO<void>>;
+export type MockAdapter = CoreAdapter & {
+  mount: Mock<(videoElement: HTMLVideoElement) => IO.IO<void>>;
   load: Mock<(url: string) => T.Task<void>>;
-  play: Mock<() => T.Task<void>>;
-  pause: Mock<() => T.Task<void>>;
+  play: Mock<T.Task<void>>;
+  pause: Mock<T.Task<void>>;
   seek: Mock<(time: number) => T.Task<void>>;
-  destroy: Mock<() => T.Task<void>>;
+  destroy: Mock<T.Task<void>>;
   subscribe: Mock<(listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>>;
 };
 
 /**
  * Create a mock adapter for testing
  */
-export const createMockAdapter = (): MockAdapter => ({
-  type: "native",
-  name: "Mock Native Adapter",
-  mount: vi.fn(() => () => {}),
-  load: vi.fn(() => async () => {}),
-  play: vi.fn(() => async () => {}),
-  pause: vi.fn(() => async () => {}),
-  seek: vi.fn(() => async () => {}),
-  destroy: vi.fn(() => async () => {}),
-  subscribe: vi.fn(() => () => () => {}),
+export const createMockAdapter = (type: PlaybackType = "native"): MockAdapter => ({
+  type,
+  name: `Mock ${type} Adapter`,
+  mount: vi.fn((_videoElement: HTMLVideoElement) => () => {}),
+  load: vi.fn((_url: string) => async () => {}),
+  play: vi.fn(async () => {}) as unknown as Mock<T.Task<void>>,
+  pause: vi.fn(async () => {}) as unknown as Mock<T.Task<void>>,
+  seek: vi.fn((_time: number) => async () => {}),
+  destroy: vi.fn(async () => {}) as unknown as Mock<T.Task<void>>,
+  subscribe: vi.fn((_listener: (event: PlayerEvent) => void) => () => () => {}),
 });
 
 /**
@@ -35,29 +33,30 @@ export const createMockAdapter = (): MockAdapter => ({
  */
 export const createFailingMockAdapter = (
   failOn: "mount" | "load" | "play" | "pause" | "seek" | "destroy" = "load",
+  type: PlaybackType = "native",
 ): MockAdapter => {
-  const adapter = createMockAdapter();
+  const adapter = createMockAdapter(type);
 
   switch (failOn) {
     case "mount":
-      adapter.mount = vi.fn(() => () => {
+      adapter.mount = vi.fn((_videoElement: HTMLVideoElement) => () => {
         throw new Error("Mount failed");
       });
       break;
     case "load":
-      adapter.load = vi.fn(() => async () => {
+      adapter.load = vi.fn((_url: string) => async () => {
         throw new Error("Load failed");
       });
       break;
     case "play":
-      adapter.play = vi.fn(() => async () => {
+      adapter.play = vi.fn(async () => {
         throw new Error("Play failed");
-      });
+      }) as unknown as Mock<T.Task<void>>;
       break;
     case "pause":
-      adapter.pause = vi.fn(() => async () => {
+      adapter.pause = vi.fn(async () => {
         throw new Error("Pause failed");
-      });
+      }) as unknown as Mock<T.Task<void>>;
       break;
     case "seek":
       adapter.seek = vi.fn(() => async () => {
@@ -65,9 +64,9 @@ export const createFailingMockAdapter = (
       });
       break;
     case "destroy":
-      adapter.destroy = vi.fn(() => async () => {
+      adapter.destroy = vi.fn(async () => {
         throw new Error("Destroy failed");
-      });
+      }) as unknown as Mock<T.Task<void>>;
       break;
   }
 

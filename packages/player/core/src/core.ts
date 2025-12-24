@@ -59,10 +59,8 @@ export class PlayerCore implements PlayerCoreRuntime<PlayerState.Any> {
   destroy: TE.TaskEither<PlayerCoreError, void> = pipe(
     TE.Do,
     TE.flatMap(() => this.destroyAdapter()),
-    TE.tapIO(() => () => {
-      this.stateBus.clear()();
-      this.eventBus.clear()();
-    }),
+    TE.tapIO(() => this.stateBus.clear()),
+    TE.tapIO(() => this.eventBus.clear()),
   );
 
   subscribeToState = (listener: PlayerStateListener<PlayerState.Any>): IO.IO<UnsubscribeFn> =>
