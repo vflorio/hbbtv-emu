@@ -112,9 +112,9 @@ importers:
       '@hbb-emu/oipf':
         specifier: workspace:*
         version: link:../../packages/oipf
-      '@hbb-emu/player':
+      '@hbb-emu/player-core':
         specifier: workspace:*
-        version: link:../../packages/player
+        version: link:../../packages/player/core
       '@hbb-emu/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -295,26 +295,20 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/player:
+  packages/player/core:
     dependencies:
       '@hbb-emu/core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../../core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../extension/common
+        version: link:../../extension/common
       '@hbb-emu/oipf':
         specifier: workspace:*
-        version: link:../oipf
-      dashjs:
-        specifier: 5.1.0
-        version: 5.1.0
+        version: link:../../oipf
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
-      hls.js:
-        specifier: 1.6.15
-        version: 1.6.15
       ts-pattern:
         specifier: 5.9.0
         version: 5.9.0
@@ -322,6 +316,61 @@ importers:
       io-ts:
         specifier: 2.2.22
         version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/player/ui:
+    dependencies:
+      '@emotion/react':
+        specifier: 11.14.0
+        version: 11.14.0(@types/react@19.2.2)(react@19.2.0)
+      '@emotion/styled':
+        specifier: 11.14.1
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0)
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../../extension/common
+      '@hbb-emu/oipf':
+        specifier: workspace:*
+        version: link:../../oipf
+      '@hbb-emu/runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@mui/icons-material':
+        specifier: 7.3.5
+        version: 7.3.5(@mui/material@7.3.5(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@types/react@19.2.2)(react@19.2.0)
+      '@mui/material':
+        specifier: 7.3.5
+        version: 7.3.5(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+      react-router-dom:
+        specifier: 7.9.6
+        version: 7.9.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.2
+        version: 19.2.2
+      '@types/react-dom':
+        specifier: 19.2.2
+        version: 19.2.2(@types/react@19.2.2)
+      '@types/react-router-dom':
+        specifier: 5.3.3
+        version: 5.3.3
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
       typescript:
         specifier: 5.9.3
         version: 5.9.3

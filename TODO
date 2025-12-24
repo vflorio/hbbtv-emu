@@ -1,4 +1,11 @@
-Player Runtime
+Player 
+    Il core viene configurato con una lista di Adapters da una runtime
+
+    quando viene chiesto di caricaro un contenuto, il core chiede a tutti gli adapters (in ordine di config), il primo che risponde di poter riprodurre viene preso dal createAdapter; (da capire se via mimetype o altro)
+    
+    L'adapter implementa la riproduzione del contenuto in una data piattaforma, questo ci permetter di avere un playback DASH con AVControlVideo su
+    HBBTV, mentre su Web Dash.js, senza che il Core debba conoscere i dettagli di come funzione hbbtv
+
     - Aggiungere la gestione del volume, sia come controllo via Intent, che listeners dinamici
     - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
     - Gestire correttamente Intent/PlayRequested quando l'utente non ha interagito con la pagina, 

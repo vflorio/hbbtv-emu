@@ -1,0 +1,39 @@
+{
+  "name": "@hbb-emu/settings-ui",
+  "version": "1.0.0",
+  "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/oipf": "workspace:*",
+    "@hbb-emu/runtime": "workspace:*",
+    "@mui/icons-material": "7.3.5",
+    "@mui/material": "7.3.5",
+    "react-router-dom": "7.9.6",
+    "ts-pattern": "5.9.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@types/react-router-dom": "5.3.3",
+    "fp-ts": "2.16.11",
+    "typescript": "5.9.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist",
+    "dev": "tsc --build --watch"
+  },
+  "type": "module"
+}
