@@ -46,8 +46,6 @@ export type PlayerEngineEvent =
       readonly cause?: unknown;
     };
 
-export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent;
-
 export type PlayerEffect =
   | { readonly _tag: "Effect/DestroyAdapter" }
   | { readonly _tag: "Effect/CreateAdapter"; readonly playbackType: PlaybackType; readonly url: string }
@@ -77,7 +75,13 @@ export interface PlayerRuntime<T> {
 
 export type PlayerRuntimeError =
   | { readonly _tag: "RuntimeError/NoAdapter"; readonly message: string }
-  | { readonly _tag: "RuntimeError/NoVideoElement"; readonly message: string };
+  | { readonly _tag: "RuntimeError/NoVideoElement"; readonly message: string }
+  | {
+      readonly _tag: "RuntimeError/AdapterFailure";
+      readonly operation: "mount" | "load" | "play" | "pause" | "seek" | "destroy";
+      readonly message: string;
+      readonly cause?: unknown;
+    };
 
 export type RuntimeAdapter = {
   readonly type: PlaybackType;
@@ -92,3 +96,5 @@ export type RuntimeAdapter = {
 };
 
 export type AnyAdapter = NativeAdapter;
+
+export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent | PlayerRuntimeError;

@@ -1,6 +1,6 @@
 import { Alert, Stack } from "@mui/material";
 import { MatchersPanel } from "./player/MatchersPanel";
-import { PlaybackProvider, usePlayback } from "./player/PlaybackProvider";
+import PlaybackProvider, { usePlayback } from "./player/PlaybackProvider";
 import { PlayerControls } from "./player/PlayerControls";
 import { SourceControl } from "./player/SourceControl";
 import { StateInfo } from "./player/StateInfo";

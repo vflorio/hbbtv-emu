@@ -112,37 +112,37 @@ export class NativeAdapter {
       duration: Number.isFinite(this.video.duration) ? this.video.duration : 0,
       width: this.video.videoWidth,
       height: this.video.videoHeight,
-    });
+    })();
   };
 
   private onTimeUpdate = () => {
     if (!this.video) return;
-    this.emit({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(this.video) });
+    this.emit({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(this.video) })();
   };
 
   private onPlaying = () => {
     if (!this.video) return;
-    this.emit({ _tag: "Engine/Playing", snapshot: snapshotOf(this.video) });
+    this.emit({ _tag: "Engine/Playing", snapshot: snapshotOf(this.video) })();
   };
 
   private onPause = () => {
     if (!this.video) return;
-    this.emit({ _tag: "Engine/Paused", snapshot: snapshotOf(this.video) });
+    this.emit({ _tag: "Engine/Paused", snapshot: snapshotOf(this.video) })();
   };
 
   private onWaiting = () => {
     if (!this.video) return;
-    this.emit({ _tag: "Engine/Waiting", snapshot: snapshotOf(this.video) });
+    this.emit({ _tag: "Engine/Waiting", snapshot: snapshotOf(this.video) })();
   };
 
   private onEnded = () => {
     if (!this.video) return;
-    this.emit({ _tag: "Engine/Ended", snapshot: snapshotOf(this.video) });
+    this.emit({ _tag: "Engine/Ended", snapshot: snapshotOf(this.video) })();
   };
 
   private onSeeked = () => {
     if (!this.video) return;
-    this.emit({ _tag: "Engine/Seeked", snapshot: snapshotOf(this.video) });
+    this.emit({ _tag: "Engine/Seeked", snapshot: snapshotOf(this.video) })();
   };
 
   private onError = () => {
@@ -154,7 +154,7 @@ export class NativeAdapter {
       message: err ? `MediaError ${err.code}` : "Unknown media error",
       url: this.url ?? undefined,
       cause: err ?? undefined,
-    });
+    })();
   };
 }
 

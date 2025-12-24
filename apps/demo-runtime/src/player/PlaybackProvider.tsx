@@ -1,13 +1,11 @@
-import { Matchers, type PlayerEvent, PlayerRuntime, type PlayerRuntimeError, type PlayerState } from "@hbb-emu/player";
+import { Matchers, type PlayerEvent, PlayerRuntime, type PlayerState } from "@hbb-emu/player";
 import { Box } from "@mui/material";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
-import * as TE from "fp-ts/TaskEither";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { match, P } from "ts-pattern";
 
 export type PlaybackContextType = {
   playbackType: string | null;
@@ -23,7 +21,7 @@ export type PlaybackContextType = {
 
 const PlaybackContext = createContext<PlaybackContextType | null>(null);
 
-export function PlaybackProvider({ children }: { children: ReactNode }) {
+export default function PlaybackProvider({ children }: { children: ReactNode }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const runtimeRef = useRef<PlayerRuntime | null>(null);
   const playerStateRef = useRef<PlayerState.Any | null>(null);
@@ -48,13 +46,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setError(Matchers.getError(state)?.message ?? null);
       setIsLoading(Matchers.isLoading(state));
 
-      setPlaybackType(
-        pipe(
-          IOO.fromNullable(runtimeRef.current),
-          IOO.flatMap((runtime) => IOO.fromOption(runtime.getPlaybackType())),
-          IOO.toNullable,
-        )(),
+      const getPlaybackType = pipe(
+        IOO.fromNullable(runtimeRef.current),
+        IOO.flatMap((runtime) => IOO.fromOption(runtime.getPlaybackType())),
+        IOO.toNullable,
       );
+      setPlaybackType(getPlaybackType());
     };
 
     runtime.subscribe(onStateChange);
@@ -83,27 +80,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       ),
     );
 
-    const updateError =
-      (error: PlayerRuntimeError): IO.IO<void> =>
-      () =>
-        setError(
-          match(error)
-            .with({ message: P.string }, (e) => `Player Runtime Error: ${e.message}`)
-            .otherwise(() => "Player runtime Error: Unknown error"),
-        );
-
     const mountVideoElement = pipe(
       deps,
       O.match(
         () => T.of(undefined),
-        ({ runtime, video }) =>
-          pipe(
-            runtime.mount(video),
-            TE.matchE(
-              (error) => T.fromIO(() => updateError(error)),
-              () => T.of(undefined),
-            ),
-          ),
+        ({ runtime, video }) => runtime.mount(video),
       ),
     );
 
@@ -209,10 +190,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function usePlayback() {
+export const usePlayback = () => {
   const context = useContext(PlaybackContext);
   if (!context) {
     throw new Error("usePlayback must be used within PlaybackProvider");
   }
   return context;
-}
+};
