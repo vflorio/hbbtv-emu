@@ -8,6 +8,7 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
+import { EventBus } from "./eventBus";
 import { initialState, reduce } from "./reducer";
 import type { PlayerState } from "./states";
 import type {
@@ -18,6 +19,7 @@ import type {
   PlayerCoreRuntime,
   PlayerEffect,
   PlayerEvent,
+  PlayerEventListener,
   PlayerStateListener,
   ReduceResult,
   UnsubscribeFn,
@@ -35,7 +37,8 @@ export class PlayerCore implements PlayerCoreRuntime<PlayerState.Any> {
   private adapter: O.Option<CoreAdapter> = O.none;
   private adapterUnsubscribe: O.Option<UnsubscribeFn> = O.none;
 
-  private listeners = new Set<PlayerStateListener<PlayerState.Any>>();
+  private stateBus = new EventBus<PlayerState.Any>();
+  private eventBus = new EventBus<PlayerEvent>();
 
   private eventQueue: PlayerEvent[] = [];
   private processing = false;
@@ -57,28 +60,20 @@ export class PlayerCore implements PlayerCoreRuntime<PlayerState.Any> {
     TE.Do,
     TE.flatMap(() => this.destroyAdapter()),
     TE.tapIO(() => () => {
-      this.listeners.clear();
+      this.stateBus.clear()();
+      this.eventBus.clear()();
     }),
   );
 
-  subscribe =
-    (listener: PlayerStateListener<PlayerState.Any>): IO.IO<UnsubscribeFn> =>
-    () => {
-      this.listeners.add(listener);
-      listener(this.state);
-      return () => this.listeners.delete(listener);
-    };
+  subscribeToState = (listener: PlayerStateListener<PlayerState.Any>): IO.IO<UnsubscribeFn> =>
+    this.stateBus.subscribe(listener, true, this.state);
+
+  subscribeToEvents = (listener: PlayerEventListener): IO.IO<UnsubscribeFn> => this.eventBus.subscribe(listener);
 
   dispatch = (event: PlayerEvent): T.Task<void> =>
     pipe(
       T.fromIO(() => {
-        if (this.config.onDispatch) {
-          try {
-            this.config.onDispatch(event);
-          } catch (cause) {
-            this.logger.warn("onDispatch handler threw", { cause, event })();
-          }
-        }
+        this.eventBus.notify(event)();
         this.eventQueue.push(event);
       }),
       T.flatMap(() => this.processQueue),
@@ -118,11 +113,7 @@ export class PlayerCore implements PlayerCoreRuntime<PlayerState.Any> {
         ),
       );
 
-    const notify = (state: PlayerState.Any): IO.IO<void> =>
-      pipe(
-        Array.from(this.listeners),
-        RA.traverse(IO.Applicative)((listener) => IO.of(listener(state))),
-      );
+    const notify = (state: PlayerState.Any): IO.IO<void> => this.stateBus.notify(state);
 
     const runEffect = (effect: PlayerEffect): TE.TaskEither<PlayerCoreError, void> =>
       pipe(

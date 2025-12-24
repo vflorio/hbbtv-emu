@@ -1,7 +1,7 @@
-import type { PlayerCore } from "@hbb-emu/player-core";
+import type { PlayerCore, PlayerState } from "@hbb-emu/player-core";
 import { Box, Button, Chip, Paper, Stack, TextField, Typography } from "@mui/material";
 import * as O from "fp-ts/Option";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const sampleSources = [
   {
@@ -17,11 +17,17 @@ const sampleSources = [
 
 export function SourceControl({ core, isLoading }: { core: PlayerCore; isLoading: boolean }) {
   const [inputSource, setInputSource] = useState<string>(sampleSources[0].url);
+  const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = core.subscribeToState(setPlayerState)();
+    return () => unsubscribe();
+  }, [core]);
 
   const playbackType = useMemo(() => {
     const opt = core.getPlaybackType();
     return O.isSome(opt) ? opt.value : null;
-  }, [core, isLoading]);
+  }, [core, playerState]);
 
   const loadSource = (url: string) => core.dispatch({ _tag: "Intent/LoadRequested", url })();
 

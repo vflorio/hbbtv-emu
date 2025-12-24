@@ -29,45 +29,30 @@ type NewRuntimeDebugEntry =
       readonly to: string;
     };
 
-const DISPATCH_WRAPPED = Symbol.for("@hbb-emu/player-ui/dispatch-wrapped");
-
-type DispatchFn = PlayerCore["dispatch"];
-
-type WrappedDispatchMeta = {
-  original: DispatchFn;
-  wrapCount: number;
-};
-
-const getWrappedMeta = (core: PlayerCore): WrappedDispatchMeta | null =>
-  (core as unknown as Record<symbol, unknown>)[DISPATCH_WRAPPED] as WrappedDispatchMeta | null;
-
-const setWrappedMeta = (core: PlayerCore, meta: WrappedDispatchMeta | null) => {
-  const bag = core as unknown as Record<symbol, unknown>;
-  if (meta === null) {
-    delete bag[DISPATCH_WRAPPED];
-  } else {
-    bag[DISPATCH_WRAPPED] = meta;
-  }
-};
-
 export function usePlayerDebug(core: PlayerCore) {
   const nextIdRef = useRef(1);
   const previousStateTagRef = useRef<string | null>(null);
 
+  const entriesRef = useRef<RuntimeDebugEntry[]>([]);
+
   const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
-  const [entries, setEntries] = useState<readonly RuntimeDebugEntry[]>([]);
+  const [entriesVersion, setEntriesVersion] = useState(0);
 
   const pushEntry = (entry: NewRuntimeDebugEntry) => {
     const id = nextIdRef.current++;
-    setEntries((prev) => {
-      const nextEntry = { ...entry, id } as RuntimeDebugEntry;
-      const next = prev.concat([nextEntry]);
-      return next.length > 200 ? next.slice(next.length - 200) : next;
-    });
+    const nextEntry = { ...entry, id } as RuntimeDebugEntry;
+    entriesRef.current.push(nextEntry);
+    setEntriesVersion((v) => v + 1);
   };
 
+  const clearEntries = () => {
+    entriesRef.current.length = 0;
+    setEntriesVersion((v) => v + 1);
+  };
+
+  // Subscribe to state changes
   useEffect(() => {
-    const unsubscribe = core.subscribe((state: PlayerState.Any) => {
+    const unsubscribe = core.subscribeToState((state: PlayerState.Any) => {
       const prev = previousStateTagRef.current;
       if (prev !== null && prev !== state._tag) {
         pushEntry({
@@ -87,26 +72,9 @@ export function usePlayerDebug(core: PlayerCore) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [core]);
 
+  // Subscribe to events
   useEffect(() => {
-    const meta = getWrappedMeta(core);
-    if (meta) {
-      setWrappedMeta(core, { ...meta, wrapCount: meta.wrapCount + 1 });
-      return () => {
-        const m = getWrappedMeta(core);
-        if (!m) return;
-        const next = m.wrapCount - 1;
-        if (next <= 0) {
-          core.dispatch = m.original;
-          setWrappedMeta(core, null);
-        } else {
-          setWrappedMeta(core, { ...m, wrapCount: next });
-        }
-      };
-    }
-
-    const original = core.dispatch.bind(core);
-
-    const wrapped: DispatchFn = (event: PlayerEvent) => {
+    const unsubscribe = core.subscribeToEvents((event: PlayerEvent) => {
       const kind: RuntimeDebugEntry["kind"] = event._tag.startsWith("Intent/")
         ? "intent"
         : event._tag.startsWith("Engine/")
@@ -115,28 +83,17 @@ export function usePlayerDebug(core: PlayerCore) {
             ? "core-error"
             : "error";
 
+      console.log("[usePlayerDebug] Event received:", event._tag, "kind:", kind);
       pushEntry({ kind, time: Date.now(), event });
-      return original(event);
-    };
-
-    core.dispatch = wrapped;
-    setWrappedMeta(core, { original, wrapCount: 1 });
+    })();
 
     return () => {
-      const m = getWrappedMeta(core);
-      if (!m) return;
-      const next = m.wrapCount - 1;
-      if (next <= 0) {
-        core.dispatch = m.original;
-        setWrappedMeta(core, null);
-      } else {
-        setWrappedMeta(core, { ...m, wrapCount: next });
-      }
+      unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [core]);
 
-  const latest = useMemo(() => entries.slice(-200), [entries]);
+  const entries = useMemo(() => entriesRef.current as readonly RuntimeDebugEntry[], [entriesVersion]);
 
-  return { playerState, entries: latest };
+  return { playerState, entries, entriesVersion, clearEntries };
 }

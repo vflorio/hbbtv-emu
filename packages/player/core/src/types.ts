@@ -84,8 +84,9 @@ export type UnsubscribeFn = () => void;
 
 export type PlayerCoreConfig = Readonly<{
   readonly adapters: Record<PlaybackType, CoreAdapter>;
-  readonly onDispatch?: (event: PlayerEvent) => void;
 }>;
+
+export type PlayerEventListener = (event: PlayerEvent) => void;
 
 export interface PlayerCoreRuntime<T> {
   getState: IO.IO<T>;
@@ -93,7 +94,8 @@ export interface PlayerCoreRuntime<T> {
   mount: (videoElement: HTMLVideoElement) => T.Task<void>;
   destroy: TE.TaskEither<PlayerCoreError, void>;
   dispatch: (event: PlayerEvent) => T.Task<void>;
-  subscribe: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
+  subscribeToState: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
+  subscribeToEvents: (listener: PlayerEventListener) => IO.IO<UnsubscribeFn>;
 }
 
 // =============================================================================

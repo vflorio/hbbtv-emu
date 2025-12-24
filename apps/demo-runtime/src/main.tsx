@@ -1,7 +1,7 @@
 import { AppBar, Box, Button, CssBaseline, Stack, Toolbar } from "@mui/material";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PlayerDemo } from "./PlayerDemo";
+import { PlayerDemo } from "./Player";
 import { RuntimeDemo } from "./RuntimeDemo";
 
 function App() {

@@ -1,3 +1,4 @@
+import { createLogger } from "@hbb-emu/core";
 import { isLoading, type PlayerState } from "@hbb-emu/player-core";
 import { Overlay } from "@hbb-emu/player-ui";
 import Box from "@mui/material/Box";
@@ -6,15 +7,13 @@ import { useEffect, useRef, useState } from "react";
 import { SourceControl } from "./SourceControl";
 import { usePlayerCore } from "./usePlayerCore";
 
+const logger = createLogger("DemoRuntime:Player");
+
 export function PlayerDemo() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
 
-  const core = usePlayerCore({
-    onDispatch: (event) => {
-      console.log("[PlayerDemo] Dispatched event:", event);
-    },
-  });
+  const core = usePlayerCore();
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -22,7 +21,14 @@ export function PlayerDemo() {
   }, [core]);
 
   useEffect(() => {
-    const unsubscribe = core.subscribe((state) => setPlayerState(state))();
+    const unsubscribe = core.subscribeToState((state) => setPlayerState(state))();
+    return () => unsubscribe();
+  }, [core]);
+
+  useEffect(() => {
+    const unsubscribe = core.subscribeToEvents((event) => {
+      logger.info("Dispatched event:", event)();
+    })();
     return () => unsubscribe();
   }, [core]);
 
