@@ -5,17 +5,16 @@
  * Each test validates: initial state -> event -> expected state + effects
  */
 
+import { NativeAdapter } from "@hbb-emu/player-adapter-web";
+import { PlayerCore, type PlayerEvent } from "@hbb-emu/player-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NativeAdapter } from "../adapters/native";
-import { PlayerRuntime } from "../runtime";
-import type { PlayerEvent } from "../types";
 
 vi.mock("../adapters/native", () => ({
   NativeAdapter: vi.fn(),
 }));
 
-describe("PlayerRuntime - State Machine Transitions", () => {
-  let runtime: PlayerRuntime;
+describe("PlayerCore - State Machine Transitions", () => {
+  let runtime: PlayerCore;
   let videoElement: HTMLVideoElement;
   let mockAdapter: ReturnType<typeof createMockAdapter>;
   let adapterEventListener: ((event: PlayerEvent) => void) | undefined;
@@ -55,7 +54,7 @@ describe("PlayerRuntime - State Machine Transitions", () => {
       return mockAdapter as any;
     });
 
-    runtime = new PlayerRuntime();
+    runtime = new PlayerCore();
     videoElement = document.createElement("video");
   });
 
@@ -419,7 +418,7 @@ describe("PlayerRuntime - State Machine Transitions", () => {
 // Test Utilities
 // ============================================================================
 
-async function setupState(runtime: PlayerRuntime, videoElement: HTMLVideoElement, targetState: string): Promise<void> {
+async function setupState(runtime: PlayerCore, videoElement: HTMLVideoElement, targetState: string): Promise<void> {
   await runtime.mount(videoElement)();
 
   switch (targetState) {

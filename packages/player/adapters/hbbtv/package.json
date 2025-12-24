@@ -29,9 +29,9 @@
     "clean": "rm -rf dist",
     "dev": "tsc --watch",
     "test": "vitest",
-    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:ui": "vitest --ui"
   },
   "type": "module",
   "types": "./dist/index.d.ts"

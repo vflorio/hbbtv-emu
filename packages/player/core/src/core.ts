@@ -15,7 +15,7 @@ import type {
   PlaybackType,
   PlayerCoreConfig,
   PlayerCoreError,
-  PlayerCore as PlayerCoreI,
+  PlayerCoreRuntime,
   PlayerEffect,
   PlayerEvent,
   PlayerStateListener,
@@ -23,7 +23,7 @@ import type {
   UnsubscribeFn,
 } from "./types";
 
-export class PlayerCore implements PlayerCoreI<PlayerState.Any> {
+export class PlayerCore implements PlayerCoreRuntime<PlayerState.Any> {
   constructor(private readonly config: PlayerCoreConfig) {}
 
   private readonly logger = createLogger("Player:Core");

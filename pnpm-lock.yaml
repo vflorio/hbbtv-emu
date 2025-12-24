@@ -295,6 +295,62 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/player/adapters/hbbtv:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../../../extension/common
+      '@hbb-emu/oipf':
+        specifier: workspace:*
+        version: link:../../../oipf
+      dashjs:
+        specifier: 5.1.0
+        version: 5.1.0
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      hls.js:
+        specifier: 1.6.15
+        version: 1.6.15
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+    devDependencies:
+      io-ts:
+        specifier: 2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/player/adapters/web:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../../core
+      '@hbb-emu/player-core':
+        specifier: workspace:*
+        version: link:../../core
+      dashjs:
+        specifier: 5.1.0
+        version: 5.1.0
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      hls.js:
+        specifier: 1.6.15
+        version: 1.6.15
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+    devDependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/player/core:
     dependencies:
       '@hbb-emu/core':
@@ -316,6 +372,31 @@ importers:
       io-ts:
         specifier: 2.2.22
         version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/player/runtime:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../../extension/common
+      '@hbb-emu/player-adapter-web':
+        specifier: workspace:*
+        version: link:../adapters/web
+      '@hbb-emu/player-core':
+        specifier: workspace:*
+        version: link:../core
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+    devDependencies:
       typescript:
         specifier: 5.9.3
         version: 5.9.3

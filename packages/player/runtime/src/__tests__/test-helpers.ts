@@ -1,7 +1,7 @@
+import type { PlayerEvent, UnsubscribeFn } from "@hbb-emu/player-core";
 import type * as IO from "fp-ts/IO";
 import type * as T from "fp-ts/Task";
 import { type Mock, vi } from "vitest";
-import type { PlayerEvent, UnsubscribeFn } from "../types";
 
 export type MockAdapter = {
   readonly type: string;

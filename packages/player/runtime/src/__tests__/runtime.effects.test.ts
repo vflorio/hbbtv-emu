@@ -1,14 +1,13 @@
+import { NativeAdapter } from "@hbb-emu/player-adapter-web";
+import { PlayerCore, type PlayerEvent } from "@hbb-emu/player-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NativeAdapter } from "../adapters/native";
-import { PlayerRuntime } from "../runtime";
-import type { PlayerEvent } from "../types";
 
-vi.mock("../adapters/native", () => ({
+vi.mock("@hbb-emu/player-adapter-web", () => ({
   NativeAdapter: vi.fn(),
 }));
 
-describe("PlayerRuntime - Effects Execution", () => {
-  let runtime: PlayerRuntime;
+describe("PlayerCore - Effects Execution", () => {
+  let runtime: PlayerCore;
   let mockAdapter: ReturnType<typeof createMockAdapter>;
   let videoElement: HTMLVideoElement;
 
@@ -18,7 +17,7 @@ describe("PlayerRuntime - Effects Execution", () => {
       return mockAdapter as any;
     });
 
-    runtime = new PlayerRuntime();
+    runtime = new PlayerCore({ adapters: {} as any }); // FIXME
     videoElement = document.createElement("video");
   });
 
@@ -155,7 +154,7 @@ describe("PlayerRuntime - Effects Execution", () => {
 
     it("should not call play() if not in valid state", async () => {
       // Reset to idle
-      runtime = new PlayerRuntime();
+      runtime = new PlayerCore();
       await runtime.mount(videoElement)();
 
       await runtime.dispatch({ _tag: "Intent/PlayRequested" })();
@@ -165,7 +164,7 @@ describe("PlayerRuntime - Effects Execution", () => {
     });
 
     it("should not call pause() if not playing", async () => {
-      runtime = new PlayerRuntime();
+      runtime = new PlayerCore();
       await runtime.mount(videoElement)();
 
       await runtime.dispatch({ _tag: "Intent/PauseRequested" })();
@@ -175,7 +174,7 @@ describe("PlayerRuntime - Effects Execution", () => {
     });
 
     it("should not call seek() if no media loaded", async () => {
-      runtime = new PlayerRuntime();
+      runtime = new PlayerCore();
       await runtime.mount(videoElement)();
 
       await runtime.dispatch({ _tag: "Intent/SeekRequested", time: 30 })();
@@ -454,7 +453,7 @@ describe("PlayerRuntime - Effects Execution", () => {
 // Test Utilities
 // ============================================================================
 
-async function setupPlayableState(runtime: PlayerRuntime, videoElement: HTMLVideoElement) {
+async function setupPlayableState(runtime: PlayerCore, videoElement: HTMLVideoElement) {
   await runtime.mount(videoElement)();
   await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
   await runtime.dispatch({

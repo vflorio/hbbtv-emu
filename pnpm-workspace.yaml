@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - packages/player/*
+  - packages/player/adapters/*
   - packages/extension/*
 
 onlyBuiltDependencies:

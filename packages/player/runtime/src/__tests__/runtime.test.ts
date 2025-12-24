@@ -1,18 +1,16 @@
+import { NativeAdapter } from "@hbb-emu/player-adapter-web";
+import { PlayerCore, PlayerState } from "@hbb-emu/player-core";
 import * as E from "fp-ts/Either";
 import * as O from "fp-ts/Option";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PlayerState } from "../../state/states";
-import { NativeAdapter } from "../adapters/native";
-import { PlayerRuntime } from "../runtime";
-import type { PlayerStateListener } from "../types";
 
 // Mock only the adapter, NOT the reducer
 vi.mock("../adapters/native", () => ({
   NativeAdapter: vi.fn(),
 }));
 
-describe("PlayerRuntime - Complete Test Suite", () => {
-  let runtime: PlayerRuntime;
+describe("PlayerCore - Complete Test Suite", () => {
+  let runtime: PlayerCore;
   let mockAdapter: ReturnType<typeof createMockAdapter>;
   let videoElement: HTMLVideoElement;
 
@@ -22,7 +20,7 @@ describe("PlayerRuntime - Complete Test Suite", () => {
       return mockAdapter as any;
     });
 
-    runtime = new PlayerRuntime();
+    runtime = new PlayerCore({} as any); // FIXME;
     videoElement = document.createElement("video");
   });
 
@@ -174,7 +172,7 @@ describe("PlayerRuntime - Complete Test Suite", () => {
   describe("onDispatch (config)", () => {
     it("should call onDispatch for dispatched events", async () => {
       const onDispatch = vi.fn();
-      runtime = new PlayerRuntime({ onDispatch });
+      runtime = new PlayerCore({ onDispatch } as any); // FIXME
 
       await runtime.dispatch({ _tag: "Intent/PlayRequested" })();
 
@@ -184,7 +182,7 @@ describe("PlayerRuntime - Complete Test Suite", () => {
 
     it("should call onDispatch also for internal dispatches (mount -> Engine/Mounted)", async () => {
       const onDispatch = vi.fn();
-      runtime = new PlayerRuntime({ onDispatch });
+      runtime = new PlayerCore({ onDispatch } as any); // FIXME
 
       await runtime.mount(videoElement)();
       await waitForProcessing();

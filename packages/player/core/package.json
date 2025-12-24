@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/player-runtime",
+  "name": "@hbb-emu/player-core",
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
@@ -27,9 +27,9 @@
     "clean": "rm -rf dist",
     "dev": "tsc --watch",
     "test": "vitest",
-    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:ui": "vitest --ui"
   },
   "type": "module",
   "types": "./dist/index.d.ts"

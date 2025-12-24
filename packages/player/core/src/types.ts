@@ -87,7 +87,7 @@ export type PlayerCoreConfig = Readonly<{
   readonly onDispatch?: (event: PlayerEvent) => void;
 }>;
 
-export interface PlayerCore<T> {
+export interface PlayerCoreRuntime<T> {
   getState: IO.IO<T>;
   getPlaybackType: IOO.IOOption<PlaybackType>;
   mount: (videoElement: HTMLVideoElement) => T.Task<void>;

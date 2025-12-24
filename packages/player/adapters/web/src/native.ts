@@ -1,7 +1,7 @@
+import type { CoreAdapter, PlaybackSnapshot, PlayerEngineEvent, UnsubscribeFn } from "@hbb-emu/player-core";
 import type * as IO from "fp-ts/IO";
 import type * as T from "fp-ts/Task";
-import type { NativeConfig } from "../../playback/types";
-import type { PlaybackSnapshot, PlayerEngineEvent, UnsubscribeFn } from "../runtime/types";
+import type { NativeConfig } from ".";
 
 type Listener = (event: PlayerEngineEvent) => void;
 
@@ -13,7 +13,7 @@ const snapshotOf = (video: HTMLVideoElement): PlaybackSnapshot => ({
   paused: video.paused,
 });
 
-export class NativeAdapter {
+export class NativeAdapter implements CoreAdapter {
   readonly type = "native" as const;
   readonly name = "Native HTML5";
 
