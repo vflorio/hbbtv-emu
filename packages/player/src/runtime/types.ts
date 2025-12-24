@@ -64,6 +64,10 @@ export type UnsubscribeFn = () => void;
 
 export type PlayerStateListener<T> = (state: T) => void;
 
+export type PlayerRuntimeConfig = Readonly<{
+  readonly onDispatch?: (event: PlayerEvent) => void;
+}>;
+
 export interface PlayerRuntime<T> {
   getState: IO.IO<T>;
   getPlaybackType: IOO.IOOption<PlaybackType>;

@@ -4,6 +4,7 @@ import PlaybackProvider, { usePlayback } from "./player/PlaybackProvider";
 import { PlayerControls } from "./player/PlayerControls";
 import { SourceControl } from "./player/SourceControl";
 import { StateInfo } from "./player/StateInfo";
+import { TransitionsPanel } from "./player/TransitionsPanel";
 
 function App() {
   const { error, renderVideoElement } = usePlayback();
@@ -22,6 +23,7 @@ function App() {
         <Stack gap={2}>
           <SourceControl />
           <StateInfo />
+          <TransitionsPanel />
         </Stack>
         <MatchersPanel />
       </Stack>

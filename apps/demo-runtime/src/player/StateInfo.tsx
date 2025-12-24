@@ -1,8 +1,11 @@
 import { Box, Paper, Stack, Typography } from "@mui/material";
+import { useMemo } from "react";
+import { getMatcherResults } from "./matcherResults";
 import { usePlayback } from "./PlaybackProvider";
 
 export function StateInfo() {
-  const { playerState, playbackType, matcherResults } = usePlayback();
+  const { playerState, playbackType } = usePlayback();
+  const matcherResults = useMemo(() => getMatcherResults(playerState), [playerState]);
 
   return (
     <Paper sx={{ p: 2, mb: 2 }}>

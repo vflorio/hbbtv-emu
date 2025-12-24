@@ -15,6 +15,7 @@ import { initialState, reduce } from "./reducer";
 import type {
   PlayerEffect,
   PlayerEvent,
+  PlayerRuntimeConfig,
   PlayerRuntimeError,
   PlayerRuntime as PlayerRuntimeI,
   PlayerStateListener,
@@ -24,6 +25,8 @@ import type {
 } from "./types";
 
 export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
+  constructor(private readonly config: PlayerRuntimeConfig = {}) {}
+
   private state: PlayerState.Any = initialState();
   private playbackType: O.Option<PlaybackType> = O.none;
 
@@ -70,6 +73,13 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
   dispatch = (event: PlayerEvent): T.Task<void> =>
     pipe(
       T.fromIO(() => {
+        if (this.config.onDispatch) {
+          try {
+            this.config.onDispatch(event);
+          } catch (cause) {
+            this.logger.warn("onDispatch handler threw", { cause, event })();
+          }
+        }
         this.eventQueue.push(event);
       }),
       T.flatMap(() => this.processQueue),

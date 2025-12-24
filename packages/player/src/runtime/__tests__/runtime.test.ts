@@ -168,6 +168,32 @@ describe("PlayerRuntime - Complete Test Suite", () => {
   });
 
   // ============================================================================
+  // Dispatch Hooks
+  // ============================================================================
+
+  describe("onDispatch (config)", () => {
+    it("should call onDispatch for dispatched events", async () => {
+      const onDispatch = vi.fn();
+      runtime = new PlayerRuntime({ onDispatch });
+
+      await runtime.dispatch({ _tag: "Intent/PlayRequested" })();
+
+      expect(onDispatch).toHaveBeenCalledTimes(1);
+      expect(onDispatch).toHaveBeenCalledWith({ _tag: "Intent/PlayRequested" });
+    });
+
+    it("should call onDispatch also for internal dispatches (mount -> Engine/Mounted)", async () => {
+      const onDispatch = vi.fn();
+      runtime = new PlayerRuntime({ onDispatch });
+
+      await runtime.mount(videoElement)();
+      await waitForProcessing();
+
+      expect(onDispatch).toHaveBeenCalledWith({ _tag: "Engine/Mounted" });
+    });
+  });
+
+  // ============================================================================
   // Mount
   // ============================================================================
 

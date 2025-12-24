@@ -1,7 +1,9 @@
 import { Box, Paper, Stack, Typography } from "@mui/material";
+import { useMemo } from "react";
+import { getMatcherResults } from "./matcherResults";
 import { usePlayback } from "./PlaybackProvider";
 
-function MatcherItem({ label, value }: { label: string; value: any }) {
+function MatcherItem({ label, value }: { label: string; value: unknown }) {
   const color = value === true ? "success.main" : value === false ? "text.disabled" : "info.main";
   return (
     <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.25 }}>
@@ -14,7 +16,8 @@ function MatcherItem({ label, value }: { label: string; value: any }) {
 }
 
 export function MatchersPanel() {
-  const { matcherResults } = usePlayback();
+  const { playerState } = usePlayback();
+  const matcherResults = useMemo(() => getMatcherResults(playerState), [playerState]);
 
   return (
     <Box>

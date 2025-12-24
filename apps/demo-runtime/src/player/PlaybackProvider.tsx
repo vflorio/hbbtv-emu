@@ -1,176 +1,112 @@
 import { Matchers, type PlayerEvent, PlayerRuntime, type PlayerState } from "@hbb-emu/player";
 import { Box } from "@mui/material";
 import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
-import * as O from "fp-ts/Option";
-import * as T from "fp-ts/Task";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 
-export type PlaybackContextType = {
-  playbackType: string | null;
-  playerState: PlayerState.Any | null;
-  videoElement: HTMLVideoElement | null;
-  error: string | null;
-  isLoading: boolean;
-  loadSource: (source: string) => void;
-  dispatch: (event: PlayerEvent) => void;
-  matcherResults: Record<string, any>;
-  renderVideoElement: () => ReactNode;
-};
+import type { PlaybackContextType, RuntimeDebugEntry } from "./types";
 
 const PlaybackContext = createContext<PlaybackContextType | null>(null);
 
 export default function PlaybackProvider({ children }: { children: ReactNode }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const runtimeRef = useRef<PlayerRuntime | null>(null);
-  const playerStateRef = useRef<PlayerState.Any | null>(null);
+  const previousStateTagRef = useRef<string | null>(null);
+  const nextDebugIdRef = useRef(1);
 
   const [source, setSource] = useState<string | null>(null);
+  const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [playbackType, setPlaybackType] = useState<string | null>(null);
-  const [machineIteration, setMachineIteration] = useState(0);
+  const [transitions, setTransitions] = useState<RuntimeDebugEntry[]>([]);
 
-  const [machineStateResults, setMachineStateResults] = useState<Record<string, any>>({});
+  useEffect(() => {
+    const runtime = new PlayerRuntime({
+      onDispatch: (event: PlayerEvent) => {
+        const kind: RuntimeDebugEntry["kind"] = event._tag.startsWith("Intent/")
+          ? "intent"
+          : event._tag === "Engine/Error"
+            ? "error"
+            : "engine";
 
-  const createRuntime: IO.IO<PlayerRuntime> = () => {
-    const runtime = new PlayerRuntime();
+        setTransitions((prev) => {
+          const next = prev.concat([
+            {
+              id: nextDebugIdRef.current++,
+              kind,
+              time: Date.now(),
+              event,
+            },
+          ]);
+          return next.length > 200 ? next.slice(next.length - 200) : next;
+        });
+      },
+    });
+    runtimeRef.current = runtime;
 
-    const onStateChange = (state: PlayerState.Any) => {
-      playerStateRef.current = state;
+    const unsubscribe = runtime.subscribe((state) => {
+      const prev = previousStateTagRef.current;
+      if (prev !== null && prev !== state._tag) {
+        setTransitions((entries) => {
+          const next = entries.concat([
+            {
+              id: nextDebugIdRef.current++,
+              kind: "state",
+              time: Date.now(),
+              from: prev,
+              to: state._tag,
+            },
+          ]);
+          return next.length > 200 ? next.slice(next.length - 200) : next;
+        });
+      }
+      previousStateTagRef.current = state._tag;
 
-      updateMachineStateResults(state);
-      setMachineIteration((current) => current + 1);
-
+      setPlayerState(state);
       setError(Matchers.getError(state)?.message ?? null);
       setIsLoading(Matchers.isLoading(state));
+      setPlaybackType(pipe(runtime.getPlaybackType, IOO.toNullable)());
+    })();
 
-      const getPlaybackType = pipe(
-        IOO.fromNullable(runtimeRef.current),
-        IOO.flatMap((runtime) => IOO.fromOption(runtime.getPlaybackType())),
-        IOO.toNullable,
-      );
-      setPlaybackType(getPlaybackType());
+    return () => {
+      unsubscribe();
     };
-
-    runtime.subscribe(onStateChange);
-
-    return runtime;
-  };
+  }, []);
 
   useEffect(() => {
-    const deps = pipe(
-      O.Do,
-      O.apS("runtime", O.fromNullable(runtimeRef.current)),
-      O.apS("video", O.fromNullable(videoRef.current)),
-    );
+    const runtime = runtimeRef.current;
+    const video = videoRef.current;
+    if (!runtime || !video) return;
 
-    const initializedRuntimeIfNotExists = pipe(
-      O.fromNullable(runtimeRef.current),
-      O.match(
-        () =>
-          pipe(
-            createRuntime,
-            IO.flatMap((runtime) => () => {
-              runtimeRef.current = runtime;
-            }),
-          ),
-        () => IO.of(undefined),
-      ),
-    );
+    runtime.mount(video)();
+  }, []);
 
-    const mountVideoElement = pipe(
-      deps,
-      O.match(
-        () => T.of(undefined),
-        ({ runtime, video }) => runtime.mount(video),
-      ),
-    );
-
-    const dispatchLoadIfSourceIsPresent = pipe(
-      O.Do,
-      O.apS("runtime", O.fromNullable(runtimeRef.current)),
-      O.apS("src", O.fromNullable(source)),
-      O.match(
-        () => T.of(undefined),
-        ({ runtime, src }) => runtime.dispatch({ _tag: "Intent/LoadRequested", url: src }),
-      ),
-    );
-
-    pipe(
-      T.fromIO(initializedRuntimeIfNotExists),
-      T.flatMap(() => mountVideoElement),
-      T.flatMap(() => dispatchLoadIfSourceIsPresent),
-    )();
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime || !source) return;
+    runtime.dispatch({ _tag: "Intent/LoadRequested", url: source })();
   }, [source]);
-
-  useEffect(() => {
-    pipe(
-      O.fromNullable(playerStateRef.current),
-      O.match(
-        () => setMachineStateResults({}),
-        (state) => updateMachineStateResults(state),
-      ),
-    );
-  }, [machineIteration]);
-
-  const updateMachineStateResults = (state: PlayerState.Any) =>
-    setMachineStateResults({
-      // State predicates
-      isPlayable: Matchers.isPlayable(state),
-      isError: Matchers.isError(state),
-      isRecoverable: Matchers.isRecoverable(state),
-      isFatal: Matchers.isFatal(state),
-      isControlState: Matchers.isControlState(state),
-      isSourceState: Matchers.isSourceState(state),
-      isHLSState: Matchers.isHLSState(state),
-      isDASHState: Matchers.isDASHState(state),
-      isMP4State: Matchers.isMP4State(state),
-
-      // Status predicates
-      isPlaying: Matchers.isPlaying(state),
-      isPaused: Matchers.isPaused(state),
-      isLoading: Matchers.isLoading(state),
-
-      // Capabilities
-      canSeek: Matchers.canSeek(state),
-      canControl: Matchers.canControl(state),
-
-      // Data extraction
-      currentTime: Matchers.getCurrentTime(state),
-      duration: Matchers.getDuration(state),
-      bufferedRanges: Matchers.getBufferedRanges(state),
-      error: Matchers.getError(state),
-      retryCount: Matchers.getRetryCount(state),
-
-      // Description
-      description: Matchers.getStateDescription(state),
-
-      // Raw state
-      _tag: state._tag,
-      _tagGroup: state._tagGroup,
-    });
 
   const loadSource = (newSource: string) => {
     setSource(newSource);
   };
 
   const dispatch = (event: PlayerEvent) => {
-    runtimeRef.current?.dispatch(event);
+    runtimeRef.current?.dispatch(event)();
   };
 
   return (
     <PlaybackContext.Provider
       value={{
         playbackType,
-        playerState: playerStateRef.current,
+        playerState,
         videoElement: videoRef.current,
         error,
         isLoading,
         loadSource,
         dispatch,
-        matcherResults: machineStateResults,
+        transitions,
         renderVideoElement: () => (
           <Box
             component="video"
@@ -180,6 +116,7 @@ export default function PlaybackProvider({ children }: { children: ReactNode }) 
               width: 720,
               height: "100%",
               bgcolor: "black",
+              aspectRatio: "16 / 9",
             }}
           />
         ),

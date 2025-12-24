@@ -1,8 +1,11 @@
 import { Button, Stack } from "@mui/material";
+import { useMemo } from "react";
+import { getMatcherResults } from "./matcherResults";
 import { usePlayback } from "./PlaybackProvider";
 
 export function PlayerControls() {
-  const { dispatch, matcherResults } = usePlayback();
+  const { dispatch, playerState } = usePlayback();
+  const matcherResults = useMemo(() => getMatcherResults(playerState), [playerState]);
 
   const handlePlay = () => dispatch({ _tag: "Intent/PlayRequested" });
   const handlePause = () => dispatch({ _tag: "Intent/PauseRequested" });
