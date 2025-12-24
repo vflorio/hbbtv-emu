@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/player-runtime",
+  "name": "@hbb-emu/player-core",
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",

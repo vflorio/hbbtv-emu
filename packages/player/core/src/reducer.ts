@@ -1,7 +1,6 @@
 import { match } from "ts-pattern";
-import type { PlaybackType } from "../playback/types";
-import { PlayerState } from "../state/states";
-import type { PlayerEvent, ReduceResult } from "./runtime/types";
+import { PlayerState } from "./states";
+import type { PlaybackType, PlayerEvent, ReduceResult } from "./types";
 
 export const initialState = (): PlayerState.Any => new PlayerState.Control.Idle();
 

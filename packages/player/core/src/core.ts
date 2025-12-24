@@ -8,35 +8,34 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import type { PlaybackType } from "../playback/types";
-import type { PlayerState } from "../state/states";
-import { NativeAdapter } from "./adapters/native";
 import { initialState, reduce } from "./reducer";
+import type { PlayerState } from "./states";
 import type {
+  CoreAdapter,
+  PlaybackType,
+  PlayerCoreConfig,
+  PlayerCoreError,
+  PlayerCore as PlayerCoreI,
   PlayerEffect,
   PlayerEvent,
-  PlayerRuntimeConfig,
-  PlayerRuntimeError,
-  PlayerRuntime as PlayerRuntimeI,
   PlayerStateListener,
   ReduceResult,
-  RuntimeAdapter,
   UnsubscribeFn,
-} from "./runtime/types";
+} from "./types";
 
-export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
-  constructor(private readonly config: PlayerRuntimeConfig = {}) {}
+export class PlayerCore implements PlayerCoreI<PlayerState.Any> {
+  constructor(private readonly config: PlayerCoreConfig) {}
+
+  private readonly logger = createLogger("Player:Core");
 
   private state: PlayerState.Any = initialState();
   private playbackType: O.Option<PlaybackType> = O.none;
 
   private videoElement: O.Option<HTMLVideoElement> = O.none;
-  private adapter: O.Option<RuntimeAdapter> = O.none;
+  private adapter: O.Option<CoreAdapter> = O.none;
   private adapterUnsubscribe: O.Option<UnsubscribeFn> = O.none;
 
   private listeners = new Set<PlayerStateListener<PlayerState.Any>>();
-
-  private readonly logger = createLogger("PlayerRuntime");
 
   private eventQueue: PlayerEvent[] = [];
   private processing = false;
@@ -54,7 +53,7 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       T.tap(() => this.dispatch({ _tag: "Engine/Mounted" })),
     );
 
-  destroy: TE.TaskEither<PlayerRuntimeError, void> = pipe(
+  destroy: TE.TaskEither<PlayerCoreError, void> = pipe(
     TE.Do,
     TE.flatMap(() => this.destroyAdapter()),
     TE.tapIO(() => () => {
@@ -115,7 +114,7 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
         IO.of(playerEvent),
         IO.map(reduce(this.state)),
         IO.tap(({ next }) =>
-          this.logger.info(`Runtime state transition: ${this.state._tag} -> ${next._tag}`, playerEvent),
+          this.logger.info(`Core state transition: ${this.state._tag} -> ${next._tag}`, playerEvent),
         ),
       );
 
@@ -125,7 +124,7 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
         RA.traverse(IO.Applicative)((listener) => IO.of(listener(state))),
       );
 
-    const runEffect = (effect: PlayerEffect): TE.TaskEither<PlayerRuntimeError, void> =>
+    const runEffect = (effect: PlayerEffect): TE.TaskEither<PlayerCoreError, void> =>
       pipe(
         TE.Do,
         TE.tapIO(() => this.logger.info(`Running effect: ${effect._tag}`)),
@@ -187,19 +186,16 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
 
   // Adapter effects
 
-  private createAdapter = (playbackType: PlaybackType): TE.TaskEither<PlayerRuntimeError, void> =>
+  private createAdapter = (playbackType: PlaybackType): TE.TaskEither<PlayerCoreError, void> =>
     pipe(
-      TE.right(new NativeAdapter() satisfies RuntimeAdapter), // FIXME: Adapter selection logic
+      O.fromNullable(this.config.adapters[playbackType]),
+      TE.fromOption<PlayerCoreError>(() => ({
+        _tag: "CoreError/NoAdapter" as const,
+        message: `No adapter found for playback type: ${playbackType}`,
+      })),
       TE.tapIO(() => () => {
         this.playbackType = O.some(playbackType);
       }),
-      TE.filterOrElse(
-        (adapter) => playbackType === adapter.type,
-        () => ({
-          _tag: "RuntimeError/NoAdapter" as const,
-          message: `No adapter found for playback type: ${playbackType}`,
-        }),
-      ),
       TE.tapIO((adapter) => () => {
         this.adapter = O.some(adapter);
         this.adapterUnsubscribe = O.some(adapter.subscribe((event) => this.dispatch(event)())());
@@ -208,17 +204,17 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
     );
 
   private adapterFailure = (
-    operation: Extract<PlayerRuntimeError, { _tag: "RuntimeError/AdapterFailure" }>["operation"],
+    operation: Extract<PlayerCoreError, { _tag: "CoreError/AdapterFailure" }>["operation"],
     message: string,
     cause?: unknown,
-  ): PlayerRuntimeError => ({
-    _tag: "RuntimeError/AdapterFailure",
+  ): PlayerCoreError => ({
+    _tag: "CoreError/AdapterFailure",
     operation,
     message,
     cause,
   });
 
-  private destroyAdapter = (): TE.TaskEither<PlayerRuntimeError, void> => {
+  private destroyAdapter = (): TE.TaskEither<PlayerCoreError, void> => {
     const notifyAndUnsub = pipe(
       TE.fromIO(() => this.adapterUnsubscribe),
       TE.tapIO(
@@ -274,8 +270,8 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       TE.bind("videoElement", () =>
         pipe(
           this.videoElement,
-          TE.fromOption<PlayerRuntimeError>(() => ({
-            _tag: "RuntimeError/NoVideoElement" as const,
+          TE.fromOption<PlayerCoreError>(() => ({
+            _tag: "CoreError/NoVideoElement" as const,
             message: "No video element mounted",
           })),
         ),
@@ -283,8 +279,8 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       TE.bind("adapter", () =>
         pipe(
           this.adapter,
-          TE.fromOption<PlayerRuntimeError>(() => ({
-            _tag: "RuntimeError/NoAdapter" as const,
+          TE.fromOption<PlayerCoreError>(() => ({
+            _tag: "CoreError/NoAdapter" as const,
             message: "No adapter to attach",
           })),
         ),
@@ -299,16 +295,16 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       ),
     );
 
-  private getAdapter = (): TE.TaskEither<PlayerRuntimeError, RuntimeAdapter> =>
+  private getAdapter = (): TE.TaskEither<PlayerCoreError, CoreAdapter> =>
     pipe(
       this.adapter,
-      TE.fromOption<PlayerRuntimeError>(() => ({
-        _tag: "RuntimeError/NoAdapter",
+      TE.fromOption<PlayerCoreError>(() => ({
+        _tag: "CoreError/NoAdapter",
         message: "No adapter available",
       })),
     );
 
-  private loadSource = (url: string): TE.TaskEither<PlayerRuntimeError, void> =>
+  private loadSource = (url: string): TE.TaskEither<PlayerCoreError, void> =>
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
@@ -319,7 +315,7 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       ),
     );
 
-  private playAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
+  private playAdapter = (): TE.TaskEither<PlayerCoreError, void> =>
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
@@ -330,7 +326,7 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       ),
     );
 
-  private pauseAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
+  private pauseAdapter = (): TE.TaskEither<PlayerCoreError, void> =>
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>
@@ -341,7 +337,7 @@ export class PlayerRuntime implements PlayerRuntimeI<PlayerState.Any> {
       ),
     );
 
-  private seekAdapter = (time: number): TE.TaskEither<PlayerRuntimeError, void> =>
+  private seekAdapter = (time: number): TE.TaskEither<PlayerCoreError, void> =>
     pipe(
       this.getAdapter(),
       TE.flatMap((adapter) =>

@@ -1,19 +1,25 @@
 /**
- * Types used in the Player Runtime system (Interface Discriminated Unions ADT)
+ * Types used in the Player Core system (Interface Discriminated Unions ADT)
  */
 import type * as IO from "fp-ts/IO";
 import type * as IOO from "fp-ts/IOOption";
 import type * as T from "fp-ts/Task";
 import type * as TE from "fp-ts/TaskEither";
-import type { PlaybackType } from "../playback/types";
-import type { TimeRange } from "../state/states";
-import type { NativeAdapter } from "./adapters/native";
+import type { TimeRange } from "./states";
+
+// =============================================================================
+// EVENTS - Intent Events (User Actions)
+// =============================================================================
 
 export type PlayerIntentEvent =
   | { readonly _tag: "Intent/LoadRequested"; readonly url: string }
   | { readonly _tag: "Intent/PlayRequested" }
   | { readonly _tag: "Intent/PauseRequested" }
   | { readonly _tag: "Intent/SeekRequested"; readonly time: number };
+
+// =============================================================================
+// EVENTS - Engine Events (Playback Engine Notifications)
+// =============================================================================
 
 export type PlaybackSnapshot = {
   readonly currentTime: number;
@@ -46,6 +52,10 @@ export type PlayerEngineEvent =
       readonly cause?: unknown;
     };
 
+// =============================================================================
+// EFFECTS - Side Effects to be Executed
+// =============================================================================
+
 export type PlayerEffect =
   | { readonly _tag: "Effect/DestroyAdapter" }
   | { readonly _tag: "Effect/CreateAdapter"; readonly playbackType: PlaybackType; readonly url: string }
@@ -55,39 +65,56 @@ export type PlayerEffect =
   | { readonly _tag: "Effect/Pause" }
   | { readonly _tag: "Effect/Seek"; readonly time: number };
 
+// =============================================================================
+// STATE MANAGEMENT - Reducer & Subscription Types
+// =============================================================================
+
 export type ReduceResult<T> = {
   readonly next: T;
   readonly effects: readonly PlayerEffect[];
 };
 
-export type UnsubscribeFn = () => void;
-
 export type PlayerStateListener<T> = (state: T) => void;
 
-export type PlayerRuntimeConfig = Readonly<{
+export type UnsubscribeFn = () => void;
+
+// =============================================================================
+// Core - Configuration & Interface
+// =============================================================================
+
+export type PlayerCoreConfig = Readonly<{
+  readonly adapters: Record<PlaybackType, CoreAdapter>;
   readonly onDispatch?: (event: PlayerEvent) => void;
 }>;
 
-export interface PlayerRuntime<T> {
+export interface PlayerCore<T> {
   getState: IO.IO<T>;
   getPlaybackType: IOO.IOOption<PlaybackType>;
   mount: (videoElement: HTMLVideoElement) => T.Task<void>;
-  destroy: TE.TaskEither<PlayerRuntimeError, void>;
+  destroy: TE.TaskEither<PlayerCoreError, void>;
   dispatch: (event: PlayerEvent) => T.Task<void>;
   subscribe: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
 }
 
-export type PlayerRuntimeError =
-  | { readonly _tag: "RuntimeError/NoAdapter"; readonly message: string }
-  | { readonly _tag: "RuntimeError/NoVideoElement"; readonly message: string }
+// =============================================================================
+// ERRORS - Core Error Types
+// =============================================================================
+
+export type PlayerCoreError =
+  | { readonly _tag: "CoreError/NoAdapter"; readonly message: string }
+  | { readonly _tag: "CoreError/NoVideoElement"; readonly message: string }
   | {
-      readonly _tag: "RuntimeError/AdapterFailure";
+      readonly _tag: "CoreError/AdapterFailure";
       readonly operation: "mount" | "load" | "play" | "pause" | "seek" | "destroy";
       readonly message: string;
       readonly cause?: unknown;
     };
 
-export type RuntimeAdapter = {
+// =============================================================================
+// ADAPTERS - Core Adapter Interface
+// =============================================================================
+
+export type CoreAdapter = {
   readonly type: PlaybackType;
   readonly name: string;
   mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
@@ -99,6 +126,15 @@ export type RuntimeAdapter = {
   subscribe: (listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>;
 };
 
-export type AnyAdapter = NativeAdapter;
+// =============================================================================
+// COMMON TYPES - Shared Types & Unions
+// =============================================================================
 
-export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent | PlayerRuntimeError;
+export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent | PlayerCoreError;
+
+export type PlaybackType = "native" | "hls" | "dash";
+
+export interface PlaybackData<TConfig> {
+  readonly source: string;
+  readonly config: TConfig;
+}

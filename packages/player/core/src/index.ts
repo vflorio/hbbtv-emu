@@ -1,2 +1,2 @@
-export { PlayerRuntime } from "./runtime";
-export * from "./runtime/types";
+export { PlayerCore } from "./core";
+export * from "./types";
