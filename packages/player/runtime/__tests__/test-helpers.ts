@@ -1,9 +1,9 @@
-import type { CoreAdapter, PlaybackType, PlayerEvent, UnsubscribeFn } from "@hbb-emu/player-core";
+import type { PlaybackType, PlayerEvent, RuntimeAdapter, UnsubscribeFn } from "@hbb-emu/player-runtime";
 import type * as IO from "fp-ts/IO";
 import type * as T from "fp-ts/Task";
 import { type Mock, vi } from "vitest";
 
-export type MockAdapter = CoreAdapter & {
+export type MockAdapter = RuntimeAdapter & {
   mount: Mock<(videoElement: HTMLVideoElement) => IO.IO<void>>;
   load: Mock<(url: string) => T.Task<void>>;
   play: Mock<T.Task<void>>;

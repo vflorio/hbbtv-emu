@@ -79,30 +79,30 @@ export type PlayerStateListener<T> = (state: T) => void;
 export type UnsubscribeFn = () => void;
 
 // =============================================================================
-// Core - Configuration & Interface
+// Runtime - Configuration & Interface
 // =============================================================================
 
-export type PlayerCoreConfig = Readonly<{
-  readonly adapters: Record<PlaybackType, CoreAdapter>;
+export type PlayerRuntimeConfig = Readonly<{
+  readonly adapters: Record<PlaybackType, RuntimeAdapter>;
 }>;
 
 export type PlayerEventListener = (event: PlayerEvent) => void;
 
-export interface PlayerCoreRuntime<T> {
+export interface PlayerRuntimeApi<T> {
   getState: IO.IO<T>;
   getPlaybackType: IOO.IOOption<PlaybackType>;
   mount: (videoElement: HTMLVideoElement) => T.Task<void>;
-  destroy: TE.TaskEither<PlayerCoreError, void>;
+  destroy: TE.TaskEither<PlayerRuntimeError, void>;
   dispatch: (event: PlayerEvent) => T.Task<void>;
   subscribeToState: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
   subscribeToEvents: (listener: PlayerEventListener) => IO.IO<UnsubscribeFn>;
 }
 
 // =============================================================================
-// ERRORS - Core Error Types
+// ERRORS - Runtime Error Types
 // =============================================================================
 
-export type PlayerCoreError =
+export type PlayerRuntimeError =
   | { readonly _tag: "CoreError/NoAdapter"; readonly message: string }
   | { readonly _tag: "CoreError/NoVideoElement"; readonly message: string }
   | {
@@ -113,10 +113,10 @@ export type PlayerCoreError =
     };
 
 // =============================================================================
-// ADAPTERS - Core Adapter Interface
+// ADAPTERS - Runtime Adapter Interface
 // =============================================================================
 
-export type CoreAdapter = {
+export type RuntimeAdapter = {
   readonly type: PlaybackType;
   readonly name: string;
   mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
@@ -132,7 +132,7 @@ export type CoreAdapter = {
 // COMMON TYPES - Shared Types & Unions
 // =============================================================================
 
-export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent | PlayerCoreError;
+export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent | PlayerRuntimeError;
 
 export type PlaybackType = "native" | "hls" | "dash";
 

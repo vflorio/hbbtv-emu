@@ -1,11 +1,11 @@
 import { NativeAdapter } from "@hbb-emu/player-adapter-web";
-import { PlayerCore } from "@hbb-emu/player-core";
+import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { useMemo } from "react";
 
-export const usePlayerCore = (): PlayerCore => {
-  const playerCore = useMemo(
+export const usePlayerRuntime = (): PlayerRuntime => {
+  const runtime = useMemo(
     () =>
-      new PlayerCore({
+      new PlayerRuntime({
         adapters: {
           native: new NativeAdapter(),
           hls: new NativeAdapter(),
@@ -15,5 +15,5 @@ export const usePlayerCore = (): PlayerCore => {
     [],
   );
 
-  return playerCore;
+  return runtime;
 };

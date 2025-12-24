@@ -2,8 +2,8 @@
  * State Machine Tests - validates transitions driven by reducer
  */
 
-import type { PlaybackSnapshot, PlayerCoreConfig } from "@hbb-emu/player-core";
-import { PlayerCore } from "@hbb-emu/player-core";
+import type { PlaybackSnapshot, PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
+import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMockAdapter, type MockAdapter } from "./test-helpers";
 
@@ -21,15 +21,15 @@ const createRuntime = () => {
   const hls = createMockAdapter("hls");
   const dash = createMockAdapter("dash");
 
-  const config: PlayerCoreConfig = {
+  const config: PlayerRuntimeConfig = {
     adapters: { native, hls, dash },
   };
 
-  return { runtime: new PlayerCore(config), native, hls, dash };
+  return { runtime: new PlayerRuntime(config), native, hls, dash };
 };
 
-describe("PlayerCore - State Machine", () => {
-  let runtime: PlayerCore;
+describe("PlayerRuntime - State Machine", () => {
+  let runtime: PlayerRuntime;
   let native: MockAdapter;
   let video: HTMLVideoElement;
 

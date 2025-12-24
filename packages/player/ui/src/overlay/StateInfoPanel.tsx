@@ -1,17 +1,23 @@
-import type { PlayerCore, PlayerState } from "@hbb-emu/player-core";
-import * as Matchers from "@hbb-emu/player-core";
+import type { PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
+import * as Matchers from "@hbb-emu/player-runtime";
 import { Box, Paper, Stack, Typography } from "@mui/material";
 import * as O from "fp-ts/Option";
 import { useMemo } from "react";
 import { getMatcherSnapshot } from "./matchersSnapshot";
 
-export function StateInfoPanel({ core, playerState }: { core: PlayerCore; playerState: PlayerState.Any | null }) {
+export function StateInfoPanel({
+  playerRuntime,
+  playerState,
+}: {
+  playerRuntime: PlayerRuntime;
+  playerState: PlayerState.Any | null;
+}) {
   const snapshot = useMemo(() => getMatcherSnapshot(playerState), [playerState]);
 
   const playbackType: string | null = useMemo(() => {
-    const opt = core.getPlaybackType();
+    const opt = playerRuntime.getPlaybackType();
     return O.isSome(opt) ? opt.value : null;
-  }, [core, playerState]);
+  }, [playerRuntime, playerState]);
 
   const currentTime = playerState
     ? (snapshot.extracted.find((i) => i.key === "getCurrentTime")?.value as number | null)

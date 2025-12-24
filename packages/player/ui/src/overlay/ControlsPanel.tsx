@@ -1,17 +1,23 @@
-import type { PlayerCore, PlayerEvent, PlayerState } from "@hbb-emu/player-core";
+import type { PlayerEvent, PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
 import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import type React from "react";
 import { useMemo } from "react";
 import { getMatcherSnapshot } from "./matchersSnapshot";
 
-function PlayerControls({ core, playerState }: { core: PlayerCore; playerState: PlayerState.Any | null }) {
+function PlayerControls({
+  playerRuntime,
+  playerState,
+}: {
+  playerRuntime: PlayerRuntime;
+  playerState: PlayerState.Any | null;
+}) {
   const snapshot = useMemo(() => getMatcherSnapshot(playerState), [playerState]);
 
   const canControl = snapshot.capabilities.find((i) => i.key === "canControl")?.value === true;
   const canSeek = snapshot.capabilities.find((i) => i.key === "canSeek")?.value === true;
   const isPlaying = snapshot.status.find((i) => i.key === "isPlaying")?.value === true;
 
-  const dispatch = (event: PlayerEvent) => core.dispatch(event)();
+  const dispatch = (event: PlayerEvent) => playerRuntime.dispatch(event)();
 
   const handlePlay = () => dispatch({ _tag: "Intent/PlayRequested" });
   const handlePause = () => dispatch({ _tag: "Intent/PauseRequested" });
@@ -37,7 +43,7 @@ export function ControlsPanel({
   playerState,
   videoRef,
 }: {
-  core: PlayerCore;
+  core: PlayerRuntime;
   playerState: PlayerState.Any | null;
   videoRef?: React.RefObject<HTMLVideoElement | null>;
 }) {
@@ -47,7 +53,7 @@ export function ControlsPanel({
         Controls
       </Typography>
 
-      <PlayerControls core={core} playerState={playerState} />
+      <PlayerControls playerRuntime={core} playerState={playerState} />
 
       <Box sx={{ mt: 1.0, display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
         {videoRef?.current?.src ? (

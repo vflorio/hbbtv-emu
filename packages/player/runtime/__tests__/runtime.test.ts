@@ -1,5 +1,5 @@
-import type { PlayerCoreConfig, PlayerEvent } from "@hbb-emu/player-core";
-import { PlayerCore } from "@hbb-emu/player-core";
+import type { PlayerEvent, PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
+import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import * as E from "fp-ts/Either";
 import * as O from "fp-ts/Option";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,15 +10,15 @@ const createRuntime = () => {
   const hls = createMockAdapter("hls");
   const dash = createMockAdapter("dash");
 
-  const config: PlayerCoreConfig = {
+  const config: PlayerRuntimeConfig = {
     adapters: { native, hls, dash },
   };
 
-  return { runtime: new PlayerCore(config), native, hls, dash };
+  return { runtime: new PlayerRuntime(config), native, hls, dash };
 };
 
-describe("PlayerCore - API surface", () => {
-  let runtime: PlayerCore;
+describe("PlayerRuntime - API surface", () => {
+  let runtime: PlayerRuntime;
   let native: MockAdapter;
   let video: HTMLVideoElement;
 

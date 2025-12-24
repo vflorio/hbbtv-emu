@@ -1,5 +1,5 @@
-import type { PlayerCoreConfig, PlayerEvent, PlaybackSnapshot } from "@hbb-emu/player-core";
-import { PlayerCore } from "@hbb-emu/player-core";
+import type { PlaybackSnapshot, PlayerEvent, PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
+import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import * as O from "fp-ts/Option";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockAdapter, type MockAdapter } from "./test-helpers";
@@ -9,11 +9,11 @@ const createRuntime = (overrides?: Partial<Record<"native" | "hls" | "dash", Moc
   const hls = overrides?.hls ?? createMockAdapter("hls");
   const dash = overrides?.dash ?? createMockAdapter("dash");
 
-  const config: PlayerCoreConfig = {
+  const config: PlayerRuntimeConfig = {
     adapters: { native, hls, dash },
   };
 
-  return { runtime: new PlayerCore(config), native, hls, dash };
+  return { runtime: new PlayerRuntime(config), native, hls, dash };
 };
 
 const createSnapshot = (overrides: Partial<PlaybackSnapshot> = {}): PlaybackSnapshot => ({
@@ -25,8 +25,8 @@ const createSnapshot = (overrides: Partial<PlaybackSnapshot> = {}): PlaybackSnap
   ...overrides,
 });
 
-describe("PlayerCore - Effects", () => {
-  let runtime: PlayerCore;
+describe("PlayerRuntime - Effects", () => {
+  let runtime: PlayerRuntime;
   let native: MockAdapter;
   let hls: MockAdapter;
   let dash: MockAdapter;

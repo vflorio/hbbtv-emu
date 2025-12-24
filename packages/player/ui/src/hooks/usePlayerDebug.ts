@@ -1,4 +1,4 @@
-import type { PlayerCore, PlayerEvent, PlayerState } from "@hbb-emu/player-core";
+import type { PlayerEvent, PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type RuntimeDebugEntry =
@@ -29,7 +29,7 @@ type NewRuntimeDebugEntry =
       readonly to: string;
     };
 
-export function usePlayerDebug(core: PlayerCore) {
+export function usePlayerDebug(playerRuntime: PlayerRuntime) {
   const nextIdRef = useRef(1);
   const previousStateTagRef = useRef<string | null>(null);
 
@@ -52,7 +52,7 @@ export function usePlayerDebug(core: PlayerCore) {
 
   // Subscribe to state changes
   useEffect(() => {
-    const unsubscribe = core.subscribeToState((state: PlayerState.Any) => {
+    const unsubscribe = playerRuntime.subscribeToState((state: PlayerState.Any) => {
       const prev = previousStateTagRef.current;
       if (prev !== null && prev !== state._tag) {
         pushEntry({
@@ -70,11 +70,11 @@ export function usePlayerDebug(core: PlayerCore) {
       unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [core]);
+  }, [playerRuntime]);
 
   // Subscribe to events
   useEffect(() => {
-    const unsubscribe = core.subscribeToEvents((event: PlayerEvent) => {
+    const unsubscribe = playerRuntime.subscribeToEvents((event: PlayerEvent) => {
       const kind: RuntimeDebugEntry["kind"] = event._tag.startsWith("Intent/")
         ? "intent"
         : event._tag.startsWith("Engine/")
@@ -91,7 +91,7 @@ export function usePlayerDebug(core: PlayerCore) {
       unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [core]);
+  }, [playerRuntime]);
 
   const entries = useMemo(() => entriesRef.current as readonly RuntimeDebugEntry[], [entriesVersion]);
 

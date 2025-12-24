@@ -115,9 +115,9 @@ importers:
       '@hbb-emu/player-adapter-web':
         specifier: workspace:*
         version: link:../../packages/player/adapters/web
-      '@hbb-emu/player-core':
+      '@hbb-emu/player-runtime':
         specifier: workspace:*
-        version: link:../../packages/player/core
+        version: link:../../packages/player/runtime
       '@hbb-emu/player-ui':
         specifier: workspace:*
         version: link:../../packages/player/ui
@@ -337,9 +337,9 @@ importers:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../../../core
-      '@hbb-emu/player-core':
+      '@hbb-emu/player-runtime':
         specifier: workspace:*
-        version: link:../../core
+        version: link:../../runtime
       dashjs:
         specifier: 5.1.0
         version: 5.1.0
@@ -357,7 +357,7 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/player/core:
+  packages/player/runtime:
     dependencies:
       '@hbb-emu/core':
         specifier: workspace:*
@@ -382,28 +382,6 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/player/runtime:
-    dependencies:
-      '@hbb-emu/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@hbb-emu/player-adapter-web':
-        specifier: workspace:*
-        version: link:../adapters/web
-      '@hbb-emu/player-core':
-        specifier: workspace:*
-        version: link:../core
-      fp-ts:
-        specifier: 2.16.11
-        version: 2.16.11
-      ts-pattern:
-        specifier: 5.9.0
-        version: 5.9.0
-    devDependencies:
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
   packages/player/ui:
     dependencies:
       '@emotion/react':
@@ -415,9 +393,9 @@ importers:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../../core
-      '@hbb-emu/player-core':
+      '@hbb-emu/player-runtime':
         specifier: workspace:*
-        version: link:../core
+        version: link:../runtime
       '@mui/icons-material':
         specifier: 7.3.5
         version: 7.3.5(@mui/material@7.3.5(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@types/react@19.2.2)(react@19.2.0)

@@ -1,5 +1,5 @@
-import type { PlayerCore } from "@hbb-emu/player-core";
-import * as Matchers from "@hbb-emu/player-core";
+import type { PlayerRuntime } from "@hbb-emu/player-runtime";
+import * as Matchers from "@hbb-emu/player-runtime";
 import { Alert, Box, CircularProgress, Stack } from "@mui/material";
 import type React from "react";
 import { useMemo } from "react";
@@ -10,7 +10,7 @@ import { StateInfoPanel } from "./overlay/StateInfoPanel";
 import { TransitionsPanel } from "./overlay/TransitionsPanel";
 
 export type PlayerUiOverlayProps = {
-  readonly core: PlayerCore;
+  readonly core: PlayerRuntime;
   readonly videoRef?: React.RefObject<HTMLVideoElement | null>;
 };
 
@@ -38,7 +38,7 @@ export function Overlay({ core, videoRef }: PlayerUiOverlayProps) {
         </Stack>
         <Stack gap={1} sx={{ width: 420, pointerEvents: "auto" }}>
           <ControlsPanel core={core} playerState={playerState} videoRef={videoRef} />
-          <StateInfoPanel core={core} playerState={playerState} />
+          <StateInfoPanel playerRuntime={core} playerState={playerState} />
         </Stack>
         <Stack sx={{ flex: 1, minWidth: 360, pointerEvents: "auto" }}>
           <MatchersPanel playerState={playerState} />
