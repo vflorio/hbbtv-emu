@@ -1,4 +1,4 @@
-import { AppBar, Box, Button, Stack, Toolbar } from "@mui/material";
+import { AppBar, Box, Button, CssBaseline, Stack, Toolbar } from "@mui/material";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PlayerDemo } from "./PlayerDemo";
@@ -9,9 +9,10 @@ function App() {
 
   return (
     <Box>
+      <CssBaseline />
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" gap={1}>
             <Button variant={demo === "player" ? "contained" : "outlined"} onClick={() => setDemo("player")}>
               Player
             </Button>

@@ -1,6 +1,7 @@
+import type { PlayerCore } from "@hbb-emu/player-core";
 import { Box, Button, Chip, Paper, Stack, TextField, Typography } from "@mui/material";
-import { useState } from "react";
-import { usePlayback } from "./PlaybackProvider";
+import * as O from "fp-ts/Option";
+import { useMemo, useState } from "react";
 
 const sampleSources = [
   {
@@ -12,20 +13,25 @@ const sampleSources = [
     label: "DASH (Tears of Steel)",
     url: "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
   },
-];
+] as const;
 
-export function SourceControl() {
-  const { loadSource, isLoading, playbackType } = usePlayback();
-  const [inputSource, setInputSource] = useState(sampleSources[0].url);
-  const handleLoad = () => loadSource(inputSource.trim());
+export function SourceControl({ core, isLoading }: { core: PlayerCore; isLoading: boolean }) {
+  const [inputSource, setInputSource] = useState<string>(sampleSources[0].url);
+
+  const playbackType = useMemo(() => {
+    const opt = core.getPlaybackType();
+    return O.isSome(opt) ? opt.value : null;
+  }, [core, isLoading]);
+
+  const loadSource = (url: string) => core.dispatch({ _tag: "Intent/LoadRequested", url })();
 
   return (
-    <Paper sx={{ p: 2, mb: 3 }}>
+    <Paper sx={{ p: 2, mb: 2 }}>
       <Typography variant="h6" gutterBottom>
         Source Control
       </Typography>
 
-      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+      <Stack gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
         {sampleSources.map((sample) => (
           <Button
             key={sample.label}
@@ -42,7 +48,7 @@ export function SourceControl() {
         ))}
       </Stack>
 
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" gap={1} alignItems="center">
         <TextField
           fullWidth
           size="small"
@@ -51,11 +57,16 @@ export function SourceControl() {
           placeholder="Enter video URL (HLS .m3u8, DASH .mpd, MP4)"
           disabled={isLoading}
         />
-        <Button variant="contained" onClick={handleLoad} disabled={isLoading || !inputSource.trim()}>
+        <Button
+          variant="contained"
+          onClick={() => loadSource(inputSource.trim())}
+          disabled={isLoading || !inputSource.trim()}
+        >
           {isLoading ? "Loading..." : "Load"}
         </Button>
       </Stack>
-      {playbackType && (
+
+      {playbackType ? (
         <Box sx={{ mt: 1.5 }}>
           <Chip
             label={`Active: ${playbackType}`}
@@ -63,7 +74,7 @@ export function SourceControl() {
             size="small"
           />
         </Box>
-      )}
+      ) : null}
     </Paper>
   );
 }

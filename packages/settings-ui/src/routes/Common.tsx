@@ -92,7 +92,7 @@ export default function Settings() {
       title="Common"
       actions={
         isEditing && (
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" gap={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
             </Button>
@@ -103,8 +103,8 @@ export default function Settings() {
         )
       }
     >
-      <Stack spacing={3} sx={{ mt: 3 }}>
-        <Stack spacing={1} alignItems="flex-start">
+      <Stack gap={3} sx={{ mt: 3 }}>
+        <Stack gap={1} alignItems="flex-start">
           <TextField
             label="User Agent"
             value={userAgent}
@@ -126,9 +126,9 @@ export default function Settings() {
           Changing the User-Agent may require a page reload to take effect.
         </Alert>
 
-        <Stack spacing={2} sx={{ mt: 2 }}>
+        <Stack gap={2} sx={{ mt: 2 }}>
           <Typography variant="h6">Configuration</Typography>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" gap={2}>
             <Button variant="outlined" startIcon={<Download />} onClick={handleExport}>
               Export Config
             </Button>

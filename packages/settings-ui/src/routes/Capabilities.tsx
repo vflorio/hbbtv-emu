@@ -107,7 +107,7 @@ export default function CapabilitiesTab() {
       title="Capabilities"
       actions={
         isEditing && (
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" gap={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
             </Button>
@@ -143,12 +143,12 @@ export default function CapabilitiesTab() {
         <Typography variant="subtitle1" gutterBottom>
           UI Profiles
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+        <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mb: 1 }}>
           {uiProfiles.map((profile) => (
             <Chip key={profile} label={profile} onDelete={() => removeProfile(profile)} sx={{ mb: 1 }} />
           ))}
         </Stack>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" gap={1}>
           <TextField
             size="small"
             value={newProfile}
@@ -167,12 +167,12 @@ export default function CapabilitiesTab() {
         <Typography variant="subtitle1" gutterBottom>
           DRM Systems
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+        <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mb: 1 }}>
           {drmSystems.map((drm) => (
             <Chip key={drm} label={drm} onDelete={() => removeDrm(drm)} sx={{ mb: 1 }} />
           ))}
         </Stack>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" gap={1}>
           <TextField
             size="small"
             value={newDrm}

@@ -166,7 +166,7 @@ export default function ConfigurationTab() {
       title="Configuration"
       actions={
         isEditing && (
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" gap={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
             </Button>
@@ -220,12 +220,12 @@ export default function ConfigurationTab() {
         <Typography variant="subtitle1" gutterBottom>
           Preferred Audio Languages (in order)
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+        <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mb: 1 }}>
           {preferredAudioLanguage.map((lang, idx) => (
             <Chip key={lang} label={`${idx + 1}. ${lang}`} onDelete={() => removeAudioLang(lang)} sx={{ mb: 1 }} />
           ))}
         </Stack>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" gap={1}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <Select value={newAudioLang} displayEmpty onChange={(e) => setNewAudioLang(e.target.value)}>
               <MenuItem value="" disabled>
@@ -249,12 +249,12 @@ export default function ConfigurationTab() {
         <Typography variant="subtitle1" gutterBottom>
           Preferred Subtitle Languages (in order)
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+        <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mb: 1 }}>
           {preferredSubtitleLanguage.map((lang, idx) => (
             <Chip key={lang} label={`${idx + 1}. ${lang}`} onDelete={() => removeSubtitleLang(lang)} sx={{ mb: 1 }} />
           ))}
         </Stack>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" gap={1}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <Select value={newSubtitleLang} displayEmpty onChange={(e) => setNewSubtitleLang(e.target.value)}>
               <MenuItem value="" disabled>
@@ -297,7 +297,7 @@ export default function ConfigurationTab() {
         <Typography variant="subtitle1" gutterBottom>
           Parental Control
         </Typography>
-        <Stack spacing={2}>
+        <Stack gap={2}>
           <FormControlLabel
             control={
               <Switch

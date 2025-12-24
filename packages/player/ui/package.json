@@ -5,8 +5,10 @@
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/player-core": "workspace:*",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
+    "fp-ts": "2.16.11",
     "ts-pattern": "5.9.0"
   },
   "devDependencies": {
