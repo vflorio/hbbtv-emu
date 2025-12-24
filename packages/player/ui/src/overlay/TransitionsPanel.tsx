@@ -1,7 +1,9 @@
 import { Box, Paper, Typography } from "@mui/material";
+import { pipe } from "fp-ts/function";
+import * as RA from "fp-ts/ReadonlyArray";
 import { useMemo } from "react";
-import { List, type RowComponentProps } from "react-window";
-import { formatTime } from "../format";
+import { List } from "react-window";
+import { match } from "ts-pattern";
 import type { RuntimeDebugEntry } from "../hooks/usePlayerDebug";
 
 type LineItem = {
@@ -12,109 +14,44 @@ type LineItem = {
   readonly secondary?: string;
 };
 
-type RowProps = {
+type TransitionRowProps = {
   readonly items: readonly LineItem[];
 };
 
-const kindColor = (kind: RuntimeDebugEntry["kind"]) => {
-  switch (kind) {
-    case "intent":
-      return "info.light";
-    case "engine":
-      return "success.light";
-    case "state":
-      return "warning.light";
-    case "core-error":
-    case "error":
-      return "error.light";
-  }
-};
-
-export function TransitionsPanel({
-  entries,
-  entriesVersion,
-}: {
-  entries: readonly RuntimeDebugEntry[];
-  entriesVersion: number;
-}) {
-  const items = useMemo(() => {
-    const out: LineItem[] = [];
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]!;
-      if (entry.kind === "state") {
-        out.push({
-          id: entry.id,
-          time: entry.time,
-          kind: "state",
-          primary: `${entry.from} -> ${entry.to}`,
-        });
-        continue;
-      }
-
-      const tag = entry.event._tag;
-      const msg = "message" in entry.event ? String((entry.event as any).message ?? "") : "";
-      out.push({
-        id: entry.id,
-        time: entry.time,
-        kind: entry.kind,
-        primary: tag,
-        secondary: msg || undefined,
+export function TransitionsPanel({ entries }: { entries: readonly RuntimeDebugEntry[] }) {
+  const entryToLineItem = (entry: RuntimeDebugEntry): LineItem =>
+    match(entry)
+      .with({ kind: "state" }, (e) => ({
+        id: e.id,
+        time: e.time,
+        kind: "state" as const,
+        primary: `${e.from} -> ${e.to}`,
+      }))
+      .otherwise((e) => {
+        const tag = e.event._tag;
+        const msg = "message" in e.event ? String((e.event as any).message ?? "") : "";
+        return {
+          id: e.id,
+          time: e.time,
+          kind: e.kind,
+          primary: tag,
+          secondary: msg || undefined,
+        };
       });
-    }
-    return out;
-  }, [entries, entriesVersion]);
 
-  const Row = ({ index, style, ariaAttributes, items }: RowComponentProps<RowProps>) => {
-    const item = items[index]!;
-    const color = kindColor(item.kind);
-    const kindLabel =
-      item.kind === "core-error"
-        ? "Core"
-        : item.kind === "state"
-          ? "State"
-          : item.kind === "engine"
-            ? "Engine"
-            : item.kind === "intent"
-              ? "Intent"
-              : "Error";
-
-    return (
-      <Box
-        style={style}
-        {...ariaAttributes}
-        sx={{
-          display: "flex",
-          gap: 1,
-          fontFamily: "monospace",
-          fontSize: "0.78rem",
-          alignItems: "center",
-          px: 0.25,
-        }}
-      >
-        <Box sx={{ width: 64, color: "text.secondary" }}>{formatTime(item.time)}</Box>
-        <Box sx={{ width: 64, color, fontWeight: 700 }}>{kindLabel}</Box>
-        <Box
-          sx={{
-            flex: 1,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {item.secondary ? `${item.primary} — ${item.secondary}` : item.primary}
-        </Box>
-      </Box>
-    );
-  };
+  const items = useMemo(() => pipe(entries, RA.map(entryToLineItem), RA.reverse), [entries]);
 
   return (
     <Paper
       sx={{
         p: 1.25,
-        bgcolor: "rgba(0,0,0,0.60)",
+        bgcolor: "rgba(0,0,0,0.8)",
         color: "common.white",
         height: "100%",
-        overflow: "auto",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
       }}
     >
       <Typography variant="subtitle2" gutterBottom>
@@ -126,15 +63,86 @@ export function TransitionsPanel({
           —
         </Typography>
       ) : (
-        <List<RowProps>
-          rowComponent={Row}
-          rowCount={items.length}
-          rowHeight={20}
-          rowProps={{ items }}
-          defaultHeight={320}
-          style={{ height: "100%", width: "100%" }}
-        />
+        <Box sx={{ flex: "1 1 auto", minHeight: 0 }}>
+          <List<TransitionRowProps>
+            rowComponent={TransitionRow}
+            rowCount={items.length}
+            rowHeight={20}
+            rowProps={{ items }}
+            defaultHeight={320}
+            style={{ width: "100%" }}
+          />
+        </Box>
       )}
     </Paper>
   );
 }
+
+const TransitionRow = ({
+  index,
+  style,
+  ariaAttributes,
+  items,
+}: {
+  index: number;
+  style: React.CSSProperties;
+  ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem" };
+  items: readonly LineItem[];
+}) => {
+  const item = items[index];
+  if (!item) return <Box style={style} />;
+
+  const kindColor = (kind: RuntimeDebugEntry["kind"]): string =>
+    match(kind)
+      .with("intent", () => "info.light")
+      .with("engine", () => "success.light")
+      .with("state", () => "warning.light")
+      .with("core-error", "error", () => "error.light")
+      .exhaustive();
+
+  const kindLabel = (kind: RuntimeDebugEntry["kind"]): string =>
+    match(kind)
+      .with("core-error", () => "Core")
+      .with("state", () => "State")
+      .with("engine", () => "Engine")
+      .with("intent", () => "Intent")
+      .with("error", () => "Error")
+      .exhaustive();
+
+  const color = kindColor(item.kind);
+  const label = kindLabel(item.kind);
+
+  return (
+    <Box
+      style={style}
+      {...ariaAttributes}
+      sx={{
+        display: "flex",
+        gap: 1,
+        fontFamily: "monospace",
+        fontSize: "0.78rem",
+        alignItems: "center",
+        px: 0.25,
+      }}
+    >
+      <Box sx={{ width: 100, opacity: 0.8 }}>{formatTime(item.time)}</Box>
+      <Box sx={{ width: 60, color, fontWeight: 700 }}>{label}</Box>
+      <Box
+        sx={{
+          flex: 1,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {item.secondary ? `${item.primary} — ${item.secondary}` : item.primary}
+      </Box>
+    </Box>
+  );
+};
+
+const formatTime = (ms: number) => {
+  const d = new Date(ms);
+  const iso = d.toISOString();
+  return iso.split("T")[1]?.split("Z")[0] ?? iso;
+};

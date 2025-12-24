@@ -27,7 +27,7 @@ export function StateInfoPanel({
     : null;
 
   return (
-    <Paper sx={{ p: 1.25, bgcolor: "rgba(0,0,0,0.60)", color: "common.white" }}>
+    <Paper sx={{ p: 1.25, bgcolor: "rgba(0,0,0,0.8)", color: "common.white" }}>
       <Typography variant="subtitle2" gutterBottom>
         Current State
       </Typography>

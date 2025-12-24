@@ -7,7 +7,7 @@ export function MatchersPanel({ playerState }: { playerState: PlayerState.Any | 
   const snapshot = useMemo(() => getMatcherSnapshot(playerState), [playerState]);
 
   const MatcherItem = ({ label, value }: { label: string; value: unknown }) => {
-    const color = value === true ? "success.light" : value === false ? "text.disabled" : "info.light";
+    const color = value === true ? "success.light" : value === false ? "error.light" : "info.light";
     return (
       <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.25 }}>
         <Typography variant="caption">{label}:</Typography>
@@ -19,7 +19,7 @@ export function MatchersPanel({ playerState }: { playerState: PlayerState.Any | 
   };
 
   return (
-    <Paper sx={{ p: 1.25, bgcolor: "rgba(0,0,0,0.60)", color: "common.white" }}>
+    <Paper sx={{ p: 1.25, bgcolor: "rgba(0,0,0,0.8)", color: "common.white" }}>
       <Typography variant="subtitle2" gutterBottom>
         Matchers
       </Typography>

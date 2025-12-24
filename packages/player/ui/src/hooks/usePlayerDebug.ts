@@ -1,5 +1,6 @@
 import type { PlayerEvent, PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { match, P } from "ts-pattern";
 
 export type RuntimeDebugEntry =
   | {
@@ -33,21 +34,17 @@ export function usePlayerDebug(playerRuntime: PlayerRuntime) {
   const nextIdRef = useRef(1);
   const previousStateTagRef = useRef<string | null>(null);
 
-  const entriesRef = useRef<RuntimeDebugEntry[]>([]);
-
   const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
-  const [entriesVersion, setEntriesVersion] = useState(0);
+  const [entries, setEntries] = useState<readonly RuntimeDebugEntry[]>([]);
 
   const pushEntry = (entry: NewRuntimeDebugEntry) => {
     const id = nextIdRef.current++;
     const nextEntry = { ...entry, id } as RuntimeDebugEntry;
-    entriesRef.current.push(nextEntry);
-    setEntriesVersion((v) => v + 1);
+    setEntries((prev) => [...prev, nextEntry]);
   };
 
   const clearEntries = () => {
-    entriesRef.current.length = 0;
-    setEntriesVersion((v) => v + 1);
+    setEntries([]);
   };
 
   // Subscribe to state changes
@@ -68,6 +65,7 @@ export function usePlayerDebug(playerRuntime: PlayerRuntime) {
 
     return () => {
       unsubscribe();
+      previousStateTagRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerRuntime]);
@@ -75,15 +73,12 @@ export function usePlayerDebug(playerRuntime: PlayerRuntime) {
   // Subscribe to events
   useEffect(() => {
     const unsubscribe = playerRuntime.subscribeToEvents((event: PlayerEvent) => {
-      const kind: RuntimeDebugEntry["kind"] = event._tag.startsWith("Intent/")
-        ? "intent"
-        : event._tag.startsWith("Engine/")
-          ? "engine"
-          : event._tag.startsWith("CoreError/")
-            ? "core-error"
-            : "error";
+      const kind = match(event._tag)
+        .with(P.string.startsWith("Intent/"), () => "intent" as const)
+        .with(P.string.startsWith("Engine/"), () => "engine" as const)
+        .with(P.string.startsWith("CoreError/"), () => "core-error" as const)
+        .otherwise(() => "error" as const);
 
-      console.log("[usePlayerDebug] Event received:", event._tag, "kind:", kind);
       pushEntry({ kind, time: Date.now(), event });
     })();
 
@@ -93,7 +88,5 @@ export function usePlayerDebug(playerRuntime: PlayerRuntime) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerRuntime]);
 
-  const entries = useMemo(() => entriesRef.current as readonly RuntimeDebugEntry[], [entriesVersion]);
-
-  return { playerState, entries, entriesVersion, clearEntries };
+  return { playerState, entries, clearEntries };
 }

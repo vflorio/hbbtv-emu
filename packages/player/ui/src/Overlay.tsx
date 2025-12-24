@@ -15,7 +15,7 @@ export type PlayerUiOverlayProps = {
 };
 
 export function Overlay({ core, videoRef }: PlayerUiOverlayProps) {
-  const { playerState, entries, entriesVersion } = usePlayerDebug(core);
+  const { playerState, entries } = usePlayerDebug(core);
 
   const error = useMemo(() => (playerState ? (Matchers.getError(playerState)?.message ?? null) : null), [playerState]);
   const loading = useMemo(() => (playerState ? Matchers.isLoading(playerState) : false), [playerState]);
@@ -30,17 +30,16 @@ export function Overlay({ core, videoRef }: PlayerUiOverlayProps) {
         flexDirection: "column",
         gap: 1,
         pointerEvents: "none",
+        height: "calc(100% - 84px)",
       }}
     >
-      <Stack direction="row" gap={1} sx={{ flex: "0 0 auto" }}>
-        <Stack sx={{ flex: 1, minHeight: 0, pointerEvents: "auto" }}>
-          <TransitionsPanel entries={entries} entriesVersion={entriesVersion} />
+      <Stack direction="row" gap={1} sx={{ flex: "1 1 auto", minHeight: 0 }}>
+        <Stack sx={{ flex: 1, minHeight: 0, minWidth: 0, pointerEvents: "auto" }}>
+          <TransitionsPanel entries={entries} />
         </Stack>
-        <Stack gap={1} sx={{ width: 420, pointerEvents: "auto" }}>
-          <ControlsPanel core={core} playerState={playerState} videoRef={videoRef} />
+        <Stack gap={1} sx={{ width: 420, flexShrink: 0, minHeight: 0, overflow: "auto", pointerEvents: "auto" }}>
           <StateInfoPanel playerRuntime={core} playerState={playerState} />
-        </Stack>
-        <Stack sx={{ flex: 1, minWidth: 360, pointerEvents: "auto" }}>
+          <ControlsPanel core={core} playerState={playerState} videoRef={videoRef} />
           <MatchersPanel playerState={playerState} />
         </Stack>
       </Stack>
