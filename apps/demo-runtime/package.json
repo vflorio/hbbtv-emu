@@ -5,7 +5,9 @@
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/oipf": "workspace:*",
-    "@hbb-emu/player": "workspace:*",
+    "@hbb-emu/player-adapter-web": "workspace:*",
+    "@hbb-emu/player-core": "workspace:*",
+    "@hbb-emu/player-ui": "workspace:*",
     "@hbb-emu/runtime": "workspace:*",
     "@mui/material": "7.3.5",
     "fp-ts": "2.16.11",
@@ -28,9 +30,9 @@
   },
   "private": true,
   "scripts": {
-    "demo:dev": "vite",
-    "demo:build": "tsc -b && vite build",
     "clean": "rm -rf dist",
+    "demo:build": "tsc -b && vite build",
+    "demo:dev": "vite",
     "preview": "vite preview"
   },
   "type": "module"

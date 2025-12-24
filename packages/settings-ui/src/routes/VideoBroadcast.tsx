@@ -99,7 +99,7 @@ export default function VideoBroadcastTab() {
       title="Broadcast"
       actions={
         isEditing && (
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" gap={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
             </Button>
@@ -110,7 +110,7 @@ export default function VideoBroadcastTab() {
         )
       }
     >
-      <Stack spacing={3} sx={{ mt: 3 }}>
+      <Stack gap={3} sx={{ mt: 3 }}>
         {/* Play State */}
         <FormControl fullWidth>
           <InputLabel>Play State</InputLabel>
@@ -177,7 +177,7 @@ export default function VideoBroadcastTab() {
         />
 
         {/* Dimensions */}
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" gap={2}>
           <TextField
             type="number"
             label="Width"

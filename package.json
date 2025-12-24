@@ -21,13 +21,13 @@
     "build": "turbo run build",
     "clean": "turbo run clean",
     "dev": "turbo run dev",
-    "test": "turbo run test",
     "format": "turbo run format && npx @biomejs/biome format --write",
     "lint": "turbo run lint && npx @biomejs/biome check --write",
     "syncpack:check": "syncpack list-mismatches",
     "syncpack:fix": "syncpack fix-mismatches",
     "syncpack:format": "syncpack format",
-    "syncpack:list": "syncpack list"
+    "syncpack:list": "syncpack list",
+    "test": "turbo run test"
   },
   "type": "module"
 }

@@ -1,10 +1,7 @@
-import { NativeAdapter } from "@hbb-emu/player-adapter-web";
-import * as Matchers from "@hbb-emu/player-core";
-import { PlayerCore, type PlayerEvent, type PlayerState } from "@hbb-emu/player-core";
-import { Overlay } from "@hbb-emu/player-ui";
+import type { PlayerCore } from "@hbb-emu/player-core";
 import { Box, Button, Chip, Paper, Stack, TextField, Typography } from "@mui/material";
 import * as O from "fp-ts/Option";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 const sampleSources = [
   {
@@ -18,66 +15,7 @@ const sampleSources = [
   },
 ] as const;
 
-const usePlayerCore = (options: { readonly onDispatch?: (event: PlayerEvent) => void }): PlayerCore => {
-  const playerCore = useMemo(
-    () =>
-      new PlayerCore({
-        onDispatch: options.onDispatch,
-        adapters: {
-          native: new NativeAdapter(),
-          hls: new NativeAdapter(),
-          dash: new NativeAdapter(),
-        },
-      }),
-    [],
-  );
-
-  return playerCore;
-};
-
-export function PlayerDemo() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
-
-  const core = usePlayerCore({
-    onDispatch: (event) => {
-      console.log("[PlayerDemo] Dispatched event:", event);
-    },
-  });
-
-  useEffect(() => {
-    if (!videoRef.current) return;
-    core.mount(videoRef.current)();
-  }, [core]);
-
-  useEffect(() => {
-    const unsubscribe = core.subscribe((state) => setPlayerState(state))();
-    return () => unsubscribe();
-  }, [core]);
-
-  const isLoading = useMemo(() => (playerState ? Matchers.isLoading(playerState) : false), [playerState]);
-
-  return (
-    <Stack p={2} gap={2} direction={"row"} width={"100%"} height={"100%"}>
-      <Box
-        sx={{
-          position: "relative",
-          height: "100%",
-          width: "100%",
-          bgcolor: "black",
-          aspectRatio: "16 / 9",
-          overflow: "hidden",
-        }}
-      >
-        <Box component="video" ref={videoRef} controls sx={{ width: "100%", height: "100%" }} />
-        <Overlay core={core} videoRef={videoRef} />
-      </Box>
-      <SourceControl core={core} isLoading={isLoading} />
-    </Stack>
-  );
-}
-
-function SourceControl({ core, isLoading }: { core: PlayerCore; isLoading: boolean }) {
+export function SourceControl({ core, isLoading }: { core: PlayerCore; isLoading: boolean }) {
   const [inputSource, setInputSource] = useState<string>(sampleSources[0].url);
 
   const playbackType = useMemo(() => {
