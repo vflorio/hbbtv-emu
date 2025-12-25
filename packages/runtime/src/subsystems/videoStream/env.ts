@@ -1,5 +1,8 @@
+import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
+import { PlayerRuntime, type PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
 import { match } from "ts-pattern";
-import { DashPlayer, HlsPlayer, HtmlVideoPlayer, type Player, type PlayerSourceType } from "./players";
+import type { Player, PlayerSourceType } from "./players";
+import { PlayerRuntimePlayer } from "./players/runtime";
 
 export type VideoStreamEnv = Readonly<{
   /** Creates a Player implementation for a given source type */
@@ -31,9 +34,20 @@ const detectSourceType = (url: string): PlayerSourceType =>
     )
     .otherwise(() => "video" as const);
 
-const createPlayer = (sourceType: PlayerSourceType, videoElement?: HTMLVideoElement) =>
-  match(sourceType)
-    .with("video", () => new HtmlVideoPlayer(videoElement))
-    .with("dash", () => new DashPlayer(videoElement))
-    .with("hls", () => new HlsPlayer(videoElement))
-    .exhaustive();
+const createPlayer = (sourceType: PlayerSourceType, videoElement?: HTMLVideoElement): Player => {
+  const video = videoElement ?? document.createElement("video");
+
+  // Create PlayerRuntime with real adapters
+  const config: PlayerRuntimeConfig = {
+    adapters: {
+      native: new NativeAdapter(),
+      hls: new HLSAdapter(),
+      dash: new DASHAdapter(),
+    },
+  };
+
+  const runtime = new PlayerRuntime(config);
+  runtime.mount(video)();
+
+  return new PlayerRuntimePlayer(runtime, video, sourceType);
+};

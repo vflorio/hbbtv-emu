@@ -445,6 +445,12 @@ importers:
       '@hbb-emu/oipf':
         specifier: workspace:*
         version: link:../oipf
+      '@hbb-emu/player-adapter-web':
+        specifier: workspace:*
+        version: link:../player/adapters/web
+      '@hbb-emu/player-runtime':
+        specifier: workspace:*
+        version: link:../player/runtime
       ts-pattern:
         specifier: 5.9.0
         version: 5.9.0

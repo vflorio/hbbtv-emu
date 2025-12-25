@@ -15,7 +15,7 @@ const sampleSources = [
   },
 ] as const;
 
-const testAutoplay = true;
+const testAutoplay = false;
 
 export function SourceControl({ playerRuntime, isLoading }: { playerRuntime: PlayerRuntime; isLoading: boolean }) {
   const [inputSource, setInputSource] = useState<string>(sampleSources[0].url);
@@ -35,7 +35,7 @@ export function SourceControl({ playerRuntime, isLoading }: { playerRuntime: Pla
 
     //FIXME: Implementare Once
     const timeoutId = setTimeout(() => {
-      //playerRuntime.dispatch({ _tag: "Intent/PlayRequested" })();
+      playerRuntime.dispatch({ _tag: "Intent/PlayRequested" })();
     }, 1000);
 
     return () => clearTimeout(timeoutId);

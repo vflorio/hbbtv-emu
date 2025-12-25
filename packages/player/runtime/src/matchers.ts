@@ -3,7 +3,7 @@
  */
 
 import { match } from "ts-pattern";
-import type { PlayerState } from "./states";
+import type { PlayerState, SourceMetadata } from "./states";
 
 // ============================================================================
 // Pattern Matching Utilities
@@ -117,14 +117,23 @@ export const getStateDescription = (state: PlayerState.Any): string =>
   match(state)
     .with({ _tag: "Control/Idle" }, () => "Ready to load media")
     .with({ _tag: "Control/Loading" }, (s) => `Loading: ${s.progress}%`)
-    .with({ _tag: "Control/Playing" }, (s) => `Playing (${formatTime(s.currentTime)} / ${formatTime(s.duration)})`)
-    .with({ _tag: "Control/Paused" }, (s) => `Paused at ${formatTime(s.currentTime)}`)
+    .with({ _tag: "Control/Playing" }, (s) => {
+      const sourceInfo = s.source
+        ? ` [${s.source.playbackType.toUpperCase()}${s.source.resolution ? ` ${s.source.resolution.width}x${s.source.resolution.height}` : ""}]`
+        : "";
+      return `Playing (${formatTime(s.currentTime)} / ${formatTime(s.duration)})${sourceInfo}`;
+    })
+    .with({ _tag: "Control/Paused" }, (s) => {
+      const sourceInfo = s.source
+        ? ` [${s.source.playbackType.toUpperCase()}${s.source.resolution ? ` ${s.source.resolution.width}x${s.source.resolution.height}` : ""}]`
+        : "";
+      return `Paused at ${formatTime(s.currentTime)}${sourceInfo}`;
+    })
     .with({ _tag: "Control/Buffering" }, (s) => `Buffering ${s.bufferProgress}%`)
     .with({ _tag: "Control/Seeking" }, (s) => `Seeking to ${formatTime(s.toTime)}`)
     .with({ _tag: "Control/Ended" }, () => "Playback ended")
 
     // MP4 states
-    .with({ _tag: "Source/Native/Ready" }, (s) => `Native Ready (${s.resolution.width}x${s.resolution.height})`)
     .with(
       { _tag: "Source/Native/ProgressiveLoading" },
       (s) =>
@@ -132,7 +141,6 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     )
 
     // HLS states
-    .with({ _tag: "Source/HLS/Ready" }, (s) => `HLS Ready (${s.resolution.width}x${s.resolution.height})`)
     .with({ _tag: "Source/HLS/ManifestLoading" }, () => "Loading HLS manifest")
     .with({ _tag: "Source/HLS/ManifestParsed" }, (s) => `HLS manifest parsed (${s.variants.length} variants)`)
     .with(
@@ -143,7 +151,6 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Source/HLS/AdaptiveSwitching" }, (s) => `Switching quality (${s.reason})`)
 
     // DASH states
-    .with({ _tag: "Source/DASH/Ready" }, (s) => `DASH Ready (${s.resolution.width}x${s.resolution.height})`)
     .with({ _tag: "Source/DASH/MPDLoading" }, () => "Loading DASH MPD")
     .with({ _tag: "Source/DASH/MPDParsed" }, (s) => `MPD parsed (${s.adaptationSets.length} adaptation sets)`)
     .with(
@@ -271,25 +278,20 @@ export const getQualityInfo = (state: PlayerState.Any) =>
       resolution: s.resolution,
       variant: s.variant,
     }))
-    .with({ _tag: "Source/HLS/Ready" }, (s) => ({
-      type: "hls" as const,
-      resolution: s.resolution,
-    }))
     .with({ _tag: "Source/DASH/RepresentationSelected" }, (s) => ({
       type: "dash" as const,
       bandwidth: s.bandwidth,
       resolution: s.resolution,
       representation: s.representation,
     }))
-    .with({ _tag: "Source/DASH/Ready" }, (s) => ({
-      type: "dash" as const,
-      resolution: s.resolution,
-    }))
-    .with({ _tag: "Source/Native/Ready" }, (s) => ({
-      type: "mp4" as const,
-      resolution: s.resolution,
-      codec: s.codec,
-    }))
+    .when(
+      (s): s is Extract<PlayerState.Any, { source?: SourceMetadata }> => "source" in s && !!s.source,
+      (s) => ({
+        type: s.source!.playbackType,
+        resolution: s.source!.resolution,
+        codec: s.source!.codec,
+      }),
+    )
     .otherwise(() => null);
 
 // ============================================================================

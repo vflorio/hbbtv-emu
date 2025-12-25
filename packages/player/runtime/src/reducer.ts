@@ -1,5 +1,5 @@
 import { match } from "ts-pattern";
-import { PlayerState } from "./states";
+import { PlayerState, type SourceMetadata } from "./states";
 import type {
   DASHAdaptationSetInfo,
   DASHRepresentationInfo,
@@ -28,27 +28,19 @@ const handleLoadIntent = (url: string): ReduceResult<PlayerState.Any> => ({
 const handlePlayIntent = (state: PlayerState.Any): ReduceResult<PlayerState.Any> =>
   match(state)
     .with({ _tag: "Control/Paused" }, (s) => ({
-      next: new PlayerState.Control.Playing(s.currentTime, s.duration, s.buffered, 1.0),
+      next: new PlayerState.Control.Playing(s.currentTime, s.duration, s.buffered, 1.0, s.source),
       effects: [{ _tag: "Effect/Play" }] as const,
     }))
     .with({ _tag: "Control/Buffering" }, (s) => ({
-      next: new PlayerState.Control.Playing(s.currentTime, s.duration, s.buffered, 1.0),
+      next: new PlayerState.Control.Playing(s.currentTime, s.duration, s.buffered, 1.0, s.source),
       effects: [{ _tag: "Effect/Play" }] as const,
     }))
     .with({ _tag: "Control/Ended" }, (s) => ({
       next: new PlayerState.Control.Playing(0, s.duration, [], 1.0),
       effects: [{ _tag: "Effect/Play" }] as const,
     }))
-    .with({ _tag: "Source/Native/Ready" }, (s) => ({
-      next: new PlayerState.Control.Playing(0, s.duration, [], 1.0),
-      effects: [{ _tag: "Effect/Play" }] as const,
-    }))
     .with({ _tag: "Source/Native/ProgressiveLoading" }, () => ({
       next: state,
-      effects: [{ _tag: "Effect/Play" }] as const,
-    }))
-    .with({ _tag: "Source/HLS/Ready" }, (s) => ({
-      next: new PlayerState.Control.Playing(0, s.duration, [], 1.0),
       effects: [{ _tag: "Effect/Play" }] as const,
     }))
     .with({ _tag: "Source/HLS/ManifestLoading" }, () => ({
@@ -69,10 +61,6 @@ const handlePlayIntent = (state: PlayerState.Any): ReduceResult<PlayerState.Any>
     }))
     .with({ _tag: "Source/HLS/AdaptiveSwitching" }, () => ({
       next: state,
-      effects: [{ _tag: "Effect/Play" }] as const,
-    }))
-    .with({ _tag: "Source/DASH/Ready" }, (s) => ({
-      next: new PlayerState.Control.Playing(0, s.duration, [], 1.0),
       effects: [{ _tag: "Effect/Play" }] as const,
     }))
     .with({ _tag: "Source/DASH/MPDLoading" }, () => ({
@@ -100,7 +88,7 @@ const handlePlayIntent = (state: PlayerState.Any): ReduceResult<PlayerState.Any>
 const handlePauseIntent = (state: PlayerState.Any): ReduceResult<PlayerState.Any> =>
   match(state)
     .with({ _tag: "Control/Playing" }, (s) => ({
-      next: new PlayerState.Control.Paused(s.currentTime, s.duration, s.buffered),
+      next: new PlayerState.Control.Paused(s.currentTime, s.duration, s.buffered, s.source),
       effects: [{ _tag: "Effect/Pause" }] as const,
     }))
     .otherwise(() => ({ next: state, effects: [] as const }));
@@ -142,47 +130,75 @@ const handleMetadataLoaded = (
   match(state)
     .with({ _tag: "Control/Loading" }, () => {
       const resolution = { width, height };
+      const source: SourceMetadata = {
+        playbackType,
+        url,
+        resolution,
+        codec: playbackType === "native" ? "unknown" : undefined,
+      };
       return {
-        next: match(playbackType)
-          .with("native", () => new PlayerState.Source.Native.Ready(url, duration, resolution, "unknown"))
-          .with("hls", () => new PlayerState.Source.HLS.Ready(url, duration, resolution))
-          .with("dash", () => new PlayerState.Source.DASH.Ready(url, duration, resolution))
-          .exhaustive(),
+        next: new PlayerState.Control.Paused(0, duration, [], source),
         effects: [] as const,
       };
     })
     .with({ _tag: "Source/Native/ProgressiveLoading" }, () => {
       const resolution = { width, height };
+      const source: SourceMetadata = {
+        playbackType: "native",
+        url,
+        resolution,
+        codec: "unknown",
+      };
       return {
-        next: new PlayerState.Source.Native.Ready(url, duration, resolution, "unknown"),
+        next: new PlayerState.Control.Paused(0, duration, [], source),
         effects: [] as const,
       };
     })
     .with({ _tag: "Source/HLS/ManifestLoading" }, () => {
       const resolution = { width, height };
+      const source: SourceMetadata = {
+        playbackType: "hls",
+        url,
+        resolution,
+      };
       return {
-        next: new PlayerState.Source.HLS.Ready(url, duration, resolution),
+        next: new PlayerState.Control.Paused(0, duration, [], source),
         effects: [] as const,
       };
     })
     .with({ _tag: "Source/HLS/SegmentLoading" }, () => {
       const resolution = { width, height };
+      const source: SourceMetadata = {
+        playbackType: "hls",
+        url,
+        resolution,
+      };
       return {
-        next: new PlayerState.Source.HLS.Ready(url, duration, resolution),
+        next: new PlayerState.Control.Paused(0, duration, [], source),
         effects: [] as const,
       };
     })
     .with({ _tag: "Source/DASH/MPDLoading" }, () => {
       const resolution = { width, height };
+      const source: SourceMetadata = {
+        playbackType: "dash",
+        url,
+        resolution,
+      };
       return {
-        next: new PlayerState.Source.DASH.Ready(url, duration, resolution),
+        next: new PlayerState.Control.Paused(0, duration, [], source),
         effects: [] as const,
       };
     })
     .with({ _tag: "Source/DASH/SegmentDownloading" }, () => {
       const resolution = { width, height };
+      const source: SourceMetadata = {
+        playbackType: "dash",
+        url,
+        resolution,
+      };
       return {
-        next: new PlayerState.Source.DASH.Ready(url, duration, resolution),
+        next: new PlayerState.Control.Paused(0, duration, [], source),
         effects: [] as const,
       };
     })
@@ -198,17 +214,18 @@ const handleTimeUpdated = (
   },
 ): ReduceResult<PlayerState.Any> =>
   match(state)
-    .with({ _tag: "Control/Playing" }, () => ({
+    .with({ _tag: "Control/Playing" }, (s) => ({
       next: new PlayerState.Control.Playing(
         snapshot.currentTime,
         snapshot.duration,
         snapshot.buffered,
         snapshot.playbackRate,
+        s.source,
       ),
       effects: [] as const,
     }))
-    .with({ _tag: "Control/Paused" }, () => ({
-      next: new PlayerState.Control.Paused(snapshot.currentTime, snapshot.duration, snapshot.buffered),
+    .with({ _tag: "Control/Paused" }, (s) => ({
+      next: new PlayerState.Control.Paused(snapshot.currentTime, snapshot.duration, snapshot.buffered, s.source),
       effects: [] as const,
     }))
     .with({ _tag: "Control/Buffering" }, (s) => ({
@@ -217,6 +234,7 @@ const handleTimeUpdated = (
         snapshot.duration,
         snapshot.buffered,
         s.bufferProgress,
+        s.source,
       ),
       effects: [] as const,
     }))
@@ -464,25 +482,43 @@ export const reduce =
           snapshot.duration,
           snapshot.buffered,
           snapshot.playbackRate,
+          "source" in state ? state.source : undefined,
         ),
         effects: [] as const,
       }))
       .with({ _tag: "Engine/Paused" }, ({ snapshot }) => ({
-        next: new PlayerState.Control.Paused(snapshot.currentTime, snapshot.duration, snapshot.buffered),
+        next: new PlayerState.Control.Paused(
+          snapshot.currentTime,
+          snapshot.duration,
+          snapshot.buffered,
+          "source" in state ? state.source : undefined,
+        ),
         effects: [] as const,
       }))
       .with({ _tag: "Engine/Waiting" }, ({ snapshot }) => ({
-        next: new PlayerState.Control.Buffering(snapshot.currentTime, snapshot.duration, snapshot.buffered, 0),
+        next: new PlayerState.Control.Buffering(
+          snapshot.currentTime,
+          snapshot.duration,
+          snapshot.buffered,
+          0,
+          "source" in state ? state.source : undefined,
+        ),
         effects: [] as const,
       }))
       .with({ _tag: "Engine/Seeked" }, ({ snapshot }) => ({
         next: snapshot.paused
-          ? new PlayerState.Control.Paused(snapshot.currentTime, snapshot.duration, snapshot.buffered)
+          ? new PlayerState.Control.Paused(
+              snapshot.currentTime,
+              snapshot.duration,
+              snapshot.buffered,
+              "source" in state ? state.source : undefined,
+            )
           : new PlayerState.Control.Playing(
               snapshot.currentTime,
               snapshot.duration,
               snapshot.buffered,
               snapshot.playbackRate,
+              "source" in state ? state.source : undefined,
             ),
         effects: [] as const,
       }))

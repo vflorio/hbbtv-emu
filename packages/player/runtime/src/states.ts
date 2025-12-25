@@ -2,6 +2,8 @@
  * Video Player State Management System (Class Discriminated Unions ADT)
  */
 
+import type { PlaybackType } from "./types";
+
 // ============================================================================
 // Base Classes & Interfaces
 // ============================================================================
@@ -55,6 +57,16 @@ export interface TimeRange {
   readonly end: number;
 }
 
+/**
+ * Source metadata for playback
+ */
+export interface SourceMetadata {
+  readonly playbackType: PlaybackType;
+  readonly url: string;
+  readonly resolution?: Resolution;
+  readonly codec?: string;
+}
+
 // ============================================================================
 // Player State Namespace
 // ============================================================================
@@ -88,6 +100,7 @@ export namespace PlayerState {
         readonly duration: number,
         readonly buffered: TimeRange[],
         readonly playbackRate: number = 1.0,
+        readonly source?: SourceMetadata,
       ) {
         super();
       }
@@ -100,6 +113,7 @@ export namespace PlayerState {
         readonly currentTime: number,
         readonly duration: number,
         readonly buffered: TimeRange[],
+        readonly source?: SourceMetadata,
       ) {
         super();
       }
@@ -113,6 +127,7 @@ export namespace PlayerState {
         readonly duration: number,
         readonly buffered: TimeRange[],
         readonly bufferProgress: number,
+        readonly source?: SourceMetadata,
       ) {
         super();
       }
@@ -151,19 +166,6 @@ export namespace PlayerState {
   export namespace Source {
     // Native (Progressive) States
     export namespace Native {
-      export class Ready extends PlayableState {
-        readonly _tag = "Source/Native/Ready" as const;
-
-        constructor(
-          readonly url: string,
-          readonly duration: number,
-          readonly resolution: Resolution,
-          readonly codec: string,
-        ) {
-          super();
-        }
-      }
-
       export class ProgressiveLoading extends PlayableState {
         readonly _tag = "Source/Native/ProgressiveLoading" as const;
 
@@ -189,23 +191,11 @@ export namespace PlayerState {
         }
       }
 
-      export type Any = Ready | ProgressiveLoading | DecodeError;
+      export type Any = ProgressiveLoading | DecodeError;
     }
 
     // HLS (HTTP Live Streaming) States
     export namespace HLS {
-      export class Ready extends PlayableState {
-        readonly _tag = "Source/HLS/Ready" as const;
-
-        constructor(
-          readonly url: string,
-          readonly duration: number,
-          readonly resolution: Resolution,
-        ) {
-          super();
-        }
-      }
-
       export class ManifestLoading extends PlayableState {
         readonly _tag = "Source/HLS/ManifestLoading" as const;
 
@@ -288,7 +278,6 @@ export namespace PlayerState {
       }
 
       export type Any =
-        | Ready
         | ManifestLoading
         | ManifestParsed
         | VariantSelected
@@ -300,18 +289,6 @@ export namespace PlayerState {
 
     // DASH (Dynamic Adaptive Streaming) States
     export namespace DASH {
-      export class Ready extends PlayableState {
-        readonly _tag = "Source/DASH/Ready" as const;
-
-        constructor(
-          readonly url: string,
-          readonly duration: number,
-          readonly resolution: Resolution,
-        ) {
-          super();
-        }
-      }
-
       export class MPDLoading extends PlayableState {
         readonly _tag = "Source/DASH/MPDLoading" as const;
 
@@ -396,7 +373,6 @@ export namespace PlayerState {
       }
 
       export type Any =
-        | Ready
         | MPDLoading
         | MPDParsed
         | RepresentationSelected

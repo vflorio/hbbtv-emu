@@ -5,6 +5,8 @@
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/oipf": "workspace:*",
+    "@hbb-emu/player-runtime": "workspace:*",
+    "@hbb-emu/player-adapter-web": "workspace:*",
     "ts-pattern": "5.9.0"
   },
   "devDependencies": {

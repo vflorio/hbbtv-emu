@@ -1,9 +1,7 @@
 import type * as IO from "fp-ts/IO";
 import type * as TE from "fp-ts/TaskEither";
 
-export { DashPlayer } from "./dash";
-export { HlsPlayer } from "./hls";
-export { HtmlVideoPlayer } from "./video";
+export { PlayerRuntimePlayer } from "./runtime";
 
 export interface Player {
   readonly sourceType: PlayerSourceType;
