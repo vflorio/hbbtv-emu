@@ -86,6 +86,7 @@ export class HLSAdapter implements RuntimeAdapter {
       videoElement.addEventListener("waiting", this.onWaiting);
       videoElement.addEventListener("ended", this.onEnded);
       videoElement.addEventListener("seeked", this.onSeeked);
+      videoElement.addEventListener("volumechange", this.onVolumeChange);
       videoElement.addEventListener("error", this.onError);
 
       this.emit({ _tag: "Engine/Mounted" })();
@@ -174,6 +175,48 @@ export class HLSAdapter implements RuntimeAdapter {
       }
     };
 
+  setVolume =
+    (volume: number): TE.TaskEither<AdapterError, void> =>
+    async () => {
+      if (!this.video) {
+        return E.left({
+          _tag: "AdapterError/VideoElementNotMounted",
+          message: "Video element not mounted",
+        });
+      }
+      try {
+        this.video.volume = Math.max(0, Math.min(1, volume));
+        return E.right(undefined);
+      } catch (error) {
+        return E.left({
+          _tag: "AdapterError/PlayFailed",
+          message: error instanceof Error ? error.message : "Failed to set volume",
+          cause: error,
+        });
+      }
+    };
+
+  setMuted =
+    (muted: boolean): TE.TaskEither<AdapterError, void> =>
+    async () => {
+      if (!this.video) {
+        return E.left({
+          _tag: "AdapterError/VideoElementNotMounted",
+          message: "Video element not mounted",
+        });
+      }
+      try {
+        this.video.muted = muted;
+        return E.right(undefined);
+      } catch (error) {
+        return E.left({
+          _tag: "AdapterError/PlayFailed",
+          message: error instanceof Error ? error.message : "Failed to set muted",
+          cause: error,
+        });
+      }
+    };
+
   destroy: TE.TaskEither<AdapterError, void> = async () => {
     if (!this.video || !this.hls) {
       return E.right(undefined);
@@ -198,6 +241,7 @@ export class HLSAdapter implements RuntimeAdapter {
       video.removeEventListener("waiting", this.onWaiting);
       video.removeEventListener("ended", this.onEnded);
       video.removeEventListener("seeked", this.onSeeked);
+      video.removeEventListener("volumechange", this.onVolumeChange);
       video.removeEventListener("error", this.onError);
 
       hls.destroy();
@@ -361,6 +405,12 @@ export class HLSAdapter implements RuntimeAdapter {
   private onSeeked = () => {
     if (!this.video) return;
     this.emit({ _tag: "Engine/Seeked", snapshot: snapshotOf(this.video) })();
+  };
+
+  private onVolumeChange = () => {
+    if (!this.video) return;
+    this.emit({ _tag: "Engine/VolumeChanged", volume: this.video.volume })();
+    this.emit({ _tag: "Engine/MutedChanged", muted: this.video.muted })();
   };
 
   private onError = () => {

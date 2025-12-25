@@ -15,7 +15,9 @@ export type PlayerIntentEvent =
   | { readonly _tag: "Intent/LoadRequested"; readonly url: string }
   | { readonly _tag: "Intent/PlayRequested" }
   | { readonly _tag: "Intent/PauseRequested" }
-  | { readonly _tag: "Intent/SeekRequested"; readonly time: number };
+  | { readonly _tag: "Intent/SeekRequested"; readonly time: number }
+  | { readonly _tag: "Intent/SetVolumeRequested"; readonly volume: number }
+  | { readonly _tag: "Intent/SetMutedRequested"; readonly muted: boolean };
 
 // =============================================================================
 // EVENTS - Engine Events (Playback Engine Notifications)
@@ -45,6 +47,8 @@ export type PlayerEngineEvent =
   | { readonly _tag: "Engine/Waiting"; readonly snapshot: PlaybackSnapshot }
   | { readonly _tag: "Engine/Ended"; readonly snapshot: PlaybackSnapshot }
   | { readonly _tag: "Engine/Seeked"; readonly snapshot: PlaybackSnapshot }
+  | { readonly _tag: "Engine/VolumeChanged"; readonly volume: number }
+  | { readonly _tag: "Engine/MutedChanged"; readonly muted: boolean }
   | {
       readonly _tag: "Engine/Error";
       readonly kind: "not-supported" | "network" | "media" | "decode" | "unknown";
@@ -188,7 +192,9 @@ export type PlayerEffect =
   | { readonly _tag: "Effect/LoadSource"; readonly url: string }
   | { readonly _tag: "Effect/Play" }
   | { readonly _tag: "Effect/Pause" }
-  | { readonly _tag: "Effect/Seek"; readonly time: number };
+  | { readonly _tag: "Effect/Seek"; readonly time: number }
+  | { readonly _tag: "Effect/SetVolume"; readonly volume: number }
+  | { readonly _tag: "Effect/SetMuted"; readonly muted: boolean };
 
 // =============================================================================
 // STATE MANAGEMENT - Reducer & Subscription Types
@@ -272,6 +278,8 @@ export type RuntimeAdapter = {
   play: TE.TaskEither<AdapterError, void>;
   pause: TE.TaskEither<AdapterError, void>;
   seek: (time: number) => TE.TaskEither<AdapterError, void>;
+  setVolume: (volume: number) => TE.TaskEither<AdapterError, void>;
+  setMuted: (muted: boolean) => TE.TaskEither<AdapterError, void>;
   destroy: TE.TaskEither<AdapterError, void>;
   subscribe: (listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>;
 };

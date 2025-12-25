@@ -1,8 +1,10 @@
 Player 
     - Aggiungere la gestione del volume, sia come controllo via Intent, che listeners dinamici
-    - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
+
     - Gestire correttamente Intent/PlayRequested quando l'utente non ha interagito con la pagina, 
         la runtime dovrebbe automaticamente mettere in muto il player e riprovare 
+        
+    - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
 
 - AV Object:
     Utilizzo: 

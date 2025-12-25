@@ -117,6 +117,16 @@ const handleSeekIntent = (state: PlayerState.Any, time: number): ReduceResult<Pl
     )
     .otherwise(() => ({ next: state, effects: [] as const }));
 
+const handleSetVolumeIntent = (state: PlayerState.Any, volume: number): ReduceResult<PlayerState.Any> => ({
+  next: state,
+  effects: [{ _tag: "Effect/SetVolume", volume }] as const,
+});
+
+const handleSetMutedIntent = (state: PlayerState.Any, muted: boolean): ReduceResult<PlayerState.Any> => ({
+  next: state,
+  effects: [{ _tag: "Effect/SetMuted", muted }] as const,
+});
+
 // ============================================================================
 // Engine Core Events
 // ============================================================================
@@ -441,6 +451,8 @@ export const reduce =
       .with({ _tag: "Intent/PlayRequested" }, () => handlePlayIntent(state))
       .with({ _tag: "Intent/PauseRequested" }, () => handlePauseIntent(state))
       .with({ _tag: "Intent/SeekRequested" }, ({ time }) => handleSeekIntent(state, time))
+      .with({ _tag: "Intent/SetVolumeRequested" }, ({ volume }) => handleSetVolumeIntent(state, volume))
+      .with({ _tag: "Intent/SetMutedRequested" }, ({ muted }) => handleSetMutedIntent(state, muted))
       // Engine core events
       .with({ _tag: "Engine/MetadataLoaded" }, ({ playbackType, url, duration, width, height }) =>
         handleMetadataLoaded(state, playbackType, url, duration, width, height),
@@ -476,6 +488,14 @@ export const reduce =
       }))
       .with({ _tag: "Engine/Ended" }, ({ snapshot }) => ({
         next: new PlayerState.Control.Ended(snapshot.duration, false),
+        effects: [] as const,
+      }))
+      .with({ _tag: "Engine/VolumeChanged" }, () => ({
+        next: state,
+        effects: [] as const,
+      }))
+      .with({ _tag: "Engine/MutedChanged" }, () => ({
+        next: state,
         effects: [] as const,
       }))
       .with({ _tag: "Engine/Error" }, ({ kind, message, url, codec }) => handleEngineError(kind, message, url, codec))

@@ -126,6 +126,8 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
             .with({ _tag: "Effect/Play" }, () => this.playAdapter())
             .with({ _tag: "Effect/Pause" }, () => this.pauseAdapter())
             .with({ _tag: "Effect/Seek" }, ({ time }) => this.seekAdapter(time))
+            .with({ _tag: "Effect/SetVolume" }, ({ volume }) => this.setVolumeAdapter(volume))
+            .with({ _tag: "Effect/SetMuted" }, ({ muted }) => this.setMutedAdapter(muted))
             .exhaustive(),
         ),
       );
@@ -341,6 +343,28 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
         pipe(
           adapter.seek(time),
           TE.mapLeft((adapterError) => this.adapterFailureFromError("seek", adapterError)),
+        ),
+      ),
+    );
+
+  private setVolumeAdapter = (volume: number): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      this.getAdapter(),
+      TE.flatMap((adapter) =>
+        pipe(
+          adapter.setVolume(volume),
+          TE.mapLeft((adapterError) => this.adapterFailure("play", "Failed to set volume", adapterError)),
+        ),
+      ),
+    );
+
+  private setMutedAdapter = (muted: boolean): TE.TaskEither<PlayerRuntimeError, void> =>
+    pipe(
+      this.getAdapter(),
+      TE.flatMap((adapter) =>
+        pipe(
+          adapter.setMuted(muted),
+          TE.mapLeft((adapterError) => this.adapterFailure("play", "Failed to set muted", adapterError)),
         ),
       ),
     );
