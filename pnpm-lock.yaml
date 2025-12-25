@@ -51,6 +51,15 @@ importers:
       '@hbb-emu/oipf':
         specifier: workspace:*
         version: link:../../packages/oipf
+      '@hbb-emu/player-adapter-web':
+        specifier: workspace:*
+        version: link:../../packages/player/adapters/web
+      '@hbb-emu/player-runtime':
+        specifier: workspace:*
+        version: link:../../packages/player/runtime
+      '@hbb-emu/player-ui':
+        specifier: workspace:*
+        version: link:../../packages/player/ui
       '@hbb-emu/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime

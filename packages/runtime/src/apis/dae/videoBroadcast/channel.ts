@@ -1,5 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
+import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
@@ -174,8 +175,11 @@ export type ChannelVideoStreamEnv = {
   ) => () => void;
 };
 
-export const createChannelVideoStreamEnv = (): ChannelVideoStreamEnv => {
-  const stream = new VideoStreamService();
+export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): ChannelVideoStreamEnv => {
+  const stream = new VideoStreamService(undefined, playerRuntime);
+
+  // If we have a PlayerRuntime, it will mount automatically in constructor
+  // Otherwise, it can be set later via setPlayerRuntime
 
   return {
     // Element

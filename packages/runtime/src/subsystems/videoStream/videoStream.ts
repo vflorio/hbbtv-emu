@@ -4,12 +4,12 @@
  * Direct bridge to @hbb-emu/player-runtime
  */
 
-import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
-import type { PlayerRuntimeConfig, PlayerState } from "@hbb-emu/player-runtime";
+import type { PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
 import * as Runtime from "@hbb-emu/player-runtime";
 import type * as IO from "fp-ts/IO";
 import type * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
+import type { PlayerRuntimeFactory } from "../../runtime";
 import type {
   VideoStreamError,
   VideoStreamEvent,
@@ -56,6 +56,9 @@ export type VideoStreamApi = Readonly<{
   /** Underlying HTML video element */
   readonly videoElement: HTMLVideoElement;
 
+  /** Sets the PlayerRuntime instance (injected from outside) */
+  setPlayerRuntime: (runtime: PlayerRuntime) => IO.IO<void>;
+
   /** Loads and starts playing a media source */
   loadSource: (source: VideoStreamSource) => IO.IO<void>;
 
@@ -86,12 +89,16 @@ export type VideoStreamApi = Readonly<{
  * Direct bridge to PlayerRuntime without intermediate abstractions
  */
 export class VideoStreamService implements VideoStreamApi {
-  readonly #runtime: Runtime.PlayerRuntime;
+  #runtime: PlayerRuntime | null = null;
   readonly #videoElement: HTMLVideoElement;
   readonly #eventListeners: Map<VideoStreamEventType, Set<VideoStreamEventListener<any>>>;
   #currentState: VideoStreamPlayState = PlayState.IDLE;
+  #stateUnsubscribe: (() => void) | null = null;
+  #eventsUnsubscribe: (() => void) | null = null;
+  #factory: PlayerRuntimeFactory | null = null;
+  #ownsRuntime = false; // Track if we created the runtime (and should destroy it)
 
-  constructor(videoElement?: HTMLVideoElement) {
+  constructor(videoElement?: HTMLVideoElement, playerRuntimeOrFactory?: PlayerRuntime | PlayerRuntimeFactory) {
     // Setup video element
     this.#videoElement = videoElement ?? document.createElement("video");
 
@@ -106,25 +113,59 @@ export class VideoStreamService implements VideoStreamApi {
       ["fullscreenchange", new Set()],
     ]);
 
-    // Create PlayerRuntime with adapters
-    const config: PlayerRuntimeConfig = {
-      adapters: {
-        native: new NativeAdapter(),
-        hls: new HLSAdapter(),
-        dash: new DASHAdapter(),
-      },
-    };
-
-    this.#runtime = new Runtime.PlayerRuntime(config);
-    this.#runtime.mount(this.#videoElement)();
-
-    // Setup event subscriptions
-    this.#setupEventListeners();
+    // Handle PlayerRuntime or Factory
+    if (playerRuntimeOrFactory) {
+      if ("create" in playerRuntimeOrFactory) {
+        // It's a factory - create our own runtime
+        this.#factory = playerRuntimeOrFactory;
+        this.#runtime = playerRuntimeOrFactory.create();
+        this.#ownsRuntime = true;
+        this.#runtime.mount(this.#videoElement)();
+        this.#setupEventListeners();
+      } else {
+        // It's a PlayerRuntime instance - use it (shared)
+        this.#runtime = playerRuntimeOrFactory;
+        this.#ownsRuntime = false;
+        this.#runtime.mount(this.#videoElement)();
+        this.#setupEventListeners();
+      }
+    }
   }
 
   get videoElement(): HTMLVideoElement {
     return this.#videoElement;
   }
+
+  /**
+   * Returns the underlying PlayerRuntime instance.
+   * This allows apps to integrate player UI components that need direct access to runtime state.
+   */
+  get playerRuntime(): PlayerRuntime | null {
+    return this.#runtime;
+  }
+
+  /**
+   * Sets the PlayerRuntime instance.
+   * Called to inject a shared runtime (not owned by this service).
+   */
+  setPlayerRuntime =
+    (runtime: PlayerRuntime): IO.IO<void> =>
+    () => {
+      // Cleanup old runtime if we own it
+      if (this.#runtime && this.#ownsRuntime && this.#factory) {
+        this.#cleanupEventListeners();
+        this.#factory.destroy(this.#runtime);
+      } else if (this.#runtime) {
+        this.#cleanupEventListeners();
+      }
+
+      // Set new runtime (not owned by us)
+      this.#runtime = runtime;
+      this.#ownsRuntime = false;
+      this.#factory = null;
+      this.#runtime.mount(this.#videoElement)();
+      this.#setupEventListeners();
+    };
 
   // ============================================================================
   // Lifecycle
@@ -133,6 +174,11 @@ export class VideoStreamService implements VideoStreamApi {
   loadSource =
     (source: VideoStreamSource): IO.IO<void> =>
     () => {
+      if (!this.#runtime) {
+        console.warn("PlayerRuntime not set, cannot load source");
+        return;
+      }
+
       // Apply source options directly to video element before load
       if (source.muted !== undefined) {
         this.#videoElement.muted = source.muted;
@@ -155,7 +201,7 @@ export class VideoStreamService implements VideoStreamApi {
         const unsubscribe = this.#runtime.subscribeToState((state: PlayerState.Any) => {
           // Use matcher to detect when player is ready (paused and playable)
           if (Runtime.isPaused(state) && Runtime.isPlayable(state)) {
-            this.#runtime.dispatch({ _tag: "Intent/PlayRequested" })();
+            this.#runtime!.dispatch({ _tag: "Intent/PlayRequested" })();
             unsubscribe();
           }
         });
@@ -163,7 +209,15 @@ export class VideoStreamService implements VideoStreamApi {
     };
 
   release = (): IO.IO<void> => () => {
-    this.#runtime.destroy().catch(() => {});
+    this.#cleanupEventListeners();
+    if (this.#runtime) {
+      // Only destroy if we own it (created via factory)
+      if (this.#ownsRuntime && this.#factory) {
+        this.#factory.destroy(this.#runtime);
+      }
+      this.#runtime = null;
+    }
+    this.#factory = null;
   };
 
   // ============================================================================
@@ -171,6 +225,9 @@ export class VideoStreamService implements VideoStreamApi {
   // ============================================================================
 
   play = (): TE.TaskEither<Error, void> => async () => {
+    if (!this.#runtime) {
+      return { _tag: "Left", left: new Error("PlayerRuntime not set") } as const;
+    }
     try {
       await this.#runtime.dispatch({
         _tag: "Intent/PlayRequested",
@@ -182,12 +239,14 @@ export class VideoStreamService implements VideoStreamApi {
   };
 
   pause = (): IO.IO<void> => () => {
+    if (!this.#runtime) return;
     this.#runtime.dispatch({
       _tag: "Intent/PauseRequested",
     })();
   };
 
   stop = (): IO.IO<void> => () => {
+    if (!this.#runtime) return;
     this.#runtime.dispatch({
       _tag: "Intent/PauseRequested",
     })();
@@ -200,6 +259,7 @@ export class VideoStreamService implements VideoStreamApi {
   seek =
     (position: number): IO.IO<void> =>
     () => {
+      if (!this.#runtime) return;
       // Position is in milliseconds, convert to seconds
       this.#runtime.dispatch({
         _tag: "Intent/SeekRequested",
@@ -214,6 +274,7 @@ export class VideoStreamService implements VideoStreamApi {
   setVolume =
     (volume: number): IO.IO<void> =>
     () => {
+      if (!this.#runtime) return;
       // Volume is 0-100, convert to 0-1
       this.#runtime.dispatch({
         _tag: "Intent/SetVolumeRequested",
@@ -224,6 +285,7 @@ export class VideoStreamService implements VideoStreamApi {
   setMuted =
     (muted: boolean): IO.IO<void> =>
     () => {
+      if (!this.#runtime) return;
       this.#runtime.dispatch({
         _tag: "Intent/SetMutedRequested",
         muted,
@@ -280,8 +342,10 @@ export class VideoStreamService implements VideoStreamApi {
   // ============================================================================
 
   #setupEventListeners = (): void => {
+    if (!this.#runtime) return;
+
     // Subscribe to runtime state changes
-    this.#runtime.subscribeToState((state: PlayerState.Any) => {
+    this.#stateUnsubscribe = this.#runtime.subscribeToState((state: PlayerState.Any) => {
       const newPlayState = mapRuntimeStateToPlayState(state);
       const previousPlayState = this.#currentState;
 
@@ -315,7 +379,7 @@ export class VideoStreamService implements VideoStreamApi {
     });
 
     // Subscribe to runtime events using match with type guards
-    this.#runtime.subscribeToEvents((event: any) => {
+    this.#eventsUnsubscribe = this.#runtime.subscribeToEvents((event: any) => {
       match(event)
         .when(Runtime.isVolumeChangeEvent, (e) => {
           this.#emit("volumechange", { volume: Math.round(e.volume * 100), muted: e.muted });
@@ -333,6 +397,17 @@ export class VideoStreamService implements VideoStreamApi {
           // Ignore other adapter-specific events
         });
     });
+  };
+
+  #cleanupEventListeners = (): void => {
+    if (this.#stateUnsubscribe) {
+      this.#stateUnsubscribe();
+      this.#stateUnsubscribe = null;
+    }
+    if (this.#eventsUnsubscribe) {
+      this.#eventsUnsubscribe();
+      this.#eventsUnsubscribe = null;
+    }
   };
 
   #emit = <T extends VideoStreamEventType>(type: T, data: Omit<VideoStreamEvent<T>, "type" | "timestamp">): void => {

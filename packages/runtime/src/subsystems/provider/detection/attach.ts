@@ -10,6 +10,7 @@ const logger = createLogger("DetectionAttach");
 
 type VisualAttachment = Readonly<{
   videoElement: HTMLVideoElement;
+  container: HTMLDivElement;
   styleMirror: ObjectStyleMirror;
 }>;
 
@@ -22,7 +23,7 @@ export const detachAttachedElement =
     if (!attachment) return;
 
     attachment.styleMirror.stop();
-    attachment.videoElement.remove();
+    attachment.container.remove();
     visualAttachments.delete(element);
   };
 
@@ -66,15 +67,28 @@ const attachVisual =
       return;
     }
 
-    const styleMirror = new ObjectStyleMirror(detected.element, instance.videoElement);
+    // Create container with position: relative
+    const container = document.createElement("div");
+    container.setAttribute("data-hbbtv-emu-container", "true");
+    container.className = "hbbtv-emu-container";
+    container.style.cssText = `
+      position: relative;
+      width: 100%;
+      height: 100%;
+    `;
+
+    container.appendChild(instance.videoElement);
+
+    const styleMirror = new ObjectStyleMirror(detected.element, container);
 
     visualAttachments.set(detected.element, {
       videoElement: instance.videoElement,
+      container,
       styleMirror,
     });
 
     pipe(
-      insertAfter(instance.videoElement)(detected.element),
+      insertAfter(container)(detected.element),
       IO.flatMap(() => styleMirror.start),
       IO.flatMap(() => proxyProperties(detected.element, instance)),
       IO.flatMap(() => syncInitialProperties(detected.element, instance)),

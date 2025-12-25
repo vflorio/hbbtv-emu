@@ -1,6 +1,6 @@
 import { buildDefaultUserAgent } from "@hbb-emu/oipf";
 import { Download, Upload } from "@mui/icons-material";
-import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Checkbox, FormControlLabel, Stack, TextField, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import Panel from "../components/Panel";
 import { useAppState, useDispatch, useSideEffects } from "../context/state";
@@ -29,6 +29,7 @@ export default function Settings() {
       currentChannel: config.currentChannel,
       hbbtv: config.hbbtv,
       userAgent,
+      playerUiVisible: config.playerUiVisible,
     });
     setIsEditing(false);
   };
@@ -125,6 +126,29 @@ export default function Settings() {
         <Alert severity="warning" sx={{ mt: -2 }}>
           Changing the User-Agent may require a page reload to take effect.
         </Alert>
+
+        <Stack gap={2} sx={{ mt: 2 }}>
+          <Typography variant="h6">Player Debug UI</Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={config.playerUiVisible ?? false}
+                onChange={async (e) => {
+                  const updated = {
+                    ...config,
+                    playerUiVisible: e.target.checked,
+                  };
+                  dispatch({ type: "SET_CONFIG", payload: updated });
+                  await sideEffects.save(updated);
+                }}
+              />
+            }
+            label="Show Player Debug UI (runtime overlay)"
+          />
+          <Typography variant="caption" color="text.secondary">
+            Enable debug overlay for video player state and controls (requires app integration).
+          </Typography>
+        </Stack>
 
         <Stack gap={2} sx={{ mt: 2 }}>
           <Typography variant="h6">Configuration</Typography>

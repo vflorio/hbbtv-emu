@@ -18,6 +18,7 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import type { PlayerRuntimeFactory } from "../../runtime";
 import { type VideoStreamError, VideoStreamPlayState, VideoStreamService } from "../../subsystems/videoStream";
 
 const logger = createLogger("AVControlVideo");
@@ -87,7 +88,8 @@ export class AVControlVideo
   // ═══════════════════════════════════════════════════════════════════════════
 
   constructor(env: AVControlVideoEnv) {
-    this.#stream = new VideoStreamService();
+    // AVControl creates its own PlayerRuntime via factory
+    this.#stream = new VideoStreamService(undefined, env.playerRuntimeFactory);
     this.#eventHandlers = env.eventHandlers;
 
     this._mimeType = env.defaults.mimeType;
@@ -375,6 +377,7 @@ export interface AVControlVideoEventHandlers {
 export type AVControlVideoEnv = Readonly<{
   defaults: AVControlVideoDefaults;
   eventHandlers: AVControlVideoEventHandlers;
+  playerRuntimeFactory?: PlayerRuntimeFactory;
 }>;
 
 export const DEFAULT_AV_CONTROL_VIDEO_DEFAULTS: AVControlVideoDefaults = {
