@@ -18,8 +18,7 @@ import {
 } from "@hbb-emu/oipf";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { VideoStreamEnv } from "../../subsystems/videoStream";
-import { type PlayerError, PlayerPlayState, VideoStreamService } from "../../subsystems/videoStream";
+import { type VideoStreamError, VideoStreamPlayState, VideoStreamService } from "../../subsystems/videoStream";
 
 const logger = createLogger("AVControlVideo");
 
@@ -88,7 +87,7 @@ export class AVControlVideo
   // ═══════════════════════════════════════════════════════════════════════════
 
   constructor(env: AVControlVideoEnv) {
-    this.#stream = new VideoStreamService(env.videoStream);
+    this.#stream = new VideoStreamService();
     this.#eventHandlers = env.eventHandlers;
 
     this._mimeType = env.defaults.mimeType;
@@ -131,7 +130,7 @@ export class AVControlVideo
     })();
   };
 
-  mapErrorCode = (error: PlayerError): OIPF.AV.Control.ErrorCode => {
+  mapErrorCode = (error: VideoStreamError): OIPF.AV.Control.ErrorCode => {
     switch (error.code) {
       case 1: // MEDIA_ERR_ABORTED
         return OIPF.AV.Control.ErrorCode.UNIDENTIFIED;
@@ -374,7 +373,6 @@ export interface AVControlVideoEventHandlers {
 }
 
 export type AVControlVideoEnv = Readonly<{
-  videoStream: VideoStreamEnv;
   defaults: AVControlVideoDefaults;
   eventHandlers: AVControlVideoEventHandlers;
 }>;
@@ -391,22 +389,22 @@ export const DEFAULT_AV_CONTROL_VIDEO_DEFAULTS: AVControlVideoDefaults = {
   fullScreen: DEFAULT_AV_CONTROL_FULL_SCREEN,
 };
 
-const mapPlayerToAvControl = (state: PlayerPlayState): OIPF.AV.Control.PlayState => {
+const mapPlayerToAvControl = (state: VideoStreamPlayState): OIPF.AV.Control.PlayState => {
   switch (state) {
-    case PlayerPlayState.IDLE:
-    case PlayerPlayState.STOPPED:
+    case VideoStreamPlayState.IDLE:
+    case VideoStreamPlayState.STOPPED:
       return OIPF.AV.Control.PlayState.STOPPED;
-    case PlayerPlayState.CONNECTING:
+    case VideoStreamPlayState.CONNECTING:
       return OIPF.AV.Control.PlayState.CONNECTING;
-    case PlayerPlayState.BUFFERING:
+    case VideoStreamPlayState.BUFFERING:
       return OIPF.AV.Control.PlayState.BUFFERING;
-    case PlayerPlayState.PLAYING:
+    case VideoStreamPlayState.PLAYING:
       return OIPF.AV.Control.PlayState.PLAYING;
-    case PlayerPlayState.PAUSED:
+    case VideoStreamPlayState.PAUSED:
       return OIPF.AV.Control.PlayState.PAUSED;
-    case PlayerPlayState.FINISHED:
+    case VideoStreamPlayState.FINISHED:
       return OIPF.AV.Control.PlayState.FINISHED;
-    case PlayerPlayState.ERROR:
+    case VideoStreamPlayState.ERROR:
       return OIPF.AV.Control.PlayState.ERROR;
   }
 };

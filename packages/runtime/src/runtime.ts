@@ -21,7 +21,6 @@ import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
   createCurrentChannelEnv,
-  createDefaultVideoStreamEnv,
   createRemoteControlEnv,
   createStreamEventScheduler,
   createUserAgentEnv,
@@ -30,7 +29,6 @@ import {
   type RemoteControlEnv,
   type StreamEventSchedulerApi,
   type UserAgentEnv,
-  type VideoStreamEnv,
 } from "./subsystems";
 import { type AnyOipfBinding, createProviderEnv, type GlobalState, ProviderService } from "./subsystems/provider";
 
@@ -47,8 +45,6 @@ const logger = createLogger("Runtime:Service");
 export type BindingsEnv = Readonly<{
   /** Channel configuration for VideoBroadcast */
   channelRegistry: ChannelRegistryEnv;
-  /** Factory for creating VideoStream instances */
-  createVideoStream: () => VideoStreamEnv;
   /**
    * Returns the current channel from the active VideoBroadcast.
    * Used by ApplicationPrivateData.currentChannel.
@@ -229,7 +225,6 @@ export const createRuntimeEnv = (
       // Subsystem environments
       channelRegistry,
       streamEventScheduler,
-      createVideoStream: createDefaultVideoStreamEnv,
       // Current channel
       getCurrentChannel: currentChannelEnv.getCurrentChannel,
       setCurrentChannel: currentChannelEnv.setCurrentChannel,

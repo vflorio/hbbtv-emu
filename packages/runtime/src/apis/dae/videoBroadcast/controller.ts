@@ -1,6 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
-import { PlayerPlayState } from "../../../subsystems";
+import { VideoStreamPlayState } from "../../../subsystems";
 import type { VideoBroadcastEnv } from ".";
 import type { ChannelAPI } from "./channel";
 
@@ -11,12 +11,12 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
     constructor(...args: any[]) {
       super(...args);
 
-      this.env.onStreamStateChange((streamState: PlayerPlayState) => {
+      this.env.onStreamStateChange((streamState: VideoStreamPlayState) => {
         const broadcastState = mapStreamToVideoBroadcast(streamState);
         this.setPlayState(broadcastState);
 
         // Handle channel change success when presenting
-        if (streamState === PlayerPlayState.PLAYING && this._currentChannel) {
+        if (streamState === VideoStreamPlayState.PLAYING && this._currentChannel) {
           this.env.eventHandlers.onChannelChangeSucceeded(this._currentChannel);
         }
       });
@@ -33,19 +33,19 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
     }
   };
 
-const mapStreamToVideoBroadcast = (state: PlayerPlayState): OIPF.DAE.Broadcast.PlayState => {
+const mapStreamToVideoBroadcast = (state: VideoStreamPlayState): OIPF.DAE.Broadcast.PlayState => {
   switch (state) {
-    case PlayerPlayState.IDLE:
+    case VideoStreamPlayState.IDLE:
       return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
-    case PlayerPlayState.CONNECTING:
-    case PlayerPlayState.BUFFERING:
+    case VideoStreamPlayState.CONNECTING:
+    case VideoStreamPlayState.BUFFERING:
       return OIPF.DAE.Broadcast.PlayState.CONNECTING;
-    case PlayerPlayState.PLAYING:
-    case PlayerPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
+    case VideoStreamPlayState.PLAYING:
+    case VideoStreamPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
       return OIPF.DAE.Broadcast.PlayState.PRESENTING;
-    case PlayerPlayState.STOPPED:
-    case PlayerPlayState.FINISHED:
-    case PlayerPlayState.ERROR:
+    case VideoStreamPlayState.STOPPED:
+    case VideoStreamPlayState.FINISHED:
+    case VideoStreamPlayState.ERROR:
       return OIPF.DAE.Broadcast.PlayState.STOPPED;
     default:
       return OIPF.DAE.Broadcast.PlayState.STOPPED;

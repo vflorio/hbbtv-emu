@@ -68,6 +68,26 @@ export const isControlState = (state: PlayerState.Any): state is PlayerState.Con
   state._tag.startsWith("Control/");
 
 /**
+ * Type guard: Check if state is idle
+ */
+export const isIdle = (state: PlayerState.Any): boolean => state._tag === "Control/Idle";
+
+/**
+ * Type guard: Check if state is ended
+ */
+export const isEnded = (state: PlayerState.Any): boolean => state._tag === "Control/Ended";
+
+/**
+ * Type guard: Check if state is seeking
+ */
+export const isSeeking = (state: PlayerState.Any): boolean => state._tag === "Control/Seeking";
+
+/**
+ * Type guard: Check if state is buffering
+ */
+export const isBuffering = (state: PlayerState.Any): boolean => state._tag === "Control/Buffering";
+
+/**
  * Type guard: Check if state is a source state
  */
 export const isSourceState = (state: PlayerState.Any): state is PlayerState.Source.Any =>
@@ -293,6 +313,46 @@ export const getQualityInfo = (state: PlayerState.Any) =>
       }),
     )
     .otherwise(() => null);
+
+// ============================================================================
+// Event Matching Utilities
+// ============================================================================
+
+/**
+ * Match on runtime events (not PlayerState)
+ *
+ * @example
+ * matchPlayerEvent(event)
+ *   .with({ _tag: 'Engine/VolumeChanged' }, (e) => console.log('Volume:', e.volume))
+ *   .with({ _tag: 'Adapter/Created' }, () => console.log('Adapter ready'))
+ *   .otherwise(() => {});
+ */
+export const matchPlayerEvent = <T>(event: any): ReturnType<typeof match<any, T>> => match<any, T>(event);
+
+/**
+ * Type guard: Check if event is volume change
+ */
+export const isVolumeChangeEvent = (
+  event: any,
+): event is { _tag: "Engine/VolumeChanged"; volume: number; muted: boolean } => event?._tag === "Engine/VolumeChanged";
+
+/**
+ * Type guard: Check if event is adapter created
+ */
+export const isAdapterCreatedEvent = (event: any): event is { _tag: "Adapter/Created" } =>
+  event?._tag === "Adapter/Created";
+
+/**
+ * Type guard: Check if event is adapter destroyed
+ */
+export const isAdapterDestroyedEvent = (event: any): event is { _tag: "Adapter/Destroyed" } =>
+  event?._tag === "Adapter/Destroyed";
+
+/**
+ * Type guard: Check if event is metadata loaded
+ */
+export const isMetadataLoadedEvent = (event: any): event is { _tag: "Adapter/MetadataLoaded" } =>
+  event?._tag === "Adapter/MetadataLoaded";
 
 // ============================================================================
 // Utility Functions
