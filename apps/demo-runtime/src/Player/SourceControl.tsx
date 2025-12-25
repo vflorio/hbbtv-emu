@@ -15,6 +15,8 @@ const sampleSources = [
   },
 ] as const;
 
+const testAutoplay = true;
+
 export function SourceControl({ playerRuntime, isLoading }: { playerRuntime: PlayerRuntime; isLoading: boolean }) {
   const [inputSource, setInputSource] = useState<string>(sampleSources[0].url);
   const [playerState, setPlayerState] = useState<PlayerState.Any | null>(null);
@@ -24,12 +26,29 @@ export function SourceControl({ playerRuntime, isLoading }: { playerRuntime: Pla
     return () => unsubscribe();
   }, [playerRuntime]);
 
+  useEffect(() => {
+    if (!testAutoplay) return;
+
+    const autoplayUrl = sampleSources[1].url;
+
+    playerRuntime.dispatch({ _tag: "Intent/LoadRequested", url: autoplayUrl })();
+
+    //FIXME: Implementare Once
+    const timeoutId = setTimeout(() => {
+      //playerRuntime.dispatch({ _tag: "Intent/PlayRequested" })();
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [playerRuntime]);
+
   const playbackType = useMemo(() => {
     const opt = playerRuntime.getPlaybackType();
     return O.isSome(opt) ? opt.value : null;
   }, [playerRuntime, playerState]);
 
-  const loadSource = (url: string) => playerRuntime.dispatch({ _tag: "Intent/LoadRequested", url })();
+  const loadSource = (url: string) => {
+    playerRuntime.dispatch({ _tag: "Intent/LoadRequested", url })();
+  };
 
   return (
     <Paper sx={{ p: 2, mb: 2 }}>

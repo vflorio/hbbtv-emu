@@ -1,22 +1,7 @@
 Player 
-    - Aggiungere la gestione del volume, sia come controllo via Intent, che listeners dinamici
-
-    - Gestire correttamente Intent/PlayRequested quando l'utente non ha interagito con la pagina, 
-        la runtime dovrebbe automaticamente mettere in muto il player e riprovare 
-        
     - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
-
-- AV Object:
-    Utilizzo: 
-            const object = document.createElement("object");
-            object.style.cssText = "width:1280px;height:720px;position:absolute;z-index:1000;top:0;left:0;";
-            object.type = "application/dash+xml";
-            object.data = "https://d1x2qd46lfkzk0.cloudfront.net/daitest/multiaac2/index.mpd";
-            
-            object.onPlayStateChange = (...args) => console.log(...args)
-            document.body.appendChild(object);
-            object.play(1);
-
+    
+    - Integrazione Extensione UI: Overlay controllabile da Extension State (quindi UI)
 
 - Logger Env: console controllabile da Extension State (quindi UI)
 

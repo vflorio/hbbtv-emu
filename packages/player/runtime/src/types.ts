@@ -49,6 +49,7 @@ export type PlayerEngineEvent =
   | { readonly _tag: "Engine/Seeked"; readonly snapshot: PlaybackSnapshot }
   | { readonly _tag: "Engine/VolumeChanged"; readonly volume: number }
   | { readonly _tag: "Engine/MutedChanged"; readonly muted: boolean }
+  | { readonly _tag: "Engine/AutoplayRecoveryAttempted"; readonly muted: boolean }
   | {
       readonly _tag: "Engine/Error";
       readonly kind: "not-supported" | "network" | "media" | "decode" | "unknown";
@@ -256,6 +257,7 @@ export type AdapterError =
       readonly cause?: unknown;
     }
   | { readonly _tag: "AdapterError/PlayFailed"; readonly message: string; readonly cause?: unknown }
+  | { readonly _tag: "AdapterError/AutoplayBlocked"; readonly message: string; readonly cause?: unknown }
   | { readonly _tag: "AdapterError/PauseFailed"; readonly message: string; readonly cause?: unknown }
   | {
       readonly _tag: "AdapterError/SeekFailed";

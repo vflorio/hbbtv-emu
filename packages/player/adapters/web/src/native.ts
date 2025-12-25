@@ -102,6 +102,14 @@ export class NativeAdapter implements RuntimeAdapter {
       await this.video.play();
       return E.right(undefined);
     } catch (error) {
+      // Check if error is due to autoplay policy (user interaction required)
+      if (error instanceof Error && error.name === "NotAllowedError") {
+        return E.left({
+          _tag: "AdapterError/AutoplayBlocked",
+          message: "Autoplay was blocked by browser policy",
+          cause: error,
+        });
+      }
       return E.left({
         _tag: "AdapterError/PlayFailed",
         message: error instanceof Error ? error.message : "Failed to play",

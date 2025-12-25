@@ -34,13 +34,13 @@ export function Overlay({ core, videoRef }: PlayerUiOverlayProps) {
       }}
     >
       <Stack direction="row" gap={1} sx={{ flex: "1 1 auto", minHeight: 0 }}>
-        <Stack sx={{ flex: 1, minHeight: 0, minWidth: 0, pointerEvents: "auto" }}>
-          <TransitionsPanel entries={entries} />
-        </Stack>
         <Stack gap={1} sx={{ width: 420, flexShrink: 0, minHeight: 0, overflow: "auto", pointerEvents: "auto" }}>
           <StateInfoPanel playerRuntime={core} playerState={playerState} />
           <ControlsPanel core={core} playerState={playerState} videoRef={videoRef} />
           <MatchersPanel playerState={playerState} />
+        </Stack>
+        <Stack sx={{ flex: 1, minHeight: 0, minWidth: 0, maxWidth: 600, pointerEvents: "auto" }}>
+          <TransitionsPanel entries={entries} />
         </Stack>
       </Stack>
 

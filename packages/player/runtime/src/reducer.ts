@@ -498,6 +498,10 @@ export const reduce =
         next: state,
         effects: [] as const,
       }))
+      .with({ _tag: "Engine/AutoplayRecoveryAttempted" }, () => ({
+        next: state,
+        effects: [] as const,
+      }))
       .with({ _tag: "Engine/Error" }, ({ kind, message, url, codec }) => handleEngineError(kind, message, url, codec))
       // Native events
       .with({ _tag: "Engine/Native/ProgressiveLoading" }, ({ url, bytesLoaded, bytesTotal, canPlayThrough }) =>

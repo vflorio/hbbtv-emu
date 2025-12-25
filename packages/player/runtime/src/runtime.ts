@@ -12,6 +12,7 @@ import { EventBus } from "./eventBus";
 import { initialState, reduce } from "./reducer";
 import type { PlayerState } from "./states";
 import type {
+  AdapterError,
   PlaybackType,
   PlayerEffect,
   PlayerEvent,
@@ -207,7 +208,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
 
   private adapterFailureFromError = (
     operation: Extract<PlayerRuntimeError, { _tag: "CoreError/AdapterFailure" }>["operation"],
-    adapterError: import("./types").AdapterError,
+    adapterError: AdapterError,
   ): PlayerRuntimeError => ({
     _tag: "CoreError/AdapterFailure",
     operation,
@@ -314,16 +315,40 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
       ),
     );
 
-  private playAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
-    pipe(
-      this.getAdapter(),
-      TE.flatMap((adapter) =>
-        pipe(
-          adapter.play,
-          TE.mapLeft((adapterError) => this.adapterFailureFromError("play", adapterError)),
+  private playAdapter = (): TE.TaskEither<PlayerRuntimeError, void> => {
+    const handleErrorStrategy = (adapter: RuntimeAdapter) => (error: AdapterError) =>
+      match(error)
+        .with({ _tag: "AdapterError/AutoplayBlocked" }, () => recoverFromAutoplay(adapter, error))
+        .otherwise(() => TE.left(this.adapterFailureFromError("play", error)));
+
+    const recoverFromAutoplay = (
+      adapter: RuntimeAdapter,
+      originalError: AdapterError,
+    ): TE.TaskEither<PlayerRuntimeError, void> =>
+      pipe(
+        TE.fromTask(this.dispatch(this.adapterFailureFromError("play", originalError))),
+        TE.flatMap(() =>
+          TE.fromTask(
+            this.dispatch({
+              _tag: "Engine/AutoplayRecoveryAttempted",
+              muted: true,
+            }),
+          ),
         ),
-      ),
+        TE.flatMap(() => this.setMutedAdapter(true)),
+        TE.flatMap(() =>
+          pipe(
+            adapter.play,
+            TE.mapLeft((e) => this.adapterFailureFromError("play", e)),
+          ),
+        ),
+      );
+
+    return pipe(
+      this.getAdapter(),
+      TE.flatMap((adapter) => pipe(adapter.play, TE.orElse(handleErrorStrategy(adapter)))),
     );
+  };
 
   private pauseAdapter = (): TE.TaskEither<PlayerRuntimeError, void> =>
     pipe(
