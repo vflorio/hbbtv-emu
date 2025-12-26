@@ -10,26 +10,26 @@ export type EventMapOf<T extends EventTarget> = T extends Window
         ? HTMLElementEventMap
         : Record<string, Event>;
 
-export const addEventListener =
-  <Target extends EventTarget>(target: Target) =>
-  <K extends Extract<keyof EventMapOf<Target>, string>>(type: K) =>
-  (listener: (event: EventMapOf<Target>[K]) => void, options?: boolean | AddEventListenerOptions): IO.IO<void> =>
-  () =>
-    target.addEventListener(type, listener as unknown as EventListener, options);
+type RemoveEventListenerFn = IO.IO<void>;
 
-export const addEventListenerIO =
-  <Target extends EventTarget>(target: Target) =>
-  <K extends Extract<keyof EventMapOf<Target>, string>>(type: K) =>
-  (listener: (event: EventMapOf<Target>[K]) => IO.IO<void>, options?: boolean | AddEventListenerOptions): IO.IO<void> =>
-  () =>
-    target.addEventListener(type, (e) => listener(e as EventMapOf<Target>[K])(), options);
+export const addEventListener =
+  <T extends EventTarget>(target: T) =>
+  <K extends Extract<keyof EventMapOf<T>, string>>(type: K) =>
+  (
+    listener: (event: EventMapOf<T>[K]) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): IO.IO<RemoveEventListenerFn> =>
+  () => {
+    target.addEventListener(type, listener as EventListener, options);
+    return () => removeEventListener(target)(type)(listener, options);
+  };
 
 export const removeEventListener =
-  <Target extends EventTarget>(target: Target) =>
-  <K extends Extract<keyof EventMapOf<Target>, string>>(type: K) =>
-  (listener: (event: EventMapOf<Target>[K]) => void, options?: boolean | EventListenerOptions): IO.IO<void> =>
+  <T extends EventTarget>(target: T) =>
+  <K extends Extract<keyof EventMapOf<T>, string>>(type: K) =>
+  (listener: (event: EventMapOf<T>[K]) => void, options?: boolean | EventListenerOptions): RemoveEventListenerFn =>
   () =>
-    target.removeEventListener(type, listener as unknown as EventListener, options);
+    target.removeEventListener(type, listener as EventListener, options);
 
 export const dispatchEvent =
   <T>(type: string, detail?: T) =>

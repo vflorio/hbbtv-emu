@@ -1,24 +1,15 @@
-import type {
-  AdapterError,
-  PlaybackSnapshot,
-  PlayerEngineEvent,
-  RuntimeAdapter,
-  UnsubscribeFn,
-} from "@hbb-emu/player-runtime";
+import { addEventListener } from "@hbb-emu/core";
+import type { AdapterError, RuntimeAdapter, UnsubscribeFn } from "@hbb-emu/player-runtime";
 import * as E from "fp-ts/Either";
-import type * as IO from "fp-ts/IO";
-import type * as TE from "fp-ts/TaskEither";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import * as N from "fp-ts/number";
+import * as O from "fp-ts/Option";
+import * as RA from "fp-ts/ReadonlyArray";
+import * as TE from "fp-ts/TaskEither";
+import { match } from "ts-pattern";
 import type { NativeConfig } from ".";
-
-type Listener = (event: PlayerEngineEvent) => void;
-
-const snapshotOf = (video: HTMLVideoElement): PlaybackSnapshot => ({
-  currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
-  duration: Number.isFinite(video.duration) ? video.duration : 0,
-  buffered: getBufferedRanges(video),
-  playbackRate: Number.isFinite(video.playbackRate) ? video.playbackRate : 1,
-  paused: video.paused,
-});
+import { emit, snapshotOf, type VideoEventListener } from "./utils";
 
 export class NativeAdapter implements RuntimeAdapter {
   readonly type = "native" as const;
@@ -26,354 +17,416 @@ export class NativeAdapter implements RuntimeAdapter {
 
   private video: HTMLVideoElement | null = null;
   private url: string | null = null;
-  private listeners = new Set<Listener>();
+  private readonly listeners = new Set<VideoEventListener>();
+
+  private cleanVideoElementEventListener: IO.IO<void> = IO.of(undefined);
 
   constructor(private readonly config: NativeConfig = {}) {}
-
-  subscribe =
-    (listener: Listener): IO.IO<UnsubscribeFn> =>
-    () => {
-      this.listeners.add(listener);
-      return () => this.listeners.delete(listener);
-    };
-
-  private emit =
-    (event: PlayerEngineEvent): IO.IO<void> =>
-    () => {
-      for (const listener of this.listeners) listener(event);
-    };
 
   mount =
     (videoElement: HTMLVideoElement): IO.IO<void> =>
     () => {
       this.video = videoElement;
 
-      if (this.config.preload) videoElement.preload = this.config.preload;
-      if (this.config.crossOrigin) videoElement.crossOrigin = this.config.crossOrigin;
-      if (this.config.autoplay !== undefined) videoElement.autoplay = this.config.autoplay;
+      const updateProperty = <K extends keyof HTMLVideoElement>(
+        property: K,
+        value: O.Option<HTMLVideoElement[K]>,
+      ): IO.IO<void> =>
+        pipe(
+          value,
+          O.match(
+            () => IO.of(undefined),
+            (v) => () => {
+              videoElement[property] = v;
+            },
+          ),
+        );
 
-      videoElement.addEventListener("loadedmetadata", this.onLoadedMetadata);
-      videoElement.addEventListener("progress", this.onProgress);
-      videoElement.addEventListener("canplaythrough", this.onCanPlayThrough);
-      videoElement.addEventListener("timeupdate", this.onTimeUpdate);
-      videoElement.addEventListener("playing", this.onPlaying);
-      videoElement.addEventListener("pause", this.onPause);
-      videoElement.addEventListener("waiting", this.onWaiting);
-      videoElement.addEventListener("ended", this.onEnded);
-      videoElement.addEventListener("seeked", this.onSeeked);
-      videoElement.addEventListener("volumechange", this.onVolumeChange);
-      videoElement.addEventListener("error", this.onError);
+      const updateNativeConfig = pipe(
+        IO.Do,
+        IO.flatMap(() => updateProperty("preload", O.fromNullable(this.config.preload))),
+        IO.flatMap(() => updateProperty("crossOrigin", O.fromNullable(this.config.crossOrigin))),
+        IO.flatMap(() => updateProperty("autoplay", O.fromNullable(this.config.autoplay))),
+      );
 
-      this.emit({ _tag: "Engine/Mounted" })();
+      const setupEventListeners = pipe(
+        RA.fromArray([
+          addEventListener(videoElement)("loadedmetadata")(this.onLoadedMetadata),
+          addEventListener(videoElement)("progress")(this.onProgress),
+          addEventListener(videoElement)("canplaythrough")(this.onCanPlayThrough),
+          addEventListener(videoElement)("timeupdate")(this.onTimeUpdate),
+          addEventListener(videoElement)("playing")(this.onPlaying),
+          addEventListener(videoElement)("pause")(this.onPause),
+          addEventListener(videoElement)("waiting")(this.onWaiting),
+          addEventListener(videoElement)("ended")(this.onEnded),
+          addEventListener(videoElement)("seeked")(this.onSeeked),
+          addEventListener(videoElement)("volumechange")(this.onVolumeChange),
+          addEventListener(videoElement)("error")(this.onError),
+        ]),
+        RA.traverse(IO.Applicative)((addListener) => addListener),
+        IO.map((removeEventListeners) =>
+          pipe(
+            removeEventListeners,
+            RA.traverse(IO.Applicative)((remove) => remove),
+            IO.asUnit,
+          ),
+        ),
+      );
+
+      return pipe(
+        IO.Do,
+        IO.flatMap(() => updateNativeConfig),
+        IO.flatMap(
+          () =>
+            pipe(
+              setupEventListeners,
+              IO.flatMap((clean) => () => {
+                this.cleanVideoElementEventListener = clean;
+              }),
+            ),
+          IO.flatMap(() => emit(this.listeners)({ _tag: "Engine/Mounted" })),
+        ),
+      );
     };
 
-  load =
-    (url: string): TE.TaskEither<AdapterError, void> =>
-    async () => {
-      if (!this.video) {
-        return E.left({
-          _tag: "AdapterError/VideoElementNotMounted",
-          message: "Video element not mounted",
-        });
-      }
-      try {
+  private getVideoElement: TE.TaskEither<AdapterError, HTMLVideoElement> = TE.fromEither(
+    pipe(
+      this.video,
+      E.fromNullable({
+        _tag: "AdapterError/VideoElementNotMounted" as const,
+        message: "Video element not mounted",
+      }),
+    ),
+  );
+
+  subscribe = (listener: VideoEventListener): IO.IO<UnsubscribeFn> =>
+    pipe(
+      IO.of(this.listeners.add(listener)),
+      IO.map(() => IO.of(this.listeners.delete(listener))),
+    );
+
+  // TODO: Resolved when metadata is loaded
+  load = (url: string): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      this.getVideoElement,
+      TE.tapIO(() => () => {
         this.url = url;
-        this.video.src = url;
-        this.video.load();
-        return E.right(undefined);
-      } catch (error) {
-        return E.left({
-          _tag: "AdapterError/LoadFailed",
-          message: error instanceof Error ? error.message : "Failed to load source",
-          url,
-          cause: error,
-        });
-      }
-    };
+      }),
+      TE.flatMap((video) =>
+        pipe(
+          E.tryCatch(
+            () => {
+              video.src = url;
+              video.load();
+            },
+            (error): AdapterError => ({
+              _tag: "AdapterError/LoadFailed",
+              message: error instanceof Error ? error.message : "Failed to load media",
+              url,
+              cause: error,
+            }),
+          ),
+          TE.fromEither,
+        ),
+      ),
+    );
 
-  play: TE.TaskEither<AdapterError, void> = async () => {
-    if (!this.video) {
-      return E.left({
-        _tag: "AdapterError/VideoElementNotMounted",
-        message: "Video element not mounted",
-      });
-    }
-    try {
-      await this.video.play();
-      return E.right(undefined);
-    } catch (error) {
-      // Check if error is due to autoplay policy (user interaction required)
-      if (error instanceof Error && error.name === "NotAllowedError") {
-        return E.left({
-          _tag: "AdapterError/AutoplayBlocked",
-          message: "Autoplay was blocked by browser policy",
-          cause: error,
-        });
-      }
-      return E.left({
-        _tag: "AdapterError/PlayFailed",
-        message: error instanceof Error ? error.message : "Failed to play",
-        cause: error,
-      });
-    }
-  };
+  play: TE.TaskEither<AdapterError, void> = pipe(
+    this.getVideoElement,
+    TE.flatMap((video) =>
+      TE.tryCatch(
+        () => video.play(),
+        (error): AdapterError =>
+          match(error)
+            .when(
+              (error): error is Error => error instanceof Error && error.name === "NotAllowedError",
+              (error) => ({
+                _tag: "AdapterError/AutoplayBlocked" as const,
+                message: "Autoplay was blocked by browser policy",
+                cause: error,
+              }),
+            )
+            .otherwise((error) => ({
+              _tag: "AdapterError/PlayFailed" as const,
+              message: error instanceof Error ? error.message : "Failed to play",
+              cause: error,
+            })),
+      ),
+    ),
+  );
 
-  pause: TE.TaskEither<AdapterError, void> = async () => {
-    if (!this.video) {
-      return E.left({
-        _tag: "AdapterError/VideoElementNotMounted",
-        message: "Video element not mounted",
-      });
-    }
-    try {
-      this.video.pause();
-      return E.right(undefined);
-    } catch (error) {
-      return E.left({
-        _tag: "AdapterError/PauseFailed",
-        message: error instanceof Error ? error.message : "Failed to pause",
-        cause: error,
-      });
-    }
-  };
+  // TODO: Resolved when paused event is fired
+  pause: TE.TaskEither<AdapterError, void> = pipe(
+    this.getVideoElement,
+    TE.flatMap((video) =>
+      pipe(
+        E.tryCatch(
+          () => video.pause(),
+          (error): AdapterError => ({
+            _tag: "AdapterError/PauseFailed",
+            message: error instanceof Error ? error.message : "Failed to pause",
+            cause: error,
+          }),
+        ),
+        TE.fromEither,
+      ),
+    ),
+  );
 
-  seek =
-    (time: number): TE.TaskEither<AdapterError, void> =>
-    async () => {
-      if (!this.video) {
-        return E.left({
-          _tag: "AdapterError/VideoElementNotMounted",
-          message: "Video element not mounted",
-        });
-      }
-      try {
-        this.video.currentTime = time;
-        return E.right(undefined);
-      } catch (error) {
-        return E.left({
-          _tag: "AdapterError/SeekFailed",
-          message: error instanceof Error ? error.message : "Failed to seek",
-          time,
-          cause: error,
-        });
-      }
-    };
+  // TODO: Resolved when seeked event is fired
+  seek = (time: number): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      this.getVideoElement,
+      TE.flatMap((video) =>
+        pipe(
+          E.tryCatch(
+            () => {
+              video.currentTime = Math.max(0, Math.min(video.duration, time));
+            },
+            (error): AdapterError => ({
+              _tag: "AdapterError/SeekFailed",
+              message: error instanceof Error ? error.message : "Failed to seek",
+              cause: error,
+              time,
+            }),
+          ),
+          TE.fromEither,
+        ),
+      ),
+    );
 
-  setVolume =
-    (volume: number): TE.TaskEither<AdapterError, void> =>
-    async () => {
-      if (!this.video) {
-        return E.left({
-          _tag: "AdapterError/VideoElementNotMounted",
-          message: "Video element not mounted",
-        });
-      }
-      try {
-        this.video.volume = Math.max(0, Math.min(1, volume));
-        return E.right(undefined);
-      } catch (error) {
-        return E.left({
-          _tag: "AdapterError/PlayFailed",
-          message: error instanceof Error ? error.message : "Failed to set volume",
-          cause: error,
-        });
-      }
-    };
+  setVolume = (volume: number): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      this.getVideoElement,
+      TE.flatMap((video) =>
+        pipe(
+          E.tryCatch(
+            () => {
+              video.volume = Math.max(0, Math.min(1, volume));
+            },
+            (error): AdapterError => ({
+              _tag: "AdapterError/PlayFailed",
+              message: error instanceof Error ? error.message : "Failed to set volume",
+              cause: error,
+            }),
+          ),
+          TE.fromEither,
+        ),
+      ),
+    );
 
-  setMuted =
-    (muted: boolean): TE.TaskEither<AdapterError, void> =>
-    async () => {
-      if (!this.video) {
-        return E.left({
-          _tag: "AdapterError/VideoElementNotMounted",
-          message: "Video element not mounted",
-        });
-      }
-      try {
-        this.video.muted = muted;
-        return E.right(undefined);
-      } catch (error) {
-        return E.left({
-          _tag: "AdapterError/PlayFailed",
-          message: error instanceof Error ? error.message : "Failed to set muted",
-          cause: error,
-        });
-      }
-    };
+  setMuted = (muted: boolean): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      this.getVideoElement,
+      TE.flatMap((video) =>
+        pipe(
+          E.tryCatch(
+            () => {
+              video.muted = muted;
+            },
+            (error): AdapterError => ({
+              _tag: "AdapterError/PlayFailed",
+              message: error instanceof Error ? error.message : "Failed to set muted",
+              cause: error,
+            }),
+          ),
+          TE.fromEither,
+        ),
+      ),
+    );
 
-  destroy: TE.TaskEither<AdapterError, void> = async () => {
-    if (!this.video) {
-      return E.right(undefined);
-    }
-    try {
-      const video = this.video;
-
-      video.removeEventListener("loadedmetadata", this.onLoadedMetadata);
-      video.removeEventListener("progress", this.onProgress);
-      video.removeEventListener("canplaythrough", this.onCanPlayThrough);
-      video.removeEventListener("timeupdate", this.onTimeUpdate);
-      video.removeEventListener("playing", this.onPlaying);
-      video.removeEventListener("pause", this.onPause);
-      video.removeEventListener("waiting", this.onWaiting);
-      video.removeEventListener("ended", this.onEnded);
-      video.removeEventListener("seeked", this.onSeeked);
-      video.removeEventListener("volumechange", this.onVolumeChange);
-      video.removeEventListener("error", this.onError);
-
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-
+  destroy: TE.TaskEither<AdapterError, void> = pipe(
+    this.getVideoElement,
+    TE.flatMap(() => TE.fromIO(this.cleanVideoElementEventListener)),
+    TE.tapIO(() => () => {
       this.video = null;
       this.url = null;
+    }),
+  );
 
-      return E.right(undefined);
-    } catch (error) {
-      return E.left({
-        _tag: "AdapterError/DestroyFailed",
-        message: error instanceof Error ? error.message : "Failed to destroy adapter",
-        cause: error,
-      });
-    }
-  };
+  // Event Handlers
 
-  private onLoadedMetadata = () => {
-    if (!this.video || !this.url) return;
-    this.emit({
-      _tag: "Engine/MetadataLoaded",
-      playbackType: this.type,
-      url: this.url,
-      duration: Number.isFinite(this.video.duration) ? this.video.duration : 0,
-      width: this.video.videoWidth,
-      height: this.video.videoHeight,
-    })();
-  };
+  private onLoadedMetadata = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.apS("url", O.fromNullable(this.url)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video, url }) =>
+        emit(this.listeners)({
+          _tag: "Engine/MetadataLoaded",
+          playbackType: this.type,
+          url,
+          duration: Number.isFinite(video.duration) ? video.duration : 0,
+          width: video.videoWidth,
+          height: video.videoHeight,
+        }),
+    ),
+  );
 
-  private onTimeUpdate = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(this.video) })();
-  };
+  private onTimeUpdate = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) => emit(this.listeners)({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(video) }),
+    ),
+  );
 
-  private onPlaying = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/Playing", snapshot: snapshotOf(this.video) })();
-  };
+  private onPlaying = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) => emit(this.listeners)({ _tag: "Engine/Playing", snapshot: snapshotOf(video) }),
+    ),
+  );
 
-  private onPause = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/Paused", snapshot: snapshotOf(this.video) })();
-  };
+  private onPause = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) => emit(this.listeners)({ _tag: "Engine/Paused", snapshot: snapshotOf(video) }),
+    ),
+  );
 
-  private onWaiting = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/Waiting", snapshot: snapshotOf(this.video) })();
-  };
+  private onWaiting = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) => emit(this.listeners)({ _tag: "Engine/Waiting", snapshot: snapshotOf(video) }),
+    ),
+  );
 
-  private onEnded = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/Ended", snapshot: snapshotOf(this.video) })();
-  };
+  private onEnded = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) => emit(this.listeners)({ _tag: "Engine/Ended", snapshot: snapshotOf(video) }),
+    ),
+  );
 
-  private onSeeked = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/Seeked", snapshot: snapshotOf(this.video) })();
-  };
+  private onSeeked = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) => emit(this.listeners)({ _tag: "Engine/Seeked", snapshot: snapshotOf(video) }),
+    ),
+  );
 
-  private onVolumeChange = () => {
-    if (!this.video) return;
-    this.emit({ _tag: "Engine/VolumeChanged", volume: this.video.volume })();
-    this.emit({ _tag: "Engine/MutedChanged", muted: this.video.muted })();
-  };
+  private onVolumeChange = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      ({ video }) =>
+        pipe(
+          emit(this.listeners)({ _tag: "Engine/VolumeChanged", volume: video.volume }),
+          IO.flatMap(() => emit(this.listeners)({ _tag: "Engine/MutedChanged", muted: video.muted })),
+        ),
+    ),
+  );
 
-  private canPlayThrough = false;
+  private canPlayThrough = false; // FIXME
 
   private onProgress = () => {
-    if (!this.video || !this.url) return;
+    const isValid = (video: HTMLVideoElement) =>
+      video.buffered.length > 0 && Number.isFinite(video.duration) && video.duration > 0;
 
-    const buffered = this.video.buffered;
-    const duration = this.video.duration;
+    const calculateBufferedTime = (ranges: TimeRanges) =>
+      pipe(
+        RA.makeBy(ranges.length, (index) => ranges.end(index) - ranges.start(index)),
+        RA.reduce(0, N.MonoidSum.concat),
+      );
 
-    let bytesLoaded = 0;
-    let bytesTotal = 0;
-
-    // Estimate bytes based on buffered time ranges
-    if (buffered.length > 0 && Number.isFinite(duration) && duration > 0) {
-      for (let i = 0; i < buffered.length; i++) {
-        bytesLoaded += buffered.end(i) - buffered.start(i);
-      }
-      bytesTotal = duration;
-    }
-
-    this.emit({
-      _tag: "Engine/Native/ProgressiveLoading",
-      url: this.url,
-      bytesLoaded,
-      bytesTotal,
-      canPlayThrough: this.canPlayThrough,
-    })();
+    return pipe(
+      O.Do,
+      O.apS("video", O.fromNullable(this.video)),
+      O.apS("url", O.fromNullable(this.url)),
+      O.filter(({ video }) => isValid(video)),
+      O.match(
+        () => IO.of(undefined),
+        ({ video, url }) =>
+          emit(this.listeners)({
+            _tag: "Engine/Native/ProgressiveLoading",
+            url,
+            bytesLoaded: calculateBufferedTime(video.buffered),
+            bytesTotal: video.duration,
+            canPlayThrough: this.canPlayThrough,
+          }),
+      ),
+    )();
   };
 
-  private onCanPlayThrough = () => {
-    this.canPlayThrough = true;
-    if (this.video && this.url) {
-      this.onProgress();
-    }
-  };
+  private onCanPlayThrough = pipe(
+    O.Do,
+    O.apS("video", O.fromNullable(this.video)),
+    O.match(
+      () => IO.of(undefined),
+      () => () => {
+        this.canPlayThrough = true;
+      },
+    ),
+  );
 
   private onError = () => {
-    if (!this.video) return;
-    const err = this.video.error;
+    const formatMediaError = (error: MediaError) =>
+      match(error.code)
+        .with(MediaError.MEDIA_ERR_ABORTED, () => ({
+          kind: "network" as const,
+          message: "Media loading aborted",
+        }))
+        .with(MediaError.MEDIA_ERR_NETWORK, () => ({
+          kind: "network" as const,
+          message: "Network error while loading media",
+        }))
+        .with(MediaError.MEDIA_ERR_DECODE, () => ({
+          kind: "decode" as const,
+          message: "Media decode error",
+        }))
+        .with(MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED, () => ({
+          kind: "not-supported" as const,
+          message: "Media format not supported",
+        }))
+        .otherwise(() => ({
+          kind: "media" as const,
+          message: `MediaError ${error.code}`,
+        }));
 
-    if (!err) {
-      this.emit({
-        _tag: "Engine/Error",
-        kind: "unknown",
-        message: "Unknown media error",
-        url: this.url ?? undefined,
-      })();
-      return;
-    }
-
-    // Map MediaError codes to specific error kinds
-    let kind: "decode" | "network" | "not-supported" | "media" = "media";
-    let message = "Media error";
-
-    switch (err.code) {
-      case MediaError.MEDIA_ERR_ABORTED:
-        kind = "network";
-        message = "Media loading aborted";
-        break;
-      case MediaError.MEDIA_ERR_NETWORK:
-        kind = "network";
-        message = "Network error while loading media";
-        break;
-      case MediaError.MEDIA_ERR_DECODE:
-        kind = "decode";
-        message = "Media decode error";
-        break;
-      case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-        kind = "not-supported";
-        message = "Media format not supported";
-        break;
-      default:
-        message = `MediaError ${err.code}`;
-    }
-
-    this.emit({
-      _tag: "Engine/Error",
-      kind,
-      message: err.message || message,
-      url: this.url ?? undefined,
-      codec: kind === "decode" ? "unknown" : undefined,
-      cause: err,
-    })();
+    return pipe(
+      O.Do,
+      O.apS("video", O.fromNullable(this.video)),
+      O.match(
+        () => IO.of(undefined),
+        ({ video }) =>
+          pipe(
+            O.fromNullable(video.error),
+            O.match(
+              () =>
+                emit(this.listeners)({
+                  _tag: "Engine/Error",
+                  kind: "unknown",
+                  message: "Unknown media error",
+                  url: this.url ?? undefined,
+                }),
+              (error) => {
+                const { kind, message } = formatMediaError(error);
+                return emit(this.listeners)({
+                  _tag: "Engine/Error",
+                  kind,
+                  message: error.message || message,
+                  url: this.url ?? undefined,
+                  codec: kind === "decode" ? "unknown" : undefined,
+                  cause: error,
+                });
+              },
+            ),
+          ),
+      ),
+    )();
   };
 }
-
-const getBufferedRanges = (video: HTMLVideoElement) => {
-  const ranges: { start: number; end: number }[] = [];
-  for (let i = 0; i < video.buffered.length; i++) {
-    ranges.push({ start: video.buffered.start(i), end: video.buffered.end(i) });
-  }
-  return ranges;
-};
