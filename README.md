@@ -87,21 +87,31 @@ pnpm syncpack:check
 Fix version mismatches:
 
 ```bash
-- `@hbb-emu/runtime-demo` - Pure runtime demo (no extension dependencies)
 pnpm syncpack:fix
 ```
 
 ## Packages
 
 **Applications**
-- `@hbb-emu/chrome-v3-extension` - Chrome MV3 extension
-- `@hbb-emu/demo-ui` - Demo web application
+- `@hbb-emu/chrome-v3-extension` - Chrome (Manifest V3) extension with HbbTV runtime integration
+- `@hbb-emu/demo-ui` - Demo web application for testing settings-ui
+- `@hbb-emu/runtime-demo` - Standalone runtime demo with AVControl and Player UI
 
 **Core Libraries**
-- `@hbb-emu/core` - Shared utilities, DOM helpers, and storage
-- `@hbb-emu/oipf` - OIPF object models and validation
-- `@hbb-emu/runtime` - HbbTV runtime implementation
-- `@hbb-emu/settings-ui` - Settings UI components
-- `@hbb-emu/extension-common` - Shared extension utilities
-- `@hbb-emu/runtime-chrome` - Chrome-specific runtime
-- `@hbb-emu/runtime-web` - Web-specific runtime
+- `@hbb-emu/core` - Shared utilities, DOM helpers, storage, and functional programming helpers
+- `@hbb-emu/oipf` - OIPF object models, validation, and type definitions
+- `@hbb-emu/runtime` - HbbTV runtime implementation with OIPF APIs and subsystems
+
+**Extension Modules**
+- `@hbb-emu/extension-common` - Shared extension state and utilities
+- `@hbb-emu/runtime-chrome` - Chrome-specific runtime bridge
+- `@hbb-emu/runtime-web` - Web-specific runtime bridge
+
+**Player System**
+- `@hbb-emu/player-runtime` - Core player runtime with state management
+- `@hbb-emu/player-adapter-web` - Web adapters (Native, HLS.js, dash.js)
+- `@hbb-emu/player-adapter-hbbtv` - HbbTV-specific player adapter (AVControl, MediaElementSource)
+- `@hbb-emu/player-ui` - Player debug UI overlay with controls and state visualization
+
+**UI Components**
+- `@hbb-emu/settings-ui` - Settings UI for configuring HbbTV environment and channels
