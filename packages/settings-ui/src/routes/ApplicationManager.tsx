@@ -125,7 +125,7 @@ export default function ApplicationTab() {
       title="Application Manager"
       actions={
         isEditing && (
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" gap={2}>
             <Button variant="contained" onClick={handleSave}>
               Save
             </Button>

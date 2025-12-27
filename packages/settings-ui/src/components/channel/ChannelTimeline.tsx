@@ -126,7 +126,7 @@ export function ChannelTimeline({ mp4Source, streamEvents }: ChannelTimelineProp
   if (!duration || duration <= 0) {
     return (
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={1}>
+        <Stack gap={1}>
           <Typography variant="body2" color="text.secondary">
             Unable to parse video duration from URL.
           </Typography>
@@ -147,7 +147,7 @@ export function ChannelTimeline({ mp4Source, streamEvents }: ChannelTimelineProp
 
   return (
     <Paper variant="elevation" elevation={2} sx={{ p: 2 }}>
-      <Stack spacing={1}>
+      <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="subtitle2" fontWeight="bold">
             Timeline
@@ -176,7 +176,7 @@ export function ChannelTimeline({ mp4Source, streamEvents }: ChannelTimelineProp
             <Tooltip
               key={event.id}
               title={
-                <Stack spacing={0.5}>
+                <Stack gap={0.5}>
                   <Typography variant="caption" fontWeight="bold">
                     {event.label}
                   </Typography>
@@ -244,16 +244,16 @@ export function ChannelTimeline({ mp4Source, streamEvents }: ChannelTimelineProp
 
         {/* Legenda */}
         {events.length > 0 && (
-          <Stack direction="row" spacing={2} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" gap={2} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
+            <Stack direction="row" gap={0.5} alignItems="center">
               <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: "#2196f3" }} />
               <Typography variant="caption">Interval</Typography>
             </Stack>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" gap={0.5} alignItems="center">
               <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: "#4caf50" }} />
               <Typography variant="caption">Timestamps</Typography>
             </Stack>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" gap={0.5} alignItems="center">
               <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: "#ff9800" }} />
               <Typography variant="caption">Delay</Typography>
             </Stack>

@@ -1,6 +1,8 @@
 import { createLogger } from "@hbb-emu/core";
 import type { ExtensionState } from "@hbb-emu/extension-common";
-import { createRuntimeEnv, runtime } from "@hbb-emu/runtime";
+import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
+import { PlayerRuntime, type PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
+import { createRuntimeEnv, type PlayerRuntimeFactory, runtime } from "@hbb-emu/runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -8,6 +10,7 @@ import * as S from "fp-ts/State";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { App, type Instance } from "./app";
+import { PlayerUIService } from "./player-ui";
 import { getConfig, getRuntimeHandle, setConfig, setReady, setRuntimeHandle } from "./state";
 import { responseError, sendGetState, waitForState } from "./utils";
 
@@ -19,19 +22,30 @@ export type ContentScript = Readonly<{
 
 export class ContentScriptService implements ContentScript {
   readonly #app: Instance;
+  readonly #playerUI: PlayerUIService;
+  #playerRuntime: PlayerRuntime | null = null;
 
   constructor(app: Instance) {
     this.#app = app;
+    this.#playerUI = new PlayerUIService();
   }
 
   start = (): T.Task<void> =>
     pipe(
       T.fromIO(logger.info("Starting")),
       T.flatMap(() => this.#requestAndWaitForConfig()),
+      T.flatMap(() => T.fromIO(logger.info("Creating shared PlayerRuntime for VideoBroadcast"))),
+      T.flatMap(() =>
+        T.fromIO(() => {
+          this.#playerRuntime = this.#createPlayerRuntime();
+          logger.debug("Shared PlayerRuntime created")();
+        }),
+      ),
       T.flatMap(() => T.fromIO(this.#setupStateSubscription())),
       T.flatMap(() => T.fromIO(this.#setupPlayChannelHandler())),
       T.flatMap(() => T.fromIO(this.#setupDispatchKeyHandler())),
       T.flatMap(() => T.fromIO(this.#initializeHbbTV())),
+      T.flatMap(() => T.fromIO(this.#initializePlayerUI())),
       T.flatMap(() => this.#notifyReady()),
       T.flatMap(() => T.fromIO(logger.info("Started"))),
     );
@@ -73,6 +87,33 @@ export class ContentScriptService implements ContentScript {
     );
 
   // ───────────────────────────────────────────────────────────────────────────
+  // PlayerRuntime setup
+  // ───────────────────────────────────────────────────────────────────────────
+
+  #createPlayerRuntime = (): PlayerRuntime => {
+    logger.debug("Creating PlayerRuntime instance with adapters")();
+    const config: PlayerRuntimeConfig = {
+      adapters: {
+        native: new NativeAdapter(),
+        hls: new HLSAdapter(),
+        dash: new DASHAdapter(),
+      },
+    };
+    return new PlayerRuntime(config);
+  };
+
+  #createPlayerRuntimeFactory = (): PlayerRuntimeFactory => ({
+    create: () => {
+      logger.debug("Factory: Creating new PlayerRuntime instance")();
+      return this.#createPlayerRuntime();
+    },
+    destroy: (runtime: PlayerRuntime) => {
+      logger.debug("Factory: Destroying PlayerRuntime instance")();
+      runtime.destroy().catch(() => {});
+    },
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Runtime integration
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -85,7 +126,17 @@ export class ContentScriptService implements ContentScript {
           (extensionState) =>
             pipe(
               logger.info("Initializing HbbTV runtime"),
-              IO.flatMap(() => runtime(createRuntimeEnv(extensionState))),
+              IO.flatMap(() => {
+                const factory = this.#createPlayerRuntimeFactory();
+                logger.debug("Passing shared runtime (VideoBroadcast) and factory (AVControl)")();
+                return runtime(
+                  createRuntimeEnv(
+                    extensionState,
+                    this.#playerRuntime ?? undefined, // Shared for VideoBroadcast
+                    factory, // Factory for AVControl
+                  ),
+                );
+              }),
               IO.flatMap((handle) =>
                 pipe(
                   logger.debug("Saving runtime handle"),
@@ -107,6 +158,7 @@ export class ContentScriptService implements ContentScript {
             logger.info("State update received", envelope.message.payload),
             IO.flatMap(() => this.#app.runState(setConfig(envelope.message.payload))),
             IO.flatMap(() => this.#updateRuntimeState(envelope.message.payload)),
+            IO.flatMap(() => this.#updatePlayerUI(envelope.message.payload)),
           ),
         ),
       ),
@@ -200,6 +252,36 @@ export class ContentScriptService implements ContentScript {
             ),
         ),
       ),
+    );
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Player UI Integration
+  // ───────────────────────────────────────────────────────────────────────────
+
+  #initializePlayerUI = (): IO.IO<void> =>
+    pipe(
+      this.#app.runState(getConfig),
+      IO.flatMap(
+        O.match(
+          () => logger.debug("No config available, skipping Player UI initialization"),
+          (extensionState) =>
+            pipe(
+              logger.debug("Initializing Player UI with visibility:", extensionState.playerUiVisible),
+              IO.flatMap(() => {
+                if (extensionState.playerUiVisible && this.#playerRuntime) {
+                  return this.#playerUI.show(this.#playerRuntime);
+                }
+                return IO.of(undefined);
+              }),
+            ),
+        ),
+      ),
+    );
+
+  #updatePlayerUI = (extensionState: ExtensionState): IO.IO<void> =>
+    pipe(
+      logger.debug("Updating Player UI visibility:", extensionState.playerUiVisible),
+      IO.flatMap(() => this.#playerUI.setVisible(extensionState.playerUiVisible, this.#playerRuntime ?? undefined)),
     );
 
   // ───────────────────────────────────────────────────────────────────────────

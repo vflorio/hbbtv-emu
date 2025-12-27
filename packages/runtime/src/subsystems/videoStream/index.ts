@@ -1,4 +1,7 @@
-export * from "./env";
-export type { PlayerSource as VideoStreamSource } from "./players";
-export * from "./players";
+/**
+ * VideoStream Subsystem
+ * Video backend provider for HbbTV emulator
+ */
+
+export * from "./types";
 export * from "./videoStream";

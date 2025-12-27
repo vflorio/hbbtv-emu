@@ -66,6 +66,7 @@ export const ExtensionStateCodec = t.intersection([
     userAgent: t.string,
     channels: t.array(ChannelConfigCodec),
     currentChannel: t.union([ChannelConfigCodec, t.null]),
+    playerUiVisible: t.boolean,
   }),
   t.type({
     hbbtv: HbbTVStateCodec,
@@ -108,6 +109,7 @@ const streamEvent = (
 
 export const DEFAULT_EXTENSION_STATE: ExtensionState = {
   currentChannel: null,
+  playerUiVisible: true,
   channels: [
     {
       id: "channel-1",

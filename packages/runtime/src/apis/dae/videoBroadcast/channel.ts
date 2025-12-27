@@ -1,5 +1,6 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
+import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RIO from "fp-ts/ReaderIO";
@@ -8,10 +9,9 @@ import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import { type ChannelRegistryEnv, resolveChannel } from "../../../subsystems/channelRegistry";
 import type {
-  PlayerEvent,
-  PlayerEventListener,
-  PlayerPlayState,
-  VideoStreamEnv,
+  VideoStreamEvent,
+  VideoStreamEventListener,
+  VideoStreamPlayState,
   VideoStreamSource,
 } from "../../../subsystems/videoStream";
 import { VideoStreamService } from "../../../subsystems/videoStream";
@@ -138,25 +138,6 @@ export type ChannelEnv = {
   ) => void;
 };
 
-export type ChannelVideoStreamEnv = {
-  // Element
-  videoElement: HTMLVideoElement;
-  // Playback
-  play: TE.TaskEither<Error, void>;
-  stop: IO.IO<void>;
-  destroy: IO.IO<void>;
-  loadSource: (source: VideoStreamSource) => IO.IO<void>;
-  // Display
-  setSize: (width: number, height: number) => IO.IO<void>;
-  setFullscreen: (fullscreen: boolean) => IO.IO<void>;
-  // Volume
-  setVolume: (volume: number) => IO.IO<void>;
-  setMuted: (muted: boolean) => IO.IO<void>;
-  getVolume: IO.IO<number>;
-  // Events
-  onStreamStateChange: (listener: (state: PlayerPlayState, previousState: PlayerPlayState) => void) => () => void;
-};
-
 export const createChannelEnv = (instance: ChannelAPI & VideoBroadcastEnv): ChannelEnv => ({
   getPlayState: () => instance.playState,
   getCurrentChannel: () => instance.currentChannel,
@@ -173,8 +154,32 @@ export const createChannelEnv = (instance: ChannelAPI & VideoBroadcastEnv): Chan
   },
 });
 
-export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): ChannelVideoStreamEnv => {
-  const stream = new VideoStreamService(videoStreamEnv);
+export type ChannelVideoStreamEnv = {
+  // Element
+  videoElement: HTMLVideoElement;
+  // Playback
+  play: TE.TaskEither<Error, void>;
+  stop: IO.IO<void>;
+  destroy: IO.IO<void>;
+  loadSource: (source: VideoStreamSource) => IO.IO<void>;
+  // Display
+  setSize: (width: number, height: number) => IO.IO<void>;
+  setFullscreen: (fullscreen: boolean) => IO.IO<void>;
+  // Volume
+  setVolume: (volume: number) => IO.IO<void>;
+  setMuted: (muted: boolean) => IO.IO<void>;
+  getVolume: IO.IO<number>;
+  // Events
+  onStreamStateChange: (
+    listener: (state: VideoStreamPlayState, previousState: VideoStreamPlayState) => void,
+  ) => () => void;
+};
+
+export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): ChannelVideoStreamEnv => {
+  const stream = new VideoStreamService(undefined, playerRuntime);
+
+  // If we have a PlayerRuntime, it will mount automatically in constructor
+  // Otherwise, it can be set later via setPlayerRuntime
 
   return {
     // Element
@@ -197,7 +202,7 @@ export const createChannelVideoStreamEnv = (videoStreamEnv: VideoStreamEnv): Cha
 
     // Events
     onStreamStateChange: (listener) => {
-      const handler: PlayerEventListener<"statechange"> = (event: PlayerEvent<"statechange">) => {
+      const handler: VideoStreamEventListener<"statechange"> = (event: VideoStreamEvent<"statechange">) => {
         listener(event.state, event.previousState);
       };
 
@@ -278,7 +283,6 @@ export const playChannel = (
         RTE.tapIO((resolved) =>
           env.loadSource({
             url: resolved.url,
-            type: "video",
             loop: true,
             autoPlay: true,
             muted: true,

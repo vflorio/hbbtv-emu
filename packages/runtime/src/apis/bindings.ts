@@ -105,7 +105,7 @@ export const createVideoBroadcastBinding = (
   factory: (element) =>
     new VideoBroadcast({
       channelRegistry: env.channelRegistry,
-      videoStream: createChannelVideoStreamEnv(env.createVideoStream()),
+      videoStream: createChannelVideoStreamEnv(env.getSharedPlayerRuntime() ?? undefined),
       onCurrentChannelChange: env.setCurrentChannel,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaultVideoBroadcast,
@@ -155,9 +155,9 @@ export const createAvControlsBinding = (
   },
   factory: (element) =>
     new AVControlVideo({
-      videoStream: env.createVideoStream(),
       defaults: env.defaultAvControlVideo,
       eventHandlers: extractAvControlEventHandlers(element),
+      playerRuntimeFactory: env.playerRuntimeFactory,
     }),
 });
 

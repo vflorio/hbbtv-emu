@@ -1,14 +1,9 @@
-- AV Object:
-    Utilizzo: 
-            const object = document.createElement("object");
-            object.style.cssText = "width:1280px;height:720px;position:absolute;z-index:1000;top:0;left:0;";
-            object.type = "application/dash+xml";
-            object.data = "https://d1x2qd46lfkzk0.cloudfront.net/daitest/multiaac2/index.mpd";
-            
-            object.onPlayStateChange = (...args) => console.log(...args)
-            document.body.appendChild(object);
-            object.play(1);
+- Modalità iFrame per avere un contesto con la runtime già inizializzata
 
+Player 
+    - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
+    
+    - Sistema avanzato di Source Switching quando abbiamo più provider per lo stesso media ( o due sorgenti per lo stesso media), quando un provider fallisce, automaticamente proviamo il prossimo provider
 
 - Logger Env: console controllabile da Extension State (quindi UI)
 

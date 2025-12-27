@@ -1,0 +1,36 @@
+{
+  "name": "@hbb-emu/player-runtime",
+  "version": "1.0.0",
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/oipf": "workspace:*",
+    "fp-ts": "2.16.11",
+    "ts-pattern": "5.9.0"
+  },
+  "devDependencies": {
+    "io-ts": "2.2.22",
+    "typescript": "5.9.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts"
+}
