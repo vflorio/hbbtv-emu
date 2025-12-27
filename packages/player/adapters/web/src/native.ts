@@ -1,5 +1,6 @@
 import { addEventListener } from "@hbb-emu/core";
 import type { AdapterError } from "@hbb-emu/player-runtime";
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
@@ -9,7 +10,6 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import type { NativeConfig } from ".";
 import { BaseVideoAdapter } from "./base";
-import { emit } from "./utils";
 
 export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
   readonly type = "native" as const;
@@ -27,8 +27,8 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
       value: O.Option<HTMLVideoElement[K]>,
     ): IO.IO<void> =>
       pipe(
-        IOO.fromOption(value),
-        IOO.matchE(
+        value,
+        O.match(
           () => IO.of(undefined),
           (v) => () => {
             videoElement[property] = v;
@@ -87,11 +87,10 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
       TE.fromIOEither(this.getVideoElement),
       TE.flatMap((video) =>
         pipe(
-          TE.tryCatch(
+          E.tryCatch(
             () => {
               video.src = url;
               video.load();
-              return Promise.resolve();
             },
             (error): AdapterError => ({
               _tag: "AdapterError/LoadFailed",
@@ -100,6 +99,7 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
               cause: error,
             }),
           ),
+          TE.fromEither,
         ),
       ),
     );
@@ -124,7 +124,7 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
       IOO.matchE(
         () => IO.of(undefined),
         ({ video, url }) =>
-          emit(this.listeners)({
+          this.emit({
             _tag: "Engine/Native/ProgressiveLoading",
             url,
             bytesLoaded: calculateBufferedTime(video.buffered),
@@ -140,9 +140,13 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      () => () => {
-        this.canPlayThrough = true;
-      },
+      () =>
+        pipe(
+          IO.of(undefined),
+          IO.tap(() => () => {
+            this.canPlayThrough = true;
+          }),
+        ),
     ),
   );
 }

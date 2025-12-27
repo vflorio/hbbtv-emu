@@ -1,8 +1,11 @@
+import type { PlayerEngineEvent } from "@hbb-emu/player-runtime";
 import type Hls from "hls.js";
 
 export * from "./dash";
 export * from "./hls";
 export * from "./native";
+
+export type VideoEventListener = (event: PlayerEngineEvent) => void;
 
 // ============================================================================
 // Configuration Types

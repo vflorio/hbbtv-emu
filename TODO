@@ -3,6 +3,8 @@ Player
     
     - Integrazione Extensione UI: Overlay controllabile da Extension State (quindi UI)
 
+    - Sistema avanzato di Source Switching quando abbiamo più provider per lo stesso media ( o due sorgenti per lo stesso media), quando un provider fallisce, automaticamente proviamo il prossimo provider
+
 - Logger Env: console controllabile da Extension State (quindi UI)
 
 - Possibilità di importare files locali nello storage dell'estensione

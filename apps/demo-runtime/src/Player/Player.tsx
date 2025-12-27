@@ -1,4 +1,3 @@
-import { createLogger } from "@hbb-emu/core";
 import { isLoading, type PlayerState } from "@hbb-emu/player-runtime";
 import { Overlay } from "@hbb-emu/player-ui";
 import Box from "@mui/material/Box";
@@ -6,8 +5,6 @@ import Stack from "@mui/material/Stack";
 import { useEffect, useRef, useState } from "react";
 import { SourceControl } from "./SourceControl";
 import { usePlayerRuntime } from "./usePlayerRuntime";
-
-const logger = createLogger("DemoRuntime:Player");
 
 export function PlayerDemo() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -21,13 +18,16 @@ export function PlayerDemo() {
   }, [runtime]);
 
   useEffect(() => {
-    const unsubscribe = runtime.subscribeToState((state) => setPlayerState(state))();
+    const unsubscribe = runtime.subscribeToState((state) => {
+      setPlayerState(state);
+      // logger.info("Player state updated:", state)();
+    })();
     return () => unsubscribe();
   }, [runtime]);
 
   useEffect(() => {
-    const unsubscribe = runtime.subscribeToEvents((event) => {
-      logger.info("Dispatched event:", event)();
+    const unsubscribe = runtime.subscribeToEvents((_event) => {
+      //logger.info("Dispatched event:", _event)();
     })();
     return () => unsubscribe();
   }, [runtime]);

@@ -1,5 +1,14 @@
 import { addEventListener } from "@hbb-emu/core";
-import type { AdapterError, PlaybackType, RuntimeAdapter, UnsubscribeFn } from "@hbb-emu/player-runtime";
+import type {
+  AdapterError,
+  PlaybackSnapshot,
+  PlaybackType,
+  PlayerEngineEvent,
+  RuntimeAdapter,
+  TimeRange,
+  UnsubscribeFn,
+} from "@hbb-emu/player-runtime";
+import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -9,7 +18,7 @@ import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import { emit, snapshotOf, type VideoEventListener } from "./utils";
+import type { VideoEventListener } from ".";
 
 /**
  * Base class for video player adapters.
@@ -45,7 +54,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
         IO.flatMap(() => this.setupEngine(videoElement)),
         IO.flatMap(() => this.setupVideoEventListeners(videoElement)),
         IO.flatMap(() => this.syncInitialState(videoElement)),
-        IO.flatMap(() => emit(this.listeners)({ _tag: "Engine/Mounted" })),
+        IO.flatMap(() => this.emit({ _tag: "Engine/Mounted" })),
       )();
     };
 
@@ -113,7 +122,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
       IOO.matchE(
         () => IO.of(undefined),
         ({ url }) =>
-          emit(this.listeners)({
+          this.emit({
             _tag: "Engine/MetadataLoaded",
             playbackType: this.type,
             url,
@@ -131,20 +140,18 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
         () =>
           pipe(
             O.some(videoElement),
-            O.filter(
-              (video) => !video.paused && !video.ended && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
-            ),
+            O.filter((v) => !v.paused && !v.ended && v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA),
             O.match(
               () => IO.of(undefined),
               (v) =>
-                emit(this.listeners)({
+                this.emit({
                   _tag: "Engine/Playing",
                   snapshot: snapshotOf(v),
                 }),
             ),
           ),
         (v) =>
-          emit(this.listeners)({
+          this.emit({
             _tag: "Engine/Ended",
             snapshot: snapshotOf(v),
           }),
@@ -153,8 +160,8 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
 
     const emitVolumeState = pipe(
       IO.Do,
-      IO.flatMap(() => emit(this.listeners)({ _tag: "Engine/VolumeChanged", volume: videoElement.volume })),
-      IO.flatMap(() => emit(this.listeners)({ _tag: "Engine/MutedChanged", muted: videoElement.muted })),
+      IO.flatMap(() => this.emit({ _tag: "Engine/VolumeChanged", volume: videoElement.volume })),
+      IO.flatMap(() => this.emit({ _tag: "Engine/MutedChanged", muted: videoElement.muted })),
     );
 
     return pipe(
@@ -177,7 +184,17 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
   subscribe = (listener: VideoEventListener): IO.IO<UnsubscribeFn> =>
     pipe(
       IO.of(this.listeners.add(listener)),
-      IO.map(() => IO.of(this.listeners.delete(listener))),
+      IO.map(() => () => this.listeners.delete(listener)),
+    );
+
+  /**
+   * Emit an event to all registered listeners.
+   * Helper method for subclasses to emit events.
+   */
+  protected emit = (event: PlayerEngineEvent): IO.IO<void> =>
+    pipe(
+      [...this.listeners],
+      RA.traverse(IO.Applicative)((listener) => IO.of(listener(event))),
     );
 
   load = (url: string): TE.TaskEither<AdapterError, void> =>
@@ -308,7 +325,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.matchE(
       () => () => console.log("onLoadedMetadata: video or url is null"),
       ({ video, url }) =>
-        emit(this.listeners)({
+        this.emit({
           _tag: "Engine/MetadataLoaded",
           playbackType: this.type,
           url,
@@ -324,7 +341,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => emit(this.listeners)({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -333,7 +350,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => emit(this.listeners)({ _tag: "Engine/Playing", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Playing", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -342,7 +359,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => emit(this.listeners)({ _tag: "Engine/Paused", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Paused", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -351,7 +368,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => emit(this.listeners)({ _tag: "Engine/Waiting", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Waiting", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -360,7 +377,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => emit(this.listeners)({ _tag: "Engine/Ended", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Ended", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -369,7 +386,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => emit(this.listeners)({ _tag: "Engine/Seeked", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Seeked", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -380,8 +397,8 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
       () => IO.of(undefined),
       ({ video }) =>
         pipe(
-          emit(this.listeners)({ _tag: "Engine/VolumeChanged", volume: video.volume }),
-          IO.flatMap(() => emit(this.listeners)({ _tag: "Engine/MutedChanged", muted: video.muted })),
+          this.emit({ _tag: "Engine/VolumeChanged", volume: video.volume }),
+          IO.flatMap(() => this.emit({ _tag: "Engine/MutedChanged", muted: video.muted })),
         ),
     ),
   );
@@ -396,7 +413,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
           O.fromNullable(video.error),
           O.match(
             () =>
-              emit(this.listeners)({
+              this.emit({
                 _tag: "Engine/Error",
                 kind: "unknown",
                 message: "Unknown media error",
@@ -427,7 +444,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
                   }));
 
               const { kind, message } = formatMediaError(error);
-              return emit(this.listeners)({
+              return this.emit({
                 _tag: "Engine/Error",
                 kind,
                 message: error.message || message,
@@ -441,3 +458,20 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     ),
   );
 }
+
+const snapshotOf = (video: HTMLVideoElement): PlaybackSnapshot => ({
+  currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+  duration: Number.isFinite(video.duration) ? video.duration : 0,
+  playbackRate: Number.isFinite(video.playbackRate) ? video.playbackRate : 1,
+  paused: video.paused,
+  buffered: getBufferedRanges(video),
+});
+
+const getBufferedRanges = (video: HTMLVideoElement): TimeRange[] =>
+  pipe(
+    A.makeBy(video.buffered.length, (index) => index), // [0, 1, 2, ..., buffered.length - 1]
+    A.map((index) => ({
+      start: video.buffered.start(index),
+      end: video.buffered.end(index),
+    })),
+  );

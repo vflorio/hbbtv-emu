@@ -10,7 +10,6 @@ import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import type { DASHConfig } from ".";
 import { BaseVideoAdapter } from "./base";
-import { emit } from "./utils";
 
 export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
   readonly type = "dash" as const;
@@ -168,7 +167,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
     IOO.matchE(
       () => IO.of(undefined),
       ({ url }) =>
-        emit(this.listeners)({
+        this.emit({
           _tag: "Engine/DASH/MPDLoading",
           url,
         }),
@@ -180,58 +179,59 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.bind("url", () => IOO.fromNullable(this.url)),
     IOO.bind("player", () => IOO.fromNullable(this.player)),
+    IOO.map(({ video, url, player }) => {
+      const videoTracks = player.getTracksFor("video") || [];
+      const audioTracks = player.getTracksFor("audio") || [];
+      const textTracks = player.getTracksFor("text") || [];
+
+      const adaptationSets = [
+        ...videoTracks.map((track: dashjs.MediaInfo) => ({
+          id: track.id || "video",
+          contentType: "video" as const,
+          mimeType: track.mimeType || "unknown",
+          representationCount: track.bitrateList?.length || 0,
+        })),
+        ...audioTracks.map((track: dashjs.MediaInfo) => ({
+          id: track.id || "audio",
+          contentType: "audio" as const,
+          mimeType: track.mimeType || "unknown",
+          representationCount: track.bitrateList?.length || 0,
+        })),
+        ...textTracks.map((track: dashjs.MediaInfo) => ({
+          id: track.id || "text",
+          contentType: "text" as const,
+          mimeType: track.mimeType || "unknown",
+          representationCount: 1,
+        })),
+      ];
+
+      const isDynamic = player.isDynamic();
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+
+      return { video, url, adaptationSets, isDynamic, duration };
+    }),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video, url, player }) =>
-        () => {
-          const videoTracks = player.getTracksFor("video") || [];
-          const audioTracks = player.getTracksFor("audio") || [];
-          const textTracks = player.getTracksFor("text") || [];
-
-          const adaptationSets = [
-            ...videoTracks.map((track: dashjs.MediaInfo) => ({
-              id: track.id || "video",
-              contentType: "video" as const,
-              mimeType: track.mimeType || "unknown",
-              representationCount: track.bitrateList?.length || 0,
-            })),
-            ...audioTracks.map((track: dashjs.MediaInfo) => ({
-              id: track.id || "audio",
-              contentType: "audio" as const,
-              mimeType: track.mimeType || "unknown",
-              representationCount: track.bitrateList?.length || 0,
-            })),
-            ...textTracks.map((track: dashjs.MediaInfo) => ({
-              id: track.id || "text",
-              contentType: "text" as const,
-              mimeType: track.mimeType || "unknown",
-              representationCount: 1,
-            })),
-          ];
-
-          const isDynamic = player.isDynamic();
-          const duration = Number.isFinite(video.duration) ? video.duration : 0;
-
-          pipe(
-            emit(this.listeners)({
-              _tag: "Engine/DASH/MPDParsed",
+      ({ video, url, adaptationSets, isDynamic, duration }) =>
+        pipe(
+          this.emit({
+            _tag: "Engine/DASH/MPDParsed",
+            url,
+            adaptationSets,
+            duration,
+            isDynamic,
+          }),
+          IO.flatMap(() =>
+            this.emit({
+              _tag: "Engine/MetadataLoaded",
+              playbackType: this.type,
               url,
-              adaptationSets,
               duration,
-              isDynamic,
+              width: video.videoWidth,
+              height: video.videoHeight,
             }),
-            IO.flatMap(() =>
-              emit(this.listeners)({
-                _tag: "Engine/MetadataLoaded",
-                playbackType: this.type,
-                url,
-                duration,
-                width: video.videoWidth,
-                height: video.videoHeight,
-              }),
-            ),
-          )();
-        },
+          ),
+        ),
     ),
   );
 
@@ -248,7 +248,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       IOO.matchE(
         () => IO.of(undefined),
         () =>
-          emit(this.listeners)({
+          this.emit({
             _tag: "Engine/DASH/QualitySwitching",
             fromRepresentation: {
               id: `${event.oldRepresentation.id}`,
@@ -274,8 +274,8 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       IOO.matchE(
         () => IO.of(undefined),
         ({ video }) =>
-          () => {
-            emit(this.listeners)({
+          pipe(
+            this.emit({
               _tag: "Engine/DASH/RepresentationSelected",
               representation: {
                 id: event.newRepresentation.id,
@@ -284,10 +284,12 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
               },
               bandwidth: 0,
               resolution: { width: video.videoWidth || 0, height: video.videoHeight || 0 },
-            })();
-
-            this.previousQuality.video = event.newRepresentation.qualityRanking;
-          },
+            }),
+            IO.tap(() => () => {
+              this.previousQuality.video = event.newRepresentation.qualityRanking;
+            }),
+            IO.asUnit,
+          ),
       ),
     )();
 
@@ -306,20 +308,20 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       IOO.matchE(
         () => IO.of(undefined),
         ({ request }) =>
-          () => {
-            const key = `${request.mediaType}:${request.index}`;
-            const bytesTotal = request.bytesTotal || 0;
-
-            emit(this.listeners)({
+          pipe(
+            this.emit({
               _tag: "Engine/DASH/SegmentDownloading",
               segmentIndex: request.index || 0,
               mediaType: request.mediaType === "video" ? "video" : "audio",
-              bytesLoaded: bytesTotal,
-              bytesTotal,
-            })();
-
-            this.fragmentDownloadProgress.delete(key);
-          },
+              bytesLoaded: request.bytesTotal || 0,
+              bytesTotal: request.bytesTotal || 0,
+            }),
+            IO.tap(() => () => {
+              const key = `${request.mediaType}:${request.index}`;
+              this.fragmentDownloadProgress.delete(key);
+            }),
+            IO.asUnit,
+          ),
       ),
     )();
 
@@ -328,22 +330,23 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
     const errorCode = error.code;
     const errorMessage = error.message || `DASH error: ${errorCode}`;
 
-    const handleManifestError = (): IO.IO<void> => () => {
+    const handleManifestError = (): IO.IO<void> => {
       const url = this.url ?? "unknown";
       const retryKey = `mpd:${url}`;
       const currentRetry = this.retryCount.get(retryKey) || 0;
 
-      pipe(
-        emit(this.listeners)({
+      return pipe(
+        this.emit({
           _tag: "Engine/DASH/MPDParseError",
           url,
           retryCount: currentRetry,
           message: errorMessage,
           cause: event,
         }),
-        IO.flatMap(() => () => {
+        IO.tap(() => () => {
           this.retryCount.set(retryKey, currentRetry + 1);
-
+        }),
+        IO.flatMap(() =>
           pipe(
             O.Do,
             O.apS("player", O.fromNullable(this.player)),
@@ -363,13 +366,13 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
                   );
                 },
             ),
-          )();
-        }),
-      )();
+          ),
+        ),
+      );
     };
 
     const handleDownloadError = (): IO.IO<void> =>
-      emit(this.listeners)({
+      this.emit({
         _tag: "Engine/Error",
         kind: "media",
         message: errorMessage,
@@ -378,7 +381,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       });
 
     const handleGenericError = (): IO.IO<void> =>
-      emit(this.listeners)({
+      this.emit({
         _tag: "Engine/Error",
         kind: "media",
         message: errorMessage,
