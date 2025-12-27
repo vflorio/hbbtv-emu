@@ -13,7 +13,6 @@ import { BaseVideoAdapter } from "./base";
 
 export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
   readonly type = "hls" as const;
-  readonly name = "HLS.js";
 
   private hls: Hls | null = null;
   private previousLevel: number | null = null;

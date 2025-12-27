@@ -13,7 +13,6 @@ import { BaseVideoAdapter } from "./base";
 
 export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
   readonly type = "native" as const;
-  readonly name = "Native HTML5";
 
   private canPlayThrough = false;
 

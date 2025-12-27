@@ -31,7 +31,6 @@ import type { VideoEventListener } from ".";
  */
 export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdapter {
   abstract readonly type: PlaybackType;
-  abstract readonly name: string;
 
   protected video: HTMLVideoElement | null = null;
   protected url: string | null = null;

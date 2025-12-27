@@ -21,7 +21,6 @@ export type MockAdapter = RuntimeAdapter & {
  */
 export const createMockAdapter = (type: PlaybackType = "native"): MockAdapter => ({
   type,
-  name: `Mock ${type} Adapter`,
   mount: vi.fn((_videoElement: HTMLVideoElement) => () => {}),
   load: vi.fn((_url: string) => async () => E.right(undefined)),
   play: vi.fn(async () => E.right(undefined)) as unknown as Mock<TE.TaskEither<AdapterError, void>>,

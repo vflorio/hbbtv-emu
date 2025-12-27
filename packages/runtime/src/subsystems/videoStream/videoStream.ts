@@ -298,22 +298,15 @@ export class VideoStreamService implements VideoStreamApi {
 
   setFullscreen =
     (fullscreen: boolean): IO.IO<void> =>
-    () => {
-      if (fullscreen) {
-        this.#videoElement.requestFullscreen().catch(() => {});
-      } else {
-        if (document.fullscreenElement === this.#videoElement) {
-          document.exitFullscreen().catch(() => {});
-        }
-      }
-    };
+    () =>
+      fullscreen
+        ? this.#videoElement.setAttribute("style", "width: 100%; height: 100%;")
+        : this.#videoElement.removeAttribute("style");
 
   setSize =
     (width: number, height: number): IO.IO<void> =>
-    () => {
-      this.#videoElement.style.width = `${width}px`;
-      this.#videoElement.style.height = `${height}px`;
-    };
+    () =>
+      this.#videoElement.setAttribute("style", `width: ${width}px; height: ${height}px;`);
 
   // ============================================================================
   // Event Handling

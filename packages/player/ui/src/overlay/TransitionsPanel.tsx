@@ -70,7 +70,7 @@ export function TransitionsPanel({ entries }: { entries: readonly RuntimeDebugEn
             rowHeight={20}
             rowProps={{ items }}
             defaultHeight={320}
-            style={{ width: "100%" }}
+            style={{ width: "100%", overflowX: "hidden" }}
           />
         </Box>
       )}

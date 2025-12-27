@@ -274,7 +274,6 @@ export type AdapterError =
 
 export type RuntimeAdapter = {
   readonly type: PlaybackType;
-  readonly name: string;
   mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
   load: (url: string) => TE.TaskEither<AdapterError, void>;
   play: TE.TaskEither<AdapterError, void>;

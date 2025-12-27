@@ -3,7 +3,7 @@ import type { OIPF } from "@hbb-emu/oipf";
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime, type PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
 import { Overlay } from "@hbb-emu/player-ui";
-import { createRuntimeEnv, type RuntimeHandle, runtime } from "@hbb-emu/runtime";
+import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtime } from "@hbb-emu/runtime";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -20,8 +20,37 @@ export function RuntimeDemo() {
   useEffect(() => {
     console.log("[Runtime] Initializing HbbTV Runtime...");
 
-    // Create runtime environment from default extension state
-    const env = createRuntimeEnv(DEFAULT_EXTENSION_STATE);
+    // Create PlayerRuntime factory for AVControl objects
+    const createPlayerRuntimeInstance = (): PlayerRuntime => {
+      const config: PlayerRuntimeConfig = {
+        adapters: {
+          native: new NativeAdapter(),
+          hls: new HLSAdapter(),
+          dash: new DASHAdapter(),
+        },
+      };
+      return new PlayerRuntime(config);
+    };
+
+    const playerRuntimeFactory: PlayerRuntimeFactory = {
+      create: () => {
+        console.log("[Factory] Creating new PlayerRuntime instance");
+        return createPlayerRuntimeInstance();
+      },
+      destroy: (runtime: PlayerRuntime) => {
+        console.log("[Factory] Destroying PlayerRuntime instance");
+        runtime.destroy().catch(() => {});
+      },
+    };
+
+    // Create a separate PlayerRuntime for the UI overlay
+    // This is independent from the AVControlObject's internal player
+    const playerRuntime = createPlayerRuntimeInstance();
+    setPlayerRuntime(playerRuntime);
+    console.log("[PlayerRuntime] Created for UI overlay");
+
+    // Create runtime environment with the factory
+    const env = createRuntimeEnv(DEFAULT_EXTENSION_STATE, undefined, playerRuntimeFactory);
     console.log("[Runtime] Environment created");
 
     // Start the runtime
@@ -32,24 +61,11 @@ export function RuntimeDemo() {
     // Read player UI visibility from extension state
     setShowPlayerUi(DEFAULT_EXTENSION_STATE.playerUiVisible);
 
-    // Create a separate PlayerRuntime for the UI overlay
-    // This is independent from the AVControlObject's internal player
-    const config: PlayerRuntimeConfig = {
-      adapters: {
-        native: new NativeAdapter(),
-        hls: new HLSAdapter(),
-        dash: new DASHAdapter(),
-      },
-    };
-    const pr = new PlayerRuntime(config);
-    setPlayerRuntime(pr);
-    console.log("[PlayerRuntime] Created for UI overlay");
-
     return () => {
       console.log("[Runtime] Cleaning up runtime");
       handle.stop();
-      if (pr) {
-        pr.destroy().catch(() => {});
+      if (playerRuntime) {
+        playerRuntime.destroy().catch(() => {});
       }
     };
   }, []);

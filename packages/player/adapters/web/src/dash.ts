@@ -13,7 +13,6 @@ import { BaseVideoAdapter } from "./base";
 
 export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
   readonly type = "dash" as const;
-  readonly name = "dash.js";
 
   private player: dashjs.MediaPlayerClass | null = null;
   private previousQuality: { video?: number; audio?: number } = {};
