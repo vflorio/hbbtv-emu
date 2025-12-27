@@ -1,0 +1,3 @@
+# Target: Webkit r152340 (Tizen 2.4)
+# Usa IE 9 come proxy per ES5 compliance
+ie >= 9
