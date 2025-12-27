@@ -12,22 +12,23 @@ export type EventMapOf<T extends EventTarget> = T extends Window
 
 type RemoveEventListenerFn = IO.IO<void>;
 
+type EventType<Target extends EventTarget> = Extract<keyof EventMapOf<Target>, string>;
+
+type Listener<Target extends EventTarget, Type extends EventType<Target>> = (event: EventMapOf<Target>[Type]) => void;
+
 export const addEventListener =
-  <T extends EventTarget>(target: T) =>
-  <K extends Extract<keyof EventMapOf<T>, string>>(type: K) =>
-  (
-    listener: (event: EventMapOf<T>[K]) => void,
-    options?: boolean | AddEventListenerOptions,
-  ): IO.IO<RemoveEventListenerFn> =>
+  <Target extends EventTarget>(target: Target) =>
+  <Type extends EventType<Target>>(type: Type) =>
+  (listener: Listener<Target, Type>, options?: boolean | AddEventListenerOptions): IO.IO<RemoveEventListenerFn> =>
   () => {
     target.addEventListener(type, listener as EventListener, options);
-    return () => removeEventListener(target)(type)(listener, options);
+    return () => target.removeEventListener(type, listener as EventListener, options);
   };
 
 export const removeEventListener =
-  <T extends EventTarget>(target: T) =>
-  <K extends Extract<keyof EventMapOf<T>, string>>(type: K) =>
-  (listener: (event: EventMapOf<T>[K]) => void, options?: boolean | EventListenerOptions): RemoveEventListenerFn =>
+  <Target extends EventTarget>(target: Target) =>
+  <Type extends EventType<Target>>(type: Type) =>
+  (listener: Listener<Target, Type>, options?: boolean | EventListenerOptions): RemoveEventListenerFn =>
   () =>
     target.removeEventListener(type, listener as EventListener, options);
 

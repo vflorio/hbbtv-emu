@@ -2,6 +2,7 @@ import { addEventListener } from "@hbb-emu/core";
 import type { AdapterError } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
 import * as N from "fp-ts/number";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
@@ -16,14 +17,18 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
 
   private canPlayThrough = false;
 
+  constructor(protected readonly config: NativeConfig = {}) {
+    super(config);
+  }
+
   protected setupEngine(videoElement: HTMLVideoElement): IO.IO<void> {
     const updateProperty = <K extends keyof HTMLVideoElement>(
       property: K,
       value: O.Option<HTMLVideoElement[K]>,
     ): IO.IO<void> =>
       pipe(
-        value,
-        O.match(
+        IOO.fromOption(value),
+        IOO.matchE(
           () => IO.of(undefined),
           (v) => () => {
             videoElement[property] = v;
@@ -39,7 +44,7 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
     );
   }
 
-  protected override setupVideoEventListeners(videoElement: HTMLVideoElement): IO.IO<void> {
+  protected override setupVideoEventListeners = (videoElement: HTMLVideoElement): IO.IO<void> => {
     // Native adapter needs additional events: progress and canplaythrough
     const setupEventListeners = pipe(
       RA.fromArray([
@@ -71,15 +76,15 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
         this.cleanVideoElementEventListener = clean;
       }),
     );
-  }
+  };
 
   protected cleanupEngine(): IO.IO<void> {
     return IO.of(undefined);
   }
 
-  protected loadSource(url: string): TE.TaskEither<AdapterError, void> {
-    return pipe(
-      this.getVideoElement,
+  protected loadSource = (url: string): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      TE.fromIOEither(this.getVideoElement),
       TE.flatMap((video) =>
         pipe(
           TE.tryCatch(
@@ -98,7 +103,6 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
         ),
       ),
     );
-  }
 
   // Native-specific event handlers
 
@@ -113,11 +117,11 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
       );
 
     return pipe(
-      O.Do,
-      O.apS("video", O.fromNullable(this.video)),
-      O.apS("url", O.fromNullable(this.url)),
-      O.filter(({ video }) => isValid(video)),
-      O.match(
+      IOO.Do,
+      IOO.bind("video", () => IOO.fromNullable(this.video)),
+      IOO.bind("url", () => IOO.fromNullable(this.url)),
+      IOO.filter(({ video }) => isValid(video)),
+      IOO.matchE(
         () => IO.of(undefined),
         ({ video, url }) =>
           emit(this.listeners)({
@@ -132,9 +136,9 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
   };
 
   private onCanPlayThrough = pipe(
-    O.Do,
-    O.apS("video", O.fromNullable(this.video)),
-    O.match(
+    IOO.Do,
+    IOO.bind("video", () => IOO.fromNullable(this.video)),
+    IOO.matchE(
       () => IO.of(undefined),
       () => () => {
         this.canPlayThrough = true;

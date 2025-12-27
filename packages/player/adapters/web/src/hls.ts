@@ -1,6 +1,8 @@
 import type { AdapterError } from "@hbb-emu/player-runtime";
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
@@ -111,14 +113,17 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
         message: "HLS player not initialized",
       }),
       TE.flatMap((hls) =>
-        TE.tryCatch(
-          () => Promise.resolve(hls.loadSource(url)),
-          (error): AdapterError => ({
-            _tag: "AdapterError/LoadFailed",
-            message: error instanceof Error ? error.message : "Failed to load HLS source",
-            url,
-            cause: error,
-          }),
+        pipe(
+          E.tryCatch(
+            () => hls.loadSource(url),
+            (error): AdapterError => ({
+              _tag: "AdapterError/LoadFailed",
+              message: error instanceof Error ? error.message : "Failed to load HLS source",
+              url,
+              cause: error,
+            }),
+          ),
+          TE.fromEither,
         ),
       ),
     );
@@ -127,9 +132,9 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
   // HLS-specific event handlers
 
   private onManifestLoading = pipe(
-    O.Do,
-    O.apS("url", O.fromNullable(this.url)),
-    O.match(
+    IOO.Do,
+    IOO.bind("url", () => IOO.fromNullable(this.url)),
+    IOO.matchE(
       () => IO.of(undefined),
       ({ url }) =>
         emit(this.listeners)({
@@ -140,11 +145,11 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
   );
 
   private onManifestParsed = pipe(
-    O.Do,
-    O.apS("video", O.fromNullable(this.video)),
-    O.apS("url", O.fromNullable(this.url)),
-    O.apS("hls", O.fromNullable(this.hls)),
-    O.match(
+    IOO.Do,
+    IOO.bind("video", () => IOO.fromNullable(this.video)),
+    IOO.bind("url", () => IOO.fromNullable(this.url)),
+    IOO.bind("hls", () => IOO.fromNullable(this.hls)),
+    IOO.matchE(
       () => IO.of(undefined),
       ({ video, url, hls }) =>
         () => {
@@ -182,10 +187,10 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
 
   private onLevelSwitched = (_event: string, data: any) =>
     pipe(
-      O.Do,
-      O.apS("hls", O.fromNullable(this.hls)),
-      O.bind("level", ({ hls }) => O.fromNullable(hls.levels[data.level])),
-      O.match(
+      IOO.Do,
+      IOO.bind("hls", () => IOO.fromNullable(this.hls)),
+      IOO.bind("level", ({ hls }) => IOO.fromNullable(hls.levels[data.level])),
+      IOO.matchE(
         () => IO.of(undefined),
         ({ level }) =>
           () => {
@@ -211,12 +216,12 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
 
   private onLevelSwitching = (_event: string, data: any) =>
     pipe(
-      O.Do,
-      O.apS("hls", O.fromNullable(this.hls)),
-      O.apS("previousLevel", O.fromNullable(this.previousLevel)),
-      O.bind("fromLevel", ({ hls, previousLevel }) => O.fromNullable(hls.levels[previousLevel])),
-      O.bind("toLevel", ({ hls }) => O.fromNullable(hls.levels[data.level])),
-      O.match(
+      IOO.Do,
+      IOO.bind("hls", () => IOO.fromNullable(this.hls)),
+      IOO.bind("previousLevel", () => IOO.fromNullable(this.previousLevel)),
+      IOO.bind("fromLevel", ({ hls, previousLevel }) => IOO.fromNullable(hls.levels[previousLevel])),
+      IOO.bind("toLevel", ({ hls }) => IOO.fromNullable(hls.levels[data.level])),
+      IOO.matchE(
         () => IO.of(undefined),
         ({ fromLevel, toLevel }) =>
           () => {
@@ -248,11 +253,11 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
 
   private onFragLoading = (_event: string, data: any) =>
     pipe(
-      O.Do,
-      O.apS("video", O.fromNullable(this.video)),
-      O.apS("frag", O.fromNullable(data.frag)),
-      O.apS("hls", O.fromNullable(this.hls)),
-      O.match(
+      IOO.Do,
+      IOO.bind("video", () => IOO.fromNullable(this.video)),
+      IOO.bind("frag", () => IOO.fromNullable(data.frag)),
+      IOO.bind("hls", () => IOO.fromNullable(this.hls)),
+      IOO.matchE(
         () => IO.of(undefined),
         ({ video, frag, hls }) =>
           emit(this.listeners)({

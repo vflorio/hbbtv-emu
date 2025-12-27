@@ -1,7 +1,9 @@
 import type { AdapterError } from "@hbb-emu/player-runtime";
 import * as dashjs from "dashjs";
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
@@ -140,11 +142,10 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       }),
       TE.flatMap((player) =>
         pipe(
-          TE.tryCatch(
+          E.tryCatch(
             () => {
-              player.attachSource(url);
               this.url = url;
-              return Promise.resolve();
+              player.attachSource(url);
             },
             (error): AdapterError => ({
               _tag: "AdapterError/LoadFailed",
@@ -153,6 +154,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
               cause: error,
             }),
           ),
+          TE.fromEither,
         ),
       ),
     );
@@ -161,9 +163,9 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
   // DASH-specific event handlers
 
   private onManifestLoading = pipe(
-    O.Do,
-    O.apS("url", O.fromNullable(this.url)),
-    O.match(
+    IOO.Do,
+    IOO.bind("url", () => IOO.fromNullable(this.url)),
+    IOO.matchE(
       () => IO.of(undefined),
       ({ url }) =>
         emit(this.listeners)({
@@ -174,11 +176,11 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
   );
 
   private onStreamInitialized = pipe(
-    O.Do,
-    O.apS("video", O.fromNullable(this.video)),
-    O.apS("url", O.fromNullable(this.url)),
-    O.apS("player", O.fromNullable(this.player)),
-    O.match(
+    IOO.Do,
+    IOO.bind("video", () => IOO.fromNullable(this.video)),
+    IOO.bind("url", () => IOO.fromNullable(this.url)),
+    IOO.bind("player", () => IOO.fromNullable(this.player)),
+    IOO.matchE(
       () => IO.of(undefined),
       ({ video, url, player }) =>
         () => {
@@ -235,15 +237,15 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
 
   private onQualityChangeRequested = (event: dashjs.QualityChangeRequestedEvent) =>
     pipe(
-      O.Do,
-      O.apS("player", O.fromNullable(this.player)),
-      O.filter(
+      IOO.Do,
+      IOO.bind("player", () => IOO.fromNullable(this.player)),
+      IOO.filter(
         () =>
           event.mediaType === "video" &&
           event.oldRepresentation.qualityRanking !== undefined &&
           event.newRepresentation.qualityRanking !== undefined,
       ),
-      O.match(
+      IOO.matchE(
         () => IO.of(undefined),
         () =>
           emit(this.listeners)({
@@ -265,11 +267,11 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
 
   private onQualityChangeRendered = (event: dashjs.QualityChangeRenderedEvent) =>
     pipe(
-      O.Do,
-      O.apS("player", O.fromNullable(this.player)),
-      O.apS("video", O.fromNullable(this.video)),
-      O.filter(() => event.mediaType === "video" && event.newRepresentation.qualityRanking !== undefined),
-      O.match(
+      IOO.Do,
+      IOO.bind("player", () => IOO.fromNullable(this.player)),
+      IOO.bind("video", () => IOO.fromNullable(this.video)),
+      IOO.filter(() => event.mediaType === "video" && event.newRepresentation.qualityRanking !== undefined),
+      IOO.matchE(
         () => IO.of(undefined),
         ({ video }) =>
           () => {
@@ -299,9 +301,9 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
 
   private onFragmentLoadingCompleted = (event: any) =>
     pipe(
-      O.Do,
-      O.apS("request", O.fromNullable(event.request)),
-      O.match(
+      IOO.Do,
+      IOO.bind("request", () => IOO.fromNullable(event.request)),
+      IOO.matchE(
         () => IO.of(undefined),
         ({ request }) =>
           () => {
