@@ -21,7 +21,7 @@ import {
 const logger = createLogger("ExtensionUI:Render");
 
 export interface Render {
-  render: IO.IO<void>;
+  render: () => IO.IO<void>;
   notifyStateUpdate: (state: ExtensionState) => IO.IO<void>;
   subscribe: (callback: StateChangeListener) => IO.IO<void>;
   // overrides
@@ -58,27 +58,28 @@ export const WithRender = <T extends ClassType<AppStateManager>>(Base: T) =>
         IO.asUnit,
       );
 
-    render: IO.IO<void> = pipe(
-      querySelector("#root")(document),
-      IO.flatMap(
-        O.match(
-          () => logger.error("Root element #root not found"),
-          (root) =>
-            pipe(
-              IO.of(createRoot(root)),
-              IO.flatMap((root) =>
-                renderSettingsApp(root, {
-                  load: this.loadState,
-                  save: this.saveState,
-                  subscribe: this.subscribe,
-                  playChannel: this.playChannel,
-                  dispatchKey: this.dispatchKey,
-                }),
+    render = (): IO.IO<void> =>
+      pipe(
+        querySelector("#root")(document),
+        IO.flatMap(
+          O.match(
+            () => logger.error("Root element #root not found"),
+            (root) =>
+              pipe(
+                IO.of(createRoot(root)),
+                IO.flatMap((root) =>
+                  renderSettingsApp(root, {
+                    load: this.loadState,
+                    save: this.saveState,
+                    subscribe: this.subscribe,
+                    playChannel: this.playChannel,
+                    dispatchKey: this.dispatchKey,
+                  }),
+                ),
               ),
-            ),
+          ),
         ),
-      ),
-    );
+      );
   };
 
 const renderSettingsApp = (root: Root, sideEffects: SideEffects): IO.IO<void> =>

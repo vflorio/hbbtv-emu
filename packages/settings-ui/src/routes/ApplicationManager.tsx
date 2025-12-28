@@ -12,9 +12,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
-import { useAppState, useDispatch, useSideEffects } from "../context/state";
+import { useApplicationManager, useAppState } from "../hooks";
 
 // Visibility options
 const VISIBILITY_OPTIONS = [
@@ -40,12 +42,10 @@ const KEYSET_PRESETS = [
 ];
 
 export default function ApplicationTab() {
-  const { config, isLoading } = useAppState();
-  const dispatch = useDispatch();
-  const sideEffects = useSideEffects();
+  const { isLoading } = useAppState();
+  const { applicationManager, update } = useApplicationManager();
 
-  const appManager = config.hbbtv?.applicationManager ?? {};
-  const ownerApp = appManager.ownerApplication ?? {};
+  const ownerApp = applicationManager.ownerApplication ?? {};
 
   const [visibility, setVisibility] = useState<"visible" | "hidden">(ownerApp.visibility ?? "visible");
   const [lifecycle, setLifecycle] = useState<"active" | "inactive" | "destroyed">(ownerApp.lifecycle ?? "active");
@@ -53,24 +53,23 @@ export default function ApplicationTab() {
   const [appId, setAppId] = useState(ownerApp.id ?? "");
   const [appName, setAppName] = useState(ownerApp.name ?? "");
   const [appUrl, setAppUrl] = useState(ownerApp.url ?? "");
-  const [videoTransparency, setVideoTransparency] = useState(appManager.videoTransparency ?? false);
+  const [videoTransparency, setVideoTransparency] = useState(applicationManager.videoTransparency ?? false);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    const am = config.hbbtv?.applicationManager ?? {};
-    const app = am.ownerApplication ?? {};
+    const app = applicationManager.ownerApplication ?? {};
     setVisibility(app.visibility ?? "visible");
     setLifecycle(app.lifecycle ?? "active");
     setKeysetValue(app.keyset?.value ?? 0);
     setAppId(app.id ?? "");
     setAppName(app.name ?? "");
     setAppUrl(app.url ?? "");
-    setVideoTransparency(am.videoTransparency ?? false);
+    setVideoTransparency(applicationManager.videoTransparency ?? false);
     setIsEditing(false);
-  }, [config.hbbtv?.applicationManager]);
+  }, [applicationManager]);
 
-  const handleSave = async () => {
-    const newOwnerApp: ApplicationState = {
+  const handleSave = pipe(
+    TE.of<unknown, ApplicationState>({
       ...ownerApp,
       id: appId || undefined,
       name: appName || undefined,
@@ -78,37 +77,29 @@ export default function ApplicationTab() {
       visibility,
       lifecycle,
       keyset: { value: keysetValue },
-    };
-
-    const newAppManager: ApplicationManagerState = {
-      ...appManager,
-      ownerApplication: newOwnerApp,
-      videoTransparency,
-    };
-
-    const newConfig = {
-      ...config,
-      hbbtv: {
-        ...config.hbbtv,
-        applicationManager: newAppManager,
-      },
-    };
-
-    dispatch({ type: "SET_CONFIG", payload: newConfig });
-    await sideEffects.save(newConfig);
-    setIsEditing(false);
-  };
+    }),
+    TE.map(
+      (newOwnerApp): ApplicationManagerState => ({
+        ...applicationManager,
+        ownerApplication: newOwnerApp,
+        videoTransparency,
+      }),
+    ),
+    TE.tap((newAppManager) => update(newAppManager)),
+    TE.tapIO(() => () => {
+      setIsEditing(false);
+    }),
+  );
 
   const handleCancel = () => {
-    const am = config.hbbtv?.applicationManager ?? {};
-    const app = am.ownerApplication ?? {};
+    const app = applicationManager.ownerApplication ?? {};
     setVisibility(app.visibility ?? "visible");
     setLifecycle(app.lifecycle ?? "active");
     setKeysetValue(app.keyset?.value ?? 0);
     setAppId(app.id ?? "");
     setAppName(app.name ?? "");
     setAppUrl(app.url ?? "");
-    setVideoTransparency(am.videoTransparency ?? false);
+    setVideoTransparency(applicationManager.videoTransparency ?? false);
     setIsEditing(false);
   };
 

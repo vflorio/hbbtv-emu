@@ -8,13 +8,12 @@ import * as RTE from "fp-ts/ReaderTaskEither";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import { type ChannelRegistryEnv, resolveChannel } from "../../../subsystems/channelRegistry";
-import type {
-  VideoStreamEvent,
-  VideoStreamEventListener,
-  VideoStreamPlayState,
-  VideoStreamSource,
+import {
+  isStateChangeEvent,
+  type VideoStreamPlayState,
+  VideoStreamService,
+  type VideoStreamSource,
 } from "../../../subsystems/videoStream";
-import { VideoStreamService } from "../../../subsystems/videoStream";
 import type { VideoBroadcastEnv } from ".";
 
 const logger = createLogger("VideoBroadcast:Channel");
@@ -186,28 +185,47 @@ export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): Chan
     videoElement: stream.videoElement,
 
     // Playback
-    play: stream.play(),
-    stop: stream.stop(),
+    play: pipe(
+      stream.play(),
+      TE.mapLeft((error) => new Error(error.message)),
+    ),
+    stop: pipe(
+      stream.stop(),
+      TE.mapLeft((error) => new Error(error.message)),
+    ),
     destroy: stream.release(),
-    loadSource: (source) => stream.loadSource(source),
+    loadSource: (source) =>
+      pipe(
+        stream.loadSource(source),
+        TE.mapLeft((error) => new Error(error.message)),
+      ),
 
     // Display
     setSize: (width, height) => stream.setSize(width, height),
     setFullscreen: (fullscreen) => stream.setFullscreen(fullscreen),
 
     // Volume
-    setVolume: (volume) => stream.setVolume(volume),
-    setMuted: (muted) => stream.setMuted(muted),
+    setVolume: (volume) =>
+      pipe(
+        stream.setVolume(volume),
+        TE.mapLeft((error) => new Error(error.message)),
+      ),
+    setMuted: (muted) =>
+      pipe(
+        stream.setMuted(muted),
+        TE.mapLeft((error) => new Error(error.message)),
+      ),
     getVolume: () => Math.round(stream.videoElement.volume * 100),
 
     // Events
     onStreamStateChange: (listener) => {
-      const handler: VideoStreamEventListener<"statechange"> = (event: VideoStreamEvent<"statechange">) => {
-        listener(event.state, event.previousState);
-      };
+      const unsubscribe = stream.subscribe((event) => {
+        if (isStateChangeEvent(event)) {
+          listener(event.state, event.previousState);
+        }
+      })();
 
-      stream.on("statechange", handler)();
-      return () => stream.off("statechange", handler)();
+      return () => unsubscribe();
     },
   };
 };

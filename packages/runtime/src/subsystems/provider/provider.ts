@@ -23,12 +23,12 @@ export type ProviderApi = Readonly<{
   /**
    * Starts the provider: begins observing DOM for OIPF elements.
    */
-  start: IO.IO<void>;
+  start: () => IO.IO<void>;
 
   /**
    * Stops the provider: stops DOM observation.
    */
-  stop: IO.IO<void>;
+  stop: () => IO.IO<void>;
 
   /**
    * Applies external state to all managed instances.
@@ -38,7 +38,7 @@ export type ProviderApi = Readonly<{
   /**
    * Collects current state from all managed instances.
    */
-  collectState: IO.IO<GlobalState>;
+  collectState: () => IO.IO<GlobalState>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ export class ProviderService implements ProviderApi {
   /**
    * Initializes and starts the provider.
    */
-  start: IO.IO<void> = () =>
+  start = (): IO.IO<void> => () =>
     pipe(
       this.#initializeRegistry(),
       IO.flatMap(() => this.#registerMatchers()),
@@ -75,7 +75,7 @@ export class ProviderService implements ProviderApi {
   /**
    * Stops the provider.
    */
-  stop: IO.IO<void> = () =>
+  stop = (): IO.IO<void> => () =>
     pipe(
       this.#observer.stop(),
       IO.tap(() => logger.info("Stopped")),
@@ -100,7 +100,7 @@ export class ProviderService implements ProviderApi {
   /**
    * Collects current state from all managed instances.
    */
-  collectState: IO.IO<GlobalState> = () => {
+  collectState = (): IO.IO<GlobalState> => () => {
     const base = collectState(this.#registry)();
     const avControls = this.#collectAvControlsState()();
 

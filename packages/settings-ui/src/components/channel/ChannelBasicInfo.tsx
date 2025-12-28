@@ -1,6 +1,8 @@
 import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { Edit, Save } from "@mui/icons-material";
 import { IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { type ChangeEvent, useState } from "react";
 
 interface ChannelBasicInfoProps {
@@ -9,7 +11,7 @@ interface ChannelBasicInfoProps {
   channel: ChannelConfig;
   defaultMode?: "display" | "edit";
   onChange?: (field: "name" | "mp4Source", value: string) => void;
-  onSave?: (updated: ChannelConfig) => Promise<void>;
+  onSave?: (updated: ChannelConfig) => TE.TaskEither<unknown, void>;
 }
 
 export function ChannelBasicInfo({ name, mp4Source, channel, defaultMode, onChange, onSave }: ChannelBasicInfoProps) {
@@ -18,11 +20,28 @@ export function ChannelBasicInfo({ name, mp4Source, channel, defaultMode, onChan
   const [localName, setLocalName] = useState(name);
   const [localMp4Source, setLocalMp4Source] = useState(mp4Source);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     onChange?.("name", localName);
     onChange?.("mp4Source", localMp4Source);
-    await onSave?.({ ...channel, name: localName, mp4Source: localMp4Source });
-    if (!isLocked) setMode("display");
+
+    const updated = { ...channel, name: localName, mp4Source: localMp4Source };
+
+    const save = pipe(
+      onSave!(updated),
+      TE.tapIO(() => () => {
+        if (!isLocked) setMode("display");
+      }),
+      TE.match(
+        (error) => console.error("Failed to save channel:", error),
+        () => console.log("Channel saved successfully"),
+      ),
+    );
+
+    if (onSave) {
+      save();
+    } else if (!isLocked) {
+      setMode("display");
+    }
   };
 
   const handleEdit = () => {

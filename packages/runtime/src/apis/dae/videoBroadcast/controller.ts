@@ -1,6 +1,16 @@
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf";
-import { VideoStreamPlayState } from "../../../subsystems";
+import {
+  isBuffering,
+  isConnecting,
+  isError,
+  isFinished,
+  isIdle,
+  isPaused,
+  isPlaying,
+  isStopped,
+  type VideoStreamPlayState,
+} from "../../../subsystems";
 import type { VideoBroadcastEnv } from ".";
 import type { ChannelAPI } from "./channel";
 
@@ -16,7 +26,7 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
         this.setPlayState(broadcastState);
 
         // Handle channel change success when presenting
-        if (streamState === VideoStreamPlayState.PLAYING && this._currentChannel) {
+        if (isPlaying(streamState) && this._currentChannel) {
           this.env.eventHandlers.onChannelChangeSucceeded(this._currentChannel);
         }
       });
@@ -34,20 +44,13 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
   };
 
 const mapStreamToVideoBroadcast = (state: VideoStreamPlayState): OIPF.DAE.Broadcast.PlayState => {
-  switch (state) {
-    case VideoStreamPlayState.IDLE:
-      return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
-    case VideoStreamPlayState.CONNECTING:
-    case VideoStreamPlayState.BUFFERING:
-      return OIPF.DAE.Broadcast.PlayState.CONNECTING;
-    case VideoStreamPlayState.PLAYING:
-    case VideoStreamPlayState.PAUSED: // VideoBroadcast doesn't have PAUSED, treat as PRESENTING
-      return OIPF.DAE.Broadcast.PlayState.PRESENTING;
-    case VideoStreamPlayState.STOPPED:
-    case VideoStreamPlayState.FINISHED:
-    case VideoStreamPlayState.ERROR:
-      return OIPF.DAE.Broadcast.PlayState.STOPPED;
-    default:
-      return OIPF.DAE.Broadcast.PlayState.STOPPED;
-  }
+  if (isIdle(state)) return OIPF.DAE.Broadcast.PlayState.UNREALIZED;
+  if (isConnecting(state)) return OIPF.DAE.Broadcast.PlayState.CONNECTING;
+  if (isBuffering(state)) return OIPF.DAE.Broadcast.PlayState.CONNECTING;
+  if (isPlaying(state)) return OIPF.DAE.Broadcast.PlayState.PRESENTING;
+  if (isPaused(state)) return OIPF.DAE.Broadcast.PlayState.PRESENTING;
+  if (isStopped(state)) return OIPF.DAE.Broadcast.PlayState.STOPPED;
+  if (isFinished(state)) return OIPF.DAE.Broadcast.PlayState.STOPPED;
+  if (isError(state)) return OIPF.DAE.Broadcast.PlayState.STOPPED;
+  return OIPF.DAE.Broadcast.PlayState.STOPPED;
 };

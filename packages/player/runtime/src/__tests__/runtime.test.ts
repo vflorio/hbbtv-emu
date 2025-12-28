@@ -28,8 +28,8 @@ describe("PlayerRuntime - API surface", () => {
   });
 
   it("getState returns Idle initially and is referentially stable until changes", () => {
-    const s1 = runtime.getState();
-    const s2 = runtime.getState();
+    const s1 = runtime.getState()();
+    const s2 = runtime.getState()();
     expect(s1._tag).toBe("Control/Idle");
     expect(s1).toBe(s2);
   });
@@ -65,12 +65,12 @@ describe("PlayerRuntime - API surface", () => {
   });
 
   it("getPlaybackType is None initially and Some after LoadRequested", async () => {
-    expect(O.isNone(runtime.getPlaybackType())).toBe(true);
+    expect(O.isNone(runtime.getPlaybackType()())).toBe(true);
 
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
 
-    const playbackType = runtime.getPlaybackType();
+    const playbackType = runtime.getPlaybackType()();
     expect(O.isSome(playbackType)).toBe(true);
     if (O.isSome(playbackType)) {
       expect(playbackType.value).toBe("native");
@@ -78,7 +78,7 @@ describe("PlayerRuntime - API surface", () => {
   });
 
   it("destroy returns Right when no adapter exists", async () => {
-    const result = await runtime.destroy();
+    const result = await runtime.destroy()();
     expect(E.isRight(result)).toBe(true);
   });
 
@@ -86,11 +86,11 @@ describe("PlayerRuntime - API surface", () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
 
-    expect(O.isSome(runtime.getPlaybackType())).toBe(true);
+    expect(O.isSome(runtime.getPlaybackType()())).toBe(true);
 
-    const result = await runtime.destroy();
+    const result = await runtime.destroy()();
     expect(E.isRight(result)).toBe(true);
     expect(native.destroy).toHaveBeenCalledTimes(1);
-    expect(O.isNone(runtime.getPlaybackType())).toBe(true);
+    expect(O.isNone(runtime.getPlaybackType()())).toBe(true);
   });
 });

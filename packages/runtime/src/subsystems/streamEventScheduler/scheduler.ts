@@ -57,21 +57,21 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
     };
   }
 
-  readonly #clearTimers: IO.IO<void> = () => {
+  readonly #clearTimers = (): IO.IO<void> => () => {
     const { tickTimer } = this.#state;
     if (!tickTimer) return;
     this.#env.clearTimeout(tickTimer)();
     this.#state.tickTimer = null;
   };
 
-  readonly #resetCycleState: IO.IO<void> = () => {
+  readonly #resetCycleState = (): IO.IO<void> => () => {
     const nowMs = this.#env.now();
     this.#state.baseTimeMs = nowMs;
     this.#state.lastTickMs = null;
     this.#state.fired = new Map();
   };
 
-  readonly #tick: IO.IO<void> = () => {
+  readonly #tick = (): IO.IO<void> => () => {
     if (!this.#state.running) return;
 
     const nowMs = this.#env.now();
@@ -92,7 +92,7 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
       this.#state.listeners.size > 0;
 
     if (!shouldRun) {
-      this.#state.tickTimer = this.#env.setTimeout(this.#tick, this.#env.tickIntervalMs)();
+      this.#state.tickTimer = this.#env.setTimeout(this.#tick(), this.#env.tickIntervalMs)();
       return;
     }
 
@@ -121,19 +121,19 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
       dispatchToListeners(this.#state, occ.event)();
     }
 
-    this.#state.tickTimer = this.#env.setTimeout(this.#tick, this.#env.tickIntervalMs)();
+    this.#state.tickTimer = this.#env.setTimeout(this.#tick(), this.#env.tickIntervalMs)();
   };
 
-  start: IO.IO<void> = () => {
+  start = (): IO.IO<void> => () => {
     if (this.#state.running) return;
     this.#state.running = true;
     logger.info("Started")();
     this.#resetCycleState();
     this.#clearTimers();
-    this.#state.tickTimer = this.#env.setTimeout(this.#tick, this.#env.tickIntervalMs)();
+    this.#state.tickTimer = this.#env.setTimeout(this.#tick(), this.#env.tickIntervalMs)();
   };
 
-  stop: IO.IO<void> = () => {
+  stop = (): IO.IO<void> => () => {
     if (!this.#state.running) return;
     this.#state.running = false;
     this.#clearTimers();

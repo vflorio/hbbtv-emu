@@ -7,12 +7,12 @@ import type { AdapterError, PlaybackType, PlayerEvent, RuntimeAdapter, Unsubscri
 export type MockAdapter = RuntimeAdapter & {
   mount: Mock<(videoElement: HTMLVideoElement) => IO.IO<void>>;
   load: Mock<(url: string) => TE.TaskEither<AdapterError, void>>;
-  play: Mock<TE.TaskEither<AdapterError, void>>;
-  pause: Mock<TE.TaskEither<AdapterError, void>>;
+  play: Mock<() => TE.TaskEither<AdapterError, void>>;
+  pause: Mock<() => TE.TaskEither<AdapterError, void>>;
   seek: Mock<(time: number) => TE.TaskEither<AdapterError, void>>;
   setVolume: Mock<(volume: number) => TE.TaskEither<AdapterError, void>>;
   setMuted: Mock<(muted: boolean) => TE.TaskEither<AdapterError, void>>;
-  destroy: Mock<TE.TaskEither<AdapterError, void>>;
+  destroy: Mock<() => TE.TaskEither<AdapterError, void>>;
   subscribe: Mock<(listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>>;
 };
 
@@ -23,12 +23,12 @@ export const createMockAdapter = (type: PlaybackType = "native"): MockAdapter =>
   type,
   mount: vi.fn((_videoElement: HTMLVideoElement) => () => {}),
   load: vi.fn((_url: string) => async () => E.right(undefined)),
-  play: vi.fn(async () => E.right(undefined)) as unknown as Mock<TE.TaskEither<AdapterError, void>>,
-  pause: vi.fn(async () => E.right(undefined)) as unknown as Mock<TE.TaskEither<AdapterError, void>>,
+  play: vi.fn(() => async () => E.right(undefined)),
+  pause: vi.fn(() => async () => E.right(undefined)),
   seek: vi.fn((_time: number) => async () => E.right(undefined)),
   setVolume: vi.fn((_volume: number) => async () => E.right(undefined)),
   setMuted: vi.fn((_muted: boolean) => async () => E.right(undefined)),
-  destroy: vi.fn(async () => E.right(undefined)) as unknown as Mock<TE.TaskEither<AdapterError, void>>,
+  destroy: vi.fn(() => async () => E.right(undefined)),
   subscribe: vi.fn((_listener: (event: PlayerEvent) => void) => () => () => {}),
 });
 
@@ -58,20 +58,22 @@ export const createFailingMockAdapter = (
       );
       break;
     case "play":
-      adapter.play = vi.fn(async () =>
-        E.left({
-          _tag: "AdapterError/PlayFailed" as const,
-          message: "Play failed",
-        }),
-      ) as unknown as Mock<TE.TaskEither<AdapterError, void>>;
+      adapter.play = vi.fn(
+        () => async () =>
+          E.left({
+            _tag: "AdapterError/PlayFailed" as const,
+            message: "Play failed",
+          }),
+      );
       break;
     case "pause":
-      adapter.pause = vi.fn(async () =>
-        E.left({
-          _tag: "AdapterError/PauseFailed" as const,
-          message: "Pause failed",
-        }),
-      ) as unknown as Mock<TE.TaskEither<AdapterError, void>>;
+      adapter.pause = vi.fn(
+        () => async () =>
+          E.left({
+            _tag: "AdapterError/PauseFailed" as const,
+            message: "Pause failed",
+          }),
+      );
       break;
     case "seek":
       adapter.seek = vi.fn(
@@ -84,12 +86,13 @@ export const createFailingMockAdapter = (
       );
       break;
     case "destroy":
-      adapter.destroy = vi.fn(async () =>
-        E.left({
-          _tag: "AdapterError/DestroyFailed" as const,
-          message: "Destroy failed",
-        }),
-      ) as unknown as Mock<TE.TaskEither<AdapterError, void>>;
+      adapter.destroy = vi.fn(
+        () => async () =>
+          E.left({
+            _tag: "AdapterError/DestroyFailed" as const,
+            message: "Destroy failed",
+          }),
+      );
       break;
   }
 

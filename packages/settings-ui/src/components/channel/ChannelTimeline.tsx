@@ -108,15 +108,12 @@ export function ChannelTimeline({ mp4Source, streamEvents }: ChannelTimelineProp
     setError(null);
     parseVideoDuration(mp4Source)
       .then((dur) => {
-        console.log("Duration received in component:", dur);
         setDuration(dur);
         const computed = computeEventOccurrences(streamEvents, dur);
-        console.log("Computed events:", computed);
         setEvents(computed);
         setError(null);
       })
       .catch((err) => {
-        console.error("Failed to parse video duration:", err);
         setEvents([]);
         setDuration(null);
         setError(err.message || "Unknown error");

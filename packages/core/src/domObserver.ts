@@ -15,8 +15,8 @@ export interface DomObserver {
   handlersRef: IORef.IORef<MutationHandler[]>;
   registerHandler: (handler: MutationHandler) => IO.IO<void>;
   unregisterHandler: (handler: MutationHandler) => IO.IO<void>;
-  startObserver: IO.IO<void>;
-  stopObserver: IO.IO<void>;
+  startObserver: () => IO.IO<void>;
+  stopObserver: () => IO.IO<void>;
 }
 
 export const WithDomObserver = <T extends ClassType>(Base: T) =>
@@ -41,45 +41,47 @@ export const WithDomObserver = <T extends ClassType>(Base: T) =>
         IO.flatMap((handlers) => this.handlersRef.write(handlers)),
       );
 
-    startObserver: IO.IO<void> = pipe(
-      this.observerRef.read,
-      IO.flatMap(
-        O.match(
-          () =>
-            pipe(
-              logger.info("starting"),
-              IO.flatMap(() =>
-                pipe(
-                  IO.of(new MutationObserver((mutations) => this.handleMutations(mutations)())),
-                  IO.tap((observer) => () => {
-                    observer.observe(document.documentElement, {
-                      childList: true,
-                      subtree: true,
-                    });
-                  }),
-                  IO.flatMap((observer) => this.observerRef.write(O.some(observer))),
+    startObserver = (): IO.IO<void> =>
+      pipe(
+        this.observerRef.read,
+        IO.flatMap(
+          O.match(
+            () =>
+              pipe(
+                logger.info("starting"),
+                IO.flatMap(() =>
+                  pipe(
+                    IO.of(new MutationObserver((mutations) => this.handleMutations(mutations)())),
+                    IO.tap((observer) => () => {
+                      observer.observe(document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                      });
+                    }),
+                    IO.flatMap((observer) => this.observerRef.write(O.some(observer))),
+                  ),
                 ),
               ),
-            ),
-          () => logger.info("already running"),
+            () => logger.info("already running"),
+          ),
         ),
-      ),
-    );
+      );
 
-    stopObserver: IO.IO<void> = pipe(
-      this.observerRef.read,
-      IO.flatMap(
-        O.match(
-          () => logger.info("not running"),
-          (observer) =>
-            pipe(
-              logger.info("stopping"),
-              IO.tap(() => disconnectObserver(observer)),
-              IO.flatMap(() => this.observerRef.write(O.none)),
-            ),
+    stopObserver = (): IO.IO<void> =>
+      pipe(
+        this.observerRef.read,
+        IO.flatMap(
+          O.match(
+            () => logger.info("not running"),
+            (observer) =>
+              pipe(
+                logger.info("stopping"),
+                IO.tap(() => disconnectObserver(observer)),
+                IO.flatMap(() => this.observerRef.write(O.none)),
+              ),
+          ),
         ),
-      ),
-    );
+      );
   };
 
 const disconnectObserver =

@@ -171,7 +171,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     );
   }
 
-  protected getVideoElement: IOE.IOEither<AdapterError, HTMLVideoElement> = () =>
+  protected getVideoElement = (): IOE.IOEither<AdapterError, HTMLVideoElement> => () =>
     pipe(
       this.video,
       E.fromNullable({
@@ -204,50 +204,52 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
       TE.flatMap(() => this.loadSource(url)),
     );
 
-  play: TE.TaskEither<AdapterError, void> = pipe(
-    TE.fromIOEither(this.getVideoElement),
-    TE.flatMap((video) =>
-      TE.tryCatch(
-        () => video.play(),
-        (error): AdapterError =>
-          match(error)
-            .when(
-              (error): error is Error => error instanceof Error && error.name === "NotAllowedError",
-              (error) => ({
-                _tag: "AdapterError/AutoplayBlocked" as const,
-                message: "Autoplay was blocked by browser policy",
+  play = (): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      TE.fromIOEither(this.getVideoElement()),
+      TE.flatMap((video) =>
+        TE.tryCatch(
+          () => video.play(),
+          (error): AdapterError =>
+            match(error)
+              .when(
+                (error): error is Error => error instanceof Error && error.name === "NotAllowedError",
+                (error) => ({
+                  _tag: "AdapterError/AutoplayBlocked" as const,
+                  message: "Autoplay was blocked by browser policy",
+                  cause: error,
+                }),
+              )
+              .otherwise((error) => ({
+                _tag: "AdapterError/PlayFailed" as const,
+                message: error instanceof Error ? error.message : "Failed to play",
                 cause: error,
-              }),
-            )
-            .otherwise((error) => ({
-              _tag: "AdapterError/PlayFailed" as const,
-              message: error instanceof Error ? error.message : "Failed to play",
-              cause: error,
-            })),
-      ),
-    ),
-  );
-
-  pause: TE.TaskEither<AdapterError, void> = pipe(
-    TE.fromIOEither(this.getVideoElement),
-    TE.flatMap((video) =>
-      pipe(
-        E.tryCatch(
-          () => video.pause(),
-          (error): AdapterError => ({
-            _tag: "AdapterError/PauseFailed",
-            message: error instanceof Error ? error.message : "Failed to pause",
-            cause: error,
-          }),
+              })),
         ),
-        TE.fromEither,
       ),
-    ),
-  );
+    );
+
+  pause = (): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      TE.fromIOEither(this.getVideoElement()),
+      TE.flatMap((video) =>
+        pipe(
+          E.tryCatch(
+            () => video.pause(),
+            (error): AdapterError => ({
+              _tag: "AdapterError/PauseFailed",
+              message: error instanceof Error ? error.message : "Failed to pause",
+              cause: error,
+            }),
+          ),
+          TE.fromEither,
+        ),
+      ),
+    );
 
   seek = (time: number): TE.TaskEither<AdapterError, void> =>
     pipe(
-      TE.fromIOEither(this.getVideoElement),
+      TE.fromIOEither(this.getVideoElement()),
       TE.flatMap((video) =>
         pipe(
           E.tryCatch(
@@ -268,7 +270,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
 
   setVolume = (volume: number): TE.TaskEither<AdapterError, void> =>
     pipe(
-      TE.fromIOEither(this.getVideoElement),
+      TE.fromIOEither(this.getVideoElement()),
       TE.flatMap((video) =>
         pipe(
           E.tryCatch(
@@ -288,7 +290,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
 
   setMuted = (muted: boolean): TE.TaskEither<AdapterError, void> =>
     pipe(
-      TE.fromIOEither(this.getVideoElement),
+      TE.fromIOEither(this.getVideoElement()),
       TE.flatMap((video) =>
         pipe(
           E.tryCatch(
@@ -306,14 +308,15 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
       ),
     );
 
-  destroy: TE.TaskEither<AdapterError, void> = pipe(
-    TE.fromIO(this.cleanupEngine()),
-    TE.flatMap(() => TE.fromIO(this.cleanVideoElementEventListener)),
-    TE.tapIO(() => () => {
-      this.video = null;
-      this.url = null;
-    }),
-  );
+  destroy = (): TE.TaskEither<AdapterError, void> =>
+    pipe(
+      TE.fromIO(this.cleanupEngine()),
+      TE.flatMap(() => TE.fromIO(this.cleanVideoElementEventListener)),
+      TE.tapIO(() => () => {
+        this.video = null;
+        this.url = null;
+      }),
+    );
 
   // Standard HTML5 video event handlers
 

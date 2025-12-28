@@ -41,7 +41,7 @@ describe("PlayerRuntime - State Machine", () => {
   it("Idle -> Loading on LoadRequested", async () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
-    expect(runtime.getState()._tag).toBe("Control/Loading");
+    expect(runtime.getState()()._tag).toBe("Control/Loading");
   });
 
   it("Loading -> Control/Paused on MetadataLoaded", async () => {
@@ -57,7 +57,7 @@ describe("PlayerRuntime - State Machine", () => {
       height: 1080,
     })();
 
-    const state = runtime.getState();
+    const state = runtime.getState()();
     expect(state._tag).toBe("Control/Paused");
     if (state._tag === "Control/Paused") {
       expect(state.source?.playbackType).toBe("native");
@@ -73,7 +73,7 @@ describe("PlayerRuntime - State Machine", () => {
 
     await runtime.dispatch({ _tag: "Intent/PlayRequested" })();
 
-    expect(runtime.getState()._tag).toBe("Control/Playing");
+    expect(runtime.getState()()._tag).toBe("Control/Playing");
     expect(native.play).toHaveBeenCalledTimes(1);
   });
 
@@ -84,7 +84,7 @@ describe("PlayerRuntime - State Machine", () => {
 
     await runtime.dispatch({ _tag: "Intent/PauseRequested" })();
 
-    expect(runtime.getState()._tag).toBe("Control/Paused");
+    expect(runtime.getState()()._tag).toBe("Control/Paused");
     expect(native.pause).toHaveBeenCalledTimes(1);
   });
 
@@ -95,7 +95,7 @@ describe("PlayerRuntime - State Machine", () => {
 
     await runtime.dispatch({ _tag: "Intent/SeekRequested", time: 30 })();
 
-    const state = runtime.getState();
+    const state = runtime.getState()();
     expect(state._tag).toBe("Control/Seeking");
     if (state._tag === "Control/Seeking") {
       expect(state.fromTime).toBe(10);
@@ -108,12 +108,12 @@ describe("PlayerRuntime - State Machine", () => {
 
   it("Engine events force control states", async () => {
     await runtime.dispatch({ _tag: "Engine/Playing", snapshot: createSnapshot({ paused: false, currentTime: 5 }) })();
-    expect(runtime.getState()._tag).toBe("Control/Playing");
+    expect(runtime.getState()()._tag).toBe("Control/Playing");
 
     await runtime.dispatch({ _tag: "Engine/Waiting", snapshot: createSnapshot({ currentTime: 6 }) })();
-    expect(runtime.getState()._tag).toBe("Control/Buffering");
+    expect(runtime.getState()()._tag).toBe("Control/Buffering");
 
     await runtime.dispatch({ _tag: "Engine/Ended", snapshot: createSnapshot({ currentTime: 120 }) })();
-    expect(runtime.getState()._tag).toBe("Control/Ended");
+    expect(runtime.getState()()._tag).toBe("Control/Ended");
   });
 });
