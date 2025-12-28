@@ -19,7 +19,26 @@ import {
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { PlayerRuntimeFactory } from "../../runtime";
-import { type VideoStreamError, VideoStreamPlayState, VideoStreamService } from "../../subsystems/videoStream";
+import {
+  isBuffering,
+  isConnecting,
+  isDRMError,
+  isError,
+  isErrorEvent,
+  isFinished,
+  isFullscreenChangeEvent,
+  isIdle,
+  isNetworkError,
+  isNotSupportedError,
+  isPaused,
+  isPlaying,
+  isStateChangeEvent,
+  isStopped,
+  isTimeUpdateEvent,
+  type VideoStreamError,
+  type VideoStreamPlayState,
+  VideoStreamService,
+} from "../../subsystems/videoStream";
 
 const logger = createLogger("AVControlVideo");
 
@@ -111,40 +130,28 @@ export class AVControlVideo
   // ═════════════════════════════════════════════════════════════════════════════
 
   setupBackendEventListeners = (): void => {
-    this.#stream.on("statechange", (event) => {
-      this.setPlayState(mapPlayerToAvControl(event.state));
-    })();
-
-    this.#stream.on("timeupdate", (event) => {
-      this.#eventHandlers.onPlayPositionChanged?.(event.currentTime);
-    })();
-
-    this.#stream.on("fullscreenchange", (event) => {
-      if (this._fullScreen !== event.fullscreen) {
-        this._fullScreen = event.fullscreen;
-        this.#eventHandlers.onFullScreenChange?.(event.fullscreen);
+    this.#stream.subscribe((event) => {
+      if (isStateChangeEvent(event)) {
+        this.setPlayState(mapPlayerToAvControl(event.state));
+      } else if (isTimeUpdateEvent(event)) {
+        this.#eventHandlers.onPlayPositionChanged?.(event.currentTime);
+      } else if (isFullscreenChangeEvent(event)) {
+        if (this._fullScreen !== event.fullscreen) {
+          this._fullScreen = event.fullscreen;
+          this.#eventHandlers.onFullScreenChange?.(event.fullscreen);
+        }
+      } else if (isErrorEvent(event)) {
+        this._error = this.mapErrorCode(event.error);
+        this.setPlayState(OIPF.AV.Control.PlayState.ERROR);
       }
-    })();
-
-    this.#stream.on("error", (event) => {
-      this._error = this.mapErrorCode(event.error);
-      this.setPlayState(OIPF.AV.Control.PlayState.ERROR);
     })();
   };
 
   mapErrorCode = (error: VideoStreamError): OIPF.AV.Control.ErrorCode => {
-    switch (error.code) {
-      case 1: // MEDIA_ERR_ABORTED
-        return OIPF.AV.Control.ErrorCode.UNIDENTIFIED;
-      case 2: // MEDIA_ERR_NETWORK
-        return OIPF.AV.Control.ErrorCode.CONNECTION_ERROR;
-      case 3: // MEDIA_ERR_DECODE
-        return OIPF.AV.Control.ErrorCode.CONTENT_CORRUPT;
-      case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-        return OIPF.AV.Control.ErrorCode.FORMAT_NOT_SUPPORTED;
-      default:
-        return OIPF.AV.Control.ErrorCode.UNIDENTIFIED;
-    }
+    if (isNetworkError(error)) return OIPF.AV.Control.ErrorCode.CONNECTION_ERROR;
+    if (isNotSupportedError(error)) return OIPF.AV.Control.ErrorCode.FORMAT_NOT_SUPPORTED;
+    if (isDRMError(error)) return OIPF.AV.Control.ErrorCode.CONTENT_CORRUPT;
+    return OIPF.AV.Control.ErrorCode.UNIDENTIFIED;
   };
 
   get videoElement(): HTMLVideoElement {
@@ -393,21 +400,13 @@ export const DEFAULT_AV_CONTROL_VIDEO_DEFAULTS: AVControlVideoDefaults = {
 };
 
 const mapPlayerToAvControl = (state: VideoStreamPlayState): OIPF.AV.Control.PlayState => {
-  switch (state) {
-    case VideoStreamPlayState.IDLE:
-    case VideoStreamPlayState.STOPPED:
-      return OIPF.AV.Control.PlayState.STOPPED;
-    case VideoStreamPlayState.CONNECTING:
-      return OIPF.AV.Control.PlayState.CONNECTING;
-    case VideoStreamPlayState.BUFFERING:
-      return OIPF.AV.Control.PlayState.BUFFERING;
-    case VideoStreamPlayState.PLAYING:
-      return OIPF.AV.Control.PlayState.PLAYING;
-    case VideoStreamPlayState.PAUSED:
-      return OIPF.AV.Control.PlayState.PAUSED;
-    case VideoStreamPlayState.FINISHED:
-      return OIPF.AV.Control.PlayState.FINISHED;
-    case VideoStreamPlayState.ERROR:
-      return OIPF.AV.Control.PlayState.ERROR;
-  }
+  if (isIdle(state)) return OIPF.AV.Control.PlayState.STOPPED;
+  if (isStopped(state)) return OIPF.AV.Control.PlayState.STOPPED;
+  if (isConnecting(state)) return OIPF.AV.Control.PlayState.CONNECTING;
+  if (isBuffering(state)) return OIPF.AV.Control.PlayState.BUFFERING;
+  if (isPlaying(state)) return OIPF.AV.Control.PlayState.PLAYING;
+  if (isPaused(state)) return OIPF.AV.Control.PlayState.PAUSED;
+  if (isFinished(state)) return OIPF.AV.Control.PlayState.FINISHED;
+  if (isError(state)) return OIPF.AV.Control.PlayState.ERROR;
+  return OIPF.AV.Control.PlayState.STOPPED;
 };
