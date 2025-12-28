@@ -109,7 +109,7 @@ const streamEvent = (
 
 export const DEFAULT_EXTENSION_STATE: ExtensionState = {
   currentChannel: null,
-  playerUiVisible: true,
+  playerUiVisible: false,
   channels: [
     {
       id: "channel-1",
@@ -120,13 +120,14 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
       sid: 1,
       enableStreamEvents: true,
       streamEvents: [
-        streamEvent("PREP", dasEventPayload("1"), 0, 30), // ogni 30s, offset 0s
-        streamEvent("GO", dasEventPayload("2"), 10, 30), // ogni 30s, offset 10s
-        streamEvent("END", dasEventPayload("3"), 20, 30), // ogni 30s, offset 20s
+        streamEvent("PREP", dasEventPayload("1"), 5, 90), // ogni 90s, offset 5s
+        streamEvent("GO", dasEventPayload("2"), 10, 90), // ogni 90s, offset 10s
+        streamEvent("END", dasEventPayload("3"), 40, 90), // ogni 90s, offset 40s
       ],
     },
   ],
-  userAgent: "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 NETRANGEMMH",
+  // FIXME: take version from package.json/env
+  userAgent: "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 HBBTV-EMU/0.1",
   hbbtv: DEFAULT_HBBTV_STATE,
 };
 

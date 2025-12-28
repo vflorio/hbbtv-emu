@@ -1,4 +1,3 @@
-import type { VideoBroadcastState } from "@hbb-emu/oipf";
 import {
   Box,
   Button,
@@ -13,9 +12,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
-import { useAppState, useDispatch, useSideEffects } from "../context/state";
+import { useAppState, useVideoBroadcast } from "../hooks";
 
 // Broadcast PlayState enum values
 const PLAY_STATE_OPTIONS = [
@@ -26,63 +27,50 @@ const PLAY_STATE_OPTIONS = [
 ];
 
 export default function VideoBroadcastTab() {
-  const { config, isLoading } = useAppState();
-  const dispatch = useDispatch();
-  const sideEffects = useSideEffects();
+  const { isLoading } = useAppState();
+  const { videoBroadcast, update } = useVideoBroadcast();
 
-  const broadcast = config.hbbtv?.videoBroadcast ?? {};
-
-  const [playState, setPlayState] = useState<number>(broadcast.playState ?? 0);
-  const [volume, setVolume] = useState(broadcast.volume ?? 100);
-  const [muted, setMuted] = useState(broadcast.muted ?? false);
-  const [fullScreen, setFullScreen] = useState(broadcast.fullScreen ?? false);
-  const [width, setWidth] = useState(broadcast.width ?? 1280);
-  const [height, setHeight] = useState(broadcast.height ?? 720);
+  const [playState, setPlayState] = useState<number>(videoBroadcast.playState ?? 0);
+  const [volume, setVolume] = useState(videoBroadcast.volume ?? 100);
+  const [muted, setMuted] = useState(videoBroadcast.muted ?? false);
+  const [fullScreen, setFullScreen] = useState(videoBroadcast.fullScreen ?? false);
+  const [width, setWidth] = useState(videoBroadcast.width ?? 1280);
+  const [height, setHeight] = useState(videoBroadcast.height ?? 720);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    const bc = config.hbbtv?.videoBroadcast ?? {};
-    setPlayState(bc.playState ?? 0);
-    setVolume(bc.volume ?? 100);
-    setMuted(bc.muted ?? false);
-    setFullScreen(bc.fullScreen ?? false);
-    setWidth(bc.width ?? 1280);
-    setHeight(bc.height ?? 720);
+    setPlayState(videoBroadcast.playState ?? 0);
+    setVolume(videoBroadcast.volume ?? 100);
+    setMuted(videoBroadcast.muted ?? false);
+    setFullScreen(videoBroadcast.fullScreen ?? false);
+    setWidth(videoBroadcast.width ?? 1280);
+    setHeight(videoBroadcast.height ?? 720);
     setIsEditing(false);
-  }, [config.hbbtv?.videoBroadcast]);
+  }, [videoBroadcast]);
 
-  const handleSave = async () => {
-    const newBroadcast: VideoBroadcastState = {
-      ...broadcast,
+  const handleSave = pipe(
+    TE.of({
+      ...videoBroadcast,
       playState: playState as 0 | 1 | 2 | 3,
       volume,
       muted,
       fullScreen,
       width,
       height,
-    };
-
-    const newConfig = {
-      ...config,
-      hbbtv: {
-        ...config.hbbtv,
-        videoBroadcast: newBroadcast,
-      },
-    };
-
-    dispatch({ type: "SET_CONFIG", payload: newConfig });
-    await sideEffects.save(newConfig);
-    setIsEditing(false);
-  };
+    }),
+    TE.tap((newVideoBroadcast) => update(newVideoBroadcast)),
+    TE.tapIO(() => () => {
+      setIsEditing(false);
+    }),
+  );
 
   const handleCancel = () => {
-    const bc = config.hbbtv?.videoBroadcast ?? {};
-    setPlayState(bc.playState ?? 0);
-    setVolume(bc.volume ?? 100);
-    setMuted(bc.muted ?? false);
-    setFullScreen(bc.fullScreen ?? false);
-    setWidth(bc.width ?? 1280);
-    setHeight(bc.height ?? 720);
+    setPlayState(videoBroadcast.playState ?? 0);
+    setVolume(videoBroadcast.volume ?? 100);
+    setMuted(videoBroadcast.muted ?? false);
+    setFullScreen(videoBroadcast.fullScreen ?? false);
+    setWidth(videoBroadcast.width ?? 1280);
+    setHeight(videoBroadcast.height ?? 720);
     setIsEditing(false);
   };
 
@@ -203,16 +191,16 @@ export default function VideoBroadcastTab() {
         </Stack>
 
         {/* Current Channel (read-only info) */}
-        {broadcast.currentChannel && (
+        {videoBroadcast.currentChannel && (
           <Box sx={{ p: 2, bgcolor: "background.paper", borderRadius: 1 }}>
             <Typography variant="subtitle1" gutterBottom>
               Current Channel
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Name: {broadcast.currentChannel.name ?? "Unknown"}
+              Name: {videoBroadcast.currentChannel.name ?? "Unknown"}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              CCID: {broadcast.currentChannel.ccid ?? "N/A"}
+              CCID: {videoBroadcast.currentChannel.ccid ?? "N/A"}
             </Typography>
           </Box>
         )}

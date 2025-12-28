@@ -12,6 +12,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { type ChangeEvent, useState } from "react";
 
 interface ChannelTripletProps {
@@ -21,7 +23,7 @@ interface ChannelTripletProps {
   channel: ChannelConfig;
   defaultMode?: "display" | "edit";
   onChange?: (field: "onid" | "tsid" | "sid", value: number) => void;
-  onSave?: (updated: ChannelConfig) => Promise<void>;
+  onSave?: (updated: ChannelConfig) => TE.TaskEither<unknown, void>;
 }
 
 export function ChannelTriplet({ onid, tsid, sid, channel, defaultMode, onChange, onSave }: ChannelTripletProps) {
@@ -41,12 +43,28 @@ export function ChannelTriplet({ onid, tsid, sid, channel, defaultMode, onChange
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     onChange?.("onid", localOnid);
     onChange?.("tsid", localTsid);
     onChange?.("sid", localSid);
-    await onSave?.({ ...channel, onid: localOnid, tsid: localTsid, sid: localSid });
-    if (!isLocked) setMode("display");
+    const updated = { ...channel, onid: localOnid, tsid: localTsid, sid: localSid };
+
+    const save = pipe(
+      onSave!(updated),
+      TE.tapIO(() => () => {
+        if (!isLocked) setMode("display");
+      }),
+      TE.match(
+        (error) => console.error("Failed to save channel triplet:", error),
+        () => console.log("Channel triplet saved successfully"),
+      ),
+    );
+
+    if (onSave) {
+      save();
+    } else if (!isLocked) {
+      setMode("display");
+    }
   };
 
   const handleEdit = () => {

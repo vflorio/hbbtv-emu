@@ -94,13 +94,13 @@ pnpm syncpack:fix
 
 **Applications**
 - `@hbb-emu/chrome-v3-extension` - Chrome (Manifest V3) extension with HbbTV runtime integration
-- `@hbb-emu/demo-ui` - Demo web application for testing settings-ui
-- `@hbb-emu/runtime-demo` - Standalone runtime demo with AVControl and Player UI
+- `@hbb-emu/demo-ui` - Demo web application for testing ui components without runtime
+- `@hbb-emu/runtime-demo` - Standalone runtime demo with AVControl and Player
 
 **Core Libraries**
-- `@hbb-emu/core` - Shared utilities, DOM helpers, storage, and functional programming helpers
+- `@hbb-emu/core` - Shared utilities, DOM helpers, storage, miscellaneus abstractions
 - `@hbb-emu/oipf` - OIPF object models, validation, and type definitions
-- `@hbb-emu/runtime` - HbbTV runtime implementation with OIPF APIs and subsystems
+- `@hbb-emu/runtime` - Runtime OIPF APIs implementation
 
 **Extension Modules**
 - `@hbb-emu/extension-common` - Shared extension state and utilities

@@ -15,9 +15,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
-import { useAppState, useDispatch, useSideEffects } from "../context/state";
+import { useAppState, useConfiguration } from "../hooks";
 
 // ISO 639-2/B language codes
 const LANGUAGE_OPTIONS = [
@@ -53,11 +55,8 @@ const COUNTRY_OPTIONS = [
 ];
 
 export default function ConfigurationTab() {
-  const { config, isLoading } = useAppState();
-  const dispatch = useDispatch();
-  const sideEffects = useSideEffects();
-
-  const configuration = config.hbbtv?.oipfConfiguration ?? {};
+  const { isLoading } = useAppState();
+  const { configuration, update } = useConfiguration();
 
   const [countryId, setCountryId] = useState(configuration.countryId ?? "IT");
   const [language, setLanguage] = useState(configuration.language ?? "ita");
@@ -75,19 +74,18 @@ export default function ConfigurationTab() {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    const cfg = config.hbbtv?.oipfConfiguration ?? {};
-    setCountryId(cfg.countryId ?? "IT");
-    setLanguage(cfg.language ?? "ita");
-    setPreferredAudioLanguage(cfg.preferredAudioLanguage ?? ["ita", "eng"]);
-    setPreferredSubtitleLanguage(cfg.preferredSubtitleLanguage ?? ["ita", "eng"]);
-    setNetworkOnline(cfg.network?.online ?? true);
-    setParentalEnabled(cfg.parentalControl?.enabled ?? false);
-    setParentalRating(cfg.parentalControl?.rating ?? 0);
+    setCountryId(configuration.countryId ?? "IT");
+    setLanguage(configuration.language ?? "ita");
+    setPreferredAudioLanguage(configuration.preferredAudioLanguage ?? ["ita", "eng"]);
+    setPreferredSubtitleLanguage(configuration.preferredSubtitleLanguage ?? ["ita", "eng"]);
+    setNetworkOnline(configuration.network?.online ?? true);
+    setParentalEnabled(configuration.parentalControl?.enabled ?? false);
+    setParentalRating(configuration.parentalControl?.rating ?? 0);
     setIsEditing(false);
-  }, [config.hbbtv?.oipfConfiguration]);
+  }, [configuration]);
 
-  const handleSave = async () => {
-    const newConfiguration: OipfConfigurationState = {
+  const handleSave = pipe(
+    TE.of<unknown, OipfConfigurationState>({
       countryId,
       language,
       preferredAudioLanguage,
@@ -100,30 +98,21 @@ export default function ConfigurationTab() {
         enabled: parentalEnabled,
         rating: parentalRating,
       },
-    };
-
-    const newConfig = {
-      ...config,
-      hbbtv: {
-        ...config.hbbtv,
-        oipfConfiguration: newConfiguration,
-      },
-    };
-
-    dispatch({ type: "SET_CONFIG", payload: newConfig });
-    await sideEffects.save(newConfig);
-    setIsEditing(false);
-  };
+    }),
+    TE.tap((newConfiguration) => update(newConfiguration)),
+    TE.tapIO(() => () => {
+      setIsEditing(false);
+    }),
+  );
 
   const handleCancel = () => {
-    const cfg = config.hbbtv?.oipfConfiguration ?? {};
-    setCountryId(cfg.countryId ?? "IT");
-    setLanguage(cfg.language ?? "ita");
-    setPreferredAudioLanguage(cfg.preferredAudioLanguage ?? ["ita", "eng"]);
-    setPreferredSubtitleLanguage(cfg.preferredSubtitleLanguage ?? ["ita", "eng"]);
-    setNetworkOnline(cfg.network?.online ?? true);
-    setParentalEnabled(cfg.parentalControl?.enabled ?? false);
-    setParentalRating(cfg.parentalControl?.rating ?? 0);
+    setCountryId(configuration.countryId ?? "IT");
+    setLanguage(configuration.language ?? "ita");
+    setPreferredAudioLanguage(configuration.preferredAudioLanguage ?? ["ita", "eng"]);
+    setPreferredSubtitleLanguage(configuration.preferredSubtitleLanguage ?? ["ita", "eng"]);
+    setNetworkOnline(configuration.network?.online ?? true);
+    setParentalEnabled(configuration.parentalControl?.enabled ?? false);
+    setParentalRating(configuration.parentalControl?.rating ?? 0);
     setIsEditing(false);
   };
 

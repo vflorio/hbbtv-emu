@@ -1,15 +1,15 @@
 import {
   Memory as CapabilitiesIcon,
   Tv as ChannelsIcon,
-  Tune as CommonIcon,
-  Settings as ConfigIcon,
+  Settings as CommonIcon,
+  Tune as ConfigurationIcon,
   Dialpad as RemoteIcon,
 } from "@mui/icons-material";
 import { CssBaseline, createTheme, Divider, List, ListItemButton, Stack, ThemeProvider } from "@mui/material";
 import { createContext, useContext, useState } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Acrylic } from "./components/materials";
-import { type SideEffects, StateProvider } from "./context/state";
+import { type SideEffects, StateProvider } from "./context/AppState";
 import ApplicationTab from "./routes/ApplicationManager";
 import CapabilitiesTab from "./routes/Capabilities";
 import ChannelList from "./routes/Channels";
@@ -83,7 +83,7 @@ function Sidebar() {
     { id: Section.RemoteControl, Icon: <RemoteIcon /> },
     { id: Section.Channels, Icon: <ChannelsIcon /> },
     { id: Section.Capabilities, Icon: <CapabilitiesIcon /> },
-    { id: Section.Configuration, Icon: <ConfigIcon /> },
+    { id: Section.Configuration, Icon: <ConfigurationIcon /> },
     //{ id: Section.VideoBroadcast, Icon: <BroadcastIcon /> },
     //{ id: Section.Application, Icon: <AppsIcon /> },
     { id: Section.Common, Icon: <CommonIcon /> },

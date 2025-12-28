@@ -1,14 +1,15 @@
-import type { ExtensionState } from "@hbb-emu/extension-common";
 import { Download, Upload } from "@mui/icons-material";
 import { Button, Stack, Typography } from "@mui/material";
+import * as E from "fp-ts/Either";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { useRef } from "react";
+import { useAppState } from "../../context/AppState";
+import { useConfigImport } from "../../hooks";
 
-interface ConfigSectionProps {
-  config: ExtensionState;
-  onImport: (config: ExtensionState) => Promise<void>;
-}
-
-export function ConfigSection({ config, onImport }: ConfigSectionProps) {
+export function ConfigSection() {
+  const { config } = useAppState();
+  const { importConfig } = useConfigImport();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
@@ -28,22 +29,39 @@ export function ConfigSection({ config, onImport }: ConfigSectionProps) {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    try {
-      const text = await file.text();
-      const importedConfig = JSON.parse(text);
-      await onImport(importedConfig);
-    } catch (error) {
-      console.error("Failed to import config:", error);
-      alert("Failed to import configuration. Please check the file format.");
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    pipe(
+      TE.tryCatch(
+        () => file.text(),
+        (error) => error,
+      ),
+      TE.flatMap((text) =>
+        pipe(
+          E.tryCatch(
+            () => JSON.parse(text),
+            (error) => error,
+          ),
+          TE.fromEither,
+        ),
+      ),
+      TE.flatMap((importedConfig) => importConfig(importedConfig)),
+      TE.tapIO(() => () => {
+        if (!fileInputRef.current) return;
+        fileInputRef.current.value = "";
+      }),
+      TE.match(
+        (error) => {
+          console.error("Failed to import config:", error);
+          alert("Failed to import configuration. Please check the file format.");
+        },
+        () => {
+          console.log("Configuration imported successfully");
+        },
+      ),
+    )();
   };
 
   return (

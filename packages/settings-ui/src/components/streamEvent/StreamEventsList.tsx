@@ -2,6 +2,8 @@ import { randomUUID } from "@hbb-emu/core";
 import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import { Add, ExpandMore } from "@mui/icons-material";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Typography } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { StreamEventItem } from "./StreamEventItem";
 
 interface StreamEventsListProps {
@@ -9,7 +11,7 @@ interface StreamEventsListProps {
   channel: ChannelConfig;
   defaultMode?: "display" | "edit";
   onChange?: (events: StreamEventConfig[]) => void;
-  onSave?: (updated: ChannelConfig) => Promise<void>;
+  onSave?: (updated: ChannelConfig) => TE.TaskEither<unknown, void>;
 }
 
 const defaultStreamEvent: Omit<StreamEventConfig, "id"> = {
@@ -26,26 +28,51 @@ const defaultStreamEvent: Omit<StreamEventConfig, "id"> = {
 
 export function StreamEventsList({ streamEvents, channel, defaultMode, onChange, onSave }: StreamEventsListProps) {
   const isLocked = defaultMode !== undefined;
-  const handleAddEvent = async () => {
+
+  const handleAddEvent = () => {
     const newEvent: StreamEventConfig = {
       id: randomUUID(),
       ...defaultStreamEvent,
     };
     const updatedEvents = [...streamEvents, newEvent];
     onChange?.(updatedEvents);
-    await onSave?.({ ...channel, streamEvents: updatedEvents });
+
+    if (!onSave) return;
+    pipe(
+      onSave({ ...channel, streamEvents: updatedEvents }),
+      TE.match(
+        (error) => console.error("Failed to add stream event:", error),
+        () => console.log("Stream event added successfully"),
+      ),
+    )();
   };
 
-  const handleDeleteEvent = async (id: string) => {
+  const handleDeleteEvent = (id: string) => {
     const updatedEvents = streamEvents.filter((e) => e.id !== id);
     onChange?.(updatedEvents);
-    await onSave?.({ ...channel, streamEvents: updatedEvents });
+
+    if (!onSave) return;
+    pipe(
+      onSave({ ...channel, streamEvents: updatedEvents }),
+      TE.match(
+        (error) => console.error("Failed to delete stream event:", error),
+        () => console.log("Stream event deleted successfully"),
+      ),
+    )();
   };
 
-  const handleSaveEvent = async (updated: StreamEventConfig) => {
+  const handleSaveEvent = (updated: StreamEventConfig) => {
     const updatedEvents = streamEvents.map((e) => (e.id === updated.id ? updated : e));
     onChange?.(updatedEvents);
-    await onSave?.({ ...channel, streamEvents: updatedEvents });
+
+    if (!onSave) return;
+    pipe(
+      onSave({ ...channel, streamEvents: updatedEvents }),
+      TE.match(
+        (error) => console.error("Failed to save stream event:", error),
+        () => console.log("Stream event saved successfully"),
+      ),
+    )();
   };
 
   return (

@@ -83,18 +83,14 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
       O.fromPredicate((supported) => supported),
       O.match(
         () =>
-          pipe(
-            this.emit({
-              _tag: "Engine/Error",
-              kind: "media",
-              message: "HLS.js is not supported in this browser",
-            }),
-            IO.asUnit,
-          ),
+          this.emit({
+            _tag: "Engine/Error",
+            kind: "media",
+            message: "HLS.js is not supported in this browser",
+          }),
         () =>
           pipe(
-            IO.Do,
-            IO.flatMap(() => init),
+            init,
             IO.flatMap(() =>
               pipe(
                 O.fromNullable(this.hls),

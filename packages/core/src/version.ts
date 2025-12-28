@@ -29,14 +29,6 @@ export const parseVersion = (version: string): E.Either<InvalidVersionError, Ver
     E.map((parts) => ({ _tag: "Version" as const, parts })),
   );
 
-export const unsafeParseVersion = (version: string): Version => {
-  const result = parseVersion(version);
-  if (E.isLeft(result)) {
-    throw invalidVersionError(`Invalid version string: ${version}`);
-  }
-  return result.right;
-};
-
 export const eqVersion: Eq.Eq<Version> = Eq.struct({
   _tag: S.Eq,
   parts: RA.getEq(N.Eq),

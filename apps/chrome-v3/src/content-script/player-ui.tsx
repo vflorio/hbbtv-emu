@@ -147,7 +147,7 @@ export class PlayerUIService {
   #render = (): IO.IO<void> => () => {
     pipe(
       this.#root,
-      O.chain((root) =>
+      O.flatMap((root) =>
         pipe(
           this.#runtime,
           O.map((runtime) => {

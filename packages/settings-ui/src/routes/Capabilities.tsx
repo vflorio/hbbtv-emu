@@ -13,16 +13,15 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
-import { useAppState, useDispatch, useSideEffects } from "../context/state";
+import { useAppState, useCapabilities } from "../hooks";
 
 export default function CapabilitiesTab() {
-  const { config, isLoading } = useAppState();
-  const dispatch = useDispatch();
-  const sideEffects = useSideEffects();
-
-  const capabilities = config.hbbtv?.oipfCapabilities ?? {};
+  const { isLoading } = useAppState();
+  const { capabilities, update } = useCapabilities();
 
   const [hbbtvVersion, setHbbtvVersion] = useState(capabilities.hbbtvVersion ?? "2.0.1");
   const [uiProfiles, setUiProfiles] = useState<string[]>(capabilities.uiProfiles ?? []);
@@ -32,39 +31,29 @@ export default function CapabilitiesTab() {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    const caps = config.hbbtv?.oipfCapabilities ?? {};
-    setHbbtvVersion(caps.hbbtvVersion ?? "2.0.1");
-    setUiProfiles(caps.uiProfiles ?? []);
-    setDrmSystems(caps.drmSystems ?? []);
+    setHbbtvVersion(capabilities.hbbtvVersion ?? "2.0.1");
+    setUiProfiles(capabilities.uiProfiles ?? []);
+    setDrmSystems(capabilities.drmSystems ?? []);
     setIsEditing(false);
-  }, [config.hbbtv?.oipfCapabilities]);
+  }, [capabilities]);
 
-  const handleSave = async () => {
-    const newCapabilities: OipfCapabilitiesState = {
+  const handleSave = pipe(
+    TE.of<unknown, OipfCapabilitiesState>({
       ...capabilities,
       hbbtvVersion,
       uiProfiles,
       drmSystems,
-    };
-
-    const newConfig = {
-      ...config,
-      hbbtv: {
-        ...config.hbbtv,
-        oipfCapabilities: newCapabilities,
-      },
-    };
-
-    dispatch({ type: "SET_CONFIG", payload: newConfig });
-    await sideEffects.save(newConfig);
-    setIsEditing(false);
-  };
+    }),
+    TE.tap((newCapabilities) => update(newCapabilities)),
+    TE.tapIO(() => () => {
+      setIsEditing(false);
+    }),
+  );
 
   const handleCancel = () => {
-    const caps = config.hbbtv?.oipfCapabilities ?? {};
-    setHbbtvVersion(caps.hbbtvVersion ?? "2.0.1");
-    setUiProfiles(caps.uiProfiles ?? []);
-    setDrmSystems(caps.drmSystems ?? []);
+    setHbbtvVersion(capabilities.hbbtvVersion ?? "2.0.1");
+    setUiProfiles(capabilities.uiProfiles ?? []);
+    setDrmSystems(capabilities.drmSystems ?? []);
     setIsEditing(false);
   };
 

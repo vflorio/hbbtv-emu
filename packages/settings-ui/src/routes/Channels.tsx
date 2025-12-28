@@ -2,12 +2,13 @@ import { randomUUID } from "@hbb-emu/core";
 import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { Add as AddIcon, ExpandMore } from "@mui/icons-material";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Stack, Typography } from "@mui/material";
+import { pipe } from "fp-ts/lib/function";
+import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
 import { ChannelBasicInfo, ChannelTimeline, ChannelTriplet } from "../components/channel";
 import Panel from "../components/Panel";
 import { StreamEventsList } from "../components/streamEvent";
-import { useAppState } from "../context/state";
-import { useChannelActions } from "../hooks/useChannelActions";
+import { useAppState, useChannelActions } from "../hooks";
 
 export default function ChannelList() {
   const { upsert } = useChannelActions();
@@ -17,8 +18,8 @@ export default function ChannelList() {
   } = useAppState();
   const [expandedChannel, setExpandedChannel] = useState<string | null>(currentChannel?.id ?? channels[0]?.id ?? null);
 
-  const handleAddChannel = async () => {
-    const newChannel: ChannelConfig = {
+  const handleAddChannel = pipe(
+    TE.of({
       id: randomUUID(),
       name: "New Channel",
       mp4Source: "",
@@ -27,10 +28,16 @@ export default function ChannelList() {
       sid: Math.floor(Math.random() * 65535),
       enableStreamEvents: false,
       streamEvents: [],
-    };
-    await upsert(newChannel);
-    setExpandedChannel(newChannel.id);
-  };
+    }),
+    TE.tapIO((newChannel) => () => {
+      setExpandedChannel(newChannel.id);
+    }),
+    TE.flatMap((newChannel) => upsert(newChannel)),
+    TE.match(
+      (error) => console.error("Failed to add channel:", error),
+      () => console.log("Channel added successfully"),
+    ),
+  );
 
   if (isLoading) {
     return (

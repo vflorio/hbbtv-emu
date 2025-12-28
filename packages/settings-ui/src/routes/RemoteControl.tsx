@@ -1,17 +1,14 @@
 import { Stack } from "@mui/material";
 import Panel from "../components/Panel";
 import { TvRemote } from "../components/TvRemote";
-import { useSideEffects } from "../context/state";
+import { useRemoteControl } from "../hooks";
 
 export default function RemoteControl() {
-  const sideEffects = useSideEffects();
-
-  const handleKeyPress = (keyCode: number) => sideEffects.dispatchKey(keyCode);
-
+  const { dispatchKey } = useRemoteControl();
   return (
     <Panel title="Remote Control">
       <Stack maxWidth={375} margin={"0 auto"}>
-        <TvRemote handleKeyPress={handleKeyPress} />
+        <TvRemote handleKeyPress={dispatchKey} />
       </Stack>
     </Panel>
   );
