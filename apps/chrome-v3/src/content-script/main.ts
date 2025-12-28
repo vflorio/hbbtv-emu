@@ -2,82 +2,98 @@ import { createLogger } from "@hbb-emu/core";
 import type { ExtensionState } from "@hbb-emu/extension-common";
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime, type PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
-import { createRuntimeEnv, type PlayerRuntimeFactory, runtime } from "@hbb-emu/runtime";
+import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtime } from "@hbb-emu/runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
-import * as S from "fp-ts/State";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { App, type Instance } from "./app";
+import { mapChannelConfigToOIPFChannel } from "./mappers";
 import { PlayerUIService } from "./player-ui";
-import { getConfig, getRuntimeHandle, setConfig, setReady, setRuntimeHandle } from "./state";
 import { responseError, sendGetState, waitForState } from "./utils";
 
 const logger = createLogger("ContentScript");
 
+/**
+ * ContentScript API
+ * Exposes content script lifecycle for HbbTV emulator
+ */
 export type ContentScript = Readonly<{
   start: () => T.Task<void>;
 }>;
 
+/**
+ * ContentScript Service
+ * Manages HbbTV runtime initialization and player UI lifecycle
+ */
 export class ContentScriptService implements ContentScript {
-  readonly #app: Instance;
-  readonly #playerUI: PlayerUIService;
-  #playerRuntime: PlayerRuntime | null = null;
+  private readonly app: Instance;
+  private readonly playerUI: PlayerUIService;
+  private config: O.Option<ExtensionState> = O.none;
+  private runtimeHandle: O.Option<RuntimeHandle> = O.none;
+  private playerRuntime: O.Option<PlayerRuntime> = O.none;
 
   constructor(app: Instance) {
-    this.#app = app;
-    this.#playerUI = new PlayerUIService();
+    this.app = app;
+    this.playerUI = new PlayerUIService();
   }
+
+  // ============================================================================
+  // Lifecycle
+  // ============================================================================
 
   start = (): T.Task<void> =>
     pipe(
       T.fromIO(logger.info("Starting")),
-      T.flatMap(() => this.#requestAndWaitForConfig()),
+      T.flatMap(() => this.requestAndWaitForConfig()),
       T.flatMap(() => T.fromIO(logger.info("Creating shared PlayerRuntime for VideoBroadcast"))),
-      T.flatMap(() =>
-        T.fromIO(() => {
-          this.#playerRuntime = this.#createPlayerRuntime();
-          logger.debug("Shared PlayerRuntime created")();
-        }),
-      ),
-      T.flatMap(() => T.fromIO(this.#setupStateSubscription())),
-      T.flatMap(() => T.fromIO(this.#setupPlayChannelHandler())),
-      T.flatMap(() => T.fromIO(this.#setupDispatchKeyHandler())),
-      T.flatMap(() => T.fromIO(this.#initializeHbbTV())),
-      T.flatMap(() => T.fromIO(this.#initializePlayerUI())),
-      T.flatMap(() => this.#notifyReady()),
+      T.flatMap(() => T.fromIO(this.createAndStorePlayerRuntime())),
+      T.flatMap(() => T.fromIO(this.setupStateSubscription())),
+      T.flatMap(() => T.fromIO(this.setupPlayChannelHandler())),
+      T.flatMap(() => T.fromIO(this.setupDispatchKeyHandler())),
+      T.flatMap(() => T.fromIO(this.initializeHbbTV())),
+      T.flatMap(() => T.fromIO(this.initializePlayerUI())),
+      T.flatMap(() => this.notifyReady()),
       T.flatMap(() => T.fromIO(logger.info("Started"))),
     );
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Config bootstrap
-  // ───────────────────────────────────────────────────────────────────────────
+  // ============================================================================
+  // Config Bootstrap
+  // ============================================================================
 
-  #requestAndWaitForConfig = (): T.Task<void> =>
+  /**
+   * Request and wait for initial configuration from background script.
+   * Pure functional pipeline with explicit side-effect management.
+   */
+  private requestAndWaitForConfig = (): T.Task<void> =>
     pipe(
       TE.Do,
       TE.tap(() => TE.rightIO(logger.debug("Requesting config from background"))),
       TE.flatMap(() =>
         pipe(
-          sendGetState(this.#app),
+          sendGetState(this.app),
           TE.mapError((error) => responseError(String(error))),
         ),
       ),
-      TE.bind("config", () => waitForState(this.#app)),
+      TE.bind("config", () => waitForState(this.app)),
       TE.tap(({ config }) =>
         TE.rightIO(
           pipe(
             logger.info("Config received"),
-            IO.flatMap(() => this.#app.runState(setConfig(config))),
+            IO.flatMap(() => this.storeConfig(config)),
           ),
         ),
       ),
       TE.tapError((error) =>
-        TE.fromIO(
-          error.type === "TimeoutError"
-            ? logger.warn("Failed to get initial config:", error.message)
-            : logger.error("Config error:", error.message),
+        pipe(
+          error,
+          O.of,
+          O.filter((e) => e.type === "TimeoutError"),
+          O.match(
+            () => TE.fromIO(logger.error("Config error:", error.message)),
+            () => TE.fromIO(logger.warn("Failed to get initial config:", error.message)),
+          ),
         ),
       ),
       TE.match(
@@ -86,214 +102,284 @@ export class ContentScriptService implements ContentScript {
       ),
     );
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // PlayerRuntime setup
-  // ───────────────────────────────────────────────────────────────────────────
+  // ============================================================================
+  // PlayerRuntime Setup
+  // ============================================================================
 
-  #createPlayerRuntime = (): PlayerRuntime => {
-    logger.debug("Creating PlayerRuntime instance with adapters")();
-    const config: PlayerRuntimeConfig = {
-      adapters: {
-        native: new NativeAdapter(),
-        hls: new HLSAdapter(),
-        dash: new DASHAdapter(),
-      },
-    };
-    return new PlayerRuntime(config);
-  };
-
-  #createPlayerRuntimeFactory = (): PlayerRuntimeFactory => ({
-    create: () => {
-      logger.debug("Factory: Creating new PlayerRuntime instance")();
-      return this.#createPlayerRuntime();
-    },
-    destroy: (runtime: PlayerRuntime) => {
-      logger.debug("Factory: Destroying PlayerRuntime instance")();
-      runtime.destroy().catch(() => {});
-    },
-  });
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Runtime integration
-  // ───────────────────────────────────────────────────────────────────────────
-
-  #initializeHbbTV = (): IO.IO<void> =>
+  /**
+   * Create PlayerRuntime instance with web adapters.
+   * Pure function that returns new runtime instance.
+   */
+  private createPlayerRuntime = (): IO.IO<PlayerRuntime> =>
     pipe(
-      this.#app.runState(getConfig),
-      IO.flatMap(
-        O.match(
-          () => logger.error("No config available, skipping HbbTV runtime initialization"),
-          (extensionState) =>
-            pipe(
-              logger.info("Initializing HbbTV runtime"),
-              IO.flatMap(() => {
-                const factory = this.#createPlayerRuntimeFactory();
-                logger.debug("Passing shared runtime (VideoBroadcast) and factory (AVControl)")();
-                return runtime(
-                  createRuntimeEnv(
-                    extensionState,
-                    this.#playerRuntime ?? undefined, // Shared for VideoBroadcast
-                    factory, // Factory for AVControl
+      logger.debug("Creating PlayerRuntime instance with adapters"),
+      IO.map(() => {
+        const config: PlayerRuntimeConfig = {
+          adapters: {
+            native: new NativeAdapter(),
+            hls: new HLSAdapter(),
+            dash: new DASHAdapter(),
+          },
+        };
+        return new PlayerRuntime(config);
+      }),
+    );
+
+  /**
+   * Create and store PlayerRuntime instance.
+   * Wraps side effect in IO.
+   */
+  private createAndStorePlayerRuntime = (): IO.IO<void> =>
+    pipe(
+      this.createPlayerRuntime(),
+      IO.flatMap((runtime) => () => {
+        this.playerRuntime = O.some(runtime);
+        logger.debug("Shared PlayerRuntime created and stored")();
+      }),
+    );
+
+  /**
+   * Create PlayerRuntimeFactory for AVControl instances.
+   * Factory pattern for creating isolated runtime instances.
+   */
+  private createPlayerRuntimeFactory = (): IO.IO<PlayerRuntimeFactory> =>
+    pipe(
+      IO.of({
+        create: (): PlayerRuntime => {
+          logger.debug("Factory: Creating new PlayerRuntime instance")();
+          return this.createPlayerRuntime()();
+        },
+        destroy: (runtime: PlayerRuntime): void => {
+          logger.debug("Factory: Destroying PlayerRuntime instance")();
+          runtime.destroy().catch(() => {});
+        },
+      }),
+    );
+
+  // ============================================================================
+  // HbbTV Runtime Integration
+  // ============================================================================
+
+  /**
+   * Initialize HbbTV runtime with shared and factory-based PlayerRuntime instances.
+   * Pure functional pipeline that handles config availability.
+   */
+  private initializeHbbTV = (): IO.IO<void> =>
+    pipe(
+      this.config,
+      O.match(
+        () => logger.error("No config available, skipping HbbTV runtime initialization"),
+        (extensionState) =>
+          pipe(
+            logger.info("Initializing HbbTV runtime"),
+            IO.flatMap(() => this.createPlayerRuntimeFactory()),
+            IO.flatMap((factory) =>
+              pipe(
+                logger.debug("Passing shared runtime (VideoBroadcast) and factory (AVControl)"),
+                IO.flatMap(() =>
+                  pipe(this.playerRuntime, O.toUndefined, (sharedRuntime) =>
+                    runtime(createRuntimeEnv(extensionState, sharedRuntime, factory)),
                   ),
-                );
-              }),
-              IO.flatMap((handle) =>
-                pipe(
-                  logger.debug("Saving runtime handle"),
-                  IO.flatMap(() => this.#app.runState(setRuntimeHandle(handle))),
-                  IO.flatMap(() => this.#updateRuntimeState(extensionState)),
                 ),
               ),
             ),
-        ),
+            IO.flatMap((handle) =>
+              pipe(
+                logger.debug("Saving runtime handle"),
+                IO.flatMap(() => this.storeRuntimeHandle(handle)),
+                IO.flatMap(() => this.updateRuntimeState(extensionState)),
+              ),
+            ),
+          ),
       ),
     );
 
-  #setupStateSubscription = (): IO.IO<void> =>
+  /**
+   * Setup subscription to state updates from background script.
+   * Emits updates to runtime and player UI.
+   */
+  private setupStateSubscription = (): IO.IO<void> =>
     pipe(
       logger.debug("Setting up state subscription"),
       IO.flatMap(() =>
-        this.#app.on("STATE_UPDATED", (envelope) =>
+        this.app.on("STATE_UPDATED", (envelope) =>
           pipe(
             logger.info("State update received", envelope.message.payload),
-            IO.flatMap(() => this.#app.runState(setConfig(envelope.message.payload))),
-            IO.flatMap(() => this.#updateRuntimeState(envelope.message.payload)),
-            IO.flatMap(() => this.#updatePlayerUI(envelope.message.payload)),
+            IO.flatMap(() => this.storeConfig(envelope.message.payload)),
+            IO.flatMap(() => this.updateRuntimeState(envelope.message.payload)),
+            IO.flatMap(() => this.updatePlayerUI(envelope.message.payload)),
           ),
         ),
       ),
     );
 
-  #setupPlayChannelHandler = (): IO.IO<void> =>
+  /**
+   * Setup handler for PLAY_CHANNEL messages.
+   * Updates VideoBroadcast state through runtime handle.
+   */
+  private setupPlayChannelHandler = (): IO.IO<void> =>
     pipe(
       logger.debug("Setting up PLAY_CHANNEL handler"),
       IO.flatMap(() =>
-        this.#app.on("PLAY_CHANNEL", (envelope) =>
+        this.app.on("PLAY_CHANNEL", (envelope) =>
           pipe(
             logger.info("PLAY_CHANNEL received", envelope.message.payload),
             IO.flatMap(() =>
-              this.#app.runState(
-                pipe(
-                  getRuntimeHandle,
-                  S.flatMap((handleOpt) =>
+              pipe(
+                this.runtimeHandle,
+                O.match(
+                  () => logger.warn("No runtime handle, cannot play channel"),
+                  (handle) =>
                     pipe(
-                      handleOpt,
-                      O.match(
-                        () => S.of(IO.of(logger.warn("No runtime handle, cannot play channel")())),
-                        (handle) =>
-                          S.of(
-                            pipe(
-                              logger.debug("Playing channel via runtime"),
-                              IO.flatMap(() =>
-                                handle.updateState({
-                                  videoBroadcast: { currentChannel: envelope.message.payload },
-                                }),
-                              ),
-                            ),
+                      logger.debug("Playing channel via runtime"),
+                      IO.flatMap(() =>
+                        pipe(
+                          IO.of(mapChannelConfigToOIPFChannel(envelope.message.payload)),
+                          IO.flatMap((oipfChannel) =>
+                            handle.updateState({
+                              videoBroadcast: { currentChannel: oipfChannel },
+                            }),
                           ),
+                        ),
                       ),
                     ),
-                  ),
                 ),
               ),
             ),
-            IO.flatten,
           ),
         ),
       ),
     );
 
-  #setupDispatchKeyHandler = (): IO.IO<void> =>
+  /**
+   * Setup handler for DISPATCH_KEY messages.
+   * Forwards key events to HbbTV runtime.
+   */
+  private setupDispatchKeyHandler = (): IO.IO<void> =>
     pipe(
       logger.debug("Setting up DISPATCH_KEY handler"),
       IO.flatMap(() =>
-        this.#app.on("DISPATCH_KEY", (envelope) =>
+        this.app.on("DISPATCH_KEY", (envelope) =>
           pipe(
             logger.info("DISPATCH_KEY received", envelope.message.payload),
             IO.flatMap(() =>
-              this.#app.runState(
-                pipe(
-                  getRuntimeHandle,
-                  S.flatMap((handleOpt) =>
+              pipe(
+                this.runtimeHandle,
+                O.match(
+                  () => logger.warn("No runtime handle, cannot dispatch key"),
+                  (handle) =>
                     pipe(
-                      handleOpt,
-                      O.match(
-                        () => S.of(IO.of(logger.warn("No runtime handle, cannot dispatch key")())),
-                        (handle) =>
-                          S.of(
-                            pipe(
-                              logger.debug("Dispatching key via runtime:", envelope.message.payload),
-                              IO.flatMap(() => handle.dispatchKey(envelope.message.payload)),
-                            ),
-                          ),
-                      ),
+                      logger.debug("Dispatching key via runtime:", envelope.message.payload),
+                      IO.flatMap(() => handle.dispatchKey(envelope.message.payload)),
                     ),
-                  ),
                 ),
               ),
             ),
-            IO.flatten,
           ),
         ),
       ),
     );
 
-  #updateRuntimeState = (extensionState: ExtensionState): IO.IO<void> =>
+  /**
+   * Update HbbTV runtime state with new extension state.
+   * Pure functional pipeline that handles missing runtime handle.
+   */
+  private updateRuntimeState = (extensionState: ExtensionState): IO.IO<void> =>
     pipe(
-      this.#app.runState(getRuntimeHandle),
-      IO.flatMap(
-        O.match(
-          () => logger.warn("No runtime handle available, skipping HbbTV state update"),
-          (handle) =>
-            pipe(
-              logger.debug("Updating HbbTV runtime state"),
-              IO.flatMap(() => handle.updateExtensionState(extensionState)),
-              IO.flatMap(() => handle.updateState(extensionState.hbbtv)),
-            ),
-        ),
+      this.runtimeHandle,
+      O.match(
+        () => logger.warn("No runtime handle available, skipping HbbTV state update"),
+        (handle) =>
+          pipe(
+            logger.debug("Updating HbbTV runtime state"),
+            IO.flatMap(() => handle.updateExtensionState(extensionState)),
+            IO.flatMap(() => handle.updateState(extensionState.hbbtv)),
+          ),
       ),
     );
 
-  // ───────────────────────────────────────────────────────────────────────────
+  // ============================================================================
   // Player UI Integration
-  // ───────────────────────────────────────────────────────────────────────────
+  // ============================================================================
 
-  #initializePlayerUI = (): IO.IO<void> =>
+  /**
+   * Initialize Player UI based on config visibility setting.
+   * Pure functional pipeline that handles config and runtime availability.
+   */
+  private initializePlayerUI = (): IO.IO<void> =>
     pipe(
-      this.#app.runState(getConfig),
-      IO.flatMap(
-        O.match(
-          () => logger.debug("No config available, skipping Player UI initialization"),
-          (extensionState) =>
-            pipe(
-              logger.debug("Initializing Player UI with visibility:", extensionState.playerUiVisible),
-              IO.flatMap(() => {
-                if (extensionState.playerUiVisible && this.#playerRuntime) {
-                  return this.#playerUI.show(this.#playerRuntime);
-                }
-                return IO.of(undefined);
-              }),
+      this.config,
+      O.match(
+        () => logger.debug("No config available, skipping Player UI initialization"),
+        (extensionState) =>
+          pipe(
+            logger.debug("Initializing Player UI with visibility:", extensionState.playerUiVisible),
+            IO.flatMap(() =>
+              pipe(
+                O.Do,
+                O.bind("runtime", () => this.playerRuntime),
+                O.filter(() => extensionState.playerUiVisible),
+                O.match(
+                  () => IO.of(undefined),
+                  ({ runtime }) => this.playerUI.show(runtime),
+                ),
+              ),
             ),
-        ),
+          ),
       ),
     );
 
-  #updatePlayerUI = (extensionState: ExtensionState): IO.IO<void> =>
+  /**
+   * Update Player UI visibility based on extension state.
+   * Delegates to PlayerUIService with optional runtime.
+   */
+  private updatePlayerUI = (extensionState: ExtensionState): IO.IO<void> =>
     pipe(
       logger.debug("Updating Player UI visibility:", extensionState.playerUiVisible),
-      IO.flatMap(() => this.#playerUI.setVisible(extensionState.playerUiVisible, this.#playerRuntime ?? undefined)),
+      IO.flatMap(() =>
+        pipe(this.playerRuntime, O.toUndefined, (runtime) =>
+          this.playerUI.setVisible(extensionState.playerUiVisible, runtime),
+        ),
+      ),
     );
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Lifecycle handshake
-  // ───────────────────────────────────────────────────────────────────────────
+  // ============================================================================
+  // Lifecycle Handshake
+  // ============================================================================
 
-  #notifyReady = (): T.Task<void> =>
+  /**
+   * Notify background script that content script is ready.
+   */
+  private notifyReady = (): T.Task<void> =>
     pipe(
       T.fromIO(logger.debug("Notifying background that content script is ready")),
-      T.flatMap(() => this.#app.send("BACKGROUND_SCRIPT", { type: "CONTENT_SCRIPT_READY", payload: null })),
-      T.flatMap(() => T.fromIO(this.#app.runState(setReady))),
+      T.flatMap(() => this.app.send("BACKGROUND_SCRIPT", { type: "CONTENT_SCRIPT_READY", payload: null })),
+      T.map(() => undefined),
     );
+
+  // ============================================================================
+  // Private Helpers - State Management
+  // ============================================================================
+
+  /**
+   * Store config in local state.
+   * Pure side effect wrapped in IO.
+   */
+  private storeConfig =
+    (config: ExtensionState): IO.IO<void> =>
+    () => {
+      this.config = O.some(config);
+    };
+
+  /**
+   * Store runtime handle in local state.
+   * Pure side effect wrapped in IO.
+   */
+  private storeRuntimeHandle =
+    (handle: RuntimeHandle): IO.IO<void> =>
+    () => {
+      this.runtimeHandle = O.some(handle);
+    };
 }
 
 const start = (app: Instance): T.Task<void> =>
