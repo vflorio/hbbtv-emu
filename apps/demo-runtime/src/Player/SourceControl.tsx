@@ -42,7 +42,7 @@ export function SourceControl({ playerRuntime, isLoading }: { playerRuntime: Pla
   }, [playerRuntime]);
 
   const playbackType = useMemo(() => {
-    const opt = playerRuntime.getPlaybackType();
+    const opt = playerRuntime.getPlaybackType()();
     return O.isSome(opt) ? opt.value : null;
   }, [playerRuntime, playerState]);
 
