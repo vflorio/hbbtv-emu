@@ -1,9 +1,9 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
-import type { OIPF } from "@hbb-emu/oipf";
+import type { OIPF } from "@hbb-emu/oipf-api";
+import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtime } from "@hbb-emu/oipf-runtime";
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime, type PlayerRuntimeConfig } from "@hbb-emu/player-runtime";
 import { Overlay } from "@hbb-emu/player-ui";
-import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtime } from "@hbb-emu/runtime";
 import { useEffect, useRef, useState } from "react";
 
 /**

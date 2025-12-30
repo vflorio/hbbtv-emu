@@ -1,4 +1,4 @@
-import type { VideoBroadcastState } from "@hbb-emu/oipf";
+import type { VideoBroadcastState } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import type { ExtensionState } from "node_modules/@hbb-emu/extension-common/dist/extension";

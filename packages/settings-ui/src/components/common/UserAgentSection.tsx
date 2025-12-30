@@ -1,4 +1,4 @@
-import { buildDefaultUserAgent, DEFAULT_HBBTV_VERSION } from "@hbb-emu/oipf";
+import { buildDefaultUserAgent, DEFAULT_HBBTV_VERSION } from "@hbb-emu/oipf-api";
 import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";

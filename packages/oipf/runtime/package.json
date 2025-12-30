@@ -1,16 +1,18 @@
 {
-  "name": "@hbb-emu/player-adapter-hbbtv",
+  "name": "@hbb-emu/oipf-runtime",
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/oipf-api": "workspace:*",
-    "dashjs": "5.1.0",
-    "fp-ts": "2.16.11",
-    "hls.js": "1.6.15",
+    "@hbb-emu/player-runtime": "workspace:*",
+    "@hbb-emu/player-adapter-web": "workspace:*",
     "ts-pattern": "5.9.0"
   },
   "devDependencies": {
+    "dashjs": "5.1.0",
+    "fp-ts": "2.16.11",
+    "hls.js": "1.6.15",
     "io-ts": "2.2.22",
     "typescript": "5.9.3"
   },
@@ -27,11 +29,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "dev": "tsc --watch",
-    "test": "vitest run --passWithNoTests",
-    "test:coverage": "vitest run --coverage",
-    "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "dev": "tsc --watch"
   },
   "type": "module",
   "types": "./dist/index.d.ts"

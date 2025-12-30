@@ -1,4 +1,4 @@
-import type { OipfConfigurationState } from "@hbb-emu/oipf";
+import type { OipfConfigurationState } from "@hbb-emu/oipf-api";
 import { Add } from "@mui/icons-material";
 import {
   Box,

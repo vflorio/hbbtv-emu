@@ -48,9 +48,12 @@ importers:
       '@hbb-emu/extension-common':
         specifier: workspace:*
         version: link:../../packages/extension/common
-      '@hbb-emu/oipf':
+      '@hbb-emu/oipf-api':
         specifier: workspace:*
-        version: link:../../packages/oipf
+        version: link:../../packages/oipf/api
+      '@hbb-emu/oipf-runtime':
+        specifier: workspace:*
+        version: link:../../packages/oipf/runtime
       '@hbb-emu/player-adapter-web':
         specifier: workspace:*
         version: link:../../packages/player/adapters/web
@@ -60,9 +63,6 @@ importers:
       '@hbb-emu/player-ui':
         specifier: workspace:*
         version: link:../../packages/player/ui
-      '@hbb-emu/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@hbb-emu/runtime-chrome':
         specifier: workspace:*
         version: link:../../packages/extension/chrome
@@ -118,9 +118,12 @@ importers:
       '@hbb-emu/extension-common':
         specifier: workspace:*
         version: link:../../packages/extension/common
-      '@hbb-emu/oipf':
+      '@hbb-emu/oipf-api':
         specifier: workspace:*
-        version: link:../../packages/oipf
+        version: link:../../packages/oipf/api
+      '@hbb-emu/oipf-runtime':
+        specifier: workspace:*
+        version: link:../../packages/oipf/runtime
       '@hbb-emu/player-adapter-web':
         specifier: workspace:*
         version: link:../../packages/player/adapters/web
@@ -130,9 +133,6 @@ importers:
       '@hbb-emu/player-ui':
         specifier: workspace:*
         version: link:../../packages/player/ui
-      '@hbb-emu/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@mui/material':
         specifier: 7.3.5
         version: 7.3.5(@emotion/react@11.14.0(@types/react@19.2.5)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.5)(react@19.2.0))(@types/react@19.2.5)(react@19.2.0))(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -265,9 +265,9 @@ importers:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../../core
-      '@hbb-emu/oipf':
+      '@hbb-emu/oipf-api':
         specifier: workspace:*
-        version: link:../../oipf
+        version: link:../../oipf/api
     devDependencies:
       '@types/chrome':
         specifier: 0.1.32
@@ -298,11 +298,48 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/oipf:
+  packages/oipf/api:
     devDependencies:
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
+      io-ts:
+        specifier: 2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/oipf/runtime:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../../extension/common
+      '@hbb-emu/oipf-api':
+        specifier: workspace:*
+        version: link:../api
+      '@hbb-emu/player-adapter-web':
+        specifier: workspace:*
+        version: link:../../player/adapters/web
+      '@hbb-emu/player-runtime':
+        specifier: workspace:*
+        version: link:../../player/runtime
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+    devDependencies:
+      dashjs:
+        specifier: 5.1.0
+        version: 5.1.0
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      hls.js:
+        specifier: 1.6.15
+        version: 1.6.15
       io-ts:
         specifier: 2.2.22
         version: 2.2.22(fp-ts@2.16.11)
@@ -318,9 +355,9 @@ importers:
       '@hbb-emu/extension-common':
         specifier: workspace:*
         version: link:../../../extension/common
-      '@hbb-emu/oipf':
+      '@hbb-emu/oipf-api':
         specifier: workspace:*
-        version: link:../../../oipf
+        version: link:../../../oipf/api
       dashjs:
         specifier: 5.1.0
         version: 5.1.0
@@ -374,9 +411,9 @@ importers:
       '@hbb-emu/extension-common':
         specifier: workspace:*
         version: link:../../extension/common
-      '@hbb-emu/oipf':
+      '@hbb-emu/oipf-api':
         specifier: workspace:*
-        version: link:../../oipf
+        version: link:../../oipf/api
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
@@ -443,43 +480,6 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/runtime:
-    dependencies:
-      '@hbb-emu/core':
-        specifier: workspace:*
-        version: link:../core
-      '@hbb-emu/extension-common':
-        specifier: workspace:*
-        version: link:../extension/common
-      '@hbb-emu/oipf':
-        specifier: workspace:*
-        version: link:../oipf
-      '@hbb-emu/player-adapter-web':
-        specifier: workspace:*
-        version: link:../player/adapters/web
-      '@hbb-emu/player-runtime':
-        specifier: workspace:*
-        version: link:../player/runtime
-      ts-pattern:
-        specifier: 5.9.0
-        version: 5.9.0
-    devDependencies:
-      dashjs:
-        specifier: 5.1.0
-        version: 5.1.0
-      fp-ts:
-        specifier: 2.16.11
-        version: 2.16.11
-      hls.js:
-        specifier: 1.6.15
-        version: 1.6.15
-      io-ts:
-        specifier: 2.2.22
-        version: 2.2.22(fp-ts@2.16.11)
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
   packages/settings-ui:
     dependencies:
       '@emotion/react':
@@ -494,12 +494,12 @@ importers:
       '@hbb-emu/extension-common':
         specifier: workspace:*
         version: link:../extension/common
-      '@hbb-emu/oipf':
+      '@hbb-emu/oipf-api':
         specifier: workspace:*
-        version: link:../oipf
-      '@hbb-emu/runtime':
+        version: link:../oipf/api
+      '@hbb-emu/oipf-runtime':
         specifier: workspace:*
-        version: link:../runtime
+        version: link:../oipf/runtime
       '@mui/icons-material':
         specifier: 7.3.5
         version: 7.3.5(@mui/material@7.3.5(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@types/react@19.2.2)(react@19.2.0)

@@ -1,4 +1,4 @@
-import type { ApplicationManagerState, ApplicationState } from "@hbb-emu/oipf";
+import type { ApplicationManagerState, ApplicationState } from "@hbb-emu/oipf-api";
 import {
   Box,
   Button,

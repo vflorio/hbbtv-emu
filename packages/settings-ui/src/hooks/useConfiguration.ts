@@ -1,4 +1,4 @@
-import type { OipfConfigurationState } from "@hbb-emu/oipf";
+import type { OipfConfigurationState } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { useCallback } from "react";

@@ -5,7 +5,7 @@
  */
 
 import type { ChannelConfig } from "@hbb-emu/extension-common";
-import type { OIPF } from "@hbb-emu/oipf";
+import type { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 
