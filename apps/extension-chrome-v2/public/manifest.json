@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "HbbTV Emulator",
+  "version": "1.0.0",
+  "description": "HbbTV emulator extension (Manifest V2)",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "webNavigation",
+    "webRequest",
+    "webRequestBlocking",
+    "tabs",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "page": "background.html",
+    "persistent": true
+  },
+  "content_security_policy": "script-src 'self'; object-src 'self'"
+}

@@ -229,6 +229,99 @@ importers:
         specifier: npm:rolldown-vite@7.2.5
         version: rolldown-vite@7.2.5(@types/node@24.10.1)(esbuild@0.25.12)
 
+  apps/extension-chrome-v2:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@hbb-emu/extension-runtime':
+        specifier: workspace:*
+        version: link:../../packages/extension/runtime
+    devDependencies:
+      '@types/chrome':
+        specifier: 0.1.29
+        version: 0.1.29
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
+      '@types/react':
+        specifier: 19.2.2
+        version: 19.2.2
+      '@types/react-dom':
+        specifier: 19.2.2
+        version: 19.2.2(@types/react@19.2.2)
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.2.2
+        version: 7.2.2(@types/node@24.10.0)(lightningcss@1.30.2)
+
+  apps/extension-chrome-v3:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@hbb-emu/extension-runtime':
+        specifier: workspace:*
+        version: link:../../packages/extension/runtime
+    devDependencies:
+      '@types/chrome':
+        specifier: 0.1.29
+        version: 0.1.29
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
+      '@types/react':
+        specifier: 19.2.2
+        version: 19.2.2
+      '@types/react-dom':
+        specifier: 19.2.2
+        version: 19.2.2(@types/react@19.2.2)
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.2.2
+        version: 7.2.2(@types/node@24.10.0)(lightningcss@1.30.2)
+
+  apps/extension-firefox:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@hbb-emu/extension-runtime':
+        specifier: workspace:*
+        version: link:../../packages/extension/runtime
+    devDependencies:
+      '@types/firefox-webext-browser':
+        specifier: 120.0.4
+        version: 120.0.4
+      '@types/node':
+        specifier: 24.10.0
+        version: 24.10.0
+      '@types/react':
+        specifier: 19.2.2
+        version: 19.2.2
+      '@types/react-dom':
+        specifier: 19.2.2
+        version: 19.2.2(@types/react@19.2.2)
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 7.2.2
+        version: 7.2.2(@types/node@24.10.0)(lightningcss@1.30.2)
+
   packages/core:
     devDependencies:
       fp-ts:
@@ -278,6 +371,28 @@ importers:
       io-ts:
         specifier: 2.2.22
         version: 2.2.22(fp-ts@2.16.11)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/extension/runtime:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../common
+    devDependencies:
+      '@types/chrome':
+        specifier: 0.1.32
+        version: 0.1.32
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -1380,6 +1495,9 @@ packages:
 
   '@types/filewriter@0.0.33':
     resolution: {integrity: sha512-xFU8ZXTw4gd358lb2jw25nxY9QAgqn2+bKKjKOYfNCzN4DKCFetK7sPtrlpg66Ywe3vWY9FNxprZawAh9wfJ3g==}
+
+  '@types/firefox-webext-browser@120.0.4':
+    resolution: {integrity: sha512-lBrpf08xhiZBigrtdQfUaqX1UauwZ+skbFiL8u2Tdra/rklkKadYmIzTwkNZSWtuZ7OKpFqbE2HHfDoFqvZf6w==}
 
   '@types/har-format@1.2.16':
     resolution: {integrity: sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A==}
@@ -3724,6 +3842,8 @@ snapshots:
       '@types/filewriter': 0.0.33
 
   '@types/filewriter@0.0.33': {}
+
+  '@types/firefox-webext-browser@120.0.4': {}
 
   '@types/har-format@1.2.16': {}
 

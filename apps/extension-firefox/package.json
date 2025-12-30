@@ -1,0 +1,27 @@
+{
+  "name": "@hbb-emu/firefox-extension",
+  "version": "1.0.0",
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "120.0.4",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "fp-ts": "2.16.11",
+    "typescript": "5.9.3",
+    "vite": "7.2.2"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "app:dev": "vite",
+    "build": "pnpm build:background && pnpm build:assets",
+    "build:assets": "cp -r public/* dist/",
+    "build:background": "vite build --config vite.background.config.ts",
+    "clean": "rm -rf dist",
+    "preview": "vite preview"
+  },
+  "type": "module"
+}

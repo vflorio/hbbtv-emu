@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "HbbTV Emulator",
+  "version": "1.0.0",
+  "description": "HbbTV emulator extension",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "storage",
+    "webNavigation",
+    "webRequest",
+    "declarativeNetRequestWithHostAccess",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "Open HbbTV Emulator"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "enabled": true,
+        "id": "ruleset_1",
+        "path": "rules.json"
+      }
+    ]
+  }
+}

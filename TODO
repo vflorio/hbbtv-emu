@@ -12,3 +12,12 @@ Player
 - Import MPEG-TS + parsing del carousel DSM-CC
 
 - Chrome V2: creare estensione + Inject Strategy
+
+
+obbiettivo nuovo runtime
+chrome head
+chrome 110
+chrome 47
+firefox 45
+
+far aspettare sincronicamente la content page mentre inizializziamo 

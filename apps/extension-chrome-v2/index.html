@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HbbTV Emulator</title>
+    <style>
+      body {
+        width: 400px;
+        min-height: 200px;
+        margin: 0;
+        padding: 0;
+      }
+      #root {
+        width: 100%;
+      }
+      .open-settings {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 8px 16px;
+        background: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        z-index: 1000;
+      }
+      .open-settings:hover {
+        background: #0052a3;
+      }
+    </style>
+  </head>
+  <body>
+    <button class="open-settings" id="open-settings-btn">⚙️ Settings</button>
+    <div id="root"></div>
+    <script type="module" src="/src/extension-ui/main.ts"></script>
+    <script>
+      document.getElementById('open-settings-btn').addEventListener('click', () => {
+        chrome.runtime.openOptionsPage();
+      });
+    </script>
+  </body>
+</html>

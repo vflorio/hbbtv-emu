@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "HbbTV Emulator",
+  "version": "1.0.0",
+  "description": "HbbTV emulator extension for Firefox",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "webNavigation",
+    "webRequest",
+    "webRequestBlocking",
+    "tabs",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "page": "background.html"
+  },
+  "content_security_policy": "script-src 'self'; object-src 'self'",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "hbbtv-emulator@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}
