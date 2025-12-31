@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/chrome-v2-extension-next",
+  "name": "@hbb-emu/chrome-v3-extension-next",
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",

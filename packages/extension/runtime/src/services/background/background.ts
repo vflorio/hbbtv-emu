@@ -6,7 +6,7 @@ export class BackgroundScript {
 
   constructor(
     protected readonly logger = createLogger("BackgroundScript"),
-    protected readonly tabsManagerEnv: Partial<TabsManangerEnv>,
+    protected readonly tabsManagerEnv: Omit<TabsManangerEnv, "handlers">,
   ) {
     this.tabsManager = new TabsManager(
       {

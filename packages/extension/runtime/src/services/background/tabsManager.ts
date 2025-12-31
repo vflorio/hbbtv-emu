@@ -14,6 +14,7 @@ export type HttpHeader = { name: string; value?: string };
 
 type HeadersResponse<THeader extends HttpHeader = HttpHeader> = {
   responseHeaders?: THeader[];
+  type?: string;
 };
 
 interface WebRequestAdapter<TResponse extends HeadersResponse = HeadersResponse> {
@@ -79,11 +80,21 @@ export class TabsManager {
 
   private readonly onHeadersReceived = <TResponse extends HeadersResponse<THeader>, THeader extends HttpHeader>({
     responseHeaders = [],
+    type,
     ...etc
   }: TResponse): TResponse => {
+    const contentTypeHeader = responseHeaders.find((h) => h.name?.toLowerCase() === "content-type");
+
+    const isHbbtvApp = contentTypeHeader?.value?.includes("application/vnd.hbbtv");
+    const isHtmlDocument = type === "main_frame" || type === "sub_frame";
+
+    if (!isHtmlDocument || !isHbbtvApp) {
+      return { responseHeaders, type, ...etc } as TResponse;
+    }
+
     const updateFirst =
-      <A>(predicate: (a: A) => boolean, map: (a: A) => A) =>
-      (as: A[]): A[] =>
+      (predicate: (a: THeader) => boolean, map: (a: THeader) => THeader) =>
+      (as: THeader[]): THeader[] =>
         pipe(
           as,
           A.findIndex(predicate),
