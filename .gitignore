@@ -24,5 +24,4 @@ dist-ssr
 *.old.*
 *.old
 .turbo
-.github
 *:Zone.Identifier

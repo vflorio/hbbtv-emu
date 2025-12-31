@@ -40,14 +40,14 @@ importers:
         specifier: ^4.0.16
         version: 4.0.16(@types/node@25.0.3)(@vitest/ui@4.0.16)(jsdom@27.3.0)(lightningcss@1.30.2)
 
-  apps/chrome-v3:
+  apps/chrome-v3_old:
     dependencies:
       '@hbb-emu/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../../packages/extension/common
+        version: link:../../packages/extension_old/common
       '@hbb-emu/oipf-api':
         specifier: workspace:*
         version: link:../../packages/oipf/api
@@ -65,10 +65,10 @@ importers:
         version: link:../../packages/player/ui
       '@hbb-emu/runtime-chrome':
         specifier: workspace:*
-        version: link:../../packages/extension/chrome
+        version: link:../../packages/extension_old/chrome
       '@hbb-emu/runtime-web':
         specifier: workspace:*
-        version: link:../../packages/extension/web
+        version: link:../../packages/extension_old/web
       '@hbb-emu/settings-ui':
         specifier: workspace:*
         version: link:../../packages/settings-ui
@@ -117,7 +117,7 @@ importers:
         version: link:../../packages/core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../../packages/extension/common
+        version: link:../../packages/extension_old/common
       '@hbb-emu/oipf-api':
         specifier: workspace:*
         version: link:../../packages/oipf/api
@@ -178,7 +178,7 @@ importers:
     dependencies:
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../../packages/extension/common
+        version: link:../../packages/extension_old/common
       '@hbb-emu/settings-ui':
         specifier: workspace:*
         version: link:../../packages/settings-ui
@@ -241,7 +241,29 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/extension/chrome:
+  packages/extension-runtime:
+    dependencies:
+      '@hbb-emu/core':
+        specifier: workspace:*
+        version: link:../core
+      '@hbb-emu/extension-common':
+        specifier: workspace:*
+        version: link:../extension_old/common
+    devDependencies:
+      '@types/chrome':
+        specifier: 0.1.32
+        version: 0.1.32
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/extension_old/chrome:
     dependencies:
       '@hbb-emu/core':
         specifier: workspace:*
@@ -260,7 +282,7 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/extension/common:
+  packages/extension_old/common:
     dependencies:
       '@hbb-emu/core':
         specifier: workspace:*
@@ -282,29 +304,7 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/extension/runtime:
-    dependencies:
-      '@hbb-emu/core':
-        specifier: workspace:*
-        version: link:../../core
-      '@hbb-emu/extension-common':
-        specifier: workspace:*
-        version: link:../common
-    devDependencies:
-      '@types/chrome':
-        specifier: 0.1.32
-        version: 0.1.32
-      fp-ts:
-        specifier: 2.16.11
-        version: 2.16.11
-      ts-pattern:
-        specifier: 5.9.0
-        version: 5.9.0
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
-  packages/extension/web:
+  packages/extension_old/web:
     dependencies:
       '@hbb-emu/core':
         specifier: workspace:*
@@ -339,7 +339,7 @@ importers:
         version: link:../../core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../../extension/common
+        version: link:../../extension_old/common
       '@hbb-emu/oipf-api':
         specifier: workspace:*
         version: link:../api
@@ -376,7 +376,7 @@ importers:
         version: link:../../../core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../../../extension/common
+        version: link:../../../extension_old/common
       '@hbb-emu/oipf-api':
         specifier: workspace:*
         version: link:../../../oipf/api
@@ -432,7 +432,7 @@ importers:
         version: link:../../core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../../extension/common
+        version: link:../../extension_old/common
       '@hbb-emu/oipf-api':
         specifier: workspace:*
         version: link:../../oipf/api
@@ -515,7 +515,7 @@ importers:
         version: link:../core
       '@hbb-emu/extension-common':
         specifier: workspace:*
-        version: link:../extension/common
+        version: link:../extension_old/common
       '@hbb-emu/oipf-api':
         specifier: workspace:*
         version: link:../oipf/api

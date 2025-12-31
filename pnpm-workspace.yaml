@@ -4,7 +4,7 @@ packages:
   - packages/oipf/*
   - packages/player/*
   - packages/player/adapters/*
-  - packages/extension/*
+  - packages/extension_old/*
 
 onlyBuiltDependencies:
   - esbuild
