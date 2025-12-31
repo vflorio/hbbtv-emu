@@ -1,12 +1,12 @@
 {
-  "name": "@hbb-emu/firefox-extension",
+  "name": "@hbb-emu/extension-chrome-v3",
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-runtime": "workspace:*"
   },
   "devDependencies": {
-    "@types/firefox-webext-browser": "120.0.4",
+    "@types/chrome": "0.1.29",
     "@types/node": "24.10.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
