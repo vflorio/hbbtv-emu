@@ -1,0 +1,14 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+out/
+build/
+*.pyc
+*.o
+*.a
+
+# Temporary files
+*.tmp
+*.log
