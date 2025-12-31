@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+*.so.*
+
+# Temporary files
+*.tmp
+*.log
+*.pyc
+
+# Source tarball (too large for Docker context if already extracted)
+*.tar.xz
+*.tar.gz
+*.tar.bz2
+
+# Old scripts (if present)
+build.sh
+run.sh
