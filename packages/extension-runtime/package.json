@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-common": "workspace:*"
+    "@hbb-emu/extension-common": "workspace:*",
+    "io-ts": "2.2.21"
   },
   "devDependencies": {
     "@types/chrome": "0.1.32",

@@ -1,34 +1,23 @@
 import { createLogger } from "@hbb-emu/core";
-import { BackgroundScript } from "@hbb-emu/extension-runtime";
+import { BackgroundService } from "@hbb-emu/extension-runtime";
 
-new BackgroundScript(createLogger("ChromeV2 Background"), {
-  webRequest: {
-    onHeadersReceived: (handler) => {
-      const listener = (
-        details: chrome.webRequest.OnHeadersReceivedDetails,
-      ): chrome.webRequest.BlockingResponse | undefined => {
-        const result = handler(details as any);
-        return { responseHeaders: result.responseHeaders };
-      };
+const logger = createLogger("ChromeV2:Background");
 
-      chrome.webRequest.onHeadersReceived.addListener(listener, { urls: ["<all_urls>"] }, [
-        "responseHeaders",
-        "blocking",
-        "extraHeaders",
-      ]);
-
-      return () => chrome.webRequest.onHeadersReceived.removeListener(listener);
-    },
+const backgroundService = new BackgroundService(
+  {
+    manifestVersion: 2,
   },
-  tabs: {
-    onTabsUpdated: (handler) => {
-      const listener = (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) => {
-        if (changeInfo.status) {
-          handler(tabId, changeInfo.status as "unloaded" | "loading" | "complete");
-        }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-      return () => chrome.tabs.onUpdated.removeListener(listener);
-    },
-  },
-});
+  logger,
+);
+
+// Initialize the service
+backgroundService
+  .init()()
+  .catch((error) => {
+    logger.error("Failed to initialize BackgroundService", error);
+  });
+
+logger.info("Chrome V2 Background Script initialized");
+
+// Export for potential external access
+export { backgroundService };

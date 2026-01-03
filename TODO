@@ -1,9 +1,7 @@
-- Modalità iFrame per avere un contesto con la runtime già inizializzata
-
 Player 
-    - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
-    
-    - Sistema avanzato di Source Switching quando abbiamo più provider per lo stesso media ( o due sorgenti per lo stesso media), quando un provider fallisce, automaticamente proviamo il prossimo provider
+  - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
+  
+  - Sistema avanzato di Source Switching quando abbiamo più provider per lo stesso media ( o due sorgenti per lo stesso media), quando un provider fallisce, automaticamente proviamo il prossimo provider
 
 - Logger Env: console controllabile da Extension State (quindi UI)
 
@@ -20,4 +18,37 @@ chrome 110
 chrome 47
 firefox 45
 
-far aspettare sincronicamente la content page mentre inizializziamo 
+
+Nuovo state
+
+ */
+export type ExtensionState = {
+  readonly version: number;
+  readonly enabledTabIds: ReadonlySet<number>;
+  readonly globalSettings: GlobalSettings;
+  readonly lastUpdated: number;
+};
+
+export type GlobalSettings = {
+  readonly autoInjectHbbTV: boolean;
+  readonly debugMode: boolean;
+  readonly defaultChannel: string | null;
+};
+
+
+ 
+Background Script: 
+
+  Contesto & lifecycle: 
+    - Chrome V3: Service Worker (long-lived)
+      viene eseguito all'avvio in un service worker gestito dal browser
+
+  Dipende: Bridge Script (Message Forwaring)
+
+  Specifiche:
+    - gestisce uno stato generale condiviso (tab ids, e sempre l'ultima revisione dell'
+     ExtensionState)
+    - la classe si sincronizza con lo storage permantente dell'estensione, si inizializza da essa, e salva i cambiamenti
+    - lo stato non può mai essere nullo, se lo storage è vuoto, viene iniziallato usando un DEFAULT_STATE statico
+    - l'init asincrono viene risolto solo quando lo state letto/aggiornato la prima volta  
+    - il modulo deve occuparsi di propagare ogni cambiamento fatto da un diverso script, a tutti i componenti interessati (tipo ui e stato runtime oipf)

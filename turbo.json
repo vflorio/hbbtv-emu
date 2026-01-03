@@ -6,6 +6,11 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "extension:build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "cache": true
+    },
     "dev": {
       "cache": false,
       "persistent": true

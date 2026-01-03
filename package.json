@@ -19,6 +19,7 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "extension:build": "turbo run extension:build --filter='./extensions/*'",
     "build-no-cache": "turbo run build --force",
     "clean": "turbo run clean",
     "dev": "turbo run dev",

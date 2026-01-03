@@ -1,26 +1,23 @@
 import { createLogger } from "@hbb-emu/core";
-import { BackgroundScript } from "@hbb-emu/extension-runtime";
+import { BackgroundService } from "@hbb-emu/extension-runtime";
 
-new BackgroundScript(createLogger("ChromeV3 Background"), {
-  webRequest: {
-    onHeadersReceived: (handler) => {
-      const listener = (
-        details: chrome.webRequest.OnHeadersReceivedDetails,
-      ): chrome.webRequest.BlockingResponse | undefined => handler(details);
+const logger = createLogger("ChromeV3:Background");
 
-      chrome.webRequest.onHeadersReceived.addListener(listener, { urls: ["<all_urls>"] }, ["responseHeaders"]);
-      return () => chrome.webRequest.onHeadersReceived.removeListener(listener);
-    },
+const backgroundService = new BackgroundService(
+  {
+    manifestVersion: 3,
   },
-  tabs: {
-    onTabsUpdated: (handler) => {
-      const listener = (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) => {
-        if (changeInfo.status) {
-          handler(tabId, changeInfo.status as "unloaded" | "loading" | "complete");
-        }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-      return () => chrome.tabs.onUpdated.removeListener(listener);
-    },
-  },
-});
+  logger,
+);
+
+// Initialize the service
+backgroundService
+  .init()()
+  .catch((error) => {
+    logger.error("Failed to initialize BackgroundService", error);
+  });
+
+logger.info("Chrome V3 Background Script initialized");
+
+// Export for potential external access
+export { backgroundService };
