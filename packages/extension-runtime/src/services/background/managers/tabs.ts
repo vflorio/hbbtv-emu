@@ -1,13 +1,14 @@
-import { createLogger, type Logger } from "@hbb-emu/core";
+import type { Logger } from "@hbb-emu/core";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
 import { match } from "ts-pattern";
-import type { TabStatus, TabsAdapter, WebRequestAdapter } from "../../../adapters";
+import type { TabStatus, TabsAdapter, WebRequestAdapter } from "../../../adapter";
 
 export type TabsManangerEnv = {
+  logger: Logger;
   tabs: TabsAdapter;
   webRequest: WebRequestAdapter;
   onTabAdded: (tabId: number) => IO.IO<void>;
@@ -17,19 +18,16 @@ export type TabsManangerEnv = {
 export class TabsManager {
   protected readonly tabs: number[] = [];
 
-  constructor(
-    protected readonly env: TabsManangerEnv,
-    private readonly logger: Logger = createLogger("TabsManager"),
-  ) {
-    env.tabs.onTabsUpdated(this.onTabsUpdated);
-    env.webRequest.onHeadersReceived(this.onHeadersReceived);
+  constructor(protected readonly env: TabsManangerEnv) {
+    this.env.tabs.onTabsUpdated(this.onTabsUpdated);
+    this.env.webRequest.onHeadersReceived(this.onHeadersReceived);
   }
 
   private readonly onTabsUpdated = (tabId: number, tabStatus: TabStatus): void =>
     pipe(
       IOO.fromNullable(tabStatus),
       IOO.filter((status) => status === "loading" || status === "unloaded"),
-      IOO.tapIO((status) => this.logger.info(`Tab ${tabId} status change: ${status} `)),
+      IOO.tapIO((status) => this.env.logger.info(`Tab ${tabId} status change: ${status} `)),
       IOO.tapIO((status) =>
         match(status)
           .with("loading", () => this.env.onTabAdded(tabId))

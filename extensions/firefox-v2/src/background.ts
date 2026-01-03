@@ -1,23 +1,25 @@
 import { createLogger } from "@hbb-emu/core";
-import { BackgroundService } from "@hbb-emu/extension-runtime";
+import { BackgroundService, createServiceEnv } from "@hbb-emu/extension-runtime";
 
 const logger = createLogger("Firefox:Background");
 
 const backgroundService = new BackgroundService(
-  {
-    manifestVersion: 2,
-  },
-  logger,
+  createServiceEnv(
+    {
+      manifest: 2,
+      engine: "firefox",
+      storageKey: "hbbtv_emu",
+    },
+    logger,
+  ),
 );
 
-// Initialize the service
 backgroundService
   .init()()
   .catch((error) => {
-    logger.error("Failed to initialize BackgroundService", error);
+    logger.error("Initialization failed: ", error);
   });
 
-logger.info("Firefox Background Script initialized");
+logger.info("initialized");
 
-// Export for potential external access
 export { backgroundService };

@@ -1,2 +1,4 @@
-export * from "./adapters";
-export * from "./services/background";
+export * from "./adapter";
+export * from "./services";
+
+export type UnsubscribeFn = () => void;

@@ -14,11 +14,12 @@ import * as IOE from "fp-ts/IOEither";
 import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
-import type { StorageAdapter } from "../../../adapters";
-import type { BackgroundServiceError } from "../errors";
+import type { StorageAdapter } from "../../../adapter";
+import type { BackgroundServiceError } from "../background";
 import { DEFAULT_STATE, type ExtensionState } from "../state";
 
 export type StateManagerEnv = {
+  readonly logger: Logger;
   readonly storage: StorageAdapter<ExtensionState>;
 };
 
@@ -30,10 +31,7 @@ export class StateManager {
   // LIFECYCLE
   // ===========================================================================
 
-  constructor(
-    private readonly env: StateManagerEnv,
-    private readonly logger: Logger,
-  ) {}
+  constructor(private readonly env: StateManagerEnv) {}
 
   /**
    * Initializes state from storage or creates default if empty.
@@ -42,13 +40,13 @@ export class StateManager {
   readonly init = (): TE.TaskEither<BackgroundServiceError, void> =>
     pipe(
       TE.Do,
-      TE.tapIO(() => this.logger.info("Initializing StateManager...")),
+      TE.tapIO(() => this.env.logger.info("Initializing StateManager...")),
       TE.flatMap(() => this.getInitialState()),
       TE.tapIO((state) => this.setState(state)),
       TE.tapIO(() => () => {
         this.initialized = true;
       }),
-      TE.tapIO(() => this.logger.info("StateManager initialized")),
+      TE.tapIO(() => this.env.logger.info("StateManager initialized")),
       TE.asUnit,
     );
 
@@ -58,12 +56,12 @@ export class StateManager {
   readonly destroy = (): IO.IO<void> =>
     pipe(
       IO.Do,
-      IO.tap(() => this.logger.info("Destroying StateManager...")),
+      IO.tap(() => this.env.logger.info("Destroying StateManager...")),
       IO.tap(() => () => {
         this.state = O.none;
         this.initialized = false;
       }),
-      IO.tap(() => this.logger.info("StateManager destroyed")),
+      IO.tap(() => this.env.logger.info("StateManager destroyed")),
     );
 
   /**
@@ -122,10 +120,10 @@ export class StateManager {
       TE.tap((newState) => this.persistState(newState)),
       TE.match(
         (error) => {
-          this.logger.error("Failed to update state", error);
+          this.env.logger.error("Failed to update state", error);
         },
         () => {
-          this.logger.debug("State updated successfully");
+          this.env.logger.debug("State updated successfully");
         },
       ),
     );
@@ -136,7 +134,7 @@ export class StateManager {
   private readonly persistState = (state: ExtensionState): TE.TaskEither<BackgroundServiceError, void> =>
     pipe(
       this.env.storage.write(state),
-      TE.tapIO(() => this.logger.debug("State persisted to storage")),
+      TE.tapIO(() => this.env.logger.debug("State persisted to storage")),
     );
 
   // ===========================================================================
@@ -152,7 +150,7 @@ export class StateManager {
         ...state,
         enabledTabIds: new Set([...state.enabledTabIds, tabId]),
       })),
-      T.tapIO(() => this.logger.info(`Tab ${tabId} enabled`)),
+      T.tapIO(() => this.env.logger.info(`Tab ${tabId} enabled`)),
     );
 
   /**
@@ -165,7 +163,7 @@ export class StateManager {
         enabledTabIds.delete(tabId);
         return { ...state, enabledTabIds };
       }),
-      T.tapIO(() => this.logger.info(`Tab ${tabId} disabled`)),
+      T.tapIO(() => this.env.logger.info(`Tab ${tabId} disabled`)),
     );
 
   /**
@@ -201,6 +199,6 @@ export class StateManager {
         ...state,
         globalSettings: fn(state.globalSettings),
       })),
-      T.tapIO(() => this.logger.info("Global settings updated")),
+      T.tapIO(() => this.env.logger.info("Global settings updated")),
     );
 }

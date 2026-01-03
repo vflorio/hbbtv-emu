@@ -1,23 +1,23 @@
-import type { BackgroundServiceError, ManifestVersion } from "@hbb-emu/extension-runtime";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
+import { type AdapterConfig, type AdapterError, MANIFEST_VERSION_2, MANIFEST_VERSION_3 } from "./adapter";
 
 export interface StorageAdapter<T> {
-  readonly read: () => TE.TaskEither<BackgroundServiceError, O.Option<T>>;
-  readonly write: (state: T) => TE.TaskEither<BackgroundServiceError, void>;
+  readonly read: () => TE.TaskEither<AdapterError, O.Option<T>>;
+  readonly write: (state: T) => TE.TaskEither<AdapterError, void>;
 }
 
 /**
  * @since Chrome 19+ Firefox 15+
  */
-export const createStorageAdapter = <T>(manifestVersion: ManifestVersion, storageKey: string): StorageAdapter<T> => ({
+export const createStorageAdapter = <T>({ manifest, storageKey }: AdapterConfig): StorageAdapter<T> => ({
   read: () =>
     TE.tryCatch(
       () =>
-        match(manifestVersion)
+        match(manifest)
           .with(
-            2,
+            MANIFEST_VERSION_2,
             () =>
               new Promise<O.Option<T>>((resolve, reject) =>
                 chrome.storage.local.get<Record<string, T>>(storageKey, (result) =>
@@ -27,12 +27,12 @@ export const createStorageAdapter = <T>(manifestVersion: ManifestVersion, storag
                 ),
               ),
           )
-          .with(3, async () => {
+          .with(MANIFEST_VERSION_3, async () => {
             const data = await chrome.storage.local.get<Record<string, T>>(storageKey);
             return O.fromNullable(data[storageKey]);
           })
           .exhaustive(),
-      (cause): BackgroundServiceError => ({
+      (cause): AdapterError => ({
         _tag: "StorageReadError",
         cause,
       }),
@@ -41,7 +41,7 @@ export const createStorageAdapter = <T>(manifestVersion: ManifestVersion, storag
   write: (state: T) =>
     TE.tryCatch(
       () => chrome.storage.local.set({ [storageKey]: state }),
-      (cause): BackgroundServiceError => ({
+      (cause): AdapterError => ({
         _tag: "StorageWriteError",
         cause,
       }),

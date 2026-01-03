@@ -3,94 +3,48 @@
  *
  * Orchestrates initialization, coordinates managers, and handles cross-component communication.
  */
-import type { Logger } from "@hbb-emu/core";
-import { createLogger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as IOE from "fp-ts/IOEither";
 import type * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
-import type {
-  BaseMessage,
-  ForwardableMessage,
-  ManifestVersion,
-  MessagingAdapter,
-  StorageAdapter,
-  TabsAdapter,
-  WebRequestAdapter,
-} from "../..";
-import {
-  createMessagingAdapter,
-  createStorageAdapter,
-  createTabsAdapter,
-  createWebRequestAdapter,
-} from "../../adapters";
-import type { BackgroundServiceError } from "./errors";
+import type { AdapterError, BaseMessage } from "../..";
+import type { ServiceEnv } from "..";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
 import type { ExtensionState, GlobalSettings } from "./state";
 
-// =============================================================================
-// ENVIRONMENT & CONFIG
-// =============================================================================
+//TODO
+export type ForwardableMessage =
+  | { readonly _tag: "Settings/Updated"; readonly settings: ExtensionState["globalSettings"] }
+  | { readonly _tag: "Tab/StateChanged"; readonly tabId: number; readonly enabled: boolean }
+  | { readonly _tag: "OIPF/RuntimeReady"; readonly tabId: number }
+  | { readonly _tag: "UI/Opened"; readonly tabId: number }
+  | { readonly _tag: "UI/Closed"; readonly tabId: number };
 
-export type BackgroundServiceConfig = {
-  readonly manifestVersion: ManifestVersion;
-  readonly storageKey?: string;
-  readonly env?: Partial<BackgroundServiceEnv>;
-};
-
-export type BackgroundServiceEnv = {
-  readonly storage: StorageAdapter<ExtensionState>;
-  readonly messaging: MessagingAdapter<ForwardableMessage>;
-  readonly webRequest: WebRequestAdapter;
-  readonly tabs: TabsAdapter;
-};
-
-export const createBackgroundServiceEnv = (
-  manifestVersion: ManifestVersion,
-  env?: Partial<BackgroundServiceEnv>,
-): BackgroundServiceEnv => ({
-  storage: env?.storage ?? createStorageAdapter(manifestVersion, "hbbtv_emu"),
-  messaging: env?.messaging ?? createMessagingAdapter(manifestVersion),
-  webRequest: env?.webRequest ?? createWebRequestAdapter(manifestVersion),
-  tabs: env?.tabs ?? createTabsAdapter(manifestVersion),
-});
-
-// =============================================================================
-// BACKGROUND SCRIPT CLASS
-// =============================================================================
+export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
 
 export class BackgroundService {
-  private readonly logger: Logger;
   private readonly stateManager: StateManager;
   readonly tabsManager: TabsManager;
 
   private readonly messagingUnsubscribe: () => void;
 
-  constructor(config: BackgroundServiceConfig, logger?: Logger) {
-    this.logger = logger ?? createLogger("BackgroundService");
+  constructor(protected readonly env: ServiceEnv<ExtensionState, ForwardableMessage>) {
+    this.stateManager = new StateManager({
+      logger: this.env.logger,
+      storage: this.env.adapter.storage,
+    });
 
-    const env = createBackgroundServiceEnv(config.manifestVersion, config.env);
+    this.tabsManager = new TabsManager({
+      logger: this.env.logger,
+      tabs: this.env.adapter.tabs,
+      webRequest: this.env.adapter.webRequest,
+      onTabAdded: this.onTabAdded,
+      onTabRemoved: this.onTabRemoved,
+    });
 
-    this.stateManager = new StateManager(
-      {
-        storage: env.storage,
-      },
-      createLogger("StateManager"),
-    );
-
-    this.tabsManager = new TabsManager(
-      {
-        tabs: env.tabs,
-        webRequest: env.webRequest,
-        onTabAdded: this.onTabAdded,
-        onTabRemoved: this.onTabRemoved,
-      },
-      createLogger("TabsManager"),
-    );
-
-    this.messagingUnsubscribe = env.messaging.onMessage(this.onMessageReceived);
+    this.messagingUnsubscribe = this.env.adapter.messaging.onMessage(this.onMessageReceived);
   }
 
   /**
@@ -100,10 +54,10 @@ export class BackgroundService {
   readonly init = (): TE.TaskEither<BackgroundServiceError, void> =>
     pipe(
       TE.Do,
-      TE.tapIO(() => this.logger.info("Initializing")),
+      TE.tapIO(() => this.env.logger.info("Initializing")),
       TE.flatMap(() => this.stateManager.init()),
       // TODO:
-      TE.tapIO(() => this.logger.info("Initialized")),
+      TE.tapIO(() => this.env.logger.info("Initialized")),
     );
 
   /**
@@ -112,10 +66,10 @@ export class BackgroundService {
   readonly destroy = (): IO.IO<void> =>
     pipe(
       IO.Do,
-      IO.flatMap(() => this.logger.info("Destroying")),
+      IO.flatMap(() => this.env.logger.info("Destroying")),
       IO.flatMap(() => this.stateManager.destroy()),
       IO.flatMap(() => IO.of(this.messagingUnsubscribe)),
-      IO.flatMap(() => this.logger.info("Destroyed")),
+      IO.flatMap(() => this.env.logger.info("Destroyed")),
     );
 
   // ===========================================================================
@@ -178,7 +132,7 @@ export class BackgroundService {
   private readonly onTabAdded = (tabId: number): IO.IO<void> =>
     pipe(
       // TODO
-      this.logger.info(`Tab added: ${tabId}`),
+      this.env.logger.info(`Tab added: ${tabId}`),
     );
 
   /**
@@ -186,7 +140,7 @@ export class BackgroundService {
    */
   private readonly onTabRemoved = (tabId: number): IO.IO<void> =>
     pipe(
-      this.logger.info(`Tab removed: ${tabId}`),
+      this.env.logger.info(`Tab removed: ${tabId}`),
       IO.tap(() => () => {
         // Clean up tab state asynchronously through StateManager
         this.stateManager.disableTab(tabId)();
@@ -198,7 +152,7 @@ export class BackgroundService {
    */
   private readonly onMessageReceived = (message: BaseMessage, tabId: number): IO.IO<void> =>
     pipe(
-      this.logger.debug(`Message received from tab ${tabId}`, message),
+      this.env.logger.debug(`Message received from tab ${tabId}`, message),
       // TODO: Route messages to appropriate handlers
     );
 }

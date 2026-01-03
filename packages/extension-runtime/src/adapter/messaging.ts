@@ -1,29 +1,27 @@
-import type { BackgroundServiceError } from "@hbb-emu/extension-runtime";
 import type * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import type { ManifestVersion, UnsubscribeFn } from ".";
+import type { AdapterError, UnsubscribeFn } from "..";
+import { type AdapterConfig, MANIFEST_VERSION_2, MANIFEST_VERSION_3 } from ".";
 
 export type BaseMessage = { readonly _tag: string };
 
 export interface MessagingAdapter<T extends BaseMessage> {
-  readonly sendToTab: (tabId: number, message: T) => TE.TaskEither<BackgroundServiceError, void>;
-  readonly broadcast: (message: T) => TE.TaskEither<BackgroundServiceError, void>;
+  readonly sendToTab: (tabId: number, message: T) => TE.TaskEither<AdapterError, void>;
+  readonly broadcast: (message: T) => TE.TaskEither<AdapterError, void>;
   readonly onMessage: (handler: (message: BaseMessage, tabId: number) => IO.IO<void>) => UnsubscribeFn;
 }
 
-/**
+/**s
  * @since Chrome 41+ Firefox 45+
  */
-export const createMessagingAdapter = <T extends BaseMessage>(
-  manifestVersion: ManifestVersion,
-): MessagingAdapter<T> => ({
+export const createMessagingAdapter = <T extends BaseMessage>({ manifest }: AdapterConfig): MessagingAdapter<T> => ({
   sendToTab: (tabId: number, message: T) =>
     TE.tryCatch(
       () =>
-        match(manifestVersion)
+        match(manifest)
           .with(
-            2,
+            MANIFEST_VERSION_2,
             () =>
               new Promise<void>((resolve, reject) =>
                 chrome.tabs.sendMessage(tabId, message, () =>
@@ -31,9 +29,9 @@ export const createMessagingAdapter = <T extends BaseMessage>(
                 ),
               ),
           )
-          .with(3, () => chrome.tabs.sendMessage(tabId, message))
+          .with(MANIFEST_VERSION_3, () => chrome.tabs.sendMessage(tabId, message))
           .exhaustive(),
-      (cause): BackgroundServiceError => ({
+      (cause): AdapterError => ({
         _tag: "MessageForwardError",
         tabId,
         cause,
@@ -41,24 +39,24 @@ export const createMessagingAdapter = <T extends BaseMessage>(
     ),
 
   broadcast: (message: T) =>
-    match(manifestVersion)
-      .with(2, () =>
+    match(manifest)
+      .with(MANIFEST_VERSION_2, () =>
         TE.tryCatch(
           () =>
             new Promise<void>((resolve) => {
               chrome.runtime.sendMessage(message, () => resolve());
             }),
-          (cause): BackgroundServiceError => ({
+          (cause): AdapterError => ({
             _tag: "MessageForwardError",
             tabId: 0,
             cause,
           }),
         ),
       )
-      .with(3, () =>
+      .with(MANIFEST_VERSION_3, () =>
         TE.tryCatch(
           () => chrome.runtime.sendMessage(message),
-          (cause): BackgroundServiceError => ({
+          (cause): AdapterError => ({
             _tag: "MessageForwardError",
             tabId: 0,
             cause,

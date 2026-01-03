@@ -1,5 +1,6 @@
-import type { ManifestVersion, UnsubscribeFn } from "@hbb-emu/extension-runtime";
 import { match } from "ts-pattern";
+import type { UnsubscribeFn } from "..";
+import { type AdapterConfig, MANIFEST_VERSION_2, MANIFEST_VERSION_3 } from "./adapter";
 
 export interface WebRequestAdapter {
   onHeadersReceived: (
@@ -10,31 +11,27 @@ export interface WebRequestAdapter {
 /**
  * @since Chrome 58+ Firefox 45+
  */
-export const createWebRequestAdapter = (manifestVersion: ManifestVersion): WebRequestAdapter => ({
+export const createWebRequestAdapter = ({ manifest }: AdapterConfig): WebRequestAdapter => ({
   onHeadersReceived: (handler) => {
-    const listener = match(manifestVersion)
+    const listener = match(manifest)
       .with(
-        2,
+        MANIFEST_VERSION_2,
         () =>
           (details: chrome.webRequest.OnHeadersReceivedDetails): chrome.webRequest.BlockingResponse => ({
             responseHeaders: handler(details).responseHeaders,
           }),
       )
       .with(
-        3,
+        MANIFEST_VERSION_3,
         () =>
           (details: chrome.webRequest.OnHeadersReceivedDetails): chrome.webRequest.BlockingResponse | undefined =>
             handler(details),
       )
       .exhaustive();
 
-    const extraInfoSpec = match(manifestVersion)
-      .with(2, () => [
-        chrome.webRequest.OnHeadersReceivedOptions.RESPONSE_HEADERS,
-        chrome.webRequest.OnHeadersReceivedOptions.BLOCKING,
-        chrome.webRequest.OnHeadersReceivedOptions.EXTRA_HEADERS,
-      ])
-      .with(3, () => [chrome.webRequest.OnHeadersReceivedOptions.RESPONSE_HEADERS])
+    const extraInfoSpec = match(manifest)
+      .with(MANIFEST_VERSION_2, () => ["responseHeaders" as const, "blocking" as const])
+      .with(MANIFEST_VERSION_3, () => ["responseHeaders" as const])
       .exhaustive();
 
     chrome.webRequest.onHeadersReceived.addListener(listener, { urls: ["<all_urls>"] }, extraInfoSpec);
