@@ -1,10 +1,4 @@
 #!/bin/bash
-# ==============================================================================
-# CONTAINER SCRIPT: sync-chromium.sh
-# Sincronizza il codice sorgente di Chromium 47
-# Basato su: https://chromium.googlesource.com/chromium/src/+/HEAD/docs/building_old_revisions.md
-# ==============================================================================
-
 set -e
 
 CHROMIUM_DIR="/home/chromium/chromium"

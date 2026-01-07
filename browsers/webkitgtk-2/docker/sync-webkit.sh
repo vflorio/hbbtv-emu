@@ -1,9 +1,4 @@
 #!/bin/bash
-# ==============================================================================
-# CONTAINER SCRIPT: sync-webkit.sh
-# Sincronizza il codice sorgente di WebKitGTK 2.2.6
-# ==============================================================================
-
 set -e
 
 BUILD_DIR="/workspace/build"

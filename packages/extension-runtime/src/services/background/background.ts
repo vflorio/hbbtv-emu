@@ -32,12 +32,12 @@ export class BackgroundService {
 
   constructor(protected readonly env: ServiceEnv<ExtensionState, ForwardableMessage>) {
     this.stateManager = new StateManager({
-      logger: this.env.logger,
+      logger: this.env.logger.createChild("StateManager"),
       storage: this.env.adapter.storage,
     });
 
     this.tabsManager = new TabsManager({
-      logger: this.env.logger,
+      logger: this.env.logger.createChild("TabsManager"),
       tabs: this.env.adapter.tabs,
       webRequest: this.env.adapter.webRequest,
       onTabAdded: this.onTabAdded,

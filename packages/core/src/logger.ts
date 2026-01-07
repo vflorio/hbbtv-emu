@@ -2,6 +2,7 @@ import * as D from "fp-ts/Date";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as L from "logging-ts/lib/IO";
+import { debug } from "util";
 
 type Level = "debug" | "info" | "warning" | "error";
 
@@ -72,6 +73,7 @@ export type Logger = Readonly<{
   info: (message: string, ...args: unknown[]) => IO.IO<void>;
   warn: (message: string, ...args: unknown[]) => IO.IO<void>;
   error: (message: string, ...args: unknown[]) => IO.IO<void>;
+  createChild: (subsection: string) => Logger;
 }>;
 
 export const createLogger = (section: string): Logger => {
@@ -99,5 +101,7 @@ export const createLogger = (section: string): Logger => {
       IO.flatMap((time) => consoleLogger({ level: "error", message, args, time, section })),
     );
 
-  return { debug, info, warn, error };
+  const createChild = (subsection: string): Logger => createLogger(`${section}/${subsection}`);
+
+  return { debug, info, warn, error, createChild };
 };

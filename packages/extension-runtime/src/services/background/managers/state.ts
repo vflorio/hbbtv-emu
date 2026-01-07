@@ -1,12 +1,3 @@
-/**
- * StateManager - Manages extension state lifecycle and persistence
- *
- * Encapsulates all state management logic including:
- * - State initialization and loading from storage
- * - State updates and persistence
- * - Tab-specific state management
- * - Settings management
- */
 import type { Logger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -26,10 +17,6 @@ export type StateManagerEnv = {
 export class StateManager {
   private state: O.Option<ExtensionState> = O.none;
   private initialized = false;
-
-  // ===========================================================================
-  // LIFECYCLE
-  // ===========================================================================
 
   constructor(private readonly env: StateManagerEnv) {}
 
@@ -56,7 +43,7 @@ export class StateManager {
   readonly destroy = (): IO.IO<void> =>
     pipe(
       IO.Do,
-      IO.tap(() => this.env.logger.info("Destroying StateManager...")),
+      IO.tap(() => this.env.logger.info("Destroying")),
       IO.tap(() => () => {
         this.state = O.none;
         this.initialized = false;

@@ -27,7 +27,6 @@ export class TabsManager {
     pipe(
       IOO.fromNullable(tabStatus),
       IOO.filter((status) => status === "loading" || status === "unloaded"),
-      IOO.tapIO((status) => this.env.logger.info(`Tab ${tabId} status change: ${status} `)),
       IOO.tapIO((status) =>
         match(status)
           .with("loading", () => this.env.onTabAdded(tabId))

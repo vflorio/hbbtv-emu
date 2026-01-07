@@ -1,8 +1,4 @@
 #!/bin/bash
-# ==============================================================================
-# CONTAINER SCRIPT: entrypoint.sh
-# Eseguito automaticamente all'avvio del container
-# ==============================================================================
 
 set -e
 

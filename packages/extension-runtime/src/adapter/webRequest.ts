@@ -29,9 +29,16 @@ export const createWebRequestAdapter = ({ manifest }: AdapterConfig): WebRequest
       )
       .exhaustive();
 
+    const hasV2ExtraHeaders =
+      chrome.webRequest.OnHeadersReceivedOptions && "EXTRA_HEADERS" in chrome.webRequest.OnHeadersReceivedOptions;
+
     const extraInfoSpec = match(manifest)
-      .with(MANIFEST_VERSION_2, () => ["responseHeaders" as const, "blocking" as const])
-      .with(MANIFEST_VERSION_3, () => ["responseHeaders" as const])
+      .with(MANIFEST_VERSION_2, () => [
+        "responseHeaders" as const,
+        "blocking" as const,
+        ...(hasV2ExtraHeaders ? ["extraHeaders" as const] : []),
+      ])
+      .with(MANIFEST_VERSION_3, () => ["responseHeaders" as const, "blocking" as const])
       .exhaustive();
 
     chrome.webRequest.onHeadersReceived.addListener(listener, { urls: ["<all_urls>"] }, extraInfoSpec);
