@@ -163,7 +163,7 @@ export class VideoStreamService implements VideoStreamApi {
    */
   loadSource = (source: VideoStreamSource): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) =>
         pipe(
           TE.fromIO(this.applySourceOptions(source)),
@@ -216,7 +216,7 @@ export class VideoStreamService implements VideoStreamApi {
 
   play = (): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) => pipe(runtime.dispatch({ _tag: "Intent/PlayRequested" }), TE.fromTask)),
       TE.mapLeft((error) =>
         VideoStreamError.unknown(error instanceof Error ? error.message : "Failed to play", 1, error),
@@ -225,7 +225,7 @@ export class VideoStreamService implements VideoStreamApi {
 
   pause = (): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) => pipe(runtime.dispatch({ _tag: "Intent/PauseRequested" }), TE.fromTask)),
       TE.mapLeft((error) =>
         VideoStreamError.unknown(error instanceof Error ? error.message : "Failed to pause", 1, error),
@@ -234,7 +234,7 @@ export class VideoStreamService implements VideoStreamApi {
 
   stop = (): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) =>
         pipe(
           pipe(runtime.dispatch({ _tag: "Intent/PauseRequested" }), TE.fromTask),
@@ -248,7 +248,7 @@ export class VideoStreamService implements VideoStreamApi {
 
   seek = (position: number): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) =>
         pipe(
           runtime.dispatch({
@@ -269,7 +269,7 @@ export class VideoStreamService implements VideoStreamApi {
 
   setVolume = (volume: number): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) =>
         pipe(
           runtime.dispatch({
@@ -286,7 +286,7 @@ export class VideoStreamService implements VideoStreamApi {
 
   setMuted = (muted: boolean): TE.TaskEither<VideoStreamError, void> =>
     pipe(
-      TE.fromIOEither(this.getRuntime()),
+      TE.fromIOEither(this.getRuntime),
       TE.flatMap((runtime) =>
         pipe(
           runtime.dispatch({
@@ -335,7 +335,7 @@ export class VideoStreamService implements VideoStreamApi {
    * Get runtime or return error.
    * Pure IOEither that fails if runtime is not initialized.
    */
-  private getRuntime = (): IOE.IOEither<VideoStreamError, PlayerRuntime> => () =>
+  private getRuntime: IOE.IOEither<VideoStreamError, PlayerRuntime> = () =>
     pipe(
       this.runtime,
       E.fromNullable(VideoStreamError.notInitialized("PlayerRuntime not set, cannot perform operation")),

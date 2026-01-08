@@ -6,8 +6,8 @@ export * from "./compute";
 export * from "./scheduler";
 
 export type StreamEventSchedulerApi = Readonly<{
-  start: () => IO.IO<void>;
-  stop: () => IO.IO<void>;
+  start: IO.IO<void>;
+  stop: IO.IO<void>;
   /** Updates channel configs (e.g. after settings change). */
   updateChannels: (channels: ReadonlyArray<ChannelConfig>) => IO.IO<void>;
   /** Sets the current tuned channel (as OIPF Channel); restarts schedule when it changes. */

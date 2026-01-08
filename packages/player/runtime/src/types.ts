@@ -221,10 +221,10 @@ export type PlayerRuntimeConfig = Readonly<{
 export type PlayerEventListener = (event: PlayerEvent) => void;
 
 export interface PlayerRuntimeApi<T> {
-  getState: () => IO.IO<T>;
-  getPlaybackType: () => IOO.IOOption<PlaybackType>;
+  getState: IO.IO<T>;
+  getPlaybackType: IOO.IOOption<PlaybackType>;
   mount: (videoElement: HTMLVideoElement) => T.Task<void>;
-  destroy: () => TE.TaskEither<PlayerRuntimeError, void>;
+  destroy: TE.TaskEither<PlayerRuntimeError, void>;
   dispatch: (event: PlayerEvent) => T.Task<void>;
   subscribeToState: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
   subscribeToEvents: (listener: PlayerEventListener) => IO.IO<UnsubscribeFn>;
@@ -276,12 +276,12 @@ export type RuntimeAdapter = {
   readonly type: PlaybackType;
   mount: (videoElement: HTMLVideoElement) => IO.IO<void>;
   load: (url: string) => TE.TaskEither<AdapterError, void>;
-  play: () => TE.TaskEither<AdapterError, void>;
-  pause: () => TE.TaskEither<AdapterError, void>;
+  play: TE.TaskEither<AdapterError, void>;
+  pause: TE.TaskEither<AdapterError, void>;
   seek: (time: number) => TE.TaskEither<AdapterError, void>;
   setVolume: (volume: number) => TE.TaskEither<AdapterError, void>;
   setMuted: (muted: boolean) => TE.TaskEither<AdapterError, void>;
-  destroy: () => TE.TaskEither<AdapterError, void>;
+  destroy: TE.TaskEither<AdapterError, void>;
   subscribe: (listener: (event: PlayerEvent) => void) => IO.IO<UnsubscribeFn>;
 };
 

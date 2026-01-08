@@ -63,7 +63,7 @@ export function RuntimeDemo() {
 
     return () => {
       console.log("[Runtime] Cleaning up runtime");
-      handle.stop()();
+      handle.stop();
       if (playerRuntime) {
         playerRuntime.destroy().catch(() => {});
       }
