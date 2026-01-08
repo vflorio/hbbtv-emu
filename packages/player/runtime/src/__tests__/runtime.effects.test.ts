@@ -49,7 +49,7 @@ describe("PlayerRuntime - Effects", () => {
     expect(hls.mount).not.toHaveBeenCalled();
     expect(dash.mount).not.toHaveBeenCalled();
 
-    const playbackType = runtime.getPlaybackType()();
+    const playbackType = runtime.getPlaybackType();
     expect(O.isSome(playbackType)).toBe(true);
     if (O.isSome(playbackType)) {
       expect(playbackType.value).toBe("native");
@@ -67,7 +67,7 @@ describe("PlayerRuntime - Effects", () => {
     expect(native.mount).not.toHaveBeenCalled();
     expect(dash.mount).not.toHaveBeenCalled();
 
-    const playbackType = runtime.getPlaybackType()();
+    const playbackType = runtime.getPlaybackType();
     expect(O.isSome(playbackType)).toBe(true);
     if (O.isSome(playbackType)) {
       expect(playbackType.value).toBe("hls");
@@ -125,7 +125,7 @@ describe("PlayerRuntime - Effects", () => {
     }
 
     // state itself does not automatically become an error on core errors
-    expect(runtime.getState()()._tag).toBe("Control/Loading");
+    expect(runtime.getState()._tag).toBe("Control/Loading");
 
     // engine errors *do* move state into error
     await runtime.dispatch({
@@ -135,7 +135,7 @@ describe("PlayerRuntime - Effects", () => {
       url: "video.mp4",
     })();
 
-    expect(runtime.getState()().isError).toBe(true);
+    expect(runtime.getState().isError).toBe(true);
   });
 
   it("play/pause/seek effects call adapter methods (when adapter exists)", async () => {

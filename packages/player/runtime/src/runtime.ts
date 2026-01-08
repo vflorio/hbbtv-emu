@@ -44,9 +44,9 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
   private eventQueue: PlayerEvent[] = [];
   private processing = false;
 
-  getState = (): IO.IO<PlayerState.Any> => () => this.state;
+  getState: IO.IO<PlayerState.Any> = () => this.state;
 
-  getPlaybackType = (): IOO.IOOption<PlaybackType> => () => this.playbackType;
+  getPlaybackType: IOO.IOOption<PlaybackType> = () => this.playbackType;
 
   mount = (videoElement: HTMLVideoElement): T.Task<void> =>
     pipe(
@@ -57,13 +57,12 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
       T.tap(() => this.dispatch({ _tag: "Engine/Mounted" })),
     );
 
-  destroy = (): TE.TaskEither<PlayerRuntimeError, void> =>
-    pipe(
-      TE.Do,
-      TE.flatMap(() => this.destroyAdapter()),
-      TE.tapIO(() => this.stateBus.clear()),
-      TE.tapIO(() => this.eventBus.clear()),
-    );
+  destroy: TE.TaskEither<PlayerRuntimeError, void> = pipe(
+    TE.Do,
+    TE.flatMap(() => this.destroyAdapter()),
+    TE.tapIO(() => this.stateBus.clear()),
+    TE.tapIO(() => this.eventBus.clear()),
+  );
 
   subscribeToState = (listener: PlayerStateListener<PlayerState.Any>): IO.IO<UnsubscribeFn> =>
     this.stateBus.subscribe(listener, true, this.state);
@@ -76,10 +75,10 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
         this.eventBus.notify(event)();
         this.eventQueue.push(event);
       }),
-      T.flatMap(() => this.processQueue()),
+      T.flatMap(() => this.processQueue),
     );
 
-  private processQueue = (): T.Task<void> => {
+  private processQueue: T.Task<void> = () => {
     const setProcessing =
       (next: boolean): IO.IO<void> =>
       () => {
@@ -88,23 +87,22 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
 
     const processAll = pipe(
       T.fromIO(setProcessing(true)),
-      T.flatMap(() => T.fromIO(this.processAllEvents())),
+      T.flatMap(() => T.fromIO(this.processAllEvents)),
       T.tap(() => T.fromIO(setProcessing(false))),
     );
 
-    return () =>
-      pipe(
-        T.of(this.processing),
-        T.flatMap(
-          B.match(
-            () => processAll,
-            () => T.of(undefined),
-          ),
+    return pipe(
+      T.of(this.processing),
+      T.flatMap(
+        B.match(
+          () => processAll,
+          () => T.of(undefined),
         ),
-      )();
+      ),
+    )();
   };
 
-  private processAllEvents = (): IO.IO<void> => {
+  private processAllEvents: IO.IO<void> = () => {
     const reduceState = (playerEvent: PlayerEvent): IO.IO<ReduceResult<PlayerState.Any>> =>
       pipe(
         IO.of(playerEvent),
@@ -175,7 +173,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
       ),
     );
 
-    return () => processNext();
+    return processNext();
   };
 
   // Adapter effects
@@ -240,7 +238,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
           () => TE.right(undefined),
           (adapter) =>
             pipe(
-              adapter.destroy(),
+              adapter.destroy,
               TE.mapLeft((adapterError) => this.adapterFailureFromError("destroy", adapterError)),
               TE.matchE(
                 (error) =>
@@ -340,7 +338,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
         TE.flatMap(() => this.setMutedAdapter(true)),
         TE.flatMap(() =>
           pipe(
-            adapter.play(),
+            adapter.play,
             TE.mapLeft((e) => this.adapterFailureFromError("play", e)),
           ),
         ),
@@ -348,7 +346,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
 
     return pipe(
       this.getAdapter(),
-      TE.flatMap((adapter) => pipe(adapter.play(), TE.orElse(handleErrorStrategy(adapter)))),
+      TE.flatMap((adapter) => pipe(adapter.play, TE.orElse(handleErrorStrategy(adapter)))),
     );
   };
 
@@ -357,7 +355,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
       this.getAdapter(),
       TE.flatMap((adapter) =>
         pipe(
-          adapter.pause(),
+          adapter.pause,
           TE.mapLeft((adapterError) => this.adapterFailureFromError("pause", adapterError)),
         ),
       ),

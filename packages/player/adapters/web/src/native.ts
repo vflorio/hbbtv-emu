@@ -83,7 +83,7 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
 
   protected loadSource = (url: string): TE.TaskEither<AdapterError, void> =>
     pipe(
-      TE.fromIOEither(this.getVideoElement()),
+      TE.fromIOEither(this.getVideoElement),
       TE.flatMap((video) =>
         pipe(
           E.tryCatch(

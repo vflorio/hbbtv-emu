@@ -132,12 +132,12 @@ export type Runtime = Readonly<{
   /**
    * Starts the runtime: initializes all subsystems and begins DOM observation.
    */
-  start: () => IO.IO<void>;
+  start: IO.IO<void>;
 
   /**
    * Stops the runtime: stops DOM observation.
    */
-  stop: () => IO.IO<void>;
+  stop: IO.IO<void>;
 
   /**
    * Applies external state to all managed OIPF objects.
@@ -147,7 +147,7 @@ export type Runtime = Readonly<{
   /**
    * Collects current state from all managed OIPF objects.
    */
-  collectState: () => IO.IO<GlobalState>;
+  collectState: IO.IO<GlobalState>;
 
   /**
    * Dispatches a remote control key event.
@@ -183,25 +183,23 @@ export class RuntimeService implements Runtime {
   /**
    * Starts the runtime.
    */
-  start = (): IO.IO<void> =>
-    pipe(
-      logger.info("Starting"),
-      IO.tap(() => initializeUserAgent(this.#env.userAgent)),
-      IO.tap(() => this.#streamEventScheduler.start),
-      IO.tap(() => this.#provider.start),
-      IO.tap(() => logger.info("Runtime")),
-    );
+  start: IO.IO<void> = pipe(
+    logger.info("Starting"),
+    IO.tap(() => initializeUserAgent(this.#env.userAgent)),
+    IO.tap(() => this.#streamEventScheduler.start),
+    IO.tap(() => this.#provider.start),
+    IO.tap(() => logger.info("Runtime")),
+  );
 
   /**
    * Stops the runtime.
    */
-  stop = (): IO.IO<void> =>
-    pipe(
-      logger.info("Stopping"),
-      IO.tap(() => this.#provider.stop),
-      IO.tap(() => this.#streamEventScheduler.stop),
-      IO.tap(() => logger.info("Stopped")),
-    );
+  stop: IO.IO<void> = pipe(
+    logger.info("Stopping"),
+    IO.tap(() => this.#provider.stop),
+    IO.tap(() => this.#streamEventScheduler.stop),
+    IO.tap(() => logger.info("Stopped")),
+  );
 
   /**
    * Applies external state to all managed OIPF objects.
@@ -215,7 +213,7 @@ export class RuntimeService implements Runtime {
   /**
    * Collects current state from all managed OIPF objects.
    */
-  collectState = (): IO.IO<GlobalState> => () => this.#provider.collectState()();
+  collectState: IO.IO<GlobalState> = () => this.#provider.collectState();
 
   /**
    * Dispatches a remote control key event.
@@ -315,7 +313,7 @@ export const createRuntimeEnv = (
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Runtime handle
+// Convenience handle
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type RuntimeHandle = Readonly<{
@@ -324,11 +322,11 @@ export type RuntimeHandle = Readonly<{
   /** Updates extension-level config (channels, scheduling) */
   updateExtensionState: (state: ExtensionState) => IO.IO<void>;
   /** Reads current state from the runtime */
-  collectState: () => IO.IO<GlobalState>;
+  collectState: IO.IO<GlobalState>;
   /** Dispatches a remote control key event */
   dispatchKey: (keyCode: number) => IO.IO<void>;
   /** Stops DOM observation and tears down runtime services */
-  stop: () => IO.IO<void>;
+  stop: IO.IO<void>;
   /** Sets the PlayerRuntime instance (for player UI integration) */
   setPlayerRuntime: (runtime: PlayerRuntime) => void;
   /** Returns the PlayerRuntime instance (for player UI integration) */
@@ -341,7 +339,7 @@ export type RuntimeHandle = Readonly<{
 export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
   pipe(
     IO.of(new RuntimeService(env)),
-    IO.tap((service) => service.start()),
+    IO.tap((service) => service.start),
     IO.map(
       (service): RuntimeHandle => ({
         updateState: service.applyState,

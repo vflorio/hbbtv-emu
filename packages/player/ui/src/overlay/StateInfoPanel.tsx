@@ -15,7 +15,7 @@ export function StateInfoPanel({
   const snapshot = useMemo(() => getMatcherSnapshot(playerState), [playerState]);
 
   const playbackType: string | null = useMemo(() => {
-    const opt = playerRuntime.getPlaybackType()();
+    const opt = playerRuntime.getPlaybackType();
     return O.isSome(opt) ? opt.value : null;
   }, [playerRuntime, playerState]);
 
