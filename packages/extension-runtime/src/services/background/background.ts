@@ -3,20 +3,22 @@
  *
  * Orchestrates initialization, coordinates managers, and handles cross-component communication.
  */
+
+import type { Logger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as IOE from "fp-ts/IOEither";
 import type * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { AdapterError, BaseMessage } from "../..";
+import type { CommonSettings, ExtensionState } from "../../state";
 import type { ServiceEnv } from "..";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
-import type { ExtensionState, GlobalSettings } from "./state";
 
 //TODO
 export type ForwardableMessage =
-  | { readonly _tag: "Settings/Updated"; readonly settings: ExtensionState["globalSettings"] }
+  | { readonly _tag: "Settings/Updated"; readonly settings: ExtensionState["common"] }
   | { readonly _tag: "Tab/StateChanged"; readonly tabId: number; readonly enabled: boolean }
   | { readonly _tag: "OIPF/RuntimeReady"; readonly tabId: number }
   | { readonly _tag: "UI/Opened"; readonly tabId: number }
@@ -25,51 +27,53 @@ export type ForwardableMessage =
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
 
 export class BackgroundService {
+  private logger!: Logger;
   private readonly stateManager: StateManager;
-  readonly tabsManager: TabsManager;
+  private tabsManager!: TabsManager;
 
-  private readonly messagingUnsubscribe: () => void;
+  private messagingUnsubscribe?: () => void;
 
   constructor(protected readonly env: ServiceEnv<ExtensionState, ForwardableMessage>) {
     this.stateManager = new StateManager({
-      logger: this.env.logger.createChild("StateManager"),
       storage: this.env.adapter.storage,
     });
-
-    this.tabsManager = new TabsManager({
-      logger: this.env.logger.createChild("TabsManager"),
-      tabs: this.env.adapter.tabs,
-      webRequest: this.env.adapter.webRequest,
-      onTabAdded: this.onTabAdded,
-      onTabRemoved: this.onTabRemoved,
-    });
-
-    this.messagingUnsubscribe = this.env.adapter.messaging.onMessage(this.onMessageReceived);
   }
 
-  /**
-   * Initializes all managers in sequence.
-   * StateManager must be initialized before other components can access state.
-   */
   readonly init = (): TE.TaskEither<BackgroundServiceError, void> =>
     pipe(
       TE.Do,
-      TE.tapIO(() => this.env.logger.info("Initializing")),
       TE.flatMap(() => this.stateManager.init()),
-      // TODO:
-      TE.tapIO(() => this.env.logger.info("Initialized")),
+      TE.flatMapIOEither(() => this.stateManager.getState()),
+      TE.tapIO((state) => () => {
+        this.logger = this.env.logger.withConfig(state.logger).create("Background");
+      }),
+      TE.tapIO(() => this.stateManager.setLogger(this.logger)),
+      TE.tapIO(() => this.logger.info("Initializing")),
+      TE.tapIO(() => () => {
+        this.tabsManager = new TabsManager({
+          logger: this.logger,
+          tabs: this.env.adapter.tabs,
+          webRequest: this.env.adapter.webRequest,
+          handlers: {
+            onTabAdded: this.onTabAdded,
+            onTabRemoved: this.onTabRemoved,
+          },
+        });
+        this.messagingUnsubscribe = this.env.adapter.messaging.onMessage(this.onMessageReceived);
+      }),
+      TE.tapIO(() => this.logger.info("Initialized")),
+      TE.asUnit,
     );
 
-  /**
-   * Cleanup resources
-   */
   readonly destroy = (): IO.IO<void> =>
     pipe(
       IO.Do,
-      IO.flatMap(() => this.env.logger.info("Destroying")),
+      IO.flatMap(() => this.logger.info("Destroying")),
       IO.flatMap(() => this.stateManager.destroy()),
-      IO.flatMap(() => IO.of(this.messagingUnsubscribe)),
-      IO.flatMap(() => this.env.logger.info("Destroyed")),
+      IO.flatMap(() => () => {
+        this.messagingUnsubscribe?.();
+      }),
+      IO.flatMap(() => this.logger.info("Destroyed")),
     );
 
   // ===========================================================================
@@ -119,7 +123,7 @@ export class BackgroundService {
   /**
    * Updates global settings. Delegates to StateManager.
    */
-  readonly updateSettings = (fn: (settings: GlobalSettings) => GlobalSettings): T.Task<void> =>
+  readonly updateSettings = (fn: (settings: CommonSettings) => CommonSettings): T.Task<void> =>
     this.stateManager.updateSettings(fn);
 
   // ===========================================================================
@@ -132,7 +136,7 @@ export class BackgroundService {
   private readonly onTabAdded = (tabId: number): IO.IO<void> =>
     pipe(
       // TODO
-      this.env.logger.info(`Tab added: ${tabId}`),
+      this.logger.info(`Tab added: ${tabId}`),
     );
 
   /**
@@ -140,7 +144,7 @@ export class BackgroundService {
    */
   private readonly onTabRemoved = (tabId: number): IO.IO<void> =>
     pipe(
-      this.env.logger.info(`Tab removed: ${tabId}`),
+      this.logger.info(`Tab removed: ${tabId}`),
       IO.tap(() => () => {
         // Clean up tab state asynchronously through StateManager
         this.stateManager.disableTab(tabId)();
@@ -152,7 +156,7 @@ export class BackgroundService {
    */
   private readonly onMessageReceived = (message: BaseMessage, tabId: number): IO.IO<void> =>
     pipe(
-      this.env.logger.debug(`Message received from tab ${tabId}`, message),
+      this.logger.debug(`Message received from tab ${tabId}`, message),
       // TODO: Route messages to appropriate handlers
     );
 }

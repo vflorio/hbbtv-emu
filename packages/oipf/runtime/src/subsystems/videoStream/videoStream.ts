@@ -549,7 +549,7 @@ export class VideoStreamService implements VideoStreamApi {
               return error;
             },
           ),
-          E.fold(
+          E.match(
             () => IO.of(undefined),
             () => IO.of(undefined),
           ),

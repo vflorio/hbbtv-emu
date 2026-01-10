@@ -1,4 +1,4 @@
-import type { Logger } from "@hbb-emu/core";
+import { Logger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
@@ -6,34 +6,35 @@ import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { StorageAdapter } from "../../../adapter";
+import { DEFAULT_STATE, type ExtensionState } from "../../../state";
 import type { BackgroundServiceError } from "../background";
-import { DEFAULT_STATE, type ExtensionState } from "../state";
 
 export type StateManagerEnv = {
-  readonly logger: Logger;
   readonly storage: StorageAdapter<ExtensionState>;
 };
 
 export class StateManager {
   private state: O.Option<ExtensionState> = O.none;
   private initialized = false;
+  private logger: Logger;
 
-  constructor(private readonly env: StateManagerEnv) {}
+  constructor(private readonly env: StateManagerEnv) {
+    this.logger = new Logger("StateManager");
+  }
 
   /**
    * Initializes state from storage or creates default if empty.
-   * Must be called before any other state operations.
    */
   readonly init = (): TE.TaskEither<BackgroundServiceError, void> =>
     pipe(
       TE.Do,
-      TE.tapIO(() => this.env.logger.info("Initializing StateManager...")),
+      TE.tapIO(() => this.logger.info("Initializing")),
       TE.flatMap(() => this.getInitialState()),
       TE.tapIO((state) => this.setState(state)),
       TE.tapIO(() => () => {
         this.initialized = true;
       }),
-      TE.tapIO(() => this.env.logger.info("StateManager initialized")),
+      TE.tapIO(() => this.logger.info("Initialized")),
       TE.asUnit,
     );
 
@@ -43,13 +44,19 @@ export class StateManager {
   readonly destroy = (): IO.IO<void> =>
     pipe(
       IO.Do,
-      IO.tap(() => this.env.logger.info("Destroying")),
+      IO.tap(() => this.logger.info("Destroying")),
       IO.tap(() => () => {
         this.state = O.none;
         this.initialized = false;
       }),
-      IO.tap(() => this.env.logger.info("StateManager destroyed")),
+      IO.tap(() => this.logger.info("Destroyed")),
     );
+
+  readonly setLogger =
+    (logger: Logger): IO.IO<void> =>
+    () => {
+      this.logger = logger.create("StateManager");
+    };
 
   /**
    * Loads state from storage or returns default
@@ -107,10 +114,10 @@ export class StateManager {
       TE.tap((newState) => this.persistState(newState)),
       TE.match(
         (error) => {
-          this.env.logger.error("Failed to update state", error);
+          this.logger.error("Failed to update state", error);
         },
         () => {
-          this.env.logger.debug("State updated successfully");
+          this.logger.debug("State updated successfully");
         },
       ),
     );
@@ -121,7 +128,7 @@ export class StateManager {
   private readonly persistState = (state: ExtensionState): TE.TaskEither<BackgroundServiceError, void> =>
     pipe(
       this.env.storage.write(state),
-      TE.tapIO(() => this.env.logger.debug("State persisted to storage")),
+      TE.tapIO(() => this.logger.debug("State persisted to storage")),
     );
 
   // ===========================================================================
@@ -137,7 +144,7 @@ export class StateManager {
         ...state,
         enabledTabIds: new Set([...state.enabledTabIds, tabId]),
       })),
-      T.tapIO(() => this.env.logger.info(`Tab ${tabId} enabled`)),
+      T.tapIO(() => this.logger.info(`Tab ${tabId} enabled`)),
     );
 
   /**
@@ -150,7 +157,7 @@ export class StateManager {
         enabledTabIds.delete(tabId);
         return { ...state, enabledTabIds };
       }),
-      T.tapIO(() => this.env.logger.info(`Tab ${tabId} disabled`)),
+      T.tapIO(() => this.logger.info(`Tab ${tabId} disabled`)),
     );
 
   /**
@@ -178,14 +185,12 @@ export class StateManager {
   /**
    * Updates global settings
    */
-  readonly updateSettings = (
-    fn: (settings: ExtensionState["globalSettings"]) => ExtensionState["globalSettings"],
-  ): T.Task<void> =>
+  readonly updateSettings = (fn: (settings: ExtensionState["common"]) => ExtensionState["common"]): T.Task<void> =>
     pipe(
       this.updateState((state) => ({
         ...state,
-        globalSettings: fn(state.globalSettings),
+        common: fn(state.common),
       })),
-      T.tapIO(() => this.env.logger.info("Global settings updated")),
+      T.tapIO(() => this.logger.info("Global settings updated")),
     );
 }

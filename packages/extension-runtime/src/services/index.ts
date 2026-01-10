@@ -14,9 +14,9 @@ export interface ServiceEnv<TState, TEvents extends BaseMessage> {
 
 export const createServiceEnv = <TState, TEvents extends BaseMessage>(
   config: AdapterConfig,
-  logger?: Logger,
+  baseLogger?: Logger,
 ): ServiceEnv<TState, TEvents> => ({
   config: config,
   adapter: createAdapterEnv<TState, TEvents>(config),
-  logger: logger ?? createLogger("Unknown Service"),
+  logger: baseLogger ?? createLogger("Unknown Service"),
 });

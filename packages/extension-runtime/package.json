@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/oipf-api": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
     "io-ts": "2.2.21"
   },

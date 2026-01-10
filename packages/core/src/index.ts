@@ -3,7 +3,7 @@ export * from "./dom";
 export * from "./domObserver";
 export * from "./hex";
 export * from "./json";
-export * from "./logger";
+export * from "./logger/index";
 export * from "./misc";
 export * from "./mixin";
 export * from "./object";

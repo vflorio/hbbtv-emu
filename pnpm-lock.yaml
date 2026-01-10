@@ -342,6 +342,9 @@ importers:
       '@hbb-emu/extension-common':
         specifier: workspace:*
         version: link:../extension_old/common
+      '@hbb-emu/oipf-api':
+        specifier: workspace:*
+        version: link:../oipf/api
       io-ts:
         specifier: 2.2.21
         version: 2.2.21(fp-ts@2.16.11)

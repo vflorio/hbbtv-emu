@@ -1,7 +1,5 @@
-import { createLogger } from "@hbb-emu/core";
+import { Logger } from "@hbb-emu/core";
 import { BackgroundService, createServiceEnv } from "@hbb-emu/extension-runtime";
-
-const logger = createLogger("Firefox:Background");
 
 const backgroundService = new BackgroundService(
   createServiceEnv(
@@ -10,16 +8,10 @@ const backgroundService = new BackgroundService(
       engine: "firefox",
       storageKey: "hbbtv_emu",
     },
-    logger,
+    new Logger("Firefox-V2"),
   ),
 );
 
-backgroundService
-  .init()()
-  .catch((error) => {
-    logger.error("Initialization failed: ", error);
-  });
-
-logger.info("initialized");
+backgroundService.init()();
 
 export { backgroundService };

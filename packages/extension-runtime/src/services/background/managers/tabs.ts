@@ -11,14 +11,19 @@ export type TabsManangerEnv = {
   logger: Logger;
   tabs: TabsAdapter;
   webRequest: WebRequestAdapter;
-  onTabAdded: (tabId: number) => IO.IO<void>;
-  onTabRemoved: (tabId: number) => IO.IO<void>;
+  handlers: {
+    onTabAdded: (tabId: number) => IO.IO<void>;
+    onTabRemoved: (tabId: number) => IO.IO<void>;
+  };
 };
 
 export class TabsManager {
   protected readonly tabs: number[] = [];
+  private readonly logger: Logger;
 
   constructor(protected readonly env: TabsManangerEnv) {
+    this.logger = env.logger.create("TabsManager");
+
     this.env.tabs.onTabsUpdated(this.onTabsUpdated);
     this.env.webRequest.onHeadersReceived(this.onHeadersReceived);
   }
@@ -29,8 +34,18 @@ export class TabsManager {
       IOO.filter((status) => status === "loading" || status === "unloaded"),
       IOO.tapIO((status) =>
         match(status)
-          .with("loading", () => this.env.onTabAdded(tabId))
-          .with("unloaded", () => this.env.onTabRemoved(tabId))
+          .with("loading", () =>
+            pipe(
+              this.env.handlers.onTabAdded(tabId),
+              IO.tap(() => this.logger.info(`Tab ${tabId} Loading`)),
+            ),
+          )
+          .with("unloaded", () =>
+            pipe(
+              this.env.handlers.onTabRemoved(tabId),
+              IO.tap(() => this.logger.info(`Tab ${tabId} Unloaded`)),
+            ),
+          )
           .exhaustive(),
       ),
       IO.asUnit,
