@@ -15,7 +15,6 @@ export type StateManagerEnv = {
 
 export class StateManager {
   private state: O.Option<ExtensionState> = O.none;
-  private initialized = false;
   private logger: Logger;
 
   constructor(private readonly env: StateManagerEnv) {
@@ -31,9 +30,6 @@ export class StateManager {
       TE.tapIO(() => this.logger.info("Initializing")),
       TE.flatMap(() => this.getInitialState()),
       TE.tapIO((state) => this.setState(state)),
-      TE.tapIO(() => () => {
-        this.initialized = true;
-      }),
       TE.tapIO(() => this.logger.info("Initialized")),
       TE.asUnit,
     );
@@ -47,7 +43,6 @@ export class StateManager {
       IO.tap(() => this.logger.info("Destroying")),
       IO.tap(() => () => {
         this.state = O.none;
-        this.initialized = false;
       }),
       IO.tap(() => this.logger.info("Destroyed")),
     );
@@ -64,33 +59,14 @@ export class StateManager {
   private readonly getInitialState = (): TE.TaskEither<BackgroundServiceError, ExtensionState> =>
     pipe(this.env.storage.read(), TE.map(O.getOrElse(() => DEFAULT_STATE)));
 
-  // ===========================================================================
-  // STATE ACCESS
-  // ===========================================================================
-
   /**
    * Returns current state. Fails if not initialized.
    */
   readonly getState = (): IOE.IOEither<BackgroundServiceError, ExtensionState> =>
     pipe(
-      IO.of(this.state),
-      IO.map(
-        O.match(
-          (): IOE.IOEither<BackgroundServiceError, ExtensionState> => IOE.left({ _tag: "StateNotInitialized" }),
-          (s): IOE.IOEither<BackgroundServiceError, ExtensionState> => IOE.right(s),
-        ),
-      ),
-      IO.flatten,
+      this.state,
+      IOE.fromOption(() => ({ _tag: "StateNotInitialized" })),
     );
-
-  /**
-   * Returns whether state is initialized
-   */
-  readonly isInitialized = (): IO.IO<boolean> => () => this.initialized;
-
-  // ===========================================================================
-  // STATE MUTATION
-  // ===========================================================================
 
   /**
    * Sets state locally
@@ -129,68 +105,5 @@ export class StateManager {
     pipe(
       this.env.storage.write(state),
       TE.tapIO(() => this.logger.debug("State persisted to storage")),
-    );
-
-  // ===========================================================================
-  // TAB MANAGEMENT
-  // ===========================================================================
-
-  /**
-   * Enables HbbTV for a specific tab
-   */
-  readonly enableTab = (tabId: number): T.Task<void> =>
-    pipe(
-      this.updateState((state) => ({
-        ...state,
-        enabledTabIds: new Set([...state.enabledTabIds, tabId]),
-      })),
-      T.tapIO(() => this.logger.info(`Tab ${tabId} enabled`)),
-    );
-
-  /**
-   * Disables HbbTV for a specific tab
-   */
-  readonly disableTab = (tabId: number): T.Task<void> =>
-    pipe(
-      this.updateState((state) => {
-        const enabledTabIds = new Set(state.enabledTabIds);
-        enabledTabIds.delete(tabId);
-        return { ...state, enabledTabIds };
-      }),
-      T.tapIO(() => this.logger.info(`Tab ${tabId} disabled`)),
-    );
-
-  /**
-   * Checks if a tab is enabled
-   */
-  readonly isTabEnabled = (tabId: number): IOE.IOEither<BackgroundServiceError, boolean> =>
-    pipe(
-      this.getState(),
-      IOE.map((state) => state.enabledTabIds.has(tabId)),
-    );
-
-  /**
-   * Gets all enabled tab IDs
-   */
-  readonly getEnabledTabs = (): IOE.IOEither<BackgroundServiceError, ReadonlySet<number>> =>
-    pipe(
-      this.getState(),
-      IOE.map((state) => state.enabledTabIds),
-    );
-
-  // ===========================================================================
-  // SETTINGS MANAGEMENT
-  // ===========================================================================
-
-  /**
-   * Updates global settings
-   */
-  readonly updateSettings = (fn: (settings: ExtensionState["common"]) => ExtensionState["common"]): T.Task<void> =>
-    pipe(
-      this.updateState((state) => ({
-        ...state,
-        common: fn(state.common),
-      })),
-      T.tapIO(() => this.logger.info("Global settings updated")),
     );
 }

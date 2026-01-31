@@ -32,7 +32,7 @@ export class Logger {
     (level: LoggerEntryLevel) =>
     (message: string, ...args: unknown[]): IO.IO<void> =>
       pipe(
-        O.fromPredicate((enabled: boolean) => enabled)(this.config.enabledLevels[level]),
+        O.fromNullable(this.config.enabledLevels[level]),
         O.match(
           () => IO.of(undefined),
           () =>

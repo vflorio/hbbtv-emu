@@ -4,7 +4,7 @@ import * as TE from "fp-ts/TaskEither";
 import type * as t from "io-ts";
 import { jsonParse, jsonStringify } from "../json";
 import { createLogger } from "../logger";
-import { invalidDataError } from "../misc";
+import { invalidDataError } from "../errors";
 import type { StorageError } from "./errors";
 import type { StorageAdapter } from "./storageAdapter";
 

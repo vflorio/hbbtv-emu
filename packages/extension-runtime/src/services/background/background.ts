@@ -7,11 +7,10 @@
 import type { Logger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type * as IOE from "fp-ts/IOEither";
-import type * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
+import * as T from "fp-ts/Task";
 import type { AdapterError, BaseMessage } from "../..";
-import type { CommonSettings, ExtensionState } from "../../state";
+import type { ExtensionState } from "../../state";
 import type { ServiceEnv } from "..";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
@@ -29,7 +28,7 @@ export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotIn
 export class BackgroundService {
   private logger!: Logger;
   private readonly stateManager: StateManager;
-  private tabsManager!: TabsManager;
+  tabsManager!: TabsManager;
 
   private messagingUnsubscribe?: () => void;
 
@@ -52,6 +51,7 @@ export class BackgroundService {
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
+          stateManager: this.stateManager,
           tabs: this.env.adapter.tabs,
           webRequest: this.env.adapter.webRequest,
           handlers: {
@@ -59,6 +59,7 @@ export class BackgroundService {
             onTabRemoved: this.onTabRemoved,
           },
         });
+
         this.messagingUnsubscribe = this.env.adapter.messaging.onMessage(this.onMessageReceived);
       }),
       TE.tapIO(() => this.logger.info("Initialized")),
@@ -77,56 +78,6 @@ export class BackgroundService {
     );
 
   // ===========================================================================
-  // STATE DELEGATION
-  // ===========================================================================
-
-  /**
-   * Returns current state. Delegates to StateManager.
-   */
-  readonly getState = (): IOE.IOEither<BackgroundServiceError, ExtensionState> => this.stateManager.getState();
-
-  /**
-   * Returns whether the background script is initialized
-   */
-  readonly isInitialized = (): IO.IO<boolean> => this.stateManager.isInitialized();
-
-  // ===========================================================================
-  // TAB MANAGEMENT DELEGATION
-  // ===========================================================================
-
-  /**
-   * Enables HbbTV for a specific tab. Delegates to StateManager.
-   */
-  readonly enableTab = (tabId: number): T.Task<void> => this.stateManager.enableTab(tabId);
-
-  /**
-   * Disables HbbTV for a specific tab. Delegates to StateManager.
-   */
-  readonly disableTab = (tabId: number): T.Task<void> => this.stateManager.disableTab(tabId);
-
-  /**
-   * Checks if a tab is enabled. Delegates to StateManager.
-   */
-  readonly isTabEnabled = (tabId: number): IOE.IOEither<BackgroundServiceError, boolean> =>
-    this.stateManager.isTabEnabled(tabId);
-
-  /**
-   * Gets all enabled tab IDs. Delegates to StateManager.
-   */
-  readonly getEnabledTabs = (): IOE.IOEither<BackgroundServiceError, ReadonlySet<number>> =>
-    this.stateManager.getEnabledTabs();
-
-  // ===========================================================================
-  // SETTINGS MANAGEMENT DELEGATION
-  // ===========================================================================
-
-  /**
-   * Updates global settings. Delegates to StateManager.
-   */
-  readonly updateSettings = (fn: (settings: CommonSettings) => CommonSettings): T.Task<void> =>
-    this.stateManager.updateSettings(fn);
-
-  // ===========================================================================
   // EVENT HANDLERS
   // ===========================================================================
 
@@ -142,14 +93,7 @@ export class BackgroundService {
   /**
    * Handles tab removed event from TabsManager
    */
-  private readonly onTabRemoved = (tabId: number): IO.IO<void> =>
-    pipe(
-      this.logger.info(`Tab removed: ${tabId}`),
-      IO.tap(() => () => {
-        // Clean up tab state asynchronously through StateManager
-        this.stateManager.disableTab(tabId)();
-      }),
-    );
+  private readonly onTabRemoved = (tabId: number): IO.IO<void> => pipe(this.logger.info(`Tab removed: ${tabId}`));
 
   /**
    * Handles messages from other extension scripts

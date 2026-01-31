@@ -1,5 +1,5 @@
 import type { JsonParseError, JsonStringifyError } from "../json";
-import type { DataNotFoundError, InvalidDataError } from "../misc";
+import type { DataNotFoundError, InvalidDataError } from "../errors";
 
 // Errors
 
