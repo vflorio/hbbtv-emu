@@ -2,10 +2,9 @@ import { AppBar, Box, Button, CssBaseline, createTheme, Stack, ThemeProvider, To
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PlayerDemo } from "./Player";
-import { RuntimeDemo } from "./RuntimeDemo";
 
 function App() {
-  const [demo, setDemo] = useState<"player" | "runtime">("player");
+  const [demo, setDemo] = useState<"player">("player");
 
   return (
     <ThemeProvider theme={createTheme({ palette: { mode: "dark" } })}>
@@ -17,13 +16,10 @@ function App() {
               <Button variant={demo === "player" ? "contained" : "outlined"} onClick={() => setDemo("player")}>
                 Player
               </Button>
-              <Button variant={demo === "runtime" ? "contained" : "outlined"} onClick={() => setDemo("runtime")}>
-                Runtime
-              </Button>
             </Stack>
           </Toolbar>
         </AppBar>
-        <Box component="main">{demo === "player" ? <PlayerDemo /> : <RuntimeDemo />}</Box>
+        <Box component="main">{demo === "player" ? <PlayerDemo /> : null}</Box>
       </Box>
     </ThemeProvider>
   );

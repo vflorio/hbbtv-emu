@@ -1,4 +1,4 @@
-import type { PlayerEvent, PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
+import type { PlayerEvent, PlayerRuntime, PlayerState } from "@functional-player/player-runtime";
 import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import type React from "react";
 import { useMemo } from "react";

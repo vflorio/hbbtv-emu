@@ -1,4 +1,4 @@
-import type { PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
+import type { PlayerRuntime, PlayerState } from "@functional-player/player-runtime";
 import { Box, Button, Chip, Paper, Stack, TextField, Typography } from "@mui/material";
 import * as O from "fp-ts/Option";
 import { useEffect, useMemo, useState } from "react";

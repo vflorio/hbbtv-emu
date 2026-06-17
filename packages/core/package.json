@@ -1,5 +1,5 @@
 {
-  "name": "@hbb-emu/core",
+  "name": "@functional-player/core",
   "version": "1.0.0",
   "devDependencies": {
     "fp-ts": "2.16.11",

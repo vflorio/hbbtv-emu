@@ -1,5 +1,5 @@
-import type { PlayerState } from "@hbb-emu/player-runtime";
-import * as Matchers from "@hbb-emu/player-runtime";
+import type { PlayerState } from "@functional-player/player-runtime";
+import * as Matchers from "@functional-player/player-runtime";
 
 export type MatcherItem = {
   readonly key: string;

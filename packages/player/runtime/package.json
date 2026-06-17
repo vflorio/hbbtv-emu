@@ -1,10 +1,8 @@
 {
-  "name": "@hbb-emu/player-runtime",
+  "name": "@functional-player/player-runtime",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-common": "workspace:*",
-    "@hbb-emu/oipf": "workspace:*",
+    "@functional-player/core": "workspace:*",
     "fp-ts": "2.16.11",
     "ts-pattern": "5.9.0"
   },

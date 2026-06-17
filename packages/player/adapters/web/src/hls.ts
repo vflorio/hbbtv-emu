@@ -1,4 +1,4 @@
-import type { AdapterError, HLSVariantInfo } from "@hbb-emu/player-runtime";
+import type { AdapterError, HLSVariantInfo } from "@functional-player/player-runtime";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";

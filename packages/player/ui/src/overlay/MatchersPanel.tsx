@@ -1,4 +1,4 @@
-import type { PlayerState } from "@hbb-emu/player-runtime";
+import type { PlayerState } from "@functional-player/player-runtime";
 import { Box, Divider, Paper, Stack, Typography } from "@mui/material";
 import { useMemo } from "react";
 import { getMatcherSnapshot } from "./matchersSnapshot";

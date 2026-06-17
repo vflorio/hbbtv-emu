@@ -1,4 +1,4 @@
-import type { PlayerEvent, PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
+import type { PlayerEvent, PlayerRuntime, PlayerState } from "@functional-player/player-runtime";
 import { useEffect, useRef, useState } from "react";
 import { match, P } from "ts-pattern";
 

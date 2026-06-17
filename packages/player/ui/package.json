@@ -1,11 +1,11 @@
 {
-  "name": "@hbb-emu/player-ui",
+  "name": "@functional-player/player-ui",
   "version": "1.0.0",
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
-    "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/player-runtime": "workspace:*",
+    "@functional-player/core": "workspace:*",
+    "@functional-player/player-runtime": "workspace:*",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "fp-ts": "2.16.11",

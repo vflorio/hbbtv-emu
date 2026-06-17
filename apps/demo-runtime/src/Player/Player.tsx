@@ -1,5 +1,5 @@
-import { isLoading, type PlayerState } from "@hbb-emu/player-runtime";
-import { Overlay } from "@hbb-emu/player-ui";
+import { isLoading, type PlayerState } from "@functional-player/player-runtime";
+import { Overlay } from "@functional-player/player-ui";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { useEffect, useRef, useState } from "react";

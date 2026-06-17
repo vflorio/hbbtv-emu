@@ -1,9 +1,9 @@
 {
-  "name": "@hbb-emu/player-adapter-web",
+  "name": "@functional-player/player-adapter-web",
   "version": "1.0.0",
   "dependencies": {
-    "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/player-runtime": "workspace:*",
+    "@functional-player/core": "workspace:*",
+    "@functional-player/player-runtime": "workspace:*",
     "dashjs": "5.1.0",
     "fp-ts": "2.16.11",
     "hls.js": "1.6.15",

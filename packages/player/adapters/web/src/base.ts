@@ -1,4 +1,4 @@
-import { addEventListener } from "@hbb-emu/core";
+import { addEventListener } from "@functional-player/core";
 import type {
   AdapterError,
   PlaybackSnapshot,
@@ -7,7 +7,7 @@ import type {
   RuntimeAdapter,
   TimeRange,
   UnsubscribeFn,
-} from "@hbb-emu/player-runtime";
+} from "@functional-player/player-runtime";
 import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";

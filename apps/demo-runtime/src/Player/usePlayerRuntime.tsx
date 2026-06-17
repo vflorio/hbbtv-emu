@@ -1,5 +1,5 @@
-import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
-import { PlayerRuntime } from "@hbb-emu/player-runtime";
+import { DASHAdapter, HLSAdapter, NativeAdapter } from "@functional-player/player-adapter-web";
+import { PlayerRuntime } from "@functional-player/player-runtime";
 import { useMemo } from "react";
 
 export const usePlayerRuntime = (): PlayerRuntime => {

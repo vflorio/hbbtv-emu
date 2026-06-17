@@ -1,5 +1,5 @@
-import type { PlayerRuntime } from "@hbb-emu/player-runtime";
-import * as Matchers from "@hbb-emu/player-runtime";
+import type { PlayerRuntime } from "@functional-player/player-runtime";
+import * as Matchers from "@functional-player/player-runtime";
 import { Alert, Box, CircularProgress, Stack } from "@mui/material";
 import type React from "react";
 import { useMemo } from "react";

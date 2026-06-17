@@ -1,4 +1,4 @@
-import type { AdapterError } from "@hbb-emu/player-runtime";
+import type { AdapterError } from "@functional-player/player-runtime";
 import * as dashjs from "dashjs";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";

@@ -1,4 +1,4 @@
-import type { PlayerEngineEvent } from "@hbb-emu/player-runtime";
+import type { PlayerEngineEvent } from "@functional-player/player-runtime";
 import type Hls from "hls.js";
 
 export * from "./dash";

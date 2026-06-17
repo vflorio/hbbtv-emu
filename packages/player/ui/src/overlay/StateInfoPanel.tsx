@@ -1,5 +1,5 @@
-import type { PlayerRuntime, PlayerState } from "@hbb-emu/player-runtime";
-import * as Matchers from "@hbb-emu/player-runtime";
+import type { PlayerRuntime, PlayerState } from "@functional-player/player-runtime";
+import * as Matchers from "@functional-player/player-runtime";
 import { Box, Paper, Stack, Typography } from "@mui/material";
 import * as O from "fp-ts/Option";
 import { useMemo } from "react";

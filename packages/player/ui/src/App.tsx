@@ -1,4 +1,4 @@
-import type { PlayerRuntime } from "@hbb-emu/player-runtime";
+import type { PlayerRuntime } from "@functional-player/player-runtime";
 import type React from "react";
 import { Overlay } from "./Overlay";
 

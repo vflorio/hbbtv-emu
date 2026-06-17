@@ -2,7 +2,7 @@
   "versionGroups": [
     {
       "label": "Use workspace protocol when developing local packages",
-      "dependencies": ["@hbb-emu/**"],
+      "dependencies": ["@functional-player/**"],
       "dependencyTypes": ["dev", "peer", "prod"],
       "pinVersion": "workspace:*"
     },
@@ -52,7 +52,7 @@
   "semverGroups": [
     {
       "label": "Keep all package versions in sync",
-      "packages": ["@hbb-emu/**"],
+      "packages": ["@functional-player/**"],
       "range": ""
     }
   ]

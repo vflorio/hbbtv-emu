@@ -1,5 +1,5 @@
-import { addEventListener } from "@hbb-emu/core";
-import type { AdapterError } from "@hbb-emu/player-runtime";
+import { addEventListener } from "@functional-player/core";
+import type { AdapterError } from "@functional-player/player-runtime";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
