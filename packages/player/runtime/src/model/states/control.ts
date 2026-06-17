@@ -2,8 +2,7 @@
  * Control States (Common across all formats)
  */
 
-import type { TimeRange } from "../common";
-import type { SourceMetadata } from "./base";
+import type { SourceMetadata, TimeRange } from "../common";
 import { PlayableState } from "./base";
 
 export class Idle extends PlayableState {

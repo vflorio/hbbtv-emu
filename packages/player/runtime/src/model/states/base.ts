@@ -1,6 +1,3 @@
-import type { Resolution } from "../common";
-import type { PlaybackType } from "../playback";
-
 /**
  * Base class for all valid operational states where playback can occur
  */
@@ -32,18 +29,4 @@ export abstract class FatalError {
   readonly canRetry = false as const;
 
   constructor(readonly error: Error) {}
-}
-
-// ============================================================================
-// Interfaces
-// ============================================================================
-
-/**
- * Source metadata for playback
- */
-export interface SourceMetadata {
-  readonly playbackType: PlaybackType;
-  readonly url: string;
-  readonly resolution?: Resolution;
-  readonly codec?: string;
 }

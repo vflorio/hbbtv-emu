@@ -2,7 +2,6 @@
  * Video Player State Management System (Class Discriminated Unions ADT)
  */
 
-export type { SourceMetadata } from "./base";
 export { FatalError, PlayableState, RecoverableError } from "./base";
 
 export * as Control from "./control";
