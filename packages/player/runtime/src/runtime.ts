@@ -1,4 +1,4 @@
-import { createLogger } from "@functional-player/core";
+import { createLogger } from "@hbb-emu/core";
 import * as B from "fp-ts/boolean";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -21,7 +21,6 @@ import type {
   PlayerRuntimeConfig,
   PlayerRuntimeError,
   PlayerStateListener,
-  ReduceResult,
   RuntimeAdapter,
   UnsubscribeFn,
 } from "./types";
@@ -50,18 +49,19 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
 
   mount = (videoElement: HTMLVideoElement): T.Task<void> =>
     pipe(
-      T.of(undefined),
+      T.Do,
       T.tapIO(() => () => {
         this.videoElement = O.some(videoElement);
       }),
       T.tap(() => this.dispatch({ _tag: "Engine/Mounted" })),
+      T.asUnit,
     );
 
   destroy: TE.TaskEither<PlayerRuntimeError, void> = pipe(
     TE.Do,
     TE.flatMap(() => this.destroyAdapter()),
-    TE.tapIO(() => this.stateBus.clear()),
-    TE.tapIO(() => this.eventBus.clear()),
+    TE.tapIO(() => this.stateBus.clear),
+    TE.tapIO(() => this.eventBus.clear),
   );
 
   subscribeToState = (listener: PlayerStateListener<PlayerState.Any>): IO.IO<UnsubscribeFn> =>
@@ -103,6 +103,11 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
   };
 
   private processAllEvents: IO.IO<void> = () => {
+    type ReduceResult<T> = {
+      readonly next: T;
+      readonly effects: readonly PlayerEffect[];
+    };
+
     const reduceState = (playerEvent: PlayerEvent): IO.IO<ReduceResult<PlayerState.Any>> =>
       pipe(
         IO.of(playerEvent),
@@ -218,7 +223,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
 
   private destroyAdapter = (): TE.TaskEither<PlayerRuntimeError, void> => {
     const notifyAndUnsub = pipe(
-      TE.fromIO(() => this.adapterUnsubscribe),
+      TE.fromIO(() => this.adapterUnsubscribe), // FIXME
       TE.tapIO(
         O.match(
           () => IO.of(undefined),

@@ -201,11 +201,6 @@ export type PlayerEffect =
 // STATE MANAGEMENT - Reducer & Subscription Types
 // =============================================================================
 
-export type ReduceResult<T> = {
-  readonly next: T;
-  readonly effects: readonly PlayerEffect[];
-};
-
 export type PlayerStateListener<T> = (state: T) => void;
 
 export type UnsubscribeFn = () => void;

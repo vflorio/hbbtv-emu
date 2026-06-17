@@ -47,7 +47,7 @@ export class EventBus<T> {
   /**
    * Clear all listeners.
    */
-  clear = (): IO.IO<void> => () => {
+  clear: IO.IO<void> = () => {
     this.listeners.clear();
   };
 
