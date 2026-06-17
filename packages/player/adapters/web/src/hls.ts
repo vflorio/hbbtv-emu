@@ -65,13 +65,13 @@ export class HLSAdapter extends CoreVideoAdapter<HLSConfig> {
             return () => hls.off(Hls.Events.ERROR, this.onHlsError);
           },
         ]),
-        RA.traverse(IO.Applicative)((addListener) => addListener()),
-        IO.map((removeEventListeners) =>
-          pipe(
-            removeEventListeners,
-            RA.traverse(IO.Applicative)((remove) => IO.of(remove)),
-            IO.asUnit,
-          ),
+        // FIXME antipattern
+        RA.traverse(IO.Applicative)((register) => () => register()),
+        IO.map(
+          (cleanups): IO.IO<void> =>
+            () => {
+              for (const cleanup of cleanups) cleanup();
+            },
         ),
         IO.flatMap((clean) => () => {
           this.cleanHlsEventListener = clean;

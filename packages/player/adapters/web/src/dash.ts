@@ -75,13 +75,13 @@ export class DASHAdapter extends CoreVideoAdapter<DASHConfig> {
             return () => player.off(dashjs.MediaPlayer.events.ERROR, this.onDashError);
           },
         ]),
-        RA.traverse(IO.Applicative)((addListener) => addListener()),
-        IO.map((removeEventListeners) =>
-          pipe(
-            removeEventListeners,
-            RA.traverse(IO.Applicative)((remove) => IO.of(remove)),
-            IO.asUnit,
-          ),
+        // FIXME antipattern
+        RA.traverse(IO.Applicative)((register) => () => register()),
+        IO.map(
+          (cleanups): IO.IO<void> =>
+            () => {
+              for (const cleanup of cleanups) cleanup();
+            },
         ),
         IO.flatMap((clean) => () => {
           this.cleanDashEventListener = clean;
