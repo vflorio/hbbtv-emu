@@ -1,7 +1,3 @@
-/**
- * Error States (Common errors across formats)
- */
-
 import { FatalError, RecoverableError } from "./base";
 
 export class NetworkError extends RecoverableError {

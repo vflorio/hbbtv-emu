@@ -1,5 +1,5 @@
 import { match } from "ts-pattern";
-import type { PlayerState, SourceMetadata } from "../states";
+import type { PlayerState, SourceMetadata } from "..";
 
 type Match<S, T> = ReturnType<typeof match<S, T>>;
 

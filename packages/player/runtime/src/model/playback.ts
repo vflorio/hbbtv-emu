@@ -1,4 +1,4 @@
-import type { TimeRange } from "../states";
+import type { TimeRange } from "..";
 
 export type PlaybackType = "native" | "hls" | "dash";
 

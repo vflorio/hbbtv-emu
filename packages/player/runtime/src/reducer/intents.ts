@@ -1,6 +1,5 @@
 import { match } from "ts-pattern";
-import { detectPlaybackType, type ReduceResult } from "../model";
-import { PlayerState } from "../states";
+import { detectPlaybackType, PlayerState, type ReduceResult } from "../model";
 
 export const handleLoadIntent = (url: string): ReduceResult<PlayerState.Any> => ({
   next: new PlayerState.Control.Loading(url, 0),

@@ -1,7 +1,3 @@
-/**
- * Source-Specific States
- */
-
 import type { Resolution } from "../common";
 import type { DASHAdaptationSetInfo, DASHRepresentationInfo } from "../engine/adapter/dash";
 import type { HLSVariantInfo } from "../engine/adapter/hls";

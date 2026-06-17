@@ -1,7 +1,3 @@
-/**
- * Control States (Common across all formats)
- */
-
 import type { SourceMetadata, TimeRange } from "../common";
 import { PlayableState } from "./base";
 

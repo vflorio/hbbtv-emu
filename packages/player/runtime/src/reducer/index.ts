@@ -1,6 +1,5 @@
 import { match } from "ts-pattern";
-import type { PlayerEvent, ReduceResult } from "../model";
-import { PlayerState } from "../states";
+import { type PlayerEvent, PlayerState, type ReduceResult } from "../model";
 import {
   handleDASHMPDLoading,
   handleDASHMPDParsed,

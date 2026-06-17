@@ -1,42 +1,18 @@
-/**
- * Video Player State Management System (Class Discriminated Unions ADT)
- */
+import * as ControlModule from "./control";
+import * as ErrorModule from "./error";
+import * as SourceModule from "./source";
 
 export { FatalError, PlayableState, RecoverableError } from "./base";
 
-export * as Control from "./control";
-export * as Error from "./error";
-export * as Source from "./source";
+export namespace PlayerState {
+  export import Control = ControlModule;
+  export import Source = SourceModule;
+  // biome-ignore lint/suspicious/noShadowRestrictedNames: PlayerState.Error namespace
+  export import Error = ErrorModule;
 
-import type { Any as ControlAny } from "./control";
-import type { Any as ErrorAny } from "./error";
-import type { Any as SourceAny } from "./source";
-
-// --------------------------------------------------------------------------
-// Top-Level Union Types
-// --------------------------------------------------------------------------
-
-/**
- * Complete union of all possible player states
- */
-export type PlayerStateAny = ControlAny | SourceAny | ErrorAny;
-
-/**
- * Union of all playable states
- */
-export type PlayerStatePlayable = Extract<PlayerStateAny, { _tagGroup: "Playable" }>;
-
-/**
- * Union of all error states
- */
-export type PlayerStateErrors = Extract<PlayerStateAny, { isError: true }>;
-
-/**
- * Union of all recoverable error states
- */
-export type PlayerStateRecoverableErrors = Extract<PlayerStateAny, { _tagGroup: "RecoverableError" }>;
-
-/**
- * Union of all fatal error states
- */
-export type PlayerStateFatalErrors = Extract<PlayerStateAny, { _tagGroup: "FatalError" }>;
+  export type Any = Control.Any | Source.Any | Error.Any;
+  export type Playable = Extract<Any, { _tagGroup: "Playable" }>;
+  export type Errors = Extract<Any, { isError: true }>;
+  export type RecoverableErrors = Extract<Any, { _tagGroup: "RecoverableError" }>;
+  export type FatalErrors = Extract<Any, { _tagGroup: "FatalError" }>;
+}

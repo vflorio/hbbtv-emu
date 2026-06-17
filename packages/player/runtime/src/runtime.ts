@@ -18,13 +18,13 @@ import type {
   PlayerRuntimeApi,
   PlayerRuntimeConfig,
   PlayerRuntimeError,
+  PlayerState,
   PlayerStateListener,
   ReduceResult,
   RuntimeAdapter,
   UnsubscribeFn,
 } from "./model";
 import { initialState, reduce } from "./reducer";
-import type { PlayerState } from "./states";
 
 export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
   constructor(private readonly config: PlayerRuntimeConfig) {}

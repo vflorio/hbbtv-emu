@@ -1,6 +1,5 @@
 import { match } from "ts-pattern";
-import type { HLSVariantInfo, ReduceResult } from "../model";
-import { PlayerState } from "../states";
+import { type HLSVariantInfo, PlayerState, type ReduceResult } from "../model";
 
 export const handleHLSManifestLoading = (state: PlayerState.Any, url: string): ReduceResult<PlayerState.Any> =>
   match(state)

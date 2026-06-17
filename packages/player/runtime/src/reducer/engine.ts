@@ -1,6 +1,5 @@
 import { match } from "ts-pattern";
-import type { PlaybackType, ReduceResult } from "../model";
-import { PlayerState, type SourceMetadata } from "../states";
+import { type PlaybackType, PlayerState, type ReduceResult, type SourceMetadata } from "../model";
 
 export const handleMetadataLoaded = (
   state: PlayerState.Any,
