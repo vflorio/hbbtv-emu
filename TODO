@@ -1,3 +1,5 @@
+BUGS
+    
 
 Player 
     - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)

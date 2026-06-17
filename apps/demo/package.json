@@ -1,6 +1,6 @@
 {
-  "name": "@functional-player/runtime-demo",
-  "version": "0.0.0",
+  "name": "@functional-player/demo",
+  "version": "0.1.0",
   "dependencies": {
     "@functional-player/core": "workspace:*",
     "@functional-player/player-adapter-web": "workspace:*",
