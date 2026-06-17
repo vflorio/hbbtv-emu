@@ -1,7 +1,3 @@
-/**
- * Pattern Matching Utilities for Player State
- */
-
 import { formatBandwidth, formatBytes, formatTime } from "@functional-player/core";
 import { match } from "ts-pattern";
 import type { PlayerState } from "../";

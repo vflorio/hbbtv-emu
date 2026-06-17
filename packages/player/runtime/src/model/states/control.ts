@@ -1,7 +1,7 @@
 import type { SourceMetadata, TimeRange } from "../common";
-import { PlayableState } from "./base";
+import { PlayableState, UnplayableState } from "./base";
 
-export class Idle extends PlayableState {
+export class Idle extends UnplayableState {
   readonly _tag = "Control/Idle" as const;
 }
 

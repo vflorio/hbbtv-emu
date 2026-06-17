@@ -7,6 +7,14 @@ export abstract class PlayableState {
 }
 
 /**
+ * Base class for unplayable states (no media loaded)
+ */
+export abstract class UnplayableState {
+  readonly _tagGroup = "Unplayable" as const;
+  readonly isError = false as const;
+}
+
+/**
  * Base class for errors that can potentially be recovered from
  */
 export abstract class RecoverableError {
