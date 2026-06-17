@@ -1,9 +1,5 @@
-/**
- * State Category Predicates (Type Guards)
- */
-
 import { match } from "ts-pattern";
-import type { PlayerState } from "../states";
+import type { PlayerState } from "..";
 
 /**
  * Type guard: Check if state is playable

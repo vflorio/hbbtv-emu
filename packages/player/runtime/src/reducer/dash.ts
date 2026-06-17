@@ -1,6 +1,6 @@
 import { match } from "ts-pattern";
+import { PlayerState } from "../";
 import type { DASHAdaptationSetInfo, DASHRepresentationInfo, ReduceResult } from "../model";
-import { PlayerState } from "../states";
 
 export const handleDASHMPDLoading = (state: PlayerState.Any, url: string): ReduceResult<PlayerState.Any> =>
   match(state)

@@ -1,8 +1,8 @@
 import * as E from "fp-ts/Either";
 import * as O from "fp-ts/Option";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlayerEvent, PlayerRuntimeConfig } from "../";
 import { PlayerRuntime } from "../runtime";
-import type { PlayerEvent, PlayerRuntimeConfig } from "../types";
 import { createMockAdapter, type MockAdapter } from "./test-helpers";
 
 const createRuntime = () => {
@@ -60,7 +60,7 @@ describe("PlayerRuntime - API surface", () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/PlayRequested" })();
 
-    expect(events.some((e) => e._tag === "Engine/Mounted")).toBe(true);
+    expect(events.some((e) => e._tag === "Engine/Core/Mounted")).toBe(true);
     expect(events.some((e) => e._tag === "Intent/PlayRequested")).toBe(true);
   });
 
