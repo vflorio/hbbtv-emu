@@ -2,7 +2,8 @@
  * Video Player State Management System (Class Discriminated Unions ADT)
  */
 
-import type { PlaybackType } from "./types";
+import type { DASHAdaptationSetInfo, DASHRepresentationInfo } from "./model";
+import type { HLSVariantInfo, PlaybackType } from "./types";
 
 // ============================================================================
 // Base Classes & Interfaces
@@ -209,7 +210,7 @@ export namespace PlayerState {
 
         constructor(
           readonly url: string,
-          readonly variants: readonly HLSVariant[],
+          readonly variants: readonly HLSVariantInfo[],
           readonly duration: number,
         ) {
           super();
@@ -220,7 +221,7 @@ export namespace PlayerState {
         readonly _tag = "Source/HLS/VariantSelected" as const;
 
         constructor(
-          readonly variant: HLSVariant,
+          readonly variant: HLSVariantInfo,
           readonly bandwidth: number,
           readonly resolution: Resolution,
         ) {
@@ -244,8 +245,8 @@ export namespace PlayerState {
         readonly _tag = "Source/HLS/AdaptiveSwitching" as const;
 
         constructor(
-          readonly fromVariant: HLSVariant,
-          readonly toVariant: HLSVariant,
+          readonly fromVariant: HLSVariantInfo,
+          readonly toVariant: HLSVariantInfo,
           readonly reason: "bandwidth" | "manual",
         ) {
           super();
@@ -302,7 +303,7 @@ export namespace PlayerState {
 
         constructor(
           readonly url: string,
-          readonly adaptationSets: readonly DASHAdaptationSet[],
+          readonly adaptationSets: readonly DASHAdaptationSetInfo[],
           readonly duration: number,
           readonly isDynamic: boolean,
         ) {
@@ -314,7 +315,7 @@ export namespace PlayerState {
         readonly _tag = "Source/DASH/RepresentationSelected" as const;
 
         constructor(
-          readonly representation: DASHRepresentation,
+          readonly representation: DASHRepresentationInfo,
           readonly bandwidth: number,
           readonly resolution: Resolution,
         ) {
@@ -339,8 +340,8 @@ export namespace PlayerState {
         readonly _tag = "Source/DASH/QualitySwitching" as const;
 
         constructor(
-          readonly fromRepresentation: DASHRepresentation,
-          readonly toRepresentation: DASHRepresentation,
+          readonly fromRepresentation: DASHRepresentationInfo,
+          readonly toRepresentation: DASHRepresentationInfo,
           readonly reason: "abr" | "manual" | "constraint",
         ) {
           super();
@@ -469,31 +470,4 @@ export namespace PlayerState {
    * Union of all fatal error states
    */
   export type FatalErrors = Extract<Any, { _tagGroup: "FatalError" }>;
-}
-
-// ============================================================================
-// Supporting Types
-// ============================================================================
-
-export interface HLSVariant {
-  readonly bandwidth: number;
-  readonly resolution: Resolution;
-  readonly codecs: string;
-  readonly url: string;
-  readonly frameRate?: number;
-}
-
-export interface DASHAdaptationSet {
-  readonly id: string;
-  readonly contentType: "video" | "audio" | "text";
-  readonly mimeType: string;
-  readonly representations: readonly DASHRepresentation[];
-}
-
-export interface DASHRepresentation {
-  readonly id: string;
-  readonly bandwidth: number;
-  readonly codecs: string;
-  readonly resolution?: Resolution;
-  readonly frameRate?: number;
 }

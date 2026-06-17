@@ -1,5 +1,7 @@
 import type { TimeRange } from "../states";
 
+export type PlaybackType = "native" | "hls" | "dash";
+
 export type PlaybackSnapshot = {
   readonly currentTime: number;
   readonly duration: number;
@@ -7,8 +9,6 @@ export type PlaybackSnapshot = {
   readonly playbackRate: number;
   readonly paused: boolean;
 };
-
-export type PlaybackType = "native" | "hls" | "dash";
 
 export interface PlaybackData<TConfig> {
   readonly source: string;
