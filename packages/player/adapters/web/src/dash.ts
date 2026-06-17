@@ -9,9 +9,9 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import type { DASHConfig } from ".";
-import { BaseVideoAdapter } from "./base";
+import { CoreVideoAdapter } from "./core";
 
-export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
+export class DASHAdapter extends CoreVideoAdapter<DASHConfig> {
   readonly type = "dash" as const;
 
   private player: dashjs.MediaPlayerClass | null = null;
@@ -167,7 +167,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       () => IO.of(undefined),
       ({ url }) =>
         this.emit({
-          _tag: "Engine/DASH/MPDLoading",
+          _tag: "Engine/Adapter/DASH/MPDLoading",
           url,
         }),
     ),
@@ -214,7 +214,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       ({ video, url, adaptationSets, isDynamic, duration }) =>
         pipe(
           this.emit({
-            _tag: "Engine/DASH/MPDParsed",
+            _tag: "Engine/Adapter/DASH/MPDParsed",
             url,
             adaptationSets,
             duration,
@@ -222,7 +222,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
           }),
           IO.flatMap(() =>
             this.emit({
-              _tag: "Engine/MetadataLoaded",
+              _tag: "Engine/Core/MetadataLoaded",
               playbackType: this.type,
               url,
               duration,
@@ -248,7 +248,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
         () => IO.of(undefined),
         () =>
           this.emit({
-            _tag: "Engine/DASH/QualitySwitching",
+            _tag: "Engine/Adapter/DASH/QualitySwitching",
             fromRepresentation: {
               id: `${event.oldRepresentation.id}`,
               bandwidth: 0,
@@ -275,7 +275,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
         ({ video }) =>
           pipe(
             this.emit({
-              _tag: "Engine/DASH/RepresentationSelected",
+              _tag: "Engine/Adapter/DASH/RepresentationSelected",
               representation: {
                 id: event.newRepresentation.id,
                 bandwidth: 0,
@@ -309,7 +309,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
         ({ request }) =>
           pipe(
             this.emit({
-              _tag: "Engine/DASH/SegmentDownloading",
+              _tag: "Engine/Adapter/DASH/SegmentDownloading",
               segmentIndex: request.index || 0,
               mediaType: request.mediaType === "video" ? "video" : "audio",
               bytesLoaded: request.bytesTotal || 0,
@@ -336,7 +336,7 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
 
       return pipe(
         this.emit({
-          _tag: "Engine/DASH/MPDParseError",
+          _tag: "Engine/Adapter/DASH/MPDParseError",
           url,
           retryCount: currentRetry,
           message: errorMessage,

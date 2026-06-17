@@ -2,8 +2,7 @@
  * Video Player State Management System (Class Discriminated Unions ADT)
  */
 
-import type { DASHAdaptationSetInfo, DASHRepresentationInfo } from "./model";
-import type { HLSVariantInfo, PlaybackType } from "./types";
+import type { DASHAdaptationSetInfo, DASHRepresentationInfo, HLSVariantInfo, PlaybackType } from "./model";
 
 // ============================================================================
 // Base Classes & Interfaces

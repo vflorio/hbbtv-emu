@@ -5,7 +5,7 @@
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as RA from "fp-ts/ReadonlyArray";
-import type { UnsubscribeFn } from "./types";
+import type { UnsubscribeFn } from "./model";
 
 export type Listener<T> = (data: T) => void;
 

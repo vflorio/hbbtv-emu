@@ -2,8 +2,8 @@ import type * as IO from "fp-ts/IO";
 import type * as IOO from "fp-ts/IOOption";
 import type * as T from "fp-ts/Task";
 import type * as TE from "fp-ts/TaskEither";
-import type { PlayerEventListener, PlayerStateListener } from "../types";
 import type { PlayerEvent, UnsubscribeFn } from ".";
+import type { PlayerEventListener, PlayerStateListener } from "./";
 import type { PlaybackType } from "./playback";
 
 export interface PlayerRuntimeApi<T> {
@@ -15,6 +15,10 @@ export interface PlayerRuntimeApi<T> {
   subscribeToState: (listener: PlayerStateListener<T>) => IO.IO<UnsubscribeFn>;
   subscribeToEvents: (listener: PlayerEventListener) => IO.IO<UnsubscribeFn>;
 }
+
+export type PlayerRuntimeConfig = Readonly<{
+  readonly adapters: Record<PlaybackType, RuntimeAdapter>;
+}>;
 
 export type PlayerRuntimeError =
   | { readonly _tag: "CoreError/NoAdapter"; readonly message: string }

@@ -9,9 +9,9 @@ import * as TE from "fp-ts/TaskEither";
 import Hls, { type ErrorData, ErrorTypes, type Events, type HlsListeners, type Level } from "hls.js";
 import { match } from "ts-pattern";
 import type { HLSConfig } from ".";
-import { BaseVideoAdapter } from "./base";
+import { CoreVideoAdapter } from "./core";
 
-export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
+export class HLSAdapter extends CoreVideoAdapter<HLSConfig> {
   readonly type = "hls" as const;
 
   private hls: Hls | null = null;
@@ -148,7 +148,7 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
       () => IO.of(undefined),
       ({ url }) =>
         this.emit({
-          _tag: "Engine/HLS/ManifestLoading",
+          _tag: "Engine/Adapter/HLS/ManifestLoading",
           url,
         }),
     ),
@@ -169,14 +169,14 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
       ({ video, url, variants, duration }) =>
         pipe(
           this.emit({
-            _tag: "Engine/HLS/ManifestParsed",
+            _tag: "Engine/Adapter/HLS/ManifestParsed",
             url,
             variants,
             duration,
           }),
           IO.flatMap(() =>
             this.emit({
-              _tag: "Engine/MetadataLoaded",
+              _tag: "Engine/Core/MetadataLoaded",
               playbackType: this.type,
               url,
               duration,
@@ -198,7 +198,7 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
         ({ level }) =>
           pipe(
             this.emit({
-              _tag: "Engine/HLS/VariantSelected",
+              _tag: "Engine/Adapter/HLS/VariantSelected",
               variant: hlsLevelToVariant(level),
               bandwidth: level.bitrate,
               resolution: { width: level.width || 0, height: level.height || 0 },
@@ -222,7 +222,7 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
         () => IO.of(undefined),
         ({ fromLevel, toLevel }) =>
           this.emit({
-            _tag: "Engine/HLS/AdaptiveSwitching",
+            _tag: "Engine/Adapter/HLS/AdaptiveSwitching",
             fromVariant: hlsLevelToVariant(fromLevel),
             toVariant: hlsLevelToVariant(toLevel),
             reason: "bandwidth",
@@ -240,7 +240,7 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
         () => IO.of(undefined),
         ({ video, frag, hls }) =>
           this.emit({
-            _tag: "Engine/HLS/SegmentLoading",
+            _tag: "Engine/Adapter/HLS/SegmentLoading",
             segmentIndex: typeof frag.sn === "number" ? frag.sn : 0,
             totalSegments: hls.levels[hls.currentLevel]?.details?.fragments.length || 0,
             currentTime: video.currentTime,
@@ -264,7 +264,7 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
 
             return pipe(
               this.emit({
-                _tag: "Engine/HLS/ManifestParseError",
+                _tag: "Engine/Adapter/HLS/ManifestParseError",
                 url,
                 retryCount: currentRetry,
                 message: `HLS manifest error: ${data.details}`,
@@ -291,7 +291,7 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
 
             return pipe(
               this.emit({
-                _tag: "Engine/HLS/SegmentLoadError",
+                _tag: "Engine/Adapter/HLS/SegmentLoadError",
                 segmentIndex: fragSn,
                 segmentUrl: fragUrl,
                 retryCount: currentRetry,

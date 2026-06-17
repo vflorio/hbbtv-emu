@@ -9,8 +9,6 @@ import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import { EventBus } from "./eventBus";
-import { initialState, reduce } from "./reducer";
-import type { PlayerState } from "./states";
 import type {
   AdapterError,
   PlaybackType,
@@ -23,7 +21,9 @@ import type {
   PlayerStateListener,
   RuntimeAdapter,
   UnsubscribeFn,
-} from "./types";
+} from "./model";
+import { initialState, reduce } from "./reducer";
+import type { PlayerState } from "./states";
 
 export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
   constructor(private readonly config: PlayerRuntimeConfig) {}
@@ -53,7 +53,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
       T.tapIO(() => () => {
         this.videoElement = O.some(videoElement);
       }),
-      T.tap(() => this.dispatch({ _tag: "Engine/Mounted" })),
+      T.tap(() => this.dispatch({ _tag: "Engine/Core/Mounted" })),
       T.asUnit,
     );
 
@@ -335,7 +335,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
         TE.flatMap(() =>
           TE.fromTask(
             this.dispatch({
-              _tag: "Engine/AutoplayRecoveryAttempted",
+              _tag: "Engine/Core/AutoplayRecoveryAttempted",
               muted: true,
             }),
           ),

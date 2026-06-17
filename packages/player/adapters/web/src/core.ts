@@ -29,7 +29,7 @@ import type { VideoEventListener } from ".";
  * - loadSource: Load media source using the specific engine
  * - cleanupEngine: Clean up engine-specific resources
  */
-export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdapter {
+export abstract class CoreVideoAdapter<TConfig = unknown> implements RuntimeAdapter {
   abstract readonly type: PlaybackType;
 
   protected video: HTMLVideoElement | null = null;
@@ -53,7 +53,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
         IO.flatMap(() => this.setupEngine(videoElement)),
         IO.flatMap(() => this.setupVideoEventListeners(videoElement)),
         IO.flatMap(() => this.syncInitialState(videoElement)),
-        IO.flatMap(() => this.emit({ _tag: "Engine/Mounted" })),
+        IO.flatMap(() => this.emit({ _tag: "Engine/Core/Mounted" })),
       )();
     };
 
@@ -122,7 +122,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
         () => IO.of(undefined),
         ({ url }) =>
           this.emit({
-            _tag: "Engine/MetadataLoaded",
+            _tag: "Engine/Core/MetadataLoaded",
             playbackType: this.type,
             url,
             duration: Number.isFinite(videoElement.duration) ? videoElement.duration : 0,
@@ -144,14 +144,14 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
               () => IO.of(undefined),
               (v) =>
                 this.emit({
-                  _tag: "Engine/Playing",
+                  _tag: "Engine/Core/Playing",
                   snapshot: snapshotOf(v),
                 }),
             ),
           ),
         (v) =>
           this.emit({
-            _tag: "Engine/Ended",
+            _tag: "Engine/Core/Ended",
             snapshot: snapshotOf(v),
           }),
       ),
@@ -159,8 +159,8 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
 
     const emitVolumeState = pipe(
       IO.Do,
-      IO.flatMap(() => this.emit({ _tag: "Engine/VolumeChanged", volume: videoElement.volume })),
-      IO.flatMap(() => this.emit({ _tag: "Engine/MutedChanged", muted: videoElement.muted })),
+      IO.flatMap(() => this.emit({ _tag: "Engine/Core/VolumeChanged", volume: videoElement.volume })),
+      IO.flatMap(() => this.emit({ _tag: "Engine/Core/MutedChanged", muted: videoElement.muted })),
     );
 
     return pipe(
@@ -325,7 +325,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
       () => () => console.log("onLoadedMetadata: video or url is null"),
       ({ video, url }) =>
         this.emit({
-          _tag: "Engine/MetadataLoaded",
+          _tag: "Engine/Core/MetadataLoaded",
           playbackType: this.type,
           url,
           duration: Number.isFinite(video.duration) ? video.duration : 0,
@@ -340,7 +340,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => this.emit({ _tag: "Engine/TimeUpdated", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Core/TimeUpdated", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -349,7 +349,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => this.emit({ _tag: "Engine/Playing", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Core/Playing", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -358,7 +358,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => this.emit({ _tag: "Engine/Paused", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Core/Paused", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -367,7 +367,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => this.emit({ _tag: "Engine/Waiting", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Core/Waiting", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -376,7 +376,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => this.emit({ _tag: "Engine/Ended", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Core/Ended", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -385,7 +385,7 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
     IOO.bind("video", () => IOO.fromNullable(this.video)),
     IOO.matchE(
       () => IO.of(undefined),
-      ({ video }) => this.emit({ _tag: "Engine/Seeked", snapshot: snapshotOf(video) }),
+      ({ video }) => this.emit({ _tag: "Engine/Core/Seeked", snapshot: snapshotOf(video) }),
     ),
   );
 
@@ -396,8 +396,8 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
       () => IO.of(undefined),
       ({ video }) =>
         pipe(
-          this.emit({ _tag: "Engine/VolumeChanged", volume: video.volume }),
-          IO.flatMap(() => this.emit({ _tag: "Engine/MutedChanged", muted: video.muted })),
+          this.emit({ _tag: "Engine/Core/VolumeChanged", volume: video.volume }),
+          IO.flatMap(() => this.emit({ _tag: "Engine/Core/MutedChanged", muted: video.muted })),
         ),
     ),
   );

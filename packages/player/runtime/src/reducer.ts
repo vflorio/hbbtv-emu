@@ -1,13 +1,18 @@
 import { match } from "ts-pattern";
-import { PlayerState, type SourceMetadata } from "./states";
 import type {
   DASHAdaptationSetInfo,
   DASHRepresentationInfo,
   HLSVariantInfo,
   PlaybackType,
+  PlayerEffect,
   PlayerEvent,
-  ReduceResult,
-} from "./types";
+} from "./model";
+import { PlayerState, type SourceMetadata } from "./states";
+
+export type ReduceResult<T> = {
+  readonly next: T;
+  readonly effects: readonly PlayerEffect[];
+};
 
 export const initialState = (): PlayerState.Any => new PlayerState.Control.Idle();
 
@@ -412,6 +417,7 @@ const handleDASHMPDParsed = (
       contentType: as.contentType,
       mimeType: as.mimeType,
       representations: [],
+      representationCount: as.representationCount,
     })),
     duration,
     isDynamic,
@@ -472,11 +478,11 @@ export const reduce =
       .with({ _tag: "Intent/SetVolumeRequested" }, ({ volume }) => handleSetVolumeIntent(state, volume))
       .with({ _tag: "Intent/SetMutedRequested" }, ({ muted }) => handleSetMutedIntent(state, muted))
       // Engine core events
-      .with({ _tag: "Engine/MetadataLoaded" }, ({ playbackType, url, duration, width, height }) =>
+      .with({ _tag: "Engine/Core/MetadataLoaded" }, ({ playbackType, url, duration, width, height }) =>
         handleMetadataLoaded(state, playbackType, url, duration, width, height),
       )
-      .with({ _tag: "Engine/TimeUpdated" }, ({ snapshot }) => handleTimeUpdated(state, snapshot))
-      .with({ _tag: "Engine/Playing" }, ({ snapshot }) => ({
+      .with({ _tag: "Engine/Core/TimeUpdated" }, ({ snapshot }) => handleTimeUpdated(state, snapshot))
+      .with({ _tag: "Engine/Core/Playing" }, ({ snapshot }) => ({
         next: new PlayerState.Control.Playing(
           snapshot.currentTime,
           snapshot.duration,
@@ -486,7 +492,7 @@ export const reduce =
         ),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/Paused" }, ({ snapshot }) => ({
+      .with({ _tag: "Engine/Core/Paused" }, ({ snapshot }) => ({
         next: new PlayerState.Control.Paused(
           snapshot.currentTime,
           snapshot.duration,
@@ -495,7 +501,7 @@ export const reduce =
         ),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/Waiting" }, ({ snapshot }) => ({
+      .with({ _tag: "Engine/Core/Waiting" }, ({ snapshot }) => ({
         next: new PlayerState.Control.Buffering(
           snapshot.currentTime,
           snapshot.duration,
@@ -505,7 +511,7 @@ export const reduce =
         ),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/Seeked" }, ({ snapshot }) => ({
+      .with({ _tag: "Engine/Core/Seeked" }, ({ snapshot }) => ({
         next: snapshot.paused
           ? new PlayerState.Control.Paused(
               snapshot.currentTime,
@@ -522,71 +528,81 @@ export const reduce =
             ),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/Ended" }, ({ snapshot }) => ({
+      .with({ _tag: "Engine/Core/Ended" }, ({ snapshot }) => ({
         next: new PlayerState.Control.Ended(snapshot.duration, false),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/VolumeChanged" }, () => ({
+      .with({ _tag: "Engine/Core/VolumeChanged" }, () => ({
         next: state,
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/MutedChanged" }, () => ({
+      .with({ _tag: "Engine/Core/MutedChanged" }, () => ({
         next: state,
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/AutoplayRecoveryAttempted" }, () => ({
+      .with({ _tag: "Engine/Core/AutoplayRecoveryAttempted" }, () => ({
         next: state,
         effects: [] as const,
       }))
       .with({ _tag: "Engine/Error" }, ({ kind, message, url, codec }) => handleEngineError(kind, message, url, codec))
       // Native events
-      .with({ _tag: "Engine/Native/ProgressiveLoading" }, ({ url, bytesLoaded, bytesTotal, canPlayThrough }) =>
+      .with({ _tag: "Engine/Adapter/Native/ProgressiveLoading" }, ({ url, bytesLoaded, bytesTotal, canPlayThrough }) =>
         handleNativeProgressiveLoading(state, url, bytesLoaded, bytesTotal, canPlayThrough),
       )
       // HLS events
-      .with({ _tag: "Engine/HLS/ManifestLoading" }, ({ url }) => handleHLSManifestLoading(state, url))
-      .with({ _tag: "Engine/HLS/ManifestParsed" }, ({ url, variants, duration }) =>
+      .with({ _tag: "Engine/Adapter/HLS/ManifestLoading" }, ({ url }) => handleHLSManifestLoading(state, url))
+      .with({ _tag: "Engine/Adapter/HLS/ManifestParsed" }, ({ url, variants, duration }) =>
         handleHLSManifestParsed(url, variants, duration),
       )
-      .with({ _tag: "Engine/HLS/VariantSelected" }, ({ variant, bandwidth, resolution }) =>
+      .with({ _tag: "Engine/Adapter/HLS/VariantSelected" }, ({ variant, bandwidth, resolution }) =>
         handleHLSVariantSelected(variant, bandwidth, resolution),
       )
-      .with({ _tag: "Engine/HLS/SegmentLoading" }, ({ segmentIndex, totalSegments, currentTime }) =>
+      .with({ _tag: "Engine/Adapter/HLS/SegmentLoading" }, ({ segmentIndex, totalSegments, currentTime }) =>
         handleHLSSegmentLoading(state, segmentIndex, totalSegments, currentTime),
       )
-      .with({ _tag: "Engine/HLS/AdaptiveSwitching" }, ({ fromVariant, toVariant, reason }) =>
+      .with({ _tag: "Engine/Adapter/HLS/AdaptiveSwitching" }, ({ fromVariant, toVariant, reason }) =>
         handleHLSAdaptiveSwitching(fromVariant, toVariant, reason),
       )
-      .with({ _tag: "Engine/HLS/ManifestParseError" }, ({ url, retryCount, message }) => ({
+      .with({ _tag: "Engine/Adapter/HLS/ManifestParseError" }, ({ url, retryCount, message }) => ({
         next: new PlayerState.Source.HLS.ManifestParseError(new Error(message), retryCount, url),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/HLS/SegmentLoadError" }, ({ segmentIndex, segmentUrl, retryCount, message }) => ({
+      .with({ _tag: "Engine/Adapter/HLS/SegmentLoadError" }, ({ segmentIndex, segmentUrl, retryCount, message }) => ({
         next: new PlayerState.Source.HLS.SegmentLoadError(new Error(message), retryCount, segmentIndex, segmentUrl),
         effects: [] as const,
       }))
       // DASH events
-      .with({ _tag: "Engine/DASH/MPDLoading" }, ({ url }) => handleDASHMPDLoading(state, url))
-      .with({ _tag: "Engine/DASH/MPDParsed" }, ({ url, adaptationSets, duration, isDynamic }) =>
+      .with({ _tag: "Engine/Adapter/DASH/MPDLoading" }, ({ url }) => handleDASHMPDLoading(state, url))
+      .with({ _tag: "Engine/Adapter/DASH/MPDParsed" }, ({ url, adaptationSets, duration, isDynamic }) =>
         handleDASHMPDParsed(url, adaptationSets, duration, isDynamic),
       )
-      .with({ _tag: "Engine/DASH/RepresentationSelected" }, ({ representation, bandwidth, resolution }) =>
+      .with({ _tag: "Engine/Adapter/DASH/RepresentationSelected" }, ({ representation, bandwidth, resolution }) =>
         handleDASHRepresentationSelected(representation, bandwidth, resolution),
       )
-      .with({ _tag: "Engine/DASH/SegmentDownloading" }, ({ segmentIndex, mediaType, bytesLoaded, bytesTotal }) =>
-        handleDASHSegmentDownloading(state, segmentIndex, mediaType, bytesLoaded, bytesTotal),
+      .with(
+        { _tag: "Engine/Adapter/DASH/SegmentDownloading" },
+        ({ segmentIndex, mediaType, bytesLoaded, bytesTotal }) =>
+          handleDASHSegmentDownloading(state, segmentIndex, mediaType, bytesLoaded, bytesTotal),
       )
-      .with({ _tag: "Engine/DASH/QualitySwitching" }, ({ fromRepresentation, toRepresentation, reason }) =>
+      .with({ _tag: "Engine/Adapter/DASH/QualitySwitching" }, ({ fromRepresentation, toRepresentation, reason }) =>
         handleDASHQualitySwitching(fromRepresentation, toRepresentation, reason),
       )
-      .with({ _tag: "Engine/DASH/MPDParseError" }, ({ url, retryCount, message }) => ({
+      .with({ _tag: "Engine/Adapter/DASH/MPDParseError" }, ({ url, retryCount, message }) => ({
         next: new PlayerState.Source.DASH.MPDParseError(new Error(message), retryCount, url),
         effects: [] as const,
       }))
-      .with({ _tag: "Engine/DASH/SegmentDownloadError" }, ({ segmentIndex, mediaType, retryCount, message }) => ({
-        next: new PlayerState.Source.DASH.SegmentDownloadError(new Error(message), retryCount, segmentIndex, mediaType),
-        effects: [] as const,
-      }))
+      .with(
+        { _tag: "Engine/Adapter/DASH/SegmentDownloadError" },
+        ({ segmentIndex, mediaType, retryCount, message }) => ({
+          next: new PlayerState.Source.DASH.SegmentDownloadError(
+            new Error(message),
+            retryCount,
+            segmentIndex,
+            mediaType,
+          ),
+          effects: [] as const,
+        }),
+      )
       .otherwise(() => ({ next: state, effects: [] as const }));
 
 // ============================================================================

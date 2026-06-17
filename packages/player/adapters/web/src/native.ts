@@ -9,9 +9,9 @@ import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import type { NativeConfig } from ".";
-import { BaseVideoAdapter } from "./base";
+import { CoreVideoAdapter } from "./core";
 
-export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
+export class NativeAdapter extends CoreVideoAdapter<NativeConfig> {
   readonly type = "native" as const;
 
   private canPlayThrough = false;
@@ -124,7 +124,7 @@ export class NativeAdapter extends BaseVideoAdapter<NativeConfig> {
         () => IO.of(undefined),
         ({ video, url }) =>
           this.emit({
-            _tag: "Engine/Native/ProgressiveLoading",
+            _tag: "Engine/Adapter/Native/ProgressiveLoading",
             url,
             bytesLoaded: calculateBufferedTime(video.buffered),
             bytesTotal: video.duration,
