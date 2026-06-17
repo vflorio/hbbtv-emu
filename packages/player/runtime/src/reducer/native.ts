@@ -1,6 +1,6 @@
 import { match } from "ts-pattern";
+import type { ReduceResult } from "../model";
 import { PlayerState } from "../states";
-import type { ReduceResult } from "./types";
 
 export const handleNativeProgressiveLoading = (
   state: PlayerState.Any,

@@ -2,7 +2,7 @@ import * as E from "fp-ts/Either";
 import type * as IO from "fp-ts/IO";
 import type * as TE from "fp-ts/TaskEither";
 import { type Mock, vi } from "vitest";
-import type { AdapterError, PlaybackType, PlayerEvent, RuntimeAdapter, UnsubscribeFn } from "../types";
+import type { AdapterError, PlaybackType, PlayerEvent, RuntimeAdapter, UnsubscribeFn } from "../";
 
 export type MockAdapter = RuntimeAdapter & {
   mount: Mock<(videoElement: HTMLVideoElement) => IO.IO<void>>;

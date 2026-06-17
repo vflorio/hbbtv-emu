@@ -3,6 +3,7 @@ import type { PlayerIntentEvent } from "./intents";
 import type { PlayerRuntimeError } from "./runtime";
 
 export * from "./adapter";
+export * from "./common";
 export * from "./effects";
 export * from "./engine/adapter/dash";
 export * from "./engine/adapter/hls";

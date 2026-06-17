@@ -119,7 +119,7 @@ export class HLSAdapter extends CoreVideoAdapter<HLSConfig> {
     return pipe(
       this.hls,
       TE.fromNullable({
-        _tag: "AdapterError/VideoElementNotMounted" as const,
+        _tag: "AdapterError/VideoElementMissing" as const,
         message: "HLS player not initialized",
       }),
       TE.flatMap((hls) =>

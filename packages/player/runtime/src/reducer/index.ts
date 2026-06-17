@@ -1,5 +1,5 @@
 import { match } from "ts-pattern";
-import type { PlayerEvent } from "../model";
+import type { PlayerEvent, ReduceResult } from "../model";
 import { PlayerState } from "../states";
 import {
   handleDASHMPDLoading,
@@ -25,7 +25,6 @@ import {
   handleSetVolumeIntent,
 } from "./intents";
 import { handleNativeProgressiveLoading } from "./native";
-import type { ReduceResult } from "./types";
 
 export const initialState = (): PlayerState.Any => new PlayerState.Control.Idle();
 

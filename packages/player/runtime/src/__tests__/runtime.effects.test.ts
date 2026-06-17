@@ -1,8 +1,8 @@
 import * as E from "fp-ts/Either";
 import * as O from "fp-ts/Option";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlaybackSnapshot, PlayerEvent, PlayerRuntimeConfig } from "../";
 import { PlayerRuntime } from "../runtime";
-import type { PlaybackSnapshot, PlayerEvent, PlayerRuntimeConfig } from "../types";
 import { createMockAdapter, type MockAdapter } from "./test-helpers";
 
 const createRuntime = (overrides?: Partial<Record<"native" | "hls" | "dash", MockAdapter>>) => {
@@ -142,7 +142,7 @@ describe("PlayerRuntime - Effects", () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
     await runtime.dispatch({
-      _tag: "Engine/Paused",
+      _tag: "Engine/Core/Paused",
       snapshot: createSnapshot({ paused: true, currentTime: 10 }),
     })();
 
@@ -150,7 +150,7 @@ describe("PlayerRuntime - Effects", () => {
     expect(native.play).toHaveBeenCalledTimes(1);
 
     await runtime.dispatch({
-      _tag: "Engine/Playing",
+      _tag: "Engine/Core/Playing",
       snapshot: createSnapshot({ paused: false, currentTime: 10 }),
     })();
 

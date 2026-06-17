@@ -1,10 +1,6 @@
-/**
- * State Machine Tests - validates transitions driven by reducer
- */
-
 import { beforeEach, describe, expect, it } from "vitest";
+import type { PlaybackSnapshot, PlayerRuntimeConfig } from "../";
 import { PlayerRuntime } from "../runtime";
-import type { PlaybackSnapshot, PlayerRuntimeConfig } from "../types";
 import { createMockAdapter, type MockAdapter } from "./test-helpers";
 
 const createSnapshot = (overrides: Partial<PlaybackSnapshot> = {}): PlaybackSnapshot => ({
@@ -49,7 +45,7 @@ describe("PlayerRuntime - State Machine", () => {
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
 
     await runtime.dispatch({
-      _tag: "Engine/MetadataLoaded",
+      _tag: "Engine/Core/MetadataLoaded",
       playbackType: "native",
       url: "video.mp4",
       duration: 120,
@@ -69,7 +65,10 @@ describe("PlayerRuntime - State Machine", () => {
   it("Paused -> Playing on PlayRequested (and calls adapter.play)", async () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
-    await runtime.dispatch({ _tag: "Engine/Paused", snapshot: createSnapshot({ paused: true, currentTime: 10 }) })();
+    await runtime.dispatch({
+      _tag: "Engine/Core/Paused",
+      snapshot: createSnapshot({ paused: true, currentTime: 10 }),
+    })();
 
     await runtime.dispatch({ _tag: "Intent/PlayRequested" })();
 
@@ -80,7 +79,10 @@ describe("PlayerRuntime - State Machine", () => {
   it("Playing -> Paused on PauseRequested (and calls adapter.pause)", async () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
-    await runtime.dispatch({ _tag: "Engine/Playing", snapshot: createSnapshot({ paused: false, currentTime: 10 }) })();
+    await runtime.dispatch({
+      _tag: "Engine/Core/Playing",
+      snapshot: createSnapshot({ paused: false, currentTime: 10 }),
+    })();
 
     await runtime.dispatch({ _tag: "Intent/PauseRequested" })();
 
@@ -91,7 +93,10 @@ describe("PlayerRuntime - State Machine", () => {
   it("Playing -> Seeking on SeekRequested (and calls adapter.seek)", async () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
-    await runtime.dispatch({ _tag: "Engine/Playing", snapshot: createSnapshot({ paused: false, currentTime: 10 }) })();
+    await runtime.dispatch({
+      _tag: "Engine/Core/Playing",
+      snapshot: createSnapshot({ paused: false, currentTime: 10 }),
+    })();
 
     await runtime.dispatch({ _tag: "Intent/SeekRequested", time: 30 })();
 
@@ -107,13 +112,16 @@ describe("PlayerRuntime - State Machine", () => {
   });
 
   it("Engine events force control states", async () => {
-    await runtime.dispatch({ _tag: "Engine/Playing", snapshot: createSnapshot({ paused: false, currentTime: 5 }) })();
+    await runtime.dispatch({
+      _tag: "Engine/Core/Playing",
+      snapshot: createSnapshot({ paused: false, currentTime: 5 }),
+    })();
     expect(runtime.getState()._tag).toBe("Control/Playing");
 
-    await runtime.dispatch({ _tag: "Engine/Waiting", snapshot: createSnapshot({ currentTime: 6 }) })();
+    await runtime.dispatch({ _tag: "Engine/Core/Waiting", snapshot: createSnapshot({ currentTime: 6 }) })();
     expect(runtime.getState()._tag).toBe("Control/Buffering");
 
-    await runtime.dispatch({ _tag: "Engine/Ended", snapshot: createSnapshot({ currentTime: 120 }) })();
+    await runtime.dispatch({ _tag: "Engine/Core/Ended", snapshot: createSnapshot({ currentTime: 120 }) })();
     expect(runtime.getState()._tag).toBe("Control/Ended");
   });
 });

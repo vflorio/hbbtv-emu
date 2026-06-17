@@ -19,6 +19,7 @@ import type {
   PlayerRuntimeConfig,
   PlayerRuntimeError,
   PlayerStateListener,
+  ReduceResult,
   RuntimeAdapter,
   UnsubscribeFn,
 } from "./model";
@@ -103,11 +104,6 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
   };
 
   private processAllEvents: IO.IO<void> = () => {
-    type ReduceResult<T> = {
-      readonly next: T;
-      readonly effects: readonly PlayerEffect[];
-    };
-
     const reduceState = (playerEvent: PlayerEvent): IO.IO<ReduceResult<PlayerState.Any>> =>
       pipe(
         IO.of(playerEvent),

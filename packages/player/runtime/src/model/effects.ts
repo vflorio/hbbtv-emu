@@ -10,3 +10,8 @@ export type PlayerEffect =
   | { readonly _tag: "Effect/Seek"; readonly time: number }
   | { readonly _tag: "Effect/SetVolume"; readonly volume: number }
   | { readonly _tag: "Effect/SetMuted"; readonly muted: boolean };
+
+export type ReduceResult<T> = {
+  readonly next: T;
+  readonly effects: readonly PlayerEffect[];
+};

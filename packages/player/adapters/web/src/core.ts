@@ -175,7 +175,7 @@ export abstract class CoreVideoAdapter<TConfig = unknown> implements RuntimeAdap
     pipe(
       this.video,
       E.fromNullable({
-        _tag: "AdapterError/VideoElementNotMounted" as const,
+        _tag: "AdapterError/VideoElementMissing" as const,
         message: "Video element not mounted",
       }),
     );

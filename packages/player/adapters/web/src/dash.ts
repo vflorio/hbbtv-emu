@@ -135,7 +135,7 @@ export class DASHAdapter extends CoreVideoAdapter<DASHConfig> {
     return pipe(
       this.player,
       TE.fromNullable({
-        _tag: "AdapterError/VideoElementNotMounted" as const,
+        _tag: "AdapterError/VideoElementMissing" as const,
         message: "Player not initialized",
       }),
       TE.flatMap((player) =>

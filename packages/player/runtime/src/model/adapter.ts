@@ -17,6 +17,7 @@ export type RuntimeAdapter = {
 };
 
 export type AdapterError =
+  | { readonly _tag: "AdapterError/VideoElementMissing"; readonly message: string }
   | {
       readonly _tag: "AdapterError/LoadFailed";
       readonly message: string;
