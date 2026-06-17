@@ -11,6 +11,7 @@ export * from "./engine/base";
 export * from "./intents";
 export * from "./playback";
 export * from "./runtime";
+export * from "./states";
 
 export type PlayerEvent = PlayerIntentEvent | PlayerEngineEvent | PlayerRuntimeError;
 
