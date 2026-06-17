@@ -76,7 +76,7 @@ export function usePlayerDebug(playerRuntime: PlayerRuntime) {
       const kind = match(event._tag)
         .with(P.string.startsWith("Intent/"), () => "intent" as const)
         .with(P.string.startsWith("Engine/"), () => "engine" as const)
-        .with(P.string.startsWith("CoreError/"), () => "core-error" as const)
+        .with(P.string.startsWith("RuntimeError/"), () => "core-error" as const)
         .otherwise(() => "error" as const);
 
       pushEntry({ kind, time: Date.now(), event });

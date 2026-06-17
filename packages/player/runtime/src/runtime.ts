@@ -187,7 +187,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     pipe(
       O.fromNullable(this.config.adapters[playbackType]),
       TE.fromOption<PlayerRuntimeError>(() => ({
-        _tag: "CoreError/NoAdapter" as const,
+        _tag: "RuntimeError/AdapterMissing" as const,
         message: `No adapter found for playback type: ${playbackType}`,
       })),
       TE.tapIO(() => () => {
@@ -201,21 +201,21 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     );
 
   private adapterFailure = (
-    operation: Extract<PlayerRuntimeError, { _tag: "CoreError/AdapterFailure" }>["operation"],
+    operation: Extract<PlayerRuntimeError, { _tag: "RuntimeError/AdapterFailure" }>["operation"],
     message: string,
     cause?: unknown,
   ): PlayerRuntimeError => ({
-    _tag: "CoreError/AdapterFailure",
+    _tag: "RuntimeError/AdapterFailure",
     operation,
     message,
     cause,
   });
 
   private adapterFailureFromError = (
-    operation: Extract<PlayerRuntimeError, { _tag: "CoreError/AdapterFailure" }>["operation"],
+    operation: Extract<PlayerRuntimeError, { _tag: "RuntimeError/AdapterFailure" }>["operation"],
     adapterError: AdapterError,
   ): PlayerRuntimeError => ({
-    _tag: "CoreError/AdapterFailure",
+    _tag: "RuntimeError/AdapterFailure",
     operation,
     message: adapterError.message,
     cause: adapterError,
@@ -276,7 +276,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
         pipe(
           this.videoElement,
           TE.fromOption<PlayerRuntimeError>(() => ({
-            _tag: "CoreError/NoVideoElement" as const,
+            _tag: "RuntimeError/VideoElementMissing" as const,
             message: "No video element mounted",
           })),
         ),
@@ -285,7 +285,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
         pipe(
           this.adapter,
           TE.fromOption<PlayerRuntimeError>(() => ({
-            _tag: "CoreError/NoAdapter" as const,
+            _tag: "RuntimeError/AdapterMissing" as const,
             message: "No adapter to attach",
           })),
         ),
@@ -304,7 +304,7 @@ export class PlayerRuntime implements PlayerRuntimeApi<PlayerState.Any> {
     pipe(
       this.adapter,
       TE.fromOption<PlayerRuntimeError>(() => ({
-        _tag: "CoreError/NoAdapter",
+        _tag: "RuntimeError/AdapterMissing",
         message: "No adapter available",
       })),
     );

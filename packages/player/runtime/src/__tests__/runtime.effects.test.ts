@@ -92,17 +92,17 @@ describe("PlayerRuntime - Effects", () => {
     expect(hls.load).toHaveBeenCalledWith("stream.m3u8");
   });
 
-  it("dispatches CoreError/NoVideoElement when load is requested before mount", async () => {
+  it("dispatches RuntimeError/VideoElementMissing when load is requested before mount", async () => {
     const events: PlayerEvent[] = [];
     runtime.subscribeToEvents((e) => events.push(e))();
 
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
 
-    expect(events.some((e) => e._tag === "CoreError/NoVideoElement")).toBe(true);
+    expect(events.some((e) => e._tag === "RuntimeError/VideoElementMissing")).toBe(true);
     expect(native.mount).not.toHaveBeenCalled();
   });
 
-  it("dispatches CoreError/AdapterFailure when adapter load fails", async () => {
+  it("dispatches RuntimeError/AdapterFailure when adapter load fails", async () => {
     native.load.mockImplementationOnce(
       (_url) => async () =>
         E.left({
@@ -118,9 +118,9 @@ describe("PlayerRuntime - Effects", () => {
     await runtime.mount(video)();
     await runtime.dispatch({ _tag: "Intent/LoadRequested", url: "video.mp4" })();
 
-    const failure = events.find((e) => e._tag === "CoreError/AdapterFailure");
-    expect(failure?._tag).toBe("CoreError/AdapterFailure");
-    if (failure?._tag === "CoreError/AdapterFailure") {
+    const failure = events.find((e) => e._tag === "RuntimeError/AdapterFailure");
+    expect(failure?._tag).toBe("RuntimeError/AdapterFailure");
+    if (failure?._tag === "RuntimeError/AdapterFailure") {
       expect(failure.operation).toBe("load");
     }
 
