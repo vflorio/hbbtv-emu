@@ -1,29 +1,17 @@
 import { match } from "ts-pattern";
-import type { PlayerState, SourceMetadata } from "..";
+import type { Match, PlayerState, SourceMetadata } from "..";
 
-type Match<S, T> = ReturnType<typeof match<S, T>>;
-
-/**
- * Match on HLS-specific states
- */
 export const matchHLSState = <T>(state: PlayerState.Source.HLS.Any): Match<PlayerState.Source.HLS.Any, T> =>
   match<PlayerState.Source.HLS.Any, T>(state);
 
-/**
- * Match on DASH-specific states
- */
 export const matchDASHState = <T>(state: PlayerState.Source.DASH.Any): Match<PlayerState.Source.DASH.Any, T> =>
   match<PlayerState.Source.DASH.Any, T>(state);
 
-/**
- * Match on MP4-specific states
- */
-export const matchMP4State = <T>(state: PlayerState.Source.Native.Any): Match<PlayerState.Source.Native.Any, T> =>
+export const matchNativeState = <T>(state: PlayerState.Source.Native.Any): Match<PlayerState.Source.Native.Any, T> =>
   match<PlayerState.Source.Native.Any, T>(state);
 
-/**
- * Get current quality information (works for HLS and DASH)
- */
+// Utils
+
 export const getQualityInfo = (state: PlayerState.Any) =>
   match(state)
     .with({ _tag: "Source/HLS/VariantSelected" }, (s) => ({

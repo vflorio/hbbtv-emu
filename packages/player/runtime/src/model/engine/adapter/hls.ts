@@ -1,4 +1,4 @@
-export interface HLSVariantInfo {
+export interface HLSVariant {
   readonly bandwidth: number;
   readonly resolution: { width: number; height: number };
   readonly codecs: string;
@@ -14,12 +14,12 @@ export type PlayerEngineHlsEvent =
   | {
       readonly _tag: "Engine/Adapter/HLS/ManifestParsed";
       readonly url: string;
-      readonly variants: readonly HLSVariantInfo[];
+      readonly variants: readonly HLSVariant[];
       readonly duration: number;
     }
   | {
       readonly _tag: "Engine/Adapter/HLS/VariantSelected";
-      readonly variant: HLSVariantInfo;
+      readonly variant: HLSVariant;
       readonly bandwidth: number;
       readonly resolution: { width: number; height: number };
     }
@@ -31,8 +31,8 @@ export type PlayerEngineHlsEvent =
     }
   | {
       readonly _tag: "Engine/Adapter/HLS/AdaptiveSwitching";
-      readonly fromVariant: HLSVariantInfo;
-      readonly toVariant: HLSVariantInfo;
+      readonly fromVariant: HLSVariant;
+      readonly toVariant: HLSVariant;
       readonly reason: "bandwidth" | "manual";
     }
   | {

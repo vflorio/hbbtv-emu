@@ -1,4 +1,4 @@
-import { createLogger } from "@hbb-emu/core";
+import { createLogger } from "@functional-player/core";
 import * as B from "fp-ts/boolean";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";

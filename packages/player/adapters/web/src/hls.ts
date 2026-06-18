@@ -1,4 +1,4 @@
-import type { AdapterError, HLSVariantInfo } from "@functional-player/player-runtime";
+import type { AdapterError, HLSVariant } from "@functional-player/player-runtime";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -8,10 +8,16 @@ import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import Hls, { type ErrorData, ErrorTypes, type Events, type HlsListeners, type Level } from "hls.js";
 import { match } from "ts-pattern";
-import type { HLSConfig } from ".";
 import { CoreVideoAdapter } from "./core";
 
-export class HLSAdapter extends CoreVideoAdapter<HLSConfig> {
+export interface HLSAdapterConfig {
+  readonly debug?: boolean;
+  readonly hlsConfig?: Partial<Hls["config"]>;
+  readonly startLevel?: number;
+  readonly autoStartLoad?: boolean;
+}
+
+export class HLSAdapter extends CoreVideoAdapter<HLSAdapterConfig> {
   readonly type = "hls" as const;
 
   private hls: Hls | null = null;
@@ -20,7 +26,7 @@ export class HLSAdapter extends CoreVideoAdapter<HLSConfig> {
 
   private cleanHlsEventListener: IO.IO<void> = IO.of(undefined);
 
-  constructor(protected readonly config: HLSConfig = {}) {
+  constructor(protected readonly config: HLSAdapterConfig = {}) {
     super(config);
   }
 
@@ -322,7 +328,7 @@ export class HLSAdapter extends CoreVideoAdapter<HLSConfig> {
   };
 }
 
-const hlsLevelToVariant = (level: Level): HLSVariantInfo => ({
+const hlsLevelToVariant = (level: Level): HLSVariant => ({
   bandwidth: level.bitrate,
   resolution: { width: level.width || 0, height: level.height || 0 },
   codecs: level.videoCodec || level.audioCodec || "unknown",

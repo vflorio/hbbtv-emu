@@ -1,14 +1,13 @@
 import { addEventListener } from "@functional-player/core";
-import type {
-  AdapterError,
-  PlaybackSnapshot,
-  PlaybackType,
-  PlayerEngineEvent,
-  RuntimeAdapter,
-  TimeRange,
-  UnsubscribeFn,
+import {
+  type AdapterError,
+  type PlaybackSnapshot,
+  type PlaybackType,
+  type PlayerEngineEvent,
+  type RuntimeAdapter,
+  toTimeRanges,
+  type UnsubscribeFn,
 } from "@functional-player/player-runtime";
-import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -18,7 +17,6 @@ import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import type { VideoEventListener } from ".";
 
 /**
  * Base class for video player adapters.
@@ -29,6 +27,9 @@ import type { VideoEventListener } from ".";
  * - loadSource: Load media source using the specific engine
  * - cleanupEngine: Clean up engine-specific resources
  */
+
+type VideoEventListener = (event: PlayerEngineEvent) => void;
+
 export abstract class CoreVideoAdapter<TConfig = unknown> implements RuntimeAdapter {
   abstract readonly type: PlaybackType;
 
@@ -463,14 +464,5 @@ const snapshotOf = (video: HTMLVideoElement): PlaybackSnapshot => ({
   duration: Number.isFinite(video.duration) ? video.duration : 0,
   playbackRate: Number.isFinite(video.playbackRate) ? video.playbackRate : 1,
   paused: video.paused,
-  buffered: getBufferedRanges(video),
+  buffered: toTimeRanges(video),
 });
-
-const getBufferedRanges = (video: HTMLVideoElement): TimeRange[] =>
-  pipe(
-    A.makeBy(video.buffered.length, (index) => index), // [0, 1, 2, ..., buffered.length - 1]
-    A.map((index) => ({
-      start: video.buffered.start(index),
-      end: video.buffered.end(index),
-    })),
-  );

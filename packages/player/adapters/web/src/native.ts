@@ -8,15 +8,20 @@ import * as N from "fp-ts/number";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
-import type { NativeConfig } from ".";
 import { CoreVideoAdapter } from "./core";
 
-export class NativeAdapter extends CoreVideoAdapter<NativeConfig> {
+export interface NativeAdapterConfig {
+  readonly preload?: "none" | "metadata" | "auto";
+  readonly crossOrigin?: "anonymous" | "use-credentials";
+  readonly autoplay?: boolean;
+}
+
+export class NativeAdapter extends CoreVideoAdapter<NativeAdapterConfig> {
   readonly type = "native" as const;
 
   private canPlayThrough = false;
 
-  constructor(protected readonly config: NativeConfig = {}) {
+  constructor(protected readonly config: NativeAdapterConfig = {}) {
     super(config);
   }
 

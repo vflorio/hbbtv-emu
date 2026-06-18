@@ -17,21 +17,44 @@ export type RuntimeAdapter = {
 };
 
 export type AdapterError =
-  | { readonly _tag: "AdapterError/VideoElementMissing"; readonly message: string }
+  | {
+      readonly _tag: "AdapterError/VideoElementMissing";
+      readonly message: string;
+    }
   | {
       readonly _tag: "AdapterError/LoadFailed";
       readonly message: string;
       readonly url: string;
       readonly cause?: unknown;
     }
-  | { readonly _tag: "AdapterError/PlayFailed"; readonly message: string; readonly cause?: unknown }
-  | { readonly _tag: "AdapterError/AutoplayBlocked"; readonly message: string; readonly cause?: unknown }
-  | { readonly _tag: "AdapterError/PauseFailed"; readonly message: string; readonly cause?: unknown }
+  | {
+      readonly _tag: "AdapterError/PlayFailed";
+      readonly message: string;
+      readonly cause?: unknown;
+    }
+  | {
+      readonly _tag: "AdapterError/AutoplayBlocked";
+      readonly message: string;
+      readonly cause?: unknown;
+    }
+  | {
+      readonly _tag: "AdapterError/PauseFailed";
+      readonly message: string;
+      readonly cause?: unknown;
+    }
   | {
       readonly _tag: "AdapterError/SeekFailed";
       readonly message: string;
       readonly time: number;
       readonly cause?: unknown;
     }
-  | { readonly _tag: "AdapterError/DestroyFailed"; readonly message: string; readonly cause?: unknown }
-  | { readonly _tag: "AdapterError/NotSupported"; readonly message: string; readonly adapterType: string };
+  | {
+      readonly _tag: "AdapterError/DestroyFailed";
+      readonly message: string;
+      readonly cause?: unknown;
+    }
+  | {
+      readonly _tag: "AdapterError/NotSupported";
+      readonly message: string;
+      readonly adapterType: string;
+    };

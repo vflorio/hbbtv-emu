@@ -1,6 +1,6 @@
 import { match } from "ts-pattern";
 import { PlayerState } from "../";
-import type { DASHAdaptationSetInfo, DASHRepresentationInfo, ReduceResult } from "../model";
+import type { DASHAdaptationSet, DASHRepresentation, ReduceResult } from "../model";
 
 export const handleDASHMPDLoading = (state: PlayerState.Any, url: string): ReduceResult<PlayerState.Any> =>
   match(state)
@@ -13,7 +13,7 @@ export const handleDASHMPDLoading = (state: PlayerState.Any, url: string): Reduc
 
 export const handleDASHMPDParsed = (
   url: string,
-  adaptationSets: readonly DASHAdaptationSetInfo[],
+  adaptationSets: readonly DASHAdaptationSet[],
   duration: number,
   isDynamic: boolean,
 ): ReduceResult<PlayerState.Any> => ({
@@ -33,7 +33,7 @@ export const handleDASHMPDParsed = (
 });
 
 export const handleDASHRepresentationSelected = (
-  representation: DASHRepresentationInfo,
+  representation: DASHRepresentation,
   bandwidth: number,
   resolution: { width: number; height: number },
 ): ReduceResult<PlayerState.Any> => ({
@@ -61,8 +61,8 @@ export const handleDASHSegmentDownloading = (
     .otherwise(() => ({ next: state, effects: [] as const }));
 
 export const handleDASHQualitySwitching = (
-  fromRepresentation: DASHRepresentationInfo,
-  toRepresentation: DASHRepresentationInfo,
+  fromRepresentation: DASHRepresentation,
+  toRepresentation: DASHRepresentation,
   reason: "abr" | "manual" | "constraint",
 ): ReduceResult<PlayerState.Any> => ({
   next: new PlayerState.Source.DASH.QualitySwitching(fromRepresentation, toRepresentation, reason),

@@ -8,10 +8,18 @@ import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import type { DASHConfig } from ".";
 import { CoreVideoAdapter } from "./core";
 
-export class DASHAdapter extends CoreVideoAdapter<DASHConfig> {
+export interface DASHAdapterConfig {
+  readonly debug?: boolean;
+  readonly dashSettings?: Record<string, unknown>;
+  readonly streaming?: {
+    bufferTimeDefault?: number;
+    bufferTimeMax?: number;
+  };
+}
+
+export class DASHAdapter extends CoreVideoAdapter<DASHAdapterConfig> {
   readonly type = "dash" as const;
 
   private player: dashjs.MediaPlayerClass | null = null;
@@ -21,7 +29,7 @@ export class DASHAdapter extends CoreVideoAdapter<DASHConfig> {
 
   private cleanDashEventListener: IO.IO<void> = IO.of(undefined);
 
-  constructor(protected readonly config: DASHConfig = {}) {
+  constructor(protected readonly config: DASHAdapterConfig = {}) {
     super(config);
   }
 

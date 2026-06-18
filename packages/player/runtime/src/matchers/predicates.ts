@@ -104,11 +104,11 @@ export const isLoading = (state: PlayerState.Any): boolean =>
   match(state)
     .with({ _tag: "Control/Loading" }, () => true)
     .with({ _tag: "Control/Buffering" }, () => true)
+    .with({ _tag: "Source/Native/ProgressiveLoading" }, () => true)
     .with({ _tag: "Source/HLS/ManifestLoading" }, () => true)
     .with({ _tag: "Source/HLS/SegmentLoading" }, () => true)
     .with({ _tag: "Source/DASH/MPDLoading" }, () => true)
     .with({ _tag: "Source/DASH/SegmentDownloading" }, () => true)
-    .with({ _tag: "Source/Native/ProgressiveLoading" }, () => true)
     .otherwise(() => false);
 
 /**

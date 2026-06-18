@@ -1,5 +1,5 @@
 import { match } from "ts-pattern";
-import { type PlaybackType, PlayerState, type ReduceResult, type SourceMetadata } from "../model";
+import { type PlaybackType, PlayerState, type ReduceResult } from "../model";
 
 export const handleMetadataLoaded = (
   state: PlayerState.Any,
@@ -10,80 +10,56 @@ export const handleMetadataLoaded = (
   height: number,
 ): ReduceResult<PlayerState.Any> =>
   match(state)
-    .with({ _tag: "Control/Loading" }, () => {
-      const resolution = { width, height };
-      const source: SourceMetadata = {
+    .with({ _tag: "Control/Loading" }, () => ({
+      next: new PlayerState.Control.Paused(0, duration, [], {
         playbackType,
         url,
-        resolution,
+        resolution: { width, height },
         codec: playbackType === "native" ? "unknown" : undefined,
-      };
-      return {
-        next: new PlayerState.Control.Paused(0, duration, [], source),
-        effects: [] as const,
-      };
-    })
-    .with({ _tag: "Source/Native/ProgressiveLoading" }, () => {
-      const resolution = { width, height };
-      const source: SourceMetadata = {
+      }),
+      effects: [] as const,
+    }))
+    .with({ _tag: "Source/Native/ProgressiveLoading" }, () => ({
+      next: new PlayerState.Control.Paused(0, duration, [], {
         playbackType: "native",
         url,
-        resolution,
+        resolution: { width, height },
         codec: "unknown",
-      };
-      return {
-        next: new PlayerState.Control.Paused(0, duration, [], source),
-        effects: [] as const,
-      };
-    })
-    .with({ _tag: "Source/HLS/ManifestLoading" }, () => {
-      const resolution = { width, height };
-      const source: SourceMetadata = {
+      }),
+      effects: [] as const,
+    }))
+    .with({ _tag: "Source/HLS/ManifestLoading" }, () => ({
+      next: new PlayerState.Control.Paused(0, duration, [], {
         playbackType: "hls",
         url,
-        resolution,
-      };
-      return {
-        next: new PlayerState.Control.Paused(0, duration, [], source),
-        effects: [] as const,
-      };
-    })
-    .with({ _tag: "Source/HLS/SegmentLoading" }, () => {
-      const resolution = { width, height };
-      const source: SourceMetadata = {
+        resolution: { width, height },
+      }),
+      effects: [] as const,
+    }))
+    .with({ _tag: "Source/HLS/SegmentLoading" }, () => ({
+      next: new PlayerState.Control.Paused(0, duration, [], {
         playbackType: "hls",
         url,
-        resolution,
-      };
-      return {
-        next: new PlayerState.Control.Paused(0, duration, [], source),
-        effects: [] as const,
-      };
-    })
-    .with({ _tag: "Source/DASH/MPDLoading" }, () => {
-      const resolution = { width, height };
-      const source: SourceMetadata = {
+        resolution: { width, height },
+      }),
+      effects: [] as const,
+    }))
+    .with({ _tag: "Source/DASH/MPDLoading" }, () => ({
+      next: new PlayerState.Control.Paused(0, duration, [], {
         playbackType: "dash",
         url,
-        resolution,
-      };
-      return {
-        next: new PlayerState.Control.Paused(0, duration, [], source),
-        effects: [] as const,
-      };
-    })
-    .with({ _tag: "Source/DASH/SegmentDownloading" }, () => {
-      const resolution = { width, height };
-      const source: SourceMetadata = {
+        resolution: { width, height },
+      }),
+      effects: [] as const,
+    }))
+    .with({ _tag: "Source/DASH/SegmentDownloading" }, () => ({
+      next: new PlayerState.Control.Paused(0, duration, [], {
         playbackType: "dash",
         url,
-        resolution,
-      };
-      return {
-        next: new PlayerState.Control.Paused(0, duration, [], source),
-        effects: [] as const,
-      };
-    })
+        resolution: { width, height },
+      }),
+      effects: [] as const,
+    }))
     .otherwise(() => ({ next: state, effects: [] as const }));
 
 export const handleTimeUpdated = (

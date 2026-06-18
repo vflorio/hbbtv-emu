@@ -1,5 +1,5 @@
 import { match } from "ts-pattern";
-import { type HLSVariantInfo, PlayerState, type ReduceResult } from "../model";
+import { type HLSVariant, PlayerState, type ReduceResult } from "../model";
 
 export const handleHLSManifestLoading = (state: PlayerState.Any, url: string): ReduceResult<PlayerState.Any> =>
   match(state)
@@ -12,7 +12,7 @@ export const handleHLSManifestLoading = (state: PlayerState.Any, url: string): R
 
 export const handleHLSManifestParsed = (
   url: string,
-  variants: readonly HLSVariantInfo[],
+  variants: readonly HLSVariant[],
   duration: number,
 ): ReduceResult<PlayerState.Any> => ({
   next: new PlayerState.Source.HLS.ManifestParsed(url, variants, duration),
@@ -20,7 +20,7 @@ export const handleHLSManifestParsed = (
 });
 
 export const handleHLSVariantSelected = (
-  variant: HLSVariantInfo,
+  variant: HLSVariant,
   bandwidth: number,
   resolution: { width: number; height: number },
 ): ReduceResult<PlayerState.Any> => ({
@@ -47,8 +47,8 @@ export const handleHLSSegmentLoading = (
     .otherwise(() => ({ next: state, effects: [] as const }));
 
 export const handleHLSAdaptiveSwitching = (
-  fromVariant: HLSVariantInfo,
-  toVariant: HLSVariantInfo,
+  fromVariant: HLSVariant,
+  toVariant: HLSVariant,
   reason: "bandwidth" | "manual",
 ): ReduceResult<PlayerState.Any> => ({
   next: new PlayerState.Source.HLS.AdaptiveSwitching(fromVariant, toVariant, reason),

@@ -1,13 +1,7 @@
 import { formatBandwidth, formatBytes, formatTime } from "@functional-player/core";
 import { match } from "ts-pattern";
-import type { PlayerState } from "../";
+import { formatResolution, type Match, type PlayerState } from "../";
 import { hasBufferedInfo, hasTimeInfo, isError, isRecoverable } from "./predicates";
-
-// ============================================================================
-// Pattern Matching Utilities
-// ============================================================================
-
-type Match<S, T> = ReturnType<typeof match<S, T>>;
 
 /**
  * Match on player state with exhaustive checking
@@ -66,10 +60,6 @@ export const getError = (state: PlayerState.Any): Error | null => (isError(state
 export const getRetryCount = (state: PlayerState.Any): number | null =>
   isRecoverable(state) ? state.retryCount : null;
 
-// ============================================================================
-// State Description
-// ============================================================================
-
 /**
  * Get user-friendly state description
  */
@@ -79,13 +69,13 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Control/Loading" }, (s) => `Loading: ${s.progress}%`)
     .with({ _tag: "Control/Playing" }, (s) => {
       const sourceInfo = s.source
-        ? ` [${s.source.playbackType.toUpperCase()}${s.source.resolution ? ` ${s.source.resolution.width}x${s.source.resolution.height}` : ""}]`
+        ? ` [${s.source.playbackType.toUpperCase()}${s.source.resolution ? ` ${formatResolution(s.source.resolution)}` : ""}]`
         : "";
       return `Playing (${formatTime(s.currentTime)} / ${formatTime(s.duration)})${sourceInfo}`;
     })
     .with({ _tag: "Control/Paused" }, (s) => {
       const sourceInfo = s.source
-        ? ` [${s.source.playbackType.toUpperCase()}${s.source.resolution ? ` ${s.source.resolution.width}x${s.source.resolution.height}` : ""}]`
+        ? ` [${s.source.playbackType.toUpperCase()}${s.source.resolution ? ` ${formatResolution(s.source.resolution)}` : ""}]`
         : "";
       return `Paused at ${formatTime(s.currentTime)}${sourceInfo}`;
     })
@@ -105,7 +95,7 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Source/HLS/ManifestParsed" }, (s) => `HLS manifest parsed (${s.variants.length} variants)`)
     .with(
       { _tag: "Source/HLS/VariantSelected" },
-      (s) => `HLS ${s.resolution.width}x${s.resolution.height} @ ${formatBandwidth(s.bandwidth)}`,
+      (s) => `HLS ${formatResolution(s.resolution)} @ ${formatBandwidth(s.bandwidth)}`,
     )
     .with({ _tag: "Source/HLS/SegmentLoading" }, (s) => `Loading segment ${s.segmentIndex + 1}/${s.totalSegments}`)
     .with({ _tag: "Source/HLS/AdaptiveSwitching" }, (s) => `Switching quality (${s.reason})`)
@@ -115,7 +105,7 @@ export const getStateDescription = (state: PlayerState.Any): string =>
     .with({ _tag: "Source/DASH/MPDParsed" }, (s) => `MPD parsed (${s.adaptationSets.length} adaptation sets)`)
     .with(
       { _tag: "Source/DASH/RepresentationSelected" },
-      (s) => `DASH ${s.resolution.width}x${s.resolution.height} @ ${formatBandwidth(s.bandwidth)}`,
+      (s) => `DASH ${formatResolution(s.resolution)} @ ${formatBandwidth(s.bandwidth)}`,
     )
     .with({ _tag: "Source/DASH/SegmentDownloading" }, (s) => `Downloading ${s.mediaType} segment ${s.segmentIndex}`)
     .with({ _tag: "Source/DASH/QualitySwitching" }, (s) => `Switching quality (${s.reason})`)

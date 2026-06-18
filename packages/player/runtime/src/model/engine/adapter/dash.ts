@@ -1,11 +1,11 @@
-export interface DASHAdaptationSetInfo {
+export interface DASHAdaptationSet {
   readonly id: string;
   readonly contentType: "video" | "audio" | "text";
   readonly mimeType: string;
   readonly representationCount: number;
 }
 
-export interface DASHRepresentationInfo {
+export interface DASHRepresentation {
   readonly id: string;
   readonly bandwidth: number;
   readonly codecs: string;
@@ -21,13 +21,13 @@ export type PlayerEngineDashEvent =
   | {
       readonly _tag: "Engine/Adapter/DASH/MPDParsed";
       readonly url: string;
-      readonly adaptationSets: readonly DASHAdaptationSetInfo[];
+      readonly adaptationSets: readonly DASHAdaptationSet[];
       readonly duration: number;
       readonly isDynamic: boolean;
     }
   | {
       readonly _tag: "Engine/Adapter/DASH/RepresentationSelected";
-      readonly representation: DASHRepresentationInfo;
+      readonly representation: DASHRepresentation;
       readonly bandwidth: number;
       readonly resolution: { width: number; height: number };
     }
@@ -40,8 +40,8 @@ export type PlayerEngineDashEvent =
     }
   | {
       readonly _tag: "Engine/Adapter/DASH/QualitySwitching";
-      readonly fromRepresentation: DASHRepresentationInfo;
-      readonly toRepresentation: DASHRepresentationInfo;
+      readonly fromRepresentation: DASHRepresentation;
+      readonly toRepresentation: DASHRepresentation;
       readonly reason: "abr" | "manual" | "constraint";
     }
   | {
