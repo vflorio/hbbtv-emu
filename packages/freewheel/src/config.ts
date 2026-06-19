@@ -1,8 +1,0 @@
-export const config = {
-  networkId: 42015,
-  serverURL: "http://demo.v.fwmrm.net/ad/g/1",
-  profileId: "42015:js_allinone_profile",
-  videoAssetId: "js_allinone_demo_video",
-  siteSectionId: "js_allinone_demo_site_section",
-  videoDuration: 500,
-} as const;

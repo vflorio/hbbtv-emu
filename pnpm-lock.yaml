@@ -44,6 +44,67 @@ importers:
     dependencies:
       '@functional-player/core':
         specifier: workspace:*
+        version: link:../../packages/core
+      '@functional-player/freewheel':
+        specifier: workspace:*
+        version: link:../../packages/freewheel
+      '@functional-player/player-adapter-web':
+        specifier: workspace:*
+        version: link:../../packages/player/adapters/web
+      '@functional-player/player-runtime':
+        specifier: workspace:*
+        version: link:../../packages/player/runtime
+      '@functional-player/player-ui':
+        specifier: workspace:*
+        version: link:../../packages/player/ui
+      '@mui/material':
+        specifier: 7.3.5
+        version: 7.3.5(@emotion/react@11.14.0(@types/react@19.2.5)(react@19.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.5)(react@19.2.0))(@types/react@19.2.5)(react@19.2.0))(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      '@types/react':
+        specifier: 19.2.5
+        version: 19.2.5
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.5)
+      '@vitejs/plugin-react':
+        specifier: 5.1.1
+        version: 5.1.1(rolldown-vite@7.2.5(@types/node@24.10.1)(esbuild@0.25.12))
+      babel-plugin-react-compiler:
+        specifier: 1.0.0
+        version: 1.0.0
+      globals:
+        specifier: 16.5.0
+        version: 16.5.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: npm:rolldown-vite@7.2.5
+        version: rolldown-vite@7.2.5(@types/node@24.10.1)(esbuild@0.25.12)
+
+  apps/freewheel:
+    dependencies:
+      '@functional-player/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@functional-player/freewheel':
+        specifier: workspace:*
         version: link:../../packages/freewheel
       '@functional-player/player-adapter-web':
         specifier: workspace:*
@@ -126,7 +187,7 @@ importers:
     dependencies:
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../../freewheel
+        version: link:../../../core
       '@functional-player/player-runtime':
         specifier: workspace:*
         version: link:../../runtime
@@ -151,7 +212,7 @@ importers:
     dependencies:
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../freewheel
+        version: link:../../core
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
@@ -176,7 +237,7 @@ importers:
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0)
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../freewheel
+        version: link:../../core
       '@functional-player/player-runtime':
         specifier: workspace:*
         version: link:../runtime

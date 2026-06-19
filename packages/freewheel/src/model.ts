@@ -1,5 +1,5 @@
 import * as O from "fp-ts/Option";
-import type { AdContext, AdSlot, SDK } from "./freewheel";
+import type { AdSlot } from "./freewheel";
 
 // Algebraic Data Types
 
@@ -11,6 +11,8 @@ export type PlaybackPhase =
   | { readonly _tag: "PauseMidroll" } // user paused, pause-midroll slot playing
   | { readonly _tag: "Postroll" } // postroll slot is playing
   | { readonly _tag: "Done" }; // all done, context disposed
+
+// State
 
 export interface PlayerState {
   readonly phase: PlaybackPhase;
@@ -37,12 +39,3 @@ export const createInitialState = (contentSrc: string): PlayerState => ({
   contentSrc,
   contentPausedOn: 0,
 });
-
-// Dependencies
-
-export interface PlayerDeps {
-  // TODO: rimuovere; Questa al momento ci server solo per passare le costanti per lo split degli slots by classe
-  readonly SDK: SDK;
-  readonly adContext: AdContext;
-  readonly videoEl: HTMLVideoElement;
-}

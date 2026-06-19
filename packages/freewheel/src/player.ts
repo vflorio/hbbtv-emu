@@ -6,17 +6,26 @@ import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as T from "fp-ts/Task";
 import { match, P } from "ts-pattern";
-import { pauseSlot, playSlot, resumeSlot } from "./effects";
-import type { AdSlot } from "./freewheel";
-import { createInitialState, type PlayerDeps, type PlayerState } from "./model";
-import * as Transitions from "./playerStateTransitions";
+import * as Effects from "./effects";
+import type * as FreeWheel from "./freewheel";
+import * as Model from "./model";
+import * as Transitions from "./transitions";
+
+export interface PlayerDeps {
+  // TODO: rimuovere; Questa al momento ci server solo per passare le costanti per lo split degli slots by classe
+  readonly SDK: FreeWheel.SDK;
+  readonly adContext: FreeWheel.AdContext;
+  readonly videoEl: HTMLVideoElement;
+}
+
+export type Player = ReturnType<typeof createPlayer>;
 
 export const createPlayer = (deps: PlayerDeps) => {
   const { adContext, videoEl, SDK } = deps;
 
   const videoSrc = (videoEl.querySelector("source") as HTMLSourceElement | null)?.src ?? videoEl.currentSrc;
 
-  const stateRef = IORef.newIORef<PlayerState>(createInitialState(videoSrc))();
+  const stateRef = IORef.newIORef<Model.PlayerState>(Model.createInitialState(videoSrc))();
 
   const addVideoListeners: IO.IO<void> = () => {
     videoEl.addEventListener("timeupdate", onTimeUpdate);
@@ -63,7 +72,7 @@ export const createPlayer = (deps: PlayerDeps) => {
             pipe(
               Console.log("playing preroll"),
               IO.flatMap(() => stateRef.modify(Transitions.popPreroll(slot))),
-              IO.flatMap(() => playSlot(slot)),
+              IO.flatMap(() => Effects.playSlot(slot)),
             ),
         ),
       ),
@@ -81,14 +90,14 @@ export const createPlayer = (deps: PlayerDeps) => {
             pipe(
               Console.log("playing postroll"),
               IO.flatMap(() => stateRef.modify(Transitions.popPostroll(slot))),
-              IO.flatMap(() => playSlot(slot)),
+              IO.flatMap(() => Effects.playSlot(slot)),
             ),
         ),
       ),
     ),
   );
 
-  const onSlotEnded = (event: { slot: AdSlot }): void => {
+  const onSlotEnded = (event: { slot: FreeWheel.AdSlot }): void => {
     const classId = event.slot.getTimePositionClass();
 
     pipe(
@@ -189,8 +198,9 @@ export const createPlayer = (deps: PlayerDeps) => {
             .with({ overlay: P.when(O.isSome) }, ({ overlay }) =>
               pipe(
                 stateRef.modify(Transitions.dropOverlayNear(time)),
-                IO.flatMap(() => playSlot(overlay.value)),
+                IO.flatMap(() => Effects.playSlot(overlay.value)),
                 IO.flatMap(() => {
+                  // TODO: Spostare altrove
                   const element = document.querySelector(
                     '[id^="_fw_ad_container_iframe_Overlay_2"]',
                   ) as HTMLElement | null;
@@ -210,7 +220,7 @@ export const createPlayer = (deps: PlayerDeps) => {
                 Console.log(`playing midroll (resume at ${pausedAt}s)`),
                 IO.flatMap(() => removeVideoListeners),
                 IO.flatMap(() => stateRef.modify(Transitions.popMidroll(midroll.value, pausedAt))),
-                IO.flatMap(() => playSlot(midroll.value)),
+                IO.flatMap(() => Effects.playSlot(midroll.value)),
               );
             })
             // optimisation: remove listener when no timed slots remain
@@ -250,7 +260,7 @@ export const createPlayer = (deps: PlayerDeps) => {
 
   // AD request
 
-  const awaitSlots: T.Task<ReadonlyArray<AdSlot>> = () =>
+  const awaitSlots: T.Task<ReadonlyArray<FreeWheel.AdSlot>> = () =>
     new Promise((resolve) => {
       const handler = (event: { success: boolean }) => {
         adContext.removeEventListener(SDK.EVENT_REQUEST_COMPLETE, handler);
@@ -335,7 +345,7 @@ export const createPlayer = (deps: PlayerDeps) => {
           .with({ _tag: P.union("Preroll", "Midroll", "Postroll") }, () =>
             pipe(
               state.currentSlot,
-              O.match(() => constVoid, pauseSlot),
+              O.match(() => constVoid, Effects.pauseSlot),
             ),
           )
           .otherwise(() => constVoid)
@@ -364,7 +374,7 @@ export const createPlayer = (deps: PlayerDeps) => {
           .with({ _tag: P.union("Preroll", "Midroll", "Postroll") }, () =>
             pipe(
               state.currentSlot,
-              O.match(() => constVoid, resumeSlot),
+              O.match(() => constVoid, Effects.resumeSlot),
             ),
           )
           // Content phase: video element is paused, just play it
