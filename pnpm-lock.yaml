@@ -44,7 +44,7 @@ importers:
     dependencies:
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../packages/freewheel
       '@functional-player/player-adapter-web':
         specifier: workspace:*
         version: link:../../packages/player/adapters/web
@@ -107,11 +107,26 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/freewheel:
+    devDependencies:
+      fp-ts:
+        specifier: 2.16.11
+        version: 2.16.11
+      io-ts:
+        specifier: 2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
+      ts-pattern:
+        specifier: 5.9.0
+        version: 5.9.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/player/adapters/web:
     dependencies:
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../../core
+        version: link:../../../freewheel
       '@functional-player/player-runtime':
         specifier: workspace:*
         version: link:../../runtime
@@ -136,7 +151,7 @@ importers:
     dependencies:
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../core
+        version: link:../../freewheel
       fp-ts:
         specifier: 2.16.11
         version: 2.16.11
@@ -161,7 +176,7 @@ importers:
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.2)(react@19.2.0))(@types/react@19.2.2)(react@19.2.0)
       '@functional-player/core':
         specifier: workspace:*
-        version: link:../../core
+        version: link:../../freewheel
       '@functional-player/player-runtime':
         specifier: workspace:*
         version: link:../runtime

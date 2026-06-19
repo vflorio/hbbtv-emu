@@ -1,6 +1,5 @@
 import type { match } from "ts-pattern";
 
-export * from "./events";
 export * from "./predicates";
 export * from "./source";
 export * from "./state";

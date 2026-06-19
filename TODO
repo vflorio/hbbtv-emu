@@ -1,5 +1,16 @@
-BUGS
-    
+Un Adapter porta il supporto ad uno o più tipologie di Source
+
+Platform    Backend                 .mp4    .m3u8   .mpd
+HBBTV       AVControl               X       X       X
+WEB         HTML5Video              X              
+WEB         HTML5Video + HLS.js             X       
+WEB         HTML5Video + DASH.js                    X
+
+
+Extensions
+    Trackers
+    AD Manager
+
 
 Player 
     - Gestire correttamente TagGroup Playable (come ad esempio in caso di errore, o in caso di waiting non dovremmo essere Playable)
