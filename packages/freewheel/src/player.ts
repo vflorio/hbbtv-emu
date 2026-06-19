@@ -1,4 +1,4 @@
-import * as Console from "fp-ts/Console";
+import type { Logger } from "@functional-player/core";
 import { constVoid, flow, pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IORef from "fp-ts/IORef";
@@ -11,51 +11,62 @@ import type * as FreeWheel from "./freewheel";
 import * as Model from "./model";
 import * as Transitions from "./transitions";
 
+export interface VideoPlayer {
+  readonly play: IO.IO<void>;
+  readonly pause: IO.IO<void>;
+  readonly getCurrentTime: IO.IO<number>;
+  readonly seek: (src: string, at: number) => IO.IO<void>;
+  readonly enableControls: IO.IO<void>;
+  readonly getSrc: IO.IO<string>;
+  readonly on: (event: "timeupdate" | "ended", handler: () => void) => IO.IO<void>;
+  readonly off: (event: "timeupdate" | "ended", handler: () => void) => IO.IO<void>;
+}
+
 export interface PlayerDeps {
   // TODO: rimuovere; Questa al momento ci server solo per passare le costanti per lo split degli slots by classe
   readonly SDK: FreeWheel.SDK;
   readonly adContext: FreeWheel.AdContext;
-  readonly videoEl: HTMLVideoElement;
+  readonly video: VideoPlayer;
+  readonly onComplete: IO.IO<void>;
+  readonly onOverlayShown: IO.IO<void>;
+  readonly logger: Logger;
 }
 
-export type Player = ReturnType<typeof createPlayer>;
+export interface Player {
+  requestAds: T.Task<void>;
+  pause: IO.IO<void>;
+  resume: IO.IO<void>;
+}
 
-export const createPlayer = (deps: PlayerDeps) => {
-  const { adContext, videoEl, SDK } = deps;
+export const createPlayer = (deps: PlayerDeps): Player => {
+  const { adContext, video, SDK, onComplete, onOverlayShown, logger } = deps;
 
-  const videoSrc = (videoEl.querySelector("source") as HTMLSourceElement | null)?.src ?? videoEl.currentSrc;
+  const videoSrc = video.getSrc();
 
   const stateRef = IORef.newIORef<Model.PlayerState>(Model.createInitialState(videoSrc))();
 
   const addVideoListeners: IO.IO<void> = () => {
-    videoEl.addEventListener("timeupdate", onTimeUpdate);
-    videoEl.addEventListener("ended", onContentEnded);
+    video.on("timeupdate", onTimeUpdate)();
+    video.on("ended", onContentEnded)();
   };
 
   const removeVideoListeners: IO.IO<void> = () => {
-    videoEl.removeEventListener("timeupdate", onTimeUpdate);
-    videoEl.removeEventListener("ended", onContentEnded);
+    video.off("timeupdate", onTimeUpdate)();
+    video.off("ended", onContentEnded)();
   };
 
   // Set the video element's src, seek to startAt, and press play
   const playContent = (src: string, startAt: number): IO.IO<void> =>
     pipe(
-      Console.log(`playing content (resuming at ${startAt}s)`),
+      logger.info(`playing content (resuming at ${startAt}s)`),
       IO.flatMap(() =>
         stateRef.modify(
-          flow(
-            Transitions.setPhase({ _tag: "Content" }),
-            (state) => ({ ...state, currentSlot: O.none }), // TODO: Questa diventa una transition
-          ),
+          flow(Transitions.setPhase({ _tag: "Content" }), (state) => ({ ...state, currentSlot: O.none })),
         ),
       ),
-      IO.flatMap(() => () => {
-        // TODO FIXME: questo va a finire nell'environment, e va astratto per supportare anche altri tipi di player
-        videoEl.controls = true;
-        videoEl.src = src;
-        videoEl.currentTime = startAt;
-        videoEl.play();
-      }),
+      IO.flatMap(() => video.enableControls),
+      IO.flatMap(() => video.seek(src, startAt)),
+      IO.flatMap(() => video.play),
       IO.flatMap(() => addVideoListeners),
       IO.flatMap(() => () => adContext.setVideoState(SDK.VIDEO_STATE_PLAYING)),
     );
@@ -70,7 +81,7 @@ export const createPlayer = (deps: PlayerDeps) => {
           () => playContent(state.contentSrc, 0), // no more prerolls -> content
           (slot) =>
             pipe(
-              Console.log("playing preroll"),
+              logger.info("playing preroll"),
               IO.flatMap(() => stateRef.modify(Transitions.popPreroll(slot))),
               IO.flatMap(() => Effects.playSlot(slot)),
             ),
@@ -88,7 +99,7 @@ export const createPlayer = (deps: PlayerDeps) => {
           () => cleanUp, // no more postrolls -> cleanup
           (slot) =>
             pipe(
-              Console.log("playing postroll"),
+              logger.info("playing postroll"),
               IO.flatMap(() => stateRef.modify(Transitions.popPostroll(slot))),
               IO.flatMap(() => Effects.playSlot(slot)),
             ),
@@ -101,7 +112,7 @@ export const createPlayer = (deps: PlayerDeps) => {
     const classId = event.slot.getTimePositionClass();
 
     pipe(
-      Console.log(`slot ended: ${classId}`),
+      logger.info(`slot ended: ${classId}`),
       IO.flatMap(
         (): IO.IO<void> =>
           match(classId)
@@ -120,7 +131,7 @@ export const createPlayer = (deps: PlayerDeps) => {
       match(state.phase)
         .with({ _tag: "Midroll" }, () =>
           pipe(
-            Console.log(`resuming content at ${state.contentPausedOn}s`),
+            logger.info(`resuming content at ${state.contentPausedOn}s`),
             IO.flatMap(() => playContent(state.contentSrc, state.contentPausedOn)),
           ),
         )
@@ -142,18 +153,13 @@ export const createPlayer = (deps: PlayerDeps) => {
         match(state.phase)
           .with({ _tag: "Content" }, () => constVoid)
           .otherwise(() => stateRef.modify(Transitions.setPhase({ _tag: "Content" }))),
-        IO.flatMap(() => () => {
-          // restore video element to the paused position (don't play yet)
-          videoEl.src = state.contentSrc;
-          videoEl.currentTime = resumeAt;
-        }),
+
+        IO.flatMap(() => video.seek(state.contentSrc, resumeAt)),
         IO.flatMap(() => addVideoListeners),
         IO.flatMap(() =>
           match(wasUserResumed)
             // user already resumed -> play now
-            .with(true, () => () => {
-              videoEl.play();
-            })
+            .with(true, () => video.play)
             // user hasn't resumed -> stay paused
             .otherwise(() => constVoid),
         ),
@@ -180,55 +186,45 @@ export const createPlayer = (deps: PlayerDeps) => {
   const onTimeUpdate = (): void => {
     pipe(
       stateRef.read,
-      IO.flatMap((state) => {
-        const time = videoEl.currentTime;
+      IO.flatMap((state) =>
+        pipe(
+          video.getCurrentTime,
+          IO.flatMap((time) => {
+            const overlay = pipe(
+              state.overlaySlots,
+              RA.findFirst((slot) => Math.abs(slot.getTimePosition() - time) < 0.5),
+            );
 
-        const overlay = pipe(
-          state.overlaySlots,
-          RA.findFirst((slot) => Math.abs(slot.getTimePosition() - time) < 0.5),
-        );
+            const midroll = pipe(
+              state.midrollSlots,
+              RA.findFirst((slot) => Math.abs(slot.getTimePosition() - time) < 0.5),
+            );
 
-        const midroll = pipe(
-          state.midrollSlots,
-          RA.findFirst((slot) => Math.abs(slot.getTimePosition() - time) < 0.5),
-        );
-
-        return (
-          match({ overlay, midroll })
-            .with({ overlay: P.when(O.isSome) }, ({ overlay }) =>
-              pipe(
-                stateRef.modify(Transitions.dropOverlayNear(time)),
-                IO.flatMap(() => Effects.playSlot(overlay.value)),
-                IO.flatMap(() => {
-                  // TODO: Spostare altrove
-                  const element = document.querySelector(
-                    '[id^="_fw_ad_container_iframe_Overlay_2"]',
-                  ) as HTMLElement | null;
-
-                  return element
-                    ? () => {
-                        element.style.marginBottom = "50px";
-                      }
-                    : constVoid;
-                }),
-              ),
-            )
-            .with({ midroll: P.when(O.isSome) }, ({ midroll }) => {
-              const pausedAt = videoEl.currentTime;
-
-              return pipe(
-                Console.log(`playing midroll (resume at ${pausedAt}s)`),
-                IO.flatMap(() => removeVideoListeners),
-                IO.flatMap(() => stateRef.modify(Transitions.popMidroll(midroll.value, pausedAt))),
-                IO.flatMap(() => Effects.playSlot(midroll.value)),
-              );
-            })
-            // optimisation: remove listener when no timed slots remain
-            .otherwise(() =>
-              state.overlaySlots.length === 0 && state.midrollSlots.length === 0 ? removeVideoListeners : constVoid,
-            )
-        );
-      }),
+            return (
+              match({ overlay, midroll })
+                .with({ overlay: P.when(O.isSome) }, ({ overlay }) =>
+                  pipe(
+                    stateRef.modify(Transitions.dropOverlayNear(time)),
+                    IO.flatMap(() => Effects.playSlot(overlay.value)),
+                    IO.flatMap(() => onOverlayShown),
+                  ),
+                )
+                .with({ midroll: P.when(O.isSome) }, ({ midroll }) =>
+                  pipe(
+                    logger.info(`playing midroll (resume at ${time}s)`),
+                    IO.flatMap(() => removeVideoListeners),
+                    IO.flatMap(() => stateRef.modify(Transitions.popMidroll(midroll.value, time))),
+                    IO.flatMap(() => Effects.playSlot(midroll.value)),
+                  ),
+                )
+                // optimisation: remove listener when no timed slots remain
+                .otherwise(() =>
+                  state.overlaySlots.length === 0 && state.midrollSlots.length === 0 ? removeVideoListeners : constVoid,
+                )
+            );
+          }),
+        ),
+      ),
     )();
   };
 
@@ -236,8 +232,8 @@ export const createPlayer = (deps: PlayerDeps) => {
 
   const onContentEnded = (): void =>
     pipe(
-      Console.log("content ended"),
-      IO.flatMap(() => () => videoEl.removeEventListener("ended", onContentEnded)),
+      logger.info("content ended"),
+      IO.flatMap(() => video.off("ended", onContentEnded)),
       IO.flatMap(() => () => adContext.setVideoState(SDK.VIDEO_STATE_COMPLETED)),
       IO.flatMap(() => playPostroll),
     )();
@@ -252,10 +248,7 @@ export const createPlayer = (deps: PlayerDeps) => {
       adContext.removeEventListener(SDK.EVENT_CONTENT_VIDEO_RESUME_REQUEST, onContentResumeRequest);
       adContext.dispose();
     }),
-    IO.flatMap(() => () => {
-      // TODO FIXME: questo va a finire nell'environment
-      location.reload();
-    }),
+    IO.flatMap(() => onComplete),
   );
 
   // AD request
@@ -328,9 +321,14 @@ export const createPlayer = (deps: PlayerDeps) => {
             match(hasPauseMidroll)
               .with(true, () =>
                 pipe(
-                  Console.log("pause: triggering pause-midroll"),
-                  IO.flatMap(() => () => videoEl.pause()),
-                  IO.flatMap(() => stateRef.modify(Transitions.popPauseMidroll(videoEl.currentTime))),
+                  logger.info("pause: triggering pause-midroll"),
+                  IO.flatMap(() => video.pause),
+                  IO.flatMap(() =>
+                    pipe(
+                      video.getCurrentTime,
+                      IO.flatMap((t) => stateRef.modify(Transitions.popPauseMidroll(t))),
+                    ),
+                  ),
                   IO.flatMap(() => removeVideoListeners),
                   IO.flatMap(() => () => {
                     adContext.dispatchEvent(SDK.EVENT_USER_ACTION_NOTIFIED, {
@@ -339,7 +337,7 @@ export const createPlayer = (deps: PlayerDeps) => {
                   }),
                 ),
               )
-              .otherwise(() => () => videoEl.pause()),
+              .otherwise(() => video.pause),
           )
           // Pause the currently playing ad slot
           .with({ _tag: P.union("Preroll", "Midroll", "Postroll") }, () =>
@@ -378,9 +376,7 @@ export const createPlayer = (deps: PlayerDeps) => {
             ),
           )
           // Content phase: video element is paused, just play it
-          .with({ _tag: "Content" }, () => () => {
-            videoEl.play();
-          })
+          .with({ _tag: "Content" }, () => video.play)
           .otherwise(() => constVoid),
     ),
   );

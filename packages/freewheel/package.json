@@ -1,6 +1,9 @@
 {
   "name": "@functional-player/freewheel",
   "version": "1.0.0",
+  "dependencies": {
+    "@functional-player/core": "workspace:*"
+  },
   "devDependencies": {
     "fp-ts": "2.16.11",
     "io-ts": "2.2.22",

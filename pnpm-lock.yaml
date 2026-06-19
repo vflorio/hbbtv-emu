@@ -45,9 +45,6 @@ importers:
       '@functional-player/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@functional-player/freewheel':
-        specifier: workspace:*
-        version: link:../../packages/freewheel
       '@functional-player/player-adapter-web':
         specifier: workspace:*
         version: link:../../packages/player/adapters/web
@@ -169,6 +166,10 @@ importers:
         version: 5.9.3
 
   packages/freewheel:
+    dependencies:
+      '@functional-player/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       fp-ts:
         specifier: 2.16.11
