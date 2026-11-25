@@ -17,7 +17,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "extension:dev": "vite",
-    "extension:build": "pnpm extension:build:background && pnpm extension:build:assets",
+    "extension:build": "bun run extension:build:background && bun run extension:build:assets",
     "extension:build:assets": "cp -r public/* dist/",
     "extension:build:background": "vite build --config vite.background.config.ts",
     "clean": "rm -rf dist",

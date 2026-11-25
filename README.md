@@ -2,92 +2,68 @@
 
 ![Architecture](./schema.svg)
 
+> Roadmap, decisioni architetturali e stato del progetto: [ROADMAP.md](./ROADMAP.md).
+
 ## Prerequisites
 
-Install [pnpm](https://pnpm.io/):
-
-```bash
-npm install -g pnpm
-```
+[Bun](https://bun.sh/) (see `packageManager` in `package.json`).
 
 ## Setup
 
 ```bash
-pnpm install
+bun install
 ```
 
 ## Development
 
-Build all packages:
-
 ```bash
-pnpm build
+bun run build        # build all packages (turbo)
+bun run dev          # all packages in watch mode
+bun run clean        # remove build artifacts
+bun run format       # format (biome)
+bun run lint         # lint (biome)
 ```
 
-Run all packages in watch mode:
+### Extensions
 
 ```bash
-pnpm dev
+bun run extension:build   # builds extensions/{chrome-v3,chrome-v2,firefox-v2}
 ```
 
-### Running Specific Applications
+Load the unpacked extension from `extensions/<target>/dist`.
 
-**Chrome Extension**
-
-Run the extension in development mode:
+### Demo apps
 
 ```bash
-pnpm --filter @hbb-emu/chrome-v3-extension dev
+bun run --filter @hbb-emu/demo-ui demo:dev
+bun run --filter @hbb-emu/runtime-demo demo:dev
 ```
 
-Load the extension in Chrome by pointing to the `apps/chrome-v3/dist` directory.
+## Tests
 
-**Demo UI**
-
-Run the demo web application:
+Unit tests use [Vitest](https://vitest.dev/).
 
 ```bash
-pnpm --filter @hbb-emu/demo-ui dev:app
+bun run test            # all packages, through turbo (cached)
+bun run test:watch      # whole monorepo in watch mode
+bun run test:coverage   # coverage report per package (coverage/)
 ```
 
-**Runtime Demo**
+Inside a package: `bun run test` / `bun run test:watch`.
 
-Run the standalone runtime demo:
+Conventions:
 
-```bash
-pnpm --filter @hbb-emu/runtime-demo dev
-```
-
-Clean build artifacts:
-
-```bash
-pnpm clean
-```
-
-Format code:
-
-```bash
-pnpm format
-```
-
-Lint code:
-
-```bash
-pnpm lint
-```
+- tests live next to the code: `foo.ts` → `foo.test.ts`
+- each package has a `vitest.config.ts` that extends the root `vitest.shared.ts` (environment `node` or `jsdom`)
+- tests are excluded from the build via `tsconfig.build.json`
+- dependencies are faked through their ports / Reader environment, never by mocking modules; shared fakes go in `src/__tests__/`
+- a known bug can be pinned with `it.fails(...)` and a comment pointing to the roadmap item that fixes it
 
 ## Package Management
 
-Check for version mismatches:
-
 ```bash
-pnpm syncpack:check
-```
-
-Fix version mismatches:
-
-```bash
-pnpm syncpack:fix
+bun run syncpack:check   # check version mismatches
+bun run syncpack:fix     # fix version mismatches
 ```
 
 ## Packages

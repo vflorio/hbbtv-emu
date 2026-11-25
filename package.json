@@ -1,6 +1,37 @@
 {
   "name": "hbb-emu",
   "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "workspaces": [
+    "apps/*",
+    "extensions/*",
+    "packages/*",
+    "packages/oipf/*",
+    "packages/player/*",
+    "packages/player/adapters/*",
+    "packages/extension_old/*"
+  ],
+  "trustedDependencies": [
+    "esbuild"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "extension:build": "turbo run extension:build --filter='./extensions/*'",
+    "build-no-cache": "turbo run build --force",
+    "clean": "turbo run clean",
+    "dev": "turbo run dev",
+    "format": "turbo run format && biome format --write",
+    "lint": "turbo run lint && biome check --write",
+    "syncpack:check": "syncpack list-mismatches",
+    "syncpack:fix": "syncpack fix-mismatches",
+    "syncpack:format": "syncpack format",
+    "syncpack:list": "syncpack list",
+    "test": "turbo run test",
+    "test:watch": "vitest",
+    "test:coverage": "turbo run test:coverage"
+  },
   "dependencies": {
     "logging-ts": "^0.3.4"
   },
@@ -13,23 +44,7 @@
     "jsdom": "^27.3.0",
     "syncpack": "^13.0.4",
     "turbo": "^2.7.2",
-    "vitest": "^4.0.16"
-  },
-  "packageManager": "pnpm@10.28.2",
-  "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "extension:build": "turbo run extension:build --filter='./extensions/*'",
-    "build-no-cache": "turbo run build --force",
-    "clean": "turbo run clean",
-    "dev": "turbo run dev",
-    "format": "turbo run format && npx @biomejs/biome format --write",
-    "lint": "turbo run lint && npx @biomejs/biome check --write",
-    "syncpack:check": "syncpack list-mismatches",
-    "syncpack:fix": "syncpack fix-mismatches",
-    "syncpack:format": "syncpack format",
-    "syncpack:list": "syncpack list",
-    "test": "turbo run test"
-  },
-  "type": "module"
+    "vitest": "^4.0.16",
+    "@vitest/coverage-v8": "^4.0.16"
+  }
 }

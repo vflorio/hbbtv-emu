@@ -30,7 +30,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "app:dev": "vite",
-    "build": "pnpm build:ui && pnpm build:background-script && pnpm build:bridge-script && pnpm build:content-script && pnpm build:assets",
+    "build": "bun run build:ui && bun run build:background-script && bun run build:bridge-script && bun run build:content-script && bun run build:assets",
     "build:assets": "cp -r public/* dist/",
     "build:background-script": "vite build --config vite.background-script.config.ts",
     "build:bridge-script": "vite build --config vite.bridge-script.config.ts",

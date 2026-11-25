@@ -8,7 +8,6 @@ import type { Logger } from "@hbb-emu/core";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
-import * as T from "fp-ts/Task";
 import type { AdapterError, BaseMessage } from "../..";
 import type { ExtensionState } from "../../state";
 import type { ServiceEnv } from "..";

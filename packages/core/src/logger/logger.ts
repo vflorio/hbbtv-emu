@@ -1,6 +1,6 @@
 import * as D from "fp-ts/Date";
 import * as IO from "fp-ts/IO";
-import { pipe } from "fp-ts/lib/function";
+import { identity, pipe } from "fp-ts/lib/function";
 import * as O from "fp-ts/Option";
 import type { ConsoleAdapter, LoggerEntryLevel, LoggerState } from ".";
 import { DEFAULT_LOGGER_STATE, standardConsoleAdapter } from "./constants";
@@ -32,7 +32,7 @@ export class Logger {
     (level: LoggerEntryLevel) =>
     (message: string, ...args: unknown[]): IO.IO<void> =>
       pipe(
-        O.fromNullable(this.config.enabledLevels[level]),
+        O.fromPredicate(identity<boolean>)(this.config.enabledLevels[level]),
         O.match(
           () => IO.of(undefined),
           () =>

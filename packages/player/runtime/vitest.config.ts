@@ -1,23 +1,4 @@
-import { resolve } from "node:path";
-import { defineConfig } from "vitest/config";
+import { defineConfig, mergeConfig } from "vitest/config";
+import shared from "../../../vitest.shared";
 
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: "jsdom",
-    include: [
-      "src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
-      "__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
-    ],
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "dist/", "**/*.d.ts", "**/*.config.*", "**/examples.ts"],
-    },
-  },
-  resolve: {
-    alias: {
-      "@": resolve(__dirname, "./src"),
-    },
-  },
-});
+export default mergeConfig(shared, defineConfig({ test: { environment: "jsdom" } }));
