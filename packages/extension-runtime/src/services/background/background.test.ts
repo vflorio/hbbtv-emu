@@ -517,4 +517,60 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     ]);
     expect(sessionsSent(messaging.sent, TV_TAB)).toEqual([]);
   });
+
+  const errorsSent = (sent: ReadonlyArray<Sent>, tabId: number) =>
+    sent.filter((s) => s.tabId === tabId && s.message._tag === "Host/ChannelChangeError").map((s) => s.message);
+
+  const setChannel = async (
+    messaging: { receive: (m: object, tabId: number) => void },
+    tabId: number,
+    channelId: string,
+  ) => {
+    messaging.receive({ _tag: "Page/SetChannel", channelId }, tabId);
+    await flushPromises();
+  };
+
+  it("the application changes channel as the UI does: it stays on a channel that signals it", async () => {
+    const env = await turnOn("dmax");
+    env.ui.notified.splice(0);
+
+    await setChannel(env.messaging, TV_TAB, "hgtv");
+
+    expect(env.tabs.navigations).toHaveLength(2);
+    expect(sessionsSent(env.messaging.sent, TV_TAB)).toEqual(["hgtv"]);
+    expect(env.ui.notified).toEqual([{ _tag: "UI/StateChanged", state: toUiState(lineup, hgtv) }]);
+  });
+
+  it("…and the tab loads what any other channel shows, that channel already in the bootstrap", async () => {
+    const { messaging, tabs, bootstrap } = await turnOn("dmax");
+
+    await setChannel(messaging, TV_TAB, "news");
+
+    expect(tabs.navigations[2]).toEqual({ tabId: TV_TAB, url: "http://news.example/" });
+    expect(bootstrap.published[bootstrap.published.length - 1]).toContain('"channelId":"news"');
+    expect(errorsSent(messaging.sent, TV_TAB)).toEqual([]);
+  });
+
+  it("an application opened on its own (app mode) keeps its channel: unknown channel", async () => {
+    const { messaging, tabs } = await setup(lineup);
+    messaging.receive({ _tag: "Page/Ready", url: "http://linear.example/dmax.html" }, 1);
+    await flushPromises();
+
+    await setChannel(messaging, 1, "hgtv");
+
+    expect(errorsSent(messaging.sent, 1)).toEqual([{ _tag: "Host/ChannelChangeError", channelId: "hgtv", error: 5 }]);
+    expect(sessionsSent(messaging.sent, 1)).toEqual(["dmax"]);
+    expect(tabs.navigations).toEqual([]);
+  });
+
+  it("a channel outside the lineup is unknown", async () => {
+    const { messaging, tabs } = await turnOn("dmax");
+
+    await setChannel(messaging, TV_TAB, "nope");
+
+    expect(errorsSent(messaging.sent, TV_TAB)).toEqual([
+      { _tag: "Host/ChannelChangeError", channelId: "nope", error: 5 },
+    ]);
+    expect(tabs.navigations).toHaveLength(2);
+  });
 });

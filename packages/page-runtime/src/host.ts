@@ -20,6 +20,8 @@ export type PageRuntimeControl = Readonly<{
   applyState: (patch: Partial<HbbTVState>) => IO.IO<void>;
   /** The tab's TV session (e.g. the channel the TV is tuned to). */
   applySession: (session: PageSession) => IO.IO<void>;
+  /** The TV did not change to the channel the application asked for. */
+  channelChangeFailed: (channelId: string, error: number) => IO.IO<void>;
 }>;
 
 export type HostEnv = Readonly<{
@@ -44,6 +46,8 @@ const handle =
         return env.control.applyState(message.patch);
       case "Host/Session":
         return env.control.applySession(message.session);
+      case "Host/ChannelChangeError":
+        return env.control.channelChangeFailed(message.channelId, message.error);
     }
   };
 

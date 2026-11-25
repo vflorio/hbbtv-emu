@@ -6,8 +6,9 @@
  * - a minimal patch of OIPF object state, only for the TV the user is looking at
  *   (the active tab), so nothing the applications did is overwritten (ROADMAP D5).
  *
- * The current channel the UI shows and plays is the one of the active tab's TV session.
- * The UI also turns on new TVs (TV mode, ROADMAP D5).
+ * The current channel the UI shows and plays is the one of the active tab's TV session
+ * (`changeTabChannel`, the same change an application asks for). The UI also turns
+ * on new TVs (TV mode, ROADMAP D5).
  */
 
 import { diffPatch, type Logger } from "@hbb-emu/core";
@@ -21,36 +22,26 @@ import * as O from "fp-ts/Option";
 import type * as RT from "fp-ts/ReaderTask";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
-import type { MessagingAdapter, TabsAdapter, UiAdapter, UserAgentAdapter } from "../../adapter";
+import type { UiAdapter, UserAgentAdapter } from "../../adapter";
 import {
-  changeChannel,
   type ExtensionState,
   findChannel,
   fromUiState,
   sessionChannel,
-  type TvPageUrl,
-  toBootstrapData,
   toPageConfig,
-  toPageSession,
   toUiState,
   turnedOnSession,
 } from "../../state";
-import type { PageBootstrap } from "./bootstrap";
+import { changeTabChannel, republish, type TvEnv } from "./channel";
 import type { StateManager } from "./managers/state";
-import type { Sessions } from "./sessions";
 
-export type UiEnv = Readonly<{
-  stateManager: StateManager;
-  messaging: MessagingAdapter<HostMessage>;
-  tabs: TabsAdapter;
-  ui: UiAdapter;
-  userAgent: UserAgentAdapter;
-  pageBootstrap: PageBootstrap;
-  sessions: Sessions;
-  /** Where a TV shows a channel without application. */
-  tvPage: TvPageUrl;
-  logger: Logger;
-}>;
+export type UiEnv = TvEnv &
+  Readonly<{
+    stateManager: StateManager;
+    ui: UiAdapter;
+    userAgent: UserAgentAdapter;
+    logger: Logger;
+  }>;
 
 const done: UiResponse = { _tag: "UI/Done" };
 const failed = (reason: string): UiResponse => ({ _tag: "UI/Failed", reason });
@@ -130,12 +121,6 @@ const toActiveTab =
       ),
     );
 
-/** Pages loaded from now on get the configuration and the channel of each TV. */
-const republish =
-  (state: ExtensionState): RT.ReaderTask<UiEnv, void> =>
-  ({ pageBootstrap, sessions }) =>
-    pageBootstrap.publish(toBootstrapData(state, sessions.all()));
-
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The HTTP user agent; the pages get theirs with the configuration. */
@@ -213,7 +198,8 @@ const saveState =
       ),
     );
 
-const notifyUis =
+/** Every open UI shows the channel of the active tab's TV. */
+export const notifyUis =
   (state: ExtensionState): RT.ReaderTask<UiEnv, void> =>
   (env) =>
     pipe(
@@ -221,11 +207,7 @@ const notifyUis =
       T.flatMap((ui) => env.ui.notify({ _tag: "UI/StateChanged", state: ui })),
     );
 
-/**
- * Changes the channel of the TV in the active tab (`changeChannel`): either the page
- * retunes, or the tab loads what the new channel shows. Either way the bootstrap
- * says the new channel first, so the next page starts on it.
- */
+/** Changes the channel of the TV in the active tab (`changeTabChannel`). */
 const playChannel =
   (request: Extract<UiRequest, { _tag: "UI/PlayChannel" }>): RT.ReaderTask<UiEnv, UiResponse> =>
   (env) =>
@@ -240,19 +222,8 @@ const playChannel =
         if (channel === null) return T.of(failed(`Unknown channel: ${request.channel.id}`));
         const current = env.sessions.get(tabId.value)();
         if (O.isNone(current)) return T.of(notAnEmulatedTab(tabId.value));
-        const change = changeChannel(current.value, channel, env.tvPage);
         return pipe(
-          TE.fromTask(env.sessions.update(tabId.value, () => change.session)),
-          TE.tap(() => TE.fromTask(republish(state.value)(env))),
-          TE.tap(() =>
-            change.navigateTo === null
-              ? TE.fromTask(
-                  sendTo([tabId.value], { _tag: "Host/Session", session: toPageSession(state.value, change.session) })(
-                    env,
-                  ),
-                )
-              : env.tabs.navigate(tabId.value, change.navigateTo),
-          ),
+          changeTabChannel(tabId.value, state.value, current.value, channel)(env),
           TE.tap(() => TE.fromTask(notifyUis(state.value)(env))),
           TE.match(
             (error) => failed(`Could not change channel (${error._tag})`),

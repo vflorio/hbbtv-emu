@@ -21,12 +21,19 @@ const createFakeChannel = () => {
 
 const setup = () => {
   const fake = createFakeChannel();
-  const calls: Array<{ config: PageConfig } | { key: number } | { patch: unknown } | { tunedTo: string | null }> = [];
+  const calls: Array<
+    | { config: PageConfig }
+    | { key: number }
+    | { patch: unknown }
+    | { tunedTo: string | null }
+    | { refused: string; error: number }
+  > = [];
   const control: PageRuntimeControl = {
     applyConfig: (config) => () => void calls.push({ config }),
     dispatchKey: (key) => () => void calls.push({ key }),
     applyState: (patch) => () => void calls.push({ patch }),
     applySession: (session) => () => void calls.push({ tunedTo: session.channel?.id ?? null }),
+    channelChangeFailed: (channelId, error) => () => void calls.push({ refused: channelId, error }),
   };
   const disconnect = connectToHost({ channel: fake.channel, control, url: "http://app/index.xhtml" })();
   return { ...fake, calls, disconnect };
@@ -84,6 +91,14 @@ describe("connectToHost", () => {
     expect(calls).toEqual([{ tunedTo: "dmax" }]);
   });
 
+  it("reports the channel change the host refused", () => {
+    const { calls, deliver } = setup();
+
+    deliver({ _tag: "Host/ChannelChangeError", channelId: "hgtv", error: 5 });
+
+    expect(calls).toEqual([{ refused: "hgtv", error: 5 }]);
+  });
+
   it("stops handling messages once disconnected", () => {
     const { calls, deliver, disconnect } = setup();
 
@@ -103,6 +118,7 @@ describe("connectToHost", () => {
         dispatchKey: () => IO.of(undefined),
         applyState: () => IO.of(undefined),
         applySession: () => IO.of(undefined),
+        channelChangeFailed: () => IO.of(undefined),
       },
       url: "x",
     });

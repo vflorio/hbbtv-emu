@@ -1,9 +1,10 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
 import * as E from "fp-ts/Either";
+import * as TE from "fp-ts/TaskEither";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRuntimeEnv, type RuntimeHandle, runtime } from "./runtime";
-import { resolveChannel } from "./subsystems";
+import { type ChannelChangeRequest, resolveChannel, tuneAlone } from "./subsystems";
 
 /** MutationObserver callbacks are microtasks. */
 const flushMutations = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -162,5 +163,101 @@ describe("runtime — tuned channel (the tab's TV session)", () => {
 
     expect(object.playState).toBe(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
     expect(object.currentChannel).toMatchObject({ ccid: "dmax" });
+  });
+});
+
+describe("runtime — an application's channel change (setChannel)", () => {
+  const dmax = { id: "dmax", name: "DMAX", mp4Source: "http://tv/dmax.mp4", onid: 318, tsid: 1, sid: 52 };
+  const hgtv = { id: "hgtv", name: "HGTV", mp4Source: "http://tv/hgtv.mp4", onid: 318, tsid: 1, sid: 56 };
+  const DVB_T = OIPF.DAE.Broadcast.ChannelIdType.ID_DVB_T;
+
+  type VideoBroadcastObject = {
+    currentChannel: { ccid?: string; sid: number } | null;
+    setChannel: (channel: unknown) => void;
+    createChannelObject: (idType: number, onid?: number, tsid?: number, sid?: number) => { ccid?: string } | null;
+    onChannelChangeError?: (channel: unknown, error: number) => void;
+  };
+
+  const start = (requestChannelChange: ChannelChangeRequest) => {
+    const env = createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [dmax, hgtv] });
+    const handle = runtime({ ...env, bindings: { ...env.bindings, requestChannelChange } })();
+    started.push(handle);
+    return handle;
+  };
+
+  const videoBroadcast = async () => {
+    const object = addObject("video/broadcast") as unknown as VideoBroadcastObject;
+    await flushMutations();
+    const errors: number[] = [];
+    object.onChannelChangeError = (_, error) => errors.push(error);
+    return { object, errors };
+  };
+
+  it("asks the TV before changing to another service, and follows it once it is there", async () => {
+    const asked: string[] = [];
+    start((channel) => {
+      asked.push(channel.id);
+      return TE.right(undefined);
+    });
+    const { object, errors } = await videoBroadcast();
+
+    object.setChannel(object.createChannelObject(DVB_T, 318, 1, 56));
+    await flushMutations();
+
+    expect(asked).toEqual(["hgtv"]);
+    expect(object.currentChannel).toMatchObject({ ccid: "hgtv" });
+    expect(errors).toEqual([]);
+  });
+
+  it("stays on its channel and reports the TV's error when the TV refuses", async () => {
+    start(() => TE.left(OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL));
+    const { object, errors } = await videoBroadcast();
+
+    object.setChannel(object.createChannelObject(DVB_T, 318, 1, 56));
+    await flushMutations();
+
+    expect(errors).toEqual([OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL]);
+    expect(object.currentChannel).toMatchObject({ ccid: "dmax" });
+  });
+
+  it("asks nothing for the service the TV is on, nor for one the lineup does not have", async () => {
+    const asked: string[] = [];
+    start((channel) => {
+      asked.push(channel.id);
+      return TE.right(undefined);
+    });
+    const { object, errors } = await videoBroadcast();
+
+    object.setChannel(object.createChannelObject(DVB_T, 318, 1, 52));
+    object.setChannel(object.createChannelObject(DVB_T, 1, 2, 3));
+    await flushMutations();
+
+    expect(asked).toEqual([]);
+    expect(errors).toEqual([OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNKNOWN_CHANNEL]);
+    expect(object.currentChannel).toMatchObject({ ccid: "dmax" });
+  });
+
+  it("the TV's own tuning asks nobody", async () => {
+    const asked: string[] = [];
+    const handle = start((channel) => {
+      asked.push(channel.id);
+      return TE.right(undefined);
+    });
+    const { object } = await videoBroadcast();
+
+    handle.tune(hgtv)();
+    await flushMutations();
+
+    expect(asked).toEqual([]);
+    expect(object.currentChannel).toMatchObject({ ccid: "hgtv" });
+  });
+
+  it("createChannelObject() gives the lineup's channel for its triplet, null without one", async () => {
+    start(tuneAlone);
+    const { object } = await videoBroadcast();
+
+    expect(object.createChannelObject(DVB_T, 318, 1, 56)).toMatchObject({ ccid: "hgtv", name: "HGTV" });
+    expect(object.createChannelObject(DVB_T, 1, 2, 3)).toMatchObject({ idType: DVB_T, onid: 1, tsid: 2, sid: 3 });
+    expect(object.createChannelObject(DVB_T)).toBeNull();
   });
 });

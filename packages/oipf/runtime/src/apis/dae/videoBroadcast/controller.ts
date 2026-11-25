@@ -33,7 +33,7 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
 
       // Presents the channel the TV is tuned to (none with an empty lineup).
       const tuned = this.env.getTunedChannel();
-      if (tuned) this.setChannel(tuned);
+      if (tuned) this.tuneTo(tuned);
 
       logger.info("Initialized")();
     }

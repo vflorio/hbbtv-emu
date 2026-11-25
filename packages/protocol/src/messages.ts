@@ -6,6 +6,8 @@
  * - OIPF object state: owned by the page. The host never pushes a full snapshot,
  *   which would wipe what the application did (e.g. reset its keyset to 0);
  * - commands (remote-control keys): host → page.
+ * - requests: the application asks the TV to change channel (`setChannel()`), and
+ *   the host answers with the new session or an error, or loads another page.
  *
  * Plus the TV session of the tab (the channel it is tuned to, …): owned by the host,
  * it outlives the page, which gets it again after every navigation.
@@ -26,7 +28,10 @@ export type PageSession = Readonly<{
   channel: ChannelConfig | null;
 }>;
 
-export type PageMessage = Readonly<{ _tag: "Page/Ready"; url: string }>;
+export type PageMessage =
+  | Readonly<{ _tag: "Page/Ready"; url: string }>
+  /** The application asks to change to another channel of the lineup (`setChannel()`). */
+  | Readonly<{ _tag: "Page/SetChannel"; channelId: string }>;
 
 export type HostMessage =
   /** The bridge started: the page announces itself again (the two may start in any order). */
@@ -36,7 +41,12 @@ export type HostMessage =
   /** An explicit edit (e.g. from the settings UI): only the fields that changed. */
   | Readonly<{ _tag: "Host/ApplyState"; patch: Partial<HbbTVState> }>
   /** The tab's TV session: sent after `Host/Config`, and whenever it changes. */
-  | Readonly<{ _tag: "Host/Session"; session: PageSession }>;
+  | Readonly<{ _tag: "Host/Session"; session: PageSession }>
+  /**
+   * The TV did not change to the channel the application asked for. `error` is the
+   * OIPF channel change error code (e.g. 5, unknown channel).
+   */
+  | Readonly<{ _tag: "Host/ChannelChangeError"; channelId: string; error: number }>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
@@ -48,8 +58,17 @@ const isChannel = (value: unknown): value is ChannelConfig => isRecord(value) &&
 export const isPageSession = (value: unknown): value is PageSession =>
   isRecord(value) && (value.channel === null || isChannel(value.channel));
 
-export const isPageMessage = (value: unknown): value is PageMessage =>
-  isRecord(value) && value._tag === "Page/Ready" && typeof value.url === "string";
+export const isPageMessage = (value: unknown): value is PageMessage => {
+  if (!isRecord(value)) return false;
+  switch (value._tag) {
+    case "Page/Ready":
+      return typeof value.url === "string";
+    case "Page/SetChannel":
+      return typeof value.channelId === "string";
+    default:
+      return false;
+  }
+};
 
 export const isHostMessage = (value: unknown): value is HostMessage => {
   if (!isRecord(value)) return false;
@@ -64,6 +83,8 @@ export const isHostMessage = (value: unknown): value is HostMessage => {
       return isRecord(value.patch);
     case "Host/Session":
       return isPageSession(value.session);
+    case "Host/ChannelChangeError":
+      return typeof value.channelId === "string" && typeof value.error === "number" && Number.isInteger(value.error);
     default:
       return false;
   }

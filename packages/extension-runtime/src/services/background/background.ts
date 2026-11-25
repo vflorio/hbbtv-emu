@@ -25,10 +25,11 @@ import {
 } from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
+import { applicationChangesChannel } from "./channel";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
 import { createSessions, type Sessions } from "./sessions";
-import { handleUiRequest } from "./ui";
+import { handleUiRequest, notifyUis, type UiEnv } from "./ui";
 
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
 
@@ -37,6 +38,7 @@ export class BackgroundService {
   private readonly stateManager: StateManager;
   private pageBootstrap!: PageBootstrap;
   private sessions!: Sessions;
+  private uiEnv!: UiEnv;
   tabsManager!: TabsManager;
 
   private messagingUnsubscribe?: () => void;
@@ -93,19 +95,21 @@ export class BackgroundService {
           },
         });
 
+        this.uiEnv = {
+          stateManager: this.stateManager,
+          messaging: this.env.adapter.messaging,
+          tabs: this.env.adapter.tabs,
+          ui: this.env.adapter.ui,
+          userAgent: this.env.adapter.userAgent,
+          pageBootstrap: this.pageBootstrap,
+          sessions: this.sessions,
+          tvPage: tvPageUrl(this.env.adapter.ui.pageUrl(TV_PAGE)),
+          logger: this.logger,
+        };
+
         this.messagingUnsubscribe = this.env.adapter.messaging.onMessage(this.onMessageReceived);
         this.uiUnsubscribe = this.env.adapter.ui.onRequest(isUiRequest, (request) =>
-          handleUiRequest(request)({
-            stateManager: this.stateManager,
-            messaging: this.env.adapter.messaging,
-            tabs: this.env.adapter.tabs,
-            ui: this.env.adapter.ui,
-            userAgent: this.env.adapter.userAgent,
-            pageBootstrap: this.pageBootstrap,
-            sessions: this.sessions,
-            tvPage: tvPageUrl(this.env.adapter.ui.pageUrl(TV_PAGE)),
-            logger: this.logger,
-          }),
+          handleUiRequest(request)(this.uiEnv),
         );
       }),
       TE.tapIO(() => this.logger.info("Initialized")),
@@ -156,14 +160,23 @@ export class BackgroundService {
       IO.flatMap(() => (isPageMessage(message) ? this.onPageMessage(message, tabId) : IO.of(undefined))),
     );
 
+  private readonly onPageMessage = (message: PageMessage, tabId: number): IO.IO<void> => {
+    switch (message._tag) {
+      case "Page/Ready":
+        return this.onPageReady(message.url, tabId);
+      case "Page/SetChannel":
+        return this.onSetChannel(message.channelId, tabId);
+    }
+  };
+
   /**
    * A page runtime started in a tab: send it the configuration, then the tab's TV
    * session (opened now if this is the first HbbTV page of the tab), which now shows
    * this page. Object state is never pushed here (ROADMAP D5).
    */
-  private readonly onPageMessage = (message: PageMessage, tabId: number): IO.IO<void> =>
+  private readonly onPageReady = (url: string, tabId: number): IO.IO<void> =>
     pipe(
-      this.logger.info(`Page runtime ready in tab ${tabId}: ${message.url}`),
+      this.logger.info(`Page runtime ready in tab ${tabId}: ${url}`),
       IO.flatMap(() => this.stateManager.getState()),
       IO.flatMap(
         E.match(
@@ -171,7 +184,7 @@ export class BackgroundService {
           (state) => () => {
             void pipe(
               this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
-              TE.flatMap(() => TE.fromTask(this.showing(tabId, message.url, state))),
+              TE.flatMap(() => TE.fromTask(this.showing(tabId, url, state))),
               TE.flatMap((session) =>
                 this.env.adapter.messaging.sendToTab(tabId, {
                   _tag: "Host/Session",
@@ -182,6 +195,42 @@ export class BackgroundService {
               // A reload of this page will find its channel at document_start. And if this
               // page got its data late, the bootstrap may have become possible since.
               TE.tap(() => TE.fromTask(this.republish())),
+            )();
+          },
+        ),
+      ),
+    );
+
+  /**
+   * The application asks to change channel (`setChannel()`): the TV changes as it
+   * does from the UI, and the UIs show it. If it does not, the page gets the error.
+   */
+  private readonly onSetChannel = (channelId: string, tabId: number): IO.IO<void> =>
+    pipe(
+      this.logger.info(`The application in tab ${tabId} asks for channel ${channelId}`),
+      IO.flatMap(() => this.stateManager.getState()),
+      IO.flatMap(
+        E.match(
+          (error) => this.logger.error("Cannot change channel", error),
+          (state) => () => {
+            void pipe(
+              applicationChangesChannel(tabId, channelId, state)(this.uiEnv),
+              TE.match(
+                (refusal) =>
+                  pipe(
+                    T.fromIO(this.logger.warn(`Tab ${tabId} stays on its channel: ${refusal.reason}`)),
+                    T.flatMap(() =>
+                      this.env.adapter.messaging.sendToTab(tabId, {
+                        _tag: "Host/ChannelChangeError",
+                        channelId,
+                        error: refusal.error,
+                      }),
+                    ),
+                    T.asUnit,
+                  ),
+                () => notifyUis(state)(this.uiEnv),
+              ),
+              T.flatten,
             )();
           },
         ),

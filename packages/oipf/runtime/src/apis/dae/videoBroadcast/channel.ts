@@ -3,11 +3,19 @@ import { OIPF } from "@hbb-emu/oipf-api";
 import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
 import * as RIO from "fp-ts/ReaderIO";
 import * as RTE from "fp-ts/ReaderTaskEither";
+import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import { type ChannelRegistryEnv, resolveChannel } from "../../../subsystems/channelRegistry";
+import {
+  type ChannelChangeRequest,
+  type ChannelRegistryEnv,
+  isSameService,
+  resolveChannel,
+  toBroadcastChannel,
+} from "../../../subsystems";
 import {
   isStateChangeEvent,
   type VideoStreamPlayState,
@@ -37,6 +45,8 @@ export interface ChannelAPI {
   createChannelObject: OIPF.DAE.Broadcast.VideoBroadcast["createChannelObject"];
   // Internal Methods
   setPlayState: (newState: OIPF.DAE.Broadcast.PlayState) => void;
+  /** The TV changed channel (not the application): the object presents it, nobody is asked. */
+  tuneTo: (channel: OIPF.DAE.Broadcast.Channel) => void;
 }
 
 // Mixin
@@ -68,14 +78,18 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
       pipe(
         TE.Do,
         TE.tapIO(() => logger.debug("setChannel", channel)),
-        TE.flatMap(() => setChannel(channel)(this.#withChannelEnv)),
+        TE.flatMap(() => changeChannel(channel)(this.#withChannelEnv)),
         TE.match(
-          (error) =>
-            channel
-              ? this.env.eventHandlers.onChannelChangeError(channel as OIPF.DAE.Broadcast.Channel, error)
-              : undefined,
+          (error) => (channel ? this.env.eventHandlers.onChannelChangeError(channel, error) : undefined),
           IO.of(undefined),
         ),
+      )();
+    };
+
+    tuneTo = (channel: OIPF.DAE.Broadcast.Channel): void => {
+      pipe(
+        setChannel(channel)(this.#withChannelEnv),
+        TE.match((error) => this.env.eventHandlers.onChannelChangeError(channel, error), IO.of(undefined)),
       )();
     };
 
@@ -111,16 +125,15 @@ export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
     };
 
     createChannelObject = (
-      _idType: OIPF.DAE.Broadcast.ChannelIdType,
-      _onidOrDsd?: number | string,
-      _tsid?: number,
-      _sid?: number,
+      idType: OIPF.DAE.Broadcast.ChannelIdType,
+      onidOrDsd?: number | string,
+      tsid?: number,
+      sid?: number,
       _sourceID?: number,
       _ipBroadcastID?: string,
     ): OIPF.DAE.Broadcast.Channel | null => {
-      logger.debug("createChannelObject")();
-      // TODO: Implement channel creation
-      return null;
+      logger.debug("createChannelObject", idType, onidOrDsd, tsid, sid)();
+      return createChannelObject(idType, onidOrDsd, tsid, sid)(this.env)();
     };
   };
 
@@ -274,6 +287,73 @@ export const setChannel = (
         .otherwise((channel) => pipe(playChannel(channel), RTE.as(channel))),
     ),
   );
+
+/** What an application's channel change needs beyond the object's own channel. */
+export type ChannelChangeEnv = {
+  /** The channel the TV is tuned to. */
+  getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
+  requestChannelChange: ChannelChangeRequest;
+};
+
+type ChangeChannelEnv = ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv & ChannelChangeEnv;
+
+/**
+ * The application's `setChannel()`. To the service the TV is on, the object just
+ * presents it. To another one, the TV decides first (`requestChannelChange`); once it
+ * is on the new channel the object presents it too, unless the TV's own tuning
+ * already did. A channel missing from the lineup fails before anything changes.
+ */
+export const changeChannel = (
+  channel: OIPF.DAE.Broadcast.Channel | null,
+): RTE.ReaderTaskEither<
+  ChangeChannelEnv,
+  OIPF.DAE.Broadcast.ChannelChangeErrorCode,
+  OIPF.DAE.Broadcast.Channel | null
+> =>
+  channel === null
+    ? setChannel(null)
+    : pipe(
+        resolveChannel(channel),
+        RTE.flatMap(({ config }) =>
+          RTE.asksReaderTaskEither((env: ChangeChannelEnv) =>
+            isSameService(env.getTunedChannel(), channel)
+              ? setChannel(channel)
+              : pipe(
+                  RTE.fromTaskEither(env.requestChannelChange(config)),
+                  RTE.flatMap(() =>
+                    isSameService(env.getCurrentChannel(), channel)
+                      ? RTE.of(env.getCurrentChannel())
+                      : setChannel(channel),
+                  ),
+                ),
+          ),
+        ),
+      );
+
+/**
+ * A channel the application can pass to `setChannel()`, from its DVB triplet: the
+ * lineup's one, or a channel the TV does not know (tuning to it fails). `null`
+ * without a full triplet (other id types are not supported yet).
+ */
+export const createChannelObject =
+  (
+    idType: OIPF.DAE.Broadcast.ChannelIdType,
+    onid: number | string | undefined,
+    tsid: number | undefined,
+    sid: number | undefined,
+  ): RIO.ReaderIO<ChannelRegistryEnv, OIPF.DAE.Broadcast.Channel | null> =>
+  (env) =>
+  () => {
+    if (typeof onid !== "number" || typeof tsid !== "number" || typeof sid !== "number") return null;
+    const triplet = { onid, tsid, sid };
+    return pipe(
+      env.getChannels(),
+      RA.findFirst((config) => isSameService(config, triplet)),
+      O.match((): Partial<OIPF.DAE.Broadcast.Channel> => ({ idType, ...triplet }), toBroadcastChannel),
+      // The OIPF Channel object has more members (methods, …) than the emulator fills in.
+      (channel) => channel as OIPF.DAE.Broadcast.Channel,
+    );
+  };
 
 export const playChannel = (
   channel: OIPF.DAE.Broadcast.Channel,

@@ -361,4 +361,85 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       await request({ _tag: "UI/SaveState", state: original });
     }
   });
+
+  it("the application's setChannel() changes the TV's channel as the UI does; on its own, it gets an error", async () => {
+    const { request } = await openUi();
+    type Service = Channel & { onid: number; tsid: number };
+    type UiState = { channels: Service[]; currentChannel: Service | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Service];
+    const stamp = Date.now();
+    const appUrl = server.url(`basic-app/index.xhtml?linear=${stamp}`);
+    const newsUrl = server.url(`basic-app/index.xhtml?news=${stamp}`);
+    const signals = (orgId: number, url: string) => ({
+      applications: [{ orgId, appId: 1, controlCode: "AUTOSTART", url }],
+    });
+    const dmax = { ...first, id: "e2e-dmax", name: "e2e DMAX", sid: first.sid + 3000, ait: signals(10, appUrl) };
+    const hgtv = { ...first, id: "e2e-hgtv", name: "e2e HGTV", sid: first.sid + 3001, ait: signals(10, appUrl) };
+    const news = { ...first, id: "e2e-news", name: "e2e NEWS", sid: first.sid + 3002, ait: signals(20, newsUrl) };
+    const loaded = async (page: Page, url: string) => {
+      await expect.poll(() => page.evaluate(() => location.href).catch(() => null), { timeout: 5000 }).toBe(url);
+      await page.waitForFunction(() => "__e2e" in window && document.readyState === "complete");
+    };
+    /** What an application does: the channel from its triplet, then setChannel(); errors are recorded. */
+    const setChannel = (page: Page, to: Service) =>
+      page.evaluate(
+        (onid, tsid, sid) => {
+          type Vb = {
+            createChannelObject: (idType: number, onid: number, tsid: number, sid: number) => unknown;
+            setChannel: (channel: unknown) => void;
+            onChannelChangeError: (channel: unknown, error: number) => void;
+          };
+          const video = document.getElementById("video") as unknown as Vb;
+          const errors: number[] = [];
+          Object.assign(window, { __channelErrors: errors });
+          video.onChannelChangeError = (_, error) => errors.push(error);
+          video.setChannel(video.createChannelObject(12 /* ID_DVB_T */, onid, tsid, sid));
+        },
+        to.onid,
+        to.tsid,
+        to.sid,
+      );
+    const channelErrors = (page: Page) =>
+      page.evaluate(() => (window as unknown as { __channelErrors: number[] }).__channelErrors);
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, dmax, hgtv, news] } });
+      const opened = firefox.browser.waitForTarget((target) => target.url() === appUrl);
+      expect(await request({ _tag: "UI/TurnOnTv", channelId: dmax.id })).toEqual({ _tag: "UI/Done" });
+      const tv = (await (await opened).page())!;
+      await loaded(tv, appUrl);
+
+      // HGTV signals the running application: it keeps running, on HGTV, and the UI shows it.
+      await tv.evaluate(() => Object.assign(window, { __stayed: true }));
+      await setChannel(tv, hgtv);
+      await expect
+        .poll(() => tv.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({
+          application: hgtv.id,
+          videoBroadcast: hgtv.id,
+        });
+      expect(await tv.evaluate(() => "__stayed" in window)).toBe(true);
+      expect(await channelErrors(tv)).toEqual([]);
+      expect((await getState()).currentChannel?.id).toBe(hgtv.id);
+
+      // NEWS signals another one: the TV loads it, on NEWS from its first script.
+      await setChannel(tv, news);
+      await loaded(tv, newsUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBe(news.id);
+      await tv.close();
+
+      // An application opened on its own (app mode) has only its channel: DMAX, the
+      // first whose AIT signals an application of its origin.
+      const { page: alone } = await openPage(`basic-app/index.xhtml?alone=${stamp}`);
+      const onDmax = { application: dmax.id, videoBroadcast: dmax.id };
+      await expect.poll(() => alone.evaluate(channelSeen), { timeout: 5000 }).toEqual(onDmax);
+      await setChannel(alone, hgtv);
+      await expect.poll(() => channelErrors(alone), { timeout: 5000 }).toEqual([5]);
+      expect(await alone.evaluate(channelSeen)).toEqual(onDmax);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
 });

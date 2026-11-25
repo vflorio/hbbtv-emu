@@ -1,7 +1,7 @@
 import * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it, type Mock, vi } from "vitest";
-import type { StreamEventSchedulerApi } from "../../../subsystems";
+import { type StreamEventSchedulerApi, tuneAlone } from "../../../subsystems";
 import { FULLSCREEN_ATTRIBUTE } from "../../../subsystems/provider/detection/embedded";
 import type { ChannelVideoStreamEnv } from "./channel";
 import { VideoBroadcast, type VideoBroadcastEventHandlers } from "./index";
@@ -58,6 +58,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px") => {
     videoStream: stream.videoStream,
     videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
     getTunedChannel: () => null,
+    requestChannelChange: tuneAlone,
     onCurrentChannelChange: () => {},
     streamEventScheduler: noopStreamEventScheduler,
     defaults: { fullScreen: false, playState: 0 },

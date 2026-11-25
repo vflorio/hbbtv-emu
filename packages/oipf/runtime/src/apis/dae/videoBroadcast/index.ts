@@ -2,7 +2,7 @@ import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallbac
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
+import type { ChannelChangeRequest, ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
 import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
 import { WithComponent } from "./component";
 import { WithController } from "./controller";
@@ -42,6 +42,8 @@ export type VideoBroadcastEnv = Readonly<{
       videoWindow: VideoWindow;
       /** The channel the TV is tuned to: what a new object presents. */
       getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
+      /** Asks the TV before the application changes to another service. */
+      requestChannelChange: ChannelChangeRequest;
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
@@ -54,6 +56,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
     ChannelVideoStreamEnv & {
       videoWindow: VideoWindow;
       getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
+      requestChannelChange: ChannelChangeRequest;
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
@@ -65,6 +68,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
     videoStream: ChannelVideoStreamEnv;
     videoWindow: VideoWindow;
     getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
+    requestChannelChange: ChannelChangeRequest;
     onCurrentChannelChange: SetCurrentChannelCallback;
     streamEventScheduler: StreamEventSchedulerApi;
     defaults: VideoBroadcastDefaults;
@@ -75,6 +79,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
       ...env.videoStream,
       videoWindow: env.videoWindow,
       getTunedChannel: env.getTunedChannel,
+      requestChannelChange: env.requestChannelChange,
       onCurrentChannelChange: env.onCurrentChannelChange,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaults,

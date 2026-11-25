@@ -25,6 +25,8 @@ describe("message guards", () => {
   it.each<[unknown, boolean]>([
     [{ _tag: "Page/Ready", url: "http://app" }, true],
     [{ _tag: "Page/Ready" }, false],
+    [{ _tag: "Page/SetChannel", channelId: "hgtv" }, true],
+    [{ _tag: "Page/SetChannel" }, false],
     [{ _tag: "Host/Hello" }, false],
   ])("isPageMessage(%j) → %s", (value, expected) => {
     expect(isPageMessage(value)).toBe(expected);
@@ -99,6 +101,9 @@ describe("host edits and session", () => {
     [{ _tag: "Host/Session", session: { channel: null } }, true],
     [{ _tag: "Host/Session", session: { channel: { name: "DMAX" } } }, false],
     [{ _tag: "Host/Session", session: {} }, false],
+    [{ _tag: "Host/ChannelChangeError", channelId: "hgtv", error: 5 }, true],
+    [{ _tag: "Host/ChannelChangeError", channelId: "hgtv", error: "5" }, false],
+    [{ _tag: "Host/ChannelChangeError", error: 5 }, false],
   ])("isHostMessage(%j) → %s", (value, expected) => {
     expect(isHostMessage(value)).toBe(expected);
   });

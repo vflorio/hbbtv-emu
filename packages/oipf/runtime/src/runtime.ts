@@ -33,6 +33,7 @@ import * as IO from "fp-ts/IO";
 import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/controlVideo";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
 import {
+  type ChannelChangeRequest,
   type ChannelRegistry,
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
@@ -46,6 +47,7 @@ import {
   isSameService,
   type RemoteControlEnv,
   type StreamEventSchedulerApi,
+  tuneAlone,
   type UserAgentEnv,
 } from "./subsystems";
 import { type AnyOipfBinding, createProviderEnv, type GlobalState, ProviderService } from "./subsystems/provider";
@@ -73,6 +75,12 @@ export type BindingsEnv = Readonly<{
    * Called by VideoBroadcast when channel changes.
    */
   setCurrentChannel: (channel: OIPF.DAE.Broadcast.Channel | null) => void;
+
+  /**
+   * Asks the TV before an application changes to another service (`setChannel()`):
+   * the host's TV session decides. Without a host the object just tunes.
+   */
+  requestChannelChange: ChannelChangeRequest;
 
   /**
    * Returns the shared PlayerRuntime instance for VideoBroadcast.
@@ -165,7 +173,8 @@ export type Runtime = Readonly<{
 // Runtime Service
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Tunable = Pick<OIPF.DAE.Broadcast.VideoBroadcast, "currentChannel" | "playState" | "setChannel">;
+type Tunable = Pick<OIPF.DAE.Broadcast.VideoBroadcast, "currentChannel" | "playState"> &
+  Readonly<{ tuneTo: (channel: OIPF.DAE.Broadcast.Channel) => void }>;
 
 /** Released by the application: no longer bound to the broadcast. */
 const isReleased = (videoBroadcast: Tunable): boolean =>
@@ -251,7 +260,7 @@ export class RuntimeService implements Runtime {
             if (tuned === null) return;
             for (const instance of instances as unknown as ReadonlyArray<Tunable>) {
               if (!isReleased(instance) && !isSameService(instance.currentChannel, tuned)) {
-                instance.setChannel(tuned);
+                instance.tuneTo(tuned);
               }
             }
           }),
@@ -337,6 +346,7 @@ export const createRuntimeEnv = (
     // Current channel
     getCurrentChannel: currentChannelEnv.getCurrentChannel,
     setCurrentChannel: currentChannelEnv.setCurrentChannel,
+    requestChannelChange: tuneAlone,
     // PlayerRuntime for VideoBroadcast (singleton)
     getSharedPlayerRuntime: () => sharedPlayerRuntime ?? null,
     // PlayerRuntime factory for AVControl (multiple instances)

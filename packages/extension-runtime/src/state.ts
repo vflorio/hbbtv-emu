@@ -63,8 +63,8 @@ export const toPageConfig = (state: ExtensionState): PageConfig => ({
  * as long as the tab and outlives the pages loaded in it.
  *
  * - `app`: the tab was opened on an HbbTV application (detected by its content type).
- *   Its channel is the one the application is broadcast-related to; changing it only
- *   retunes the page.
+ *   Its channel is the one the application is broadcast-related to; changing it (from
+ *   the UI) only retunes the page. The application cannot change it.
  * - `tv`: the TV was turned on from the UI, on a channel of the lineup. Changing
  *   channel follows the AIT, as on a TV: the running application survives if the new
  *   channel signals it, otherwise the tab loads the new channel's autostart
@@ -121,6 +121,14 @@ export const changeChannel = (
   const selected = selectService(channel, tvPage);
   return { session: { ...retuned, ...selected }, navigateTo: selected.url };
 };
+
+/**
+ * Whether the application may change its TV to `channel` (`setChannel()`): only a
+ * TV changes channel. An application opened on its own has only its channel
+ * (ROADMAP D5).
+ */
+export const mayChangeChannel = (session: TvSession, channel: ChannelConfig): boolean =>
+  session.mode === "tv" || session.channelId === channel.id;
 
 /** Every open TV, by tab id. */
 export type TvSessions = Readonly<Record<string, TvSession>>;

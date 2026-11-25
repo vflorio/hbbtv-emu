@@ -3,13 +3,21 @@
  */
 
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
-import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtime } from "@hbb-emu/oipf-runtime";
+import {
+  type ChannelChangeRequest,
+  createRuntimeEnv,
+  type PlayerRuntimeFactory,
+  type RuntimeHandle,
+  runtime,
+  tuneAlone,
+} from "@hbb-emu/oipf-runtime";
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { type BootstrapData, initialChannel, type PageConfig } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
+import type { HostChannelChanges } from "./channelChange";
 import type { PageRuntimeControl } from "./host";
 
 const createPlayerRuntime = (): PlayerRuntime =>
@@ -47,23 +55,23 @@ const DEFAULT_BOOTSTRAP: BootstrapData = {
  * with the defaults otherwise: the host's one is then applied when it arrives.
  * The channel is the one `initialChannel` says (the host opens the tab's session
  * with the same rule). One shared player for video/broadcast, a new one for every
- * A/V Control object.
+ * A/V Control object. The application's channel changes go through
+ * `requestChannelChange` (the host's, once connected).
  */
 export const startRuntime =
-  (url: string) =>
+  (url: string, requestChannelChange: ChannelChangeRequest = tuneAlone) =>
   (bootstrap: O.Option<BootstrapData> = O.none): IO.IO<RuntimeHandle> =>
   () => {
     const data = pipe(
       bootstrap,
       O.getOrElse(() => DEFAULT_BOOTSTRAP),
     );
-    return runtime(
-      createRuntimeEnv(
-        toExtensionState(data.config, initialChannel(data, url)),
-        createPlayerRuntime(),
-        playerRuntimeFactory,
-      ),
-    )();
+    const env = createRuntimeEnv(
+      toExtensionState(data.config, initialChannel(data, url)),
+      createPlayerRuntime(),
+      playerRuntimeFactory,
+    );
+    return runtime({ ...env, bindings: { ...env.bindings, requestChannelChange } })();
   };
 
 /**
@@ -79,10 +87,19 @@ export const applyBootstrap =
       IO.flatMap(() => handle.tune(initialChannel(data, url))),
     );
 
-/** Configuration can be applied any time: the user agent and the channel lineup are live. */
-export const controlRuntime = (handle: RuntimeHandle): PageRuntimeControl => ({
+/**
+ * Configuration can be applied any time: the user agent and the channel lineup are
+ * live. A new session tunes the TV first, then settles the application's requests
+ * for that channel (its objects are already there).
+ */
+export const controlRuntime = (handle: RuntimeHandle, changes: HostChannelChanges): PageRuntimeControl => ({
   applyConfig: (config: PageConfig) => handle.updateExtensionState(toExtensionState(config)),
   dispatchKey: handle.dispatchKey,
   applyState: handle.updateState,
-  applySession: (session) => handle.tune(session.channel),
+  applySession: (session) =>
+    pipe(
+      handle.tune(session.channel),
+      IO.flatMap(() => changes.settle(session)),
+    ),
+  channelChangeFailed: changes.fail,
 });
