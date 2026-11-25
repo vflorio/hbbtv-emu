@@ -442,4 +442,79 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       await request({ _tag: "UI/SaveState", state: original });
     }
   });
+
+  it("getChannelConfig() lists the lineup, and nextChannel()/prevChannel() go through it as setChannel() does", async () => {
+    const { request } = await openUi();
+    type Service = Channel & { onid: number; tsid: number };
+    type UiState = { channels: Service[]; currentChannel: Service | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Service];
+    const stamp = Date.now();
+    const appUrl = server.url(`basic-app/index.xhtml?zap=${stamp}`);
+    const newsUrl = server.url(`basic-app/index.xhtml?zap-news=${stamp}`);
+    const signals = (orgId: number, url: string) => ({
+      applications: [{ orgId, appId: 1, controlCode: "AUTOSTART", url }],
+    });
+    const dmax = { ...first, id: "e2e-dmax", name: "e2e DMAX", sid: first.sid + 3000, ait: signals(10, appUrl) };
+    const hgtv = { ...first, id: "e2e-hgtv", name: "e2e HGTV", sid: first.sid + 3001, ait: signals(10, appUrl) };
+    const news = { ...first, id: "e2e-news", name: "e2e NEWS", sid: first.sid + 3002, ait: signals(20, newsUrl) };
+    /** The lineup as the application reads it from getChannelConfig(). */
+    const channelList = (page: Page) =>
+      page.evaluate(() => {
+        type List = { length: number; item: (index: number) => { ccid: string } };
+        const video = document.getElementById("video") as unknown as {
+          getChannelConfig: () => { channelList: List };
+        };
+        const list = video.getChannelConfig().channelList;
+        return Array.from({ length: list.length }, (_, index) => list.item(index).ccid);
+      });
+    const zap = (page: Page, method: "nextChannel" | "prevChannel") =>
+      page.evaluate((m) => {
+        const video = document.getElementById("video") as unknown as Record<string, () => void>;
+        video[m]!();
+      }, method);
+    const loaded = async (page: Page, url: string) => {
+      await expect.poll(() => page.evaluate(() => location.href).catch(() => null), { timeout: 5000 }).toBe(url);
+      await page.waitForFunction(() => "__e2e" in window && document.readyState === "complete");
+    };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, dmax, hgtv, news] } });
+      const opened = firefox.browser.waitForTarget((target) => target.url() === appUrl);
+      expect(await request({ _tag: "UI/TurnOnTv", channelId: dmax.id })).toEqual({ _tag: "UI/Done" });
+      const tv = (await (await opened).page())!;
+      await loaded(tv, appUrl);
+      expect(await channelList(tv)).toEqual([first.id, dmax.id, hgtv.id, news.id]);
+
+      // DMAX → HGTV → DMAX: both signal the running application, which keeps running.
+      await tv.evaluate(() => Object.assign(window, { __stayed: true }));
+      await zap(tv, "nextChannel");
+      await expect
+        .poll(() => tv.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({
+          application: hgtv.id,
+          videoBroadcast: hgtv.id,
+        });
+      await zap(tv, "prevChannel");
+      await expect
+        .poll(() => tv.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({
+          application: dmax.id,
+          videoBroadcast: dmax.id,
+        });
+      expect(await tv.evaluate(() => "__stayed" in window)).toBe(true);
+      expect((await getState()).currentChannel?.id).toBe(dmax.id);
+
+      // Two up, NEWS: it signals another application, which the TV loads, on NEWS from its first script.
+      await zap(tv, "nextChannel");
+      await expect.poll(() => tv.evaluate(channelSeen), { timeout: 5000 }).toMatchObject({ application: hgtv.id });
+      await zap(tv, "nextChannel");
+      await loaded(tv, newsUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBe(news.id);
+      await tv.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
 });

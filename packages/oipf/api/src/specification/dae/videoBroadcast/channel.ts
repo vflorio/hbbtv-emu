@@ -91,7 +91,7 @@ export enum ChannelType {
  * - `ChannelConfig.channelList`
  * - `VideoBroadcast.currentChannel`
  * - `VideoBroadcast.createChannelObject()`
- * - `ChannelConfig.getChannelWithTriplet()`
+ * - `ChannelList.getChannel()` / `ChannelList.getChannelByTriplet()`
  */
 export interface Channel {
   /**
@@ -261,7 +261,7 @@ export interface Channel {
 // ============================================================================
 
 /**
- * Collection of Channel objects.
+ * Collection of Channel objects (OIPF DAE §7.13.10).
  *
  * Provides array-like access to channels with additional query methods.
  */
@@ -283,9 +283,9 @@ export interface ChannelList {
    * Returns the channel with the specified ccid.
    *
    * @param ccid - The channel's unique identifier
-   * @returns The Channel with the ccid, or undefined if not found
+   * @returns The first Channel with the ccid, or `null` if not found
    */
-  getChannel(ccid: string): Channel | undefined;
+  getChannel(ccid: string): Channel | null;
 
   /**
    * Returns the channel with the specified DVB triplet.
@@ -293,9 +293,9 @@ export interface ChannelList {
    * @param onid - Original network ID
    * @param tsid - Transport stream ID
    * @param sid - Service ID
-   * @returns The matching Channel, or undefined if not found
+   * @returns The first matching Channel, or `null` if not found
    */
-  getChannelByTriplet(onid: number, tsid: number, sid: number): Channel | undefined;
+  getChannelByTriplet(onid: number, tsid: number, sid: number): Channel | null;
 
   /**
    * Array-like index access.
@@ -363,9 +363,11 @@ export interface FavouriteListCollection {
 // ============================================================================
 
 /**
- * Provides access to the channel line-up and configuration.
+ * Provides access to the channel line-up and configuration (OIPF DAE §7.13.9).
  *
- * Obtained via `VideoBroadcast.getChannelConfig()`.
+ * Obtained via `VideoBroadcast.getChannelConfig()`. HbbTV terminals expose
+ * `channelList`; the favourite lists are optional (DTVKit's HbbTV engine, for one,
+ * has neither).
  */
 export interface ChannelConfig {
   /**
@@ -376,7 +378,7 @@ export interface ChannelConfig {
   /**
    * The collection of favourite lists.
    */
-  readonly favouriteLists: FavouriteListCollection;
+  readonly favouriteLists?: FavouriteListCollection;
 
   /**
    * The currently active favourite list.
@@ -386,25 +388,5 @@ export interface ChannelConfig {
    *
    * Set to `null` to use the full channel list.
    */
-  currentFavouriteList: FavouriteList | null;
-
-  /**
-   * Returns the channel with the specified DVB triplet.
-   *
-   * @param idType - The type of channel (one of ID_DVB_* or ID_ISDB_*)
-   * @param onid - Original network ID
-   * @param tsid - Transport stream ID
-   * @param sid - Service ID
-   *
-   * @returns The matching Channel, or `null` if not found
-   */
-  getChannelWithTriplet(idType: ChannelIdType, onid: number, tsid: number, sid: number): Channel | null;
-
-  /**
-   * Returns the channel at the specified position in the channel list.
-   *
-   * @param channelNumber - The logical channel number
-   * @returns The Channel at that position, or `null` if not found
-   */
-  getChannelByNumber(channelNumber: number): Channel | null;
+  currentFavouriteList?: FavouriteList | null;
 }

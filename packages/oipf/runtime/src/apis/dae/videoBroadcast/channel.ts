@@ -2,8 +2,8 @@
  * video/broadcast — channel
  *
  * OIPF DAE §7.13.1: `currentChannel`, `playState`, `bindToCurrentChannel()`,
- * `setChannel()`, `stop()`, `release()`, `createChannelObject()`.
- * `prevChannel()`, `nextChannel()` and `getChannelConfig()` are not implemented yet.
+ * `setChannel()`, `prevChannel()`, `nextChannel()`, `stop()`, `release()`,
+ * `getChannelConfig()`, `createChannelObject()`.
  *
  * Reader-style module (ROADMAP D1), same shape as `./volume.ts` and `./display.ts`:
  * - the object's `playState` and `currentChannel` live in an injected `IORef`;
@@ -17,6 +17,8 @@
  * - an application's `setChannel()` to the service the TV is on only presents it; to
  *   another one the TV decides first, and a channel missing from the lineup fails
  *   before anything changes;
+ * - `nextChannel()` / `prevChannel()` are `setChannel()` to the neighbouring channel of
+ *   the lineup, cycling at both ends; unrealized, they fail (`NO_CHANNEL_LIST`);
  * - the TV's own tuning (`tuneTo`) asks nobody;
  * - `onPlayStateChange` fires only when `playState` actually changes.
  */
@@ -50,6 +52,7 @@ import {
   type VideoStreamSource,
 } from "../../../subsystems/videoStream";
 import type { VideoBroadcastEnv } from ".";
+import { createChannelConfig, neighbourChannel, type Step } from "./channelConfig";
 
 const logger = createLogger("VideoBroadcast:Channel");
 
@@ -76,7 +79,8 @@ export type BroadcastPlayer = Readonly<{
 
 export type ChannelEvents = Readonly<{
   onPlayStateChange: (playState: PlayState) => IO.IO<void>;
-  onChannelChangeError: (channel: Channel, error: ChannelChangeErrorCode) => IO.IO<void>;
+  /** `null` only when there was no channel to change from or to (`nextChannel()` with none). */
+  onChannelChangeError: (channel: Channel | null, error: ChannelChangeErrorCode) => IO.IO<void>;
   /** The object presents another channel (or none): the rest of the page follows it. */
   onCurrentChannelChange: (channel: Channel | null) => IO.IO<void>;
 }>;
@@ -164,7 +168,7 @@ export const applyChannelState = (patch: Partial<ChannelState>): RIO.ReaderIO<Ch
 // ─────────────────────────────────────────────────────────────────────────────
 
 const reportError =
-  (channel: Channel, error: ChannelChangeErrorCode): RIO.ReaderIO<ChannelEnv, void> =>
+  (channel: Channel | null, error: ChannelChangeErrorCode): RIO.ReaderIO<ChannelEnv, void> =>
   ({ channelEvents }) =>
     channelEvents.onChannelChangeError(channel, error);
 
@@ -276,21 +280,28 @@ export const setChannel = (channel: Channel | null): RT.ReaderTask<ChannelEnv, v
 /** The TV changed channel (not the application): the object presents it, nobody is asked. */
 export const tuneTo = (channel: Channel): RT.ReaderTask<ChannelEnv, void> => reportingTo(channel)(bindTo(channel));
 
+/** Presents `channel` (none: binds nothing), returning it straight away. */
+const presentAgain = (channel: Channel | null): RIO.ReaderIO<ChannelEnv, Channel | null> =>
+  channel === null ? RIO.of(null) : pipe(fork(reportingTo(channel)(playChannel(channel))), RIO.as(channel));
+
 /**
- * `bindToCurrentChannel()`: stopped, it presents its channel again; connecting or
- * presenting, it resumes the stream. Returns the channel it is bound to.
+ * `bindToCurrentChannel()`: unrealized, it binds to the channel the TV presents
+ * (OIPF DAE §7.13.1.3), e.g. after the application released it for on-demand
+ * content; stopped, it presents its channel again; connecting or presenting, it
+ * resumes the stream. Returns the channel it is bound to.
  */
 export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
   readChannelState,
   RIO.tapIO(({ playState, currentChannel }) => logger.debug("bindToCurrentChannel", playState, currentChannel)),
   RIO.flatMap(({ playState, currentChannel }) =>
     match(playState)
-      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.of<ChannelEnv, Channel | null>(null))
-      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () =>
-        currentChannel === null
-          ? RIO.of<ChannelEnv, Channel | null>(null)
-          : pipe(fork(reportingTo(currentChannel)(playChannel(currentChannel))), RIO.as(currentChannel)),
+      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () =>
+        pipe(
+          RIO.asks((env: ChannelEnv) => env.getTunedChannel()),
+          RIO.flatMap(presentAgain),
+        ),
       )
+      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => presentAgain(currentChannel))
       .otherwise(() =>
         pipe(
           fork(({ player }) => T.asUnit(player.play)),
@@ -299,6 +310,48 @@ export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pi
       ),
   ),
 );
+
+/** The TV's lineup, as OIPF channels, in its order. */
+const lineup: RIO.ReaderIO<ChannelEnv, ReadonlyArray<Channel>> = ({ getChannels }) =>
+  pipe(
+    getChannels,
+    // The OIPF Channel object has more members (methods, …) than the emulator fills in.
+    IO.map(RA.map((config) => toBroadcastChannel(config) as Channel)),
+  );
+
+/** `getChannelConfig()`: the lineup as it is now (it can change while the page runs). */
+export const getChannelConfig: RIO.ReaderIO<ChannelEnv, OIPF.DAE.Broadcast.ChannelConfig> = pipe(
+  lineup,
+  RIO.map(createChannelConfig),
+);
+
+/**
+ * `nextChannel()` (step 1) / `prevChannel()` (step -1): `setChannel()` to the
+ * neighbouring channel of the lineup. Unrealized, or with an empty lineup, the
+ * application gets `NO_CHANNEL_LIST`.
+ */
+export const zap = (step: Step): RT.ReaderTask<ChannelEnv, void> =>
+  pipe(
+    RT.fromReaderIO(readChannelState),
+    RT.tapIO(({ playState, currentChannel }) => logger.debug("zap", step, playState, currentChannel)),
+    RT.flatMap(({ playState, currentChannel }) =>
+      pipe(
+        RT.fromReaderIO(lineup),
+        RT.map((channels) =>
+          playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED
+            ? O.none
+            : neighbourChannel(channels, currentChannel, step),
+        ),
+        RT.flatMap(
+          O.match(
+            () =>
+              RT.fromReaderIO(reportError(currentChannel, OIPF.DAE.Broadcast.ChannelChangeErrorCode.NO_CHANNEL_LIST)),
+            (target) => reportingTo(target)(changeChannel(target)),
+          ),
+        ),
+      ),
+    ),
+  );
 
 /**
  * A channel the application can pass to `setChannel()`, from its DVB triplet: the
@@ -357,15 +410,12 @@ export const channelApi: R.Reader<ChannelEnv, ChannelApi> = (env) => ({
   stop: () => stop(env)(),
   release: () => release(env)(),
   prevChannel: () => {
-    logger.debug("prevChannel")();
+    void zap(-1)(env)();
   },
   nextChannel: () => {
-    logger.debug("nextChannel")();
+    void zap(1)(env)();
   },
-  getChannelConfig: () => {
-    logger.debug("getChannelConfig")();
-    return null;
-  },
+  getChannelConfig: () => getChannelConfig(env)(),
   createChannelObject: (
     idType: OIPF.DAE.Broadcast.ChannelIdType,
     onidOrDsd?: number | string,

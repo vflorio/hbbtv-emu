@@ -26,7 +26,8 @@ export type VideoBroadcastEventHandlers = Readonly<{
   onfocus: () => void;
   onblur: () => void;
   onChannelChangeSucceeded: (channel: OIPF.DAE.Broadcast.Channel) => void;
-  onChannelChangeError: (channel: OIPF.DAE.Broadcast.Channel, error: number) => void;
+  /** `null` only when there was no channel to change from or to (`nextChannel()` with none). */
+  onChannelChangeError: (channel: OIPF.DAE.Broadcast.Channel | null, error: number) => void;
   onProgrammesChanged: () => void;
   onParentalRatingChange: (contentId: string, ratings: string[], blocked: boolean) => void;
   onParentalRatingError: (contentId: string, ratings: string[], drmSystemId: string) => void;

@@ -12,6 +12,7 @@ import {
   channelApi,
   createChannelEnv,
   createChannelObject,
+  getChannelConfig,
   getCurrentChannel,
   getPlayState,
   release,
@@ -19,6 +20,7 @@ import {
   setPlayState,
   stop,
   tuneTo,
+  zap,
 } from "./channel";
 
 const { PlayState, ChannelChangeErrorCode } = OIPF.DAE.Broadcast;
@@ -26,6 +28,7 @@ const DVB_T = OIPF.DAE.Broadcast.ChannelIdType.ID_DVB_T;
 
 const dmax: ChannelConfig = { id: "dmax", name: "DMAX", mp4Source: "http://tv/dmax.mp4", onid: 318, tsid: 1, sid: 52 };
 const hgtv: ChannelConfig = { id: "hgtv", name: "HGTV", mp4Source: "http://tv/hgtv.mp4", onid: 318, tsid: 1, sid: 56 };
+const news: ChannelConfig = { id: "news", name: "NEWS", mp4Source: "http://tv/news.mp4", onid: 318, tsid: 1, sid: 60 };
 
 /** Lets the tasks the synchronous OIPF methods start run. */
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -45,19 +48,21 @@ type Call =
 /** A video/broadcast on a TV tuned to `tuned`, whose answer to a change is `requestChannelChange`. */
 const setup = ({
   tuned = dmax,
+  lineup = [dmax, hgtv, news],
   requestChannelChange = () => tuneAlone,
   playState = PlayState.UNREALIZED,
 }: {
-  tuned?: ChannelConfig;
+  tuned?: ChannelConfig | null;
+  lineup?: ReadonlyArray<ChannelConfig>;
   requestChannelChange?: (env: () => ChannelEnv) => ChannelChangeRequest;
   playState?: OIPF.DAE.Broadcast.PlayState;
 } = {}) => {
   const calls: Call[] = [];
   const asked: string[] = [];
-  const tunedChannel = channel(tuned);
+  const tunedChannel = tuned ? channel(tuned) : null;
   const env: ChannelEnv = createChannelEnv(
     {
-      getChannels: () => [dmax, hgtv],
+      getChannels: () => lineup,
       player: {
         loadSource: (source) => () => {
           calls.push({ load: source.url });
@@ -255,11 +260,99 @@ describe("bindToCurrentChannel", () => {
     expect(calls).toEqual([{ play: true }]);
   });
 
-  it("unrealized, binds nothing", () => {
-    const { env, calls } = setup();
+  it("unrealized, binds to the channel the TV presents, e.g. after the application released it", async () => {
+    const { env, calls } = await presenting(hgtv);
+    release(env)();
+    calls.length = 0;
+
+    expect(bindToCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
+    await flush();
+
+    expect(calls).toContainEqual({ load: hgtv.mp4Source });
+    expect(getPlayState(env)()).toBe(PlayState.CONNECTING);
+  });
+
+  it("unrealized on a TV presenting nothing, binds nothing", () => {
+    const { env, calls } = setup({ tuned: null });
 
     expect(bindToCurrentChannel(env)()).toBeNull();
     expect(calls).toEqual([]);
+  });
+});
+
+describe("nextChannel / prevChannel (zap)", () => {
+  it("nextChannel() asks the TV for the next channel of the lineup, as setChannel() does", async () => {
+    const { env, asked } = await presenting(dmax);
+
+    await zap(1)(env)();
+
+    expect(asked).toEqual(["hgtv"]);
+    expect(getCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
+  });
+
+  it("cycles at both ends of the lineup", async () => {
+    const last = await presenting(news);
+    await zap(1)(last.env)();
+    expect(last.asked).toEqual(["dmax"]);
+
+    const first = await presenting(dmax);
+    await zap(-1)(first.env)();
+    expect(first.asked).toEqual(["news"]);
+  });
+
+  it("from a channel outside the lineup, goes to the first one forward and the last one back", async () => {
+    const forward = setup({ tuned: null, playState: PlayState.STOPPED });
+    await zap(1)(forward.env)();
+    const back = setup({ tuned: null, playState: PlayState.STOPPED });
+    await zap(-1)(back.env)();
+
+    expect(forward.asked).toEqual(["dmax"]);
+    expect(back.asked).toEqual(["news"]);
+  });
+
+  it("reports the TV's refusal to the application, staying on its channel", async () => {
+    const { env, calls } = await presenting(dmax, {
+      requestChannelChange: () => () => TE.left(ChannelChangeErrorCode.UNKNOWN_CHANNEL),
+    });
+
+    await zap(-1)(env)();
+
+    expect(calls).toEqual([{ error: ChannelChangeErrorCode.UNKNOWN_CHANNEL }]);
+    expect(getCurrentChannel(env)()).toMatchObject({ ccid: "dmax" });
+  });
+
+  it("unrealized, fails with NO_CHANNEL_LIST and asks nobody", async () => {
+    const { env, calls, asked } = await presenting(dmax);
+    release(env)();
+    calls.length = 0;
+
+    await zap(1)(env)();
+
+    expect(calls).toEqual([{ error: ChannelChangeErrorCode.NO_CHANNEL_LIST }]);
+    expect(asked).toEqual([]);
+  });
+
+  it("with an empty lineup, fails with NO_CHANNEL_LIST", async () => {
+    const { env, calls } = setup({ tuned: null, lineup: [], playState: PlayState.STOPPED });
+
+    await zap(1)(env)();
+
+    expect(calls).toEqual([{ error: ChannelChangeErrorCode.NO_CHANNEL_LIST }]);
+  });
+});
+
+describe("getChannelConfig", () => {
+  it("lists the TV's lineup, in its order, as it is when called", () => {
+    let lineup: ReadonlyArray<ChannelConfig> = [dmax, hgtv];
+    const { env } = setup();
+    const live = { ...env, getChannels: () => lineup };
+
+    expect(getChannelConfig(live)().channelList.length).toBe(2);
+    lineup = [dmax, hgtv, news];
+    const { channelList } = getChannelConfig(live)();
+
+    expect(channelList.length).toBe(3);
+    expect(channelList.item(2)).toMatchObject({ ccid: "news", name: "NEWS", sid: 60 });
   });
 });
 
