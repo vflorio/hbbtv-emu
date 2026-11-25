@@ -105,7 +105,7 @@ Il progetto cresce in tre fasi:
 - [ ] Eliminare la dipendenza da `@hbb-emu/extension-common`: spostare i tipi davvero condivisi (`ExtensionState`, messaggi) in un package nuovo e host-agnostic (es. `@hbb-emu/protocol`).
 - [ ] Rimuovere `apps/chrome-v3_old` e `packages/extension_old` dal workspace quando non servono più come riferimento (restano consultabili su `main`).
 - [x] Decidere D1 → `Reader` di fp-ts.
-- [ ] Portare una parte piccola come modello (es. `volume` del VideoBroadcast) in stile `Reader`, con i suoi test.
+- [x] Portare una parte piccola come modello: `volume` del VideoBroadcast in stile `Reader` (`ReaderIO` + `IORef` iniettato), con test unitari e d'integrazione. Collegato alla classe esistente tramite un ponte temporaneo (`WithVolume`), da rimuovere quando VideoBroadcast sarà portato del tutto.
 - [x] Definire D3 (matrice target).
 - [ ] CI minima: build + lint + test unitari.
 - [ ] Assorbire il vecchio file `TODO` in questa roadmap.
@@ -128,7 +128,8 @@ Il progetto cresce in tre fasi:
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).
 
 ### 1.3 Porting della runtime OIPF (da `main`)
-- [ ] Riscrivere `VideoBroadcast` e `AVControlVideo` secondo D1 (oggi `compose(BaseVideoBroadcast, WithChannel, WithComponent, …)`).
+- [ ] Riscrivere `VideoBroadcast` e `AVControlVideo` secondo D1 (oggi `compose(BaseVideoBroadcast, WithChannel, WithComponent, …)`), una parte alla volta sul modello di `volume.ts`: `channel`, `component`, `display`, `streamEvent`, `misc`, `controller`.
+- [ ] Il volume è della TV, non del singolo oggetto: con D5 lo `volumeState` va preso dalla TvSession (un `IORef` condiviso iniettato nell'env) invece di crearne uno per ogni `video/broadcast`.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
 - [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).
 - [ ] **Fix telecomando** (bug noto su `main`): verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
