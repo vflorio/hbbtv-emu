@@ -14,4 +14,9 @@ const backgroundService = new BackgroundService(
 
 backgroundService.init()();
 
+// The toolbar button opens and closes the settings UI in the sidebar.
+browser.browserAction.onClicked.addListener(() => {
+  void browser.sidebarAction.toggle();
+});
+
 export { backgroundService };

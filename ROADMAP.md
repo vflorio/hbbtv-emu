@@ -172,7 +172,7 @@ Il progetto cresce in tre fasi:
 - [ ] `chrome-v3` — parità funzionale con `main`.
 - [ ] `chrome-v2` — target Chromium 47 → (Chrome < 128 se confermato).
 - [x] `firefox-v2` — riscrittura del content-type, runtime, bridge, background, UA HTTP, config sincrona. Verificato su Firefox 158.
-  - [ ] Settings UI (`sidebar_action`, l'equivalente della side panel).
+  - [x] Settings UI nella sidebar (`sidebar_action`, aperta dal pulsante in toolbar), con lo stesso client UI di chrome-v3. Verificata in e2e: stato caricato, telecomando verso il tab attivo, UA cambiato dalla UI visto dal primo script della pagina successiva.
   - [ ] Verificare sull'ESR effettivo (oggi solo Firefox 158) e fissare `strict_min_version`.
   - [ ] ID dell'add-on: oggi `hbbtv-emulator@example.com`.
 

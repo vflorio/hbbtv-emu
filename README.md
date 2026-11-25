@@ -40,8 +40,7 @@ configuration reaches them only after their first scripts have run.
 
 **firefox-v2**: in `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on…*
 pick `extensions/firefox-v2/dist/manifest.json` (unsigned add-ons load only as temporary
-ones, until Firefox restarts). No settings UI yet: it runs with the stored or default
-configuration.
+ones, until Firefox restarts). The toolbar button opens the settings UI in the sidebar.
 
 ### Demo apps
 

@@ -157,3 +157,57 @@ describe("firefox-v2: ordinary web pages", () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe("firefox-v2: settings UI (sidebar)", () => {
+  const openUi = async () => {
+    const { page: ui, errors } = await firefox.openExtensionPage("index.html");
+    // `browser.*` returns promises; Firefox's `chrome.*` takes callbacks.
+    const request = (message: object) =>
+      ui.evaluate(
+        (m) =>
+          (
+            globalThis as unknown as { browser: { runtime: { sendMessage: (m: object) => Promise<unknown> } } }
+          ).browser.runtime.sendMessage(m),
+        message,
+      );
+    return { ui, errors, request };
+  };
+
+  it("loads the state from the background", async () => {
+    const { ui, errors } = await openUi();
+
+    await ui.locator("button ::-p-text(RED)").wait();
+
+    expect(errors).toEqual([]);
+  });
+
+  it("its remote control drives the application in the active tab", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?ui=${Date.now()}`);
+    await app.bringToFront(); // the sidebar sits next to the active tab
+
+    await ui.locator("button ::-p-text(RED)").click();
+
+    await app.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length > 0);
+    expect((await appState(app)).keys).toEqual([403]);
+  });
+
+  it("a user agent changed in the UI is what the next application sees at its first script", async () => {
+    const { request } = await openUi();
+    type UiState = { userAgent: string };
+    const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV/3.0 HbbTV/1.5.1 (+DRM; e2e; TV; 3.0;)";
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, userAgent } });
+      const path = `basic-app/index.xhtml?ui-ua=${Date.now()}`;
+      const { page } = await openPage(path);
+
+      const state = await appState(page);
+      expect(state.userAgentAtFirstScript).toBe(userAgent);
+      expect(server.requests.find((r) => r.url === `/${path}`)?.userAgent).toBe(userAgent);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+});
