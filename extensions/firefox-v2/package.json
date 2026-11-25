@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-runtime": "workspace:*"
+    "@hbb-emu/extension-runtime": "workspace:*",
+    "@hbb-emu/page-runtime": "workspace:*",
+    "@hbb-emu/protocol": "workspace:*"
   },
   "devDependencies": {
     "@types/firefox-webext-browser": "120.0.4",
@@ -16,11 +18,14 @@
   },
   "main": "./dist/index.js",
   "scripts": {
-    "extension:dev": "vite",
-    "extension:build": "bun run extension:build:background && bun run extension:build:assets",
+    "clean": "rm -rf dist .build",
+    "extension:build": "bun run extension:build:background && bun run extension:build:bridge && bun run extension:build:page && bun run extension:build:injector && bun run extension:build:assets",
     "extension:build:assets": "cp -r public/* dist/",
     "extension:build:background": "vite build --config vite.background.config.ts",
-    "clean": "rm -rf dist",
+    "extension:build:bridge": "vite build --config vite.bridge.config.ts",
+    "extension:build:page": "vite build --config vite.page.config.ts",
+    "extension:build:injector": "vite build --config vite.injector.config.ts",
+    "extension:dev": "vite",
     "preview": "vite preview"
   },
   "type": "module"

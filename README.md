@@ -38,6 +38,11 @@ command line since v137), then in `chrome://extensions` → HbbTV Emulator → D
 start with the configured user agent and channels, as on a TV; without it, the
 configuration reaches them only after their first scripts have run.
 
+**firefox-v2**: in `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on…*
+pick `extensions/firefox-v2/dist/manifest.json` (unsigned add-ons load only as temporary
+ones, until Firefox restarts). No settings UI yet: it runs with the stored or default
+configuration.
+
 ### Demo apps
 
 ```bash
@@ -64,6 +69,7 @@ bun run test:e2e        # builds the extensions first (turbo)
 ```
 
 They need a Chromium binary (`/usr/bin/chromium` by default, or `HBB_EMU_CHROMIUM=/path/to/chromium`); branded Google Chrome cannot load unpacked extensions from the command line.
+The Firefox suite needs a Firefox binary (`/usr/bin/firefox` by default, or `HBB_EMU_FIREFOX=/path/to/firefox`), driven by Puppeteer over WebDriver BiDi.
 
 Conventions:
 

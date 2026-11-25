@@ -7,20 +7,12 @@
  * hosts only have to load it.
  */
 
+import { isHbbTVDocument } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 
-/**
- * Content types of an HbbTV document as seen by the page.
- * Hosts rewrite `application/vnd.hbbtv.xhtml+xml` to `application/xhtml+xml` so that the
- * browser renders it (DNR on MV3, webRequest on MV2); a host that does not rewrite
- * leaves the original type, which also contains "hbbtv".
- */
-export const isHbbTVDocument = (document: Document): boolean => {
-  const contentType = document.contentType.toLowerCase();
-  return contentType === "application/xhtml+xml" || contentType.includes("hbbtv");
-};
+export { isHbbTVDocument } from "@hbb-emu/protocol";
 
 /** Marks a window whose runtime has already started (scripts can be injected twice). */
 export const BOOT_MARKER = Symbol.for("hbb-emu.page-runtime");

@@ -92,18 +92,33 @@ export const keyName = (keyCode: number): string =>
 const producesCharacter = (keyCode: number): boolean => keyCode === 13 || (keyCode >= 48 && keyCode <= 57);
 
 /**
- * Where the browser delivers a real key (Blink's rule, checked against Chromium):
- * the focused element; with nothing focused, the body of an HTML document, or the
- * root element of an XHTML one (most HbbTV applications). Never the document itself:
- * applications and their third-party scripts expect `event.target` to be an Element.
+ * With nothing focused, where the engine delivers a real key: to the body only in
+ * HTML documents, to the root element otherwise (Blink and WebKit: most HbbTV
+ * applications are XHTML, so `<html>`); or to the body whenever there is one (Gecko).
+ * Checked against Chromium and Firefox.
+ */
+export type KeyTargetRule = "blink-webkit" | "gecko";
+
+/**
+ * Gecko, detected by a feature only it has: the user agent cannot tell, since the
+ * emulator overrides it.
+ */
+export const detectKeyTargetRule = (window: Window): KeyTargetRule =>
+  "mozInnerScreenX" in window ? "gecko" : "blink-webkit";
+
+/**
+ * Where the browser delivers a real key: the focused element, else per the engine's
+ * rule. Never the document itself: applications and their third-party scripts expect
+ * `event.target` to be an Element.
  *
  * `activeElement` reports the body when nothing is focused, so the body counts as
  * "nothing focused" (a body made focusable and focused is the only case this misses).
  */
-export const keyTarget = (document: Document): Element | null => {
+export const keyTarget = (document: Document, rule: KeyTargetRule = "blink-webkit"): Element | null => {
   const active = document.activeElement;
   if (active && active !== document.body && active !== document.documentElement) return active;
-  if (document.contentType === "text/html" && document.body) return document.body;
+  const bodyFirst = rule === "gecko" || document.contentType === "text/html";
+  if (bodyFirst && document.body) return document.body;
   return document.documentElement;
 };
 
@@ -130,9 +145,12 @@ const keyboardEvent = (type: "keydown" | "keypress" | "keyup", keyCode: number, 
 };
 
 /** keydown, keypress (only for character keys, and only if keydown was not cancelled), keyup. */
-export const createEventDispatcher = (document: Document): EventDispatcher => ({
+export const createEventDispatcher = (
+  document: Document,
+  rule: KeyTargetRule = document.defaultView ? detectKeyTargetRule(document.defaultView) : "blink-webkit",
+): EventDispatcher => ({
   dispatchKeyEvent: (keyCode) => () => {
-    const target = keyTarget(document);
+    const target = keyTarget(document, rule);
     if (!target) return;
 
     const proceed = target.dispatchEvent(keyboardEvent("keydown", keyCode));
@@ -140,7 +158,7 @@ export const createEventDispatcher = (document: Document): EventDispatcher => ({
       target.dispatchEvent(keyboardEvent("keypress", keyCode, keyCode));
     }
     // keyup goes wherever the focus is now (a keydown handler may have moved it).
-    (keyTarget(document) ?? target).dispatchEvent(keyboardEvent("keyup", keyCode));
+    (keyTarget(document, rule) ?? target).dispatchEvent(keyboardEvent("keyup", keyCode));
   },
 });
 

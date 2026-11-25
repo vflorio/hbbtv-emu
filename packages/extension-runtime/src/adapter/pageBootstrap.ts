@@ -1,6 +1,13 @@
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
-import { type AdapterConfig, type AdapterError, MANIFEST_VERSION_2, MANIFEST_VERSION_3 } from "./adapter";
+import { contentScriptInjecting } from "../services/injector/injector";
+import {
+  type AdapterConfig,
+  type AdapterError,
+  ENGINE_FIREFOX,
+  MANIFEST_VERSION_2,
+  MANIFEST_VERSION_3,
+} from "./adapter";
 
 /**
  * Code the browser runs in every page's own world at `document_start`, before any
@@ -44,13 +51,56 @@ const userScriptsBootstrap = (): PageBootstrapAdapter => ({
   },
 });
 
-/** MV2: no API injects code into the page synchronously (Firefox has `contentScripts.register`: to do). */
+/** The part of Firefox's `browser.contentScripts` used here (not in @types/chrome). */
+type FirefoxContentScripts = Readonly<{
+  register: (options: {
+    matches: string[];
+    js: Array<{ code: string }>;
+    runAt: "document_start";
+    allFrames: boolean;
+  }) => Promise<{ unregister: () => Promise<void> }>;
+}>;
+
+/**
+ * Firefox (MV2): a content script registered with code, in the isolated world; the
+ * code injects the bootstrap into HbbTV documents as an inline script. Firefox runs
+ * it after the manifest's content scripts and before the page's scripts.
+ * A registration lives as long as the background page: it is replaced on every publish.
+ */
+const firefoxContentScriptBootstrap = (): PageBootstrapAdapter => {
+  let current: { unregister: () => Promise<void> } | undefined;
+  return {
+    publish: (code) => {
+      const contentScripts = (globalThis as { browser?: { contentScripts?: FirefoxContentScripts } }).browser
+        ?.contentScripts;
+      if (!contentScripts) return TE.left(unavailable("browser.contentScripts is missing"));
+      return TE.tryCatch(
+        async () => {
+          const next = await contentScripts.register({
+            matches: ["http://*/*", "https://*/*"],
+            js: [{ code: contentScriptInjecting(code) }],
+            runAt: "document_start",
+            allFrames: true,
+          });
+          await current?.unregister();
+          current = next;
+        },
+        (cause): AdapterError => ({ _tag: "PageBootstrapError", cause }),
+      );
+    },
+  };
+};
+
+/** Legacy Chromium (MV2): no API runs code at document_start that the extension can change. */
 const noBootstrap = (): PageBootstrapAdapter => ({
   publish: () => TE.left(unavailable("not supported by this host")),
 });
 
 /**
- * @since Chrome 120+ (MV3, user scripts allowed by the user)
+ * @since Chrome 120+ (MV3, user scripts allowed by the user), Firefox 59+ (MV2)
  */
-export const createPageBootstrapAdapter = ({ manifest }: AdapterConfig): PageBootstrapAdapter =>
-  match(manifest).with(MANIFEST_VERSION_3, userScriptsBootstrap).with(MANIFEST_VERSION_2, noBootstrap).exhaustive();
+export const createPageBootstrapAdapter = ({ engine, manifest }: AdapterConfig): PageBootstrapAdapter =>
+  match(manifest)
+    .with(MANIFEST_VERSION_3, userScriptsBootstrap)
+    .with(MANIFEST_VERSION_2, () => (engine === ENGINE_FIREFOX ? firefoxContentScriptBootstrap() : noBootstrap()))
+    .exhaustive();

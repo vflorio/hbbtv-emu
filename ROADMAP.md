@@ -125,7 +125,8 @@ Il progetto cresce in tre fasi:
 - [ ] `MessagingAdapter` ✅ base — generalizzare a trasporti: `chrome.runtime`, `postMessage`, WebSocket.
 - [ ] `TabsAdapter` ✅ base — gestire anche chiusura tab, reload, navigazione cross-origin.
 - [ ] `ContentTypeRewrite` (nuova): `webRequestBlocking` (MV2/Firefox), DNR (MV3), nativo (WebKit fork / app standalone).
-- [ ] `ScriptInjection` (nuova): `scripting.executeScript({ world: "MAIN" })` (MV3), `<script>` iniettato a `document_start` dal content script (MV2/Firefox), hook di preload (WebKit fork).
+- [ ] `ScriptInjection`: content script `world: "MAIN"` (MV3) ✅, `<script>` inline iniettato a `document_start` da un content script solo nei documenti HbbTV (`injectIntoHbbTVDocument`, MV2) ✅ su Firefox, hook di preload (WebKit fork).
+  - [ ] **CSP**: una policy senza `'unsafe-inline'` blocca lo script inline (verificato su Firefox 158), quindi la runtime non parte. Strada: col `webRequest` blocking, aggiungere a `script-src` l'hash dello script della runtime, noto al build; la config passa già per `wrappedJSObject`/clone su Firefox oppure con un secondo hash. Le CSP in `<meta>` restano escluse.
 - [x] `UserAgentAdapter`: header `User-Agent` su ogni richiesta http(s) (regola DNR di sessione su MV3, `webRequest.onBeforeSendHeaders` blocking su MV2/Firefox). Applicato all'avvio del background e a ogni cambio dalla UI.
   - [ ] Oggi vale per tutto il browser, non solo per i tab TV: restringerlo ai tab della TvSession (D5) quando esiste (`tabIds` nella condizione DNR). Il problema: la prima richiesta di una pagina parte prima di sapere se è HbbTV.
   - [ ] Flag di lancio del browser (app standalone, fase 3).
@@ -142,13 +143,14 @@ Il progetto cresce in tre fasi:
   - Richiede Chrome 120+ e il toggle "Allow User Scripts" (modalità sviluppatore prima di Chrome 138). Senza, si ripiega su `Host/Config` asincrono; il background ritenta a ogni `Page/Ready`, quindi attivare il toggle ha effetto dalla pagina successiva.
   - [ ] Mostrare nella UI se il bootstrap è attivo (oggi solo un warning nel log del service worker).
   - [ ] Verificare il comportamento su pagine con una CSP restrittiva.
-  - [ ] Firefox MV2: `browser.contentScripts.register({ js: [{ code }] })`.
+  - [x] Firefox MV2: `browser.contentScripts.register({ js: [{ code }] })` con codice che inietta il bootstrap inline nei documenti HbbTV; Firefox lo esegue dopo i content script del manifest e prima degli script della pagina (verificato). Nessun permesso o toggle in più.
   - [ ] Chromium legacy MV2: nessuna API equivalente; da valutare.
   - Scartate: cookie via DNR (sporca i cookie, che sono oggetto di test), `Server-Timing` (esposto solo in contesti sicuri, le app sono spesso http), `localStorage`/`sessionStorage` (condivisi con l'app), XHR sincrona verso l'estensione (il service worker non la intercetta).
 - [x] **Settings UI nella side panel** di chrome-v3 (`settings-ui` condivisa, collegata tramite `createUiClient`). Il background trasforma ogni salvataggio in: configurazione → tutti i tab aperti; patch minima dello stato degli oggetti (`Host/ApplyState`, calcolata con `diffPatch`) → solo il tab attivo. Telecomando e "play channel" → tab attivo. Le pagine dell'estensione si riconoscono dall'origine del mittente, anche se aperte in un tab.
 - [ ] La UI mostra lo stato degli oggetti salvato nel background, non quello reale della pagina (es. il keyset impostato dall'app). Serve un messaggio pagina → host con lo stato corrente del tab attivo.
 - [ ] Il `currentChannel` scelto dalla UI non è ancora legato alla sessione del tab (D5).
-- [ ] Iniezione della page runtime su MV2/Chromium legacy e Firefox (niente `world: "MAIN"`: `<script>` inline iniettato dal content script a `document_start`).
+- [x] Iniezione della page runtime su Firefox MV2: il content script `injector.js` contiene il bundle della page runtime e lo esegue inline. Il bundle è lo stesso di chrome-v3.
+- [ ] Lo stesso su Chromium legacy (chrome-v2).
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).
 
 ### 1.3 Porting della runtime OIPF (da `main`)
@@ -162,13 +164,17 @@ Il progetto cresce in tre fasi:
 - [ ] Il volume è della TV, non del singolo oggetto: con D5 lo `volumeState` va preso dalla TvSession (un `IORef` condiviso iniettato nell'env) invece di crearne uno per ogni `video/broadcast`.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
 - [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).
+- [x] **Tasti del telecomando come quelli veri, per engine**: destinatario come la tastiera reale dell'engine ospite. Con nulla a fuoco Blink e WebKit consegnano al `body` solo nei documenti HTML e a `<html>` negli XHTML, Gecko sempre al `body` (verificato in e2e su Chromium e Firefox). Gecko si riconosce da una feature (`mozInnerScreenX`), non dallo UA che sovrascriviamo.
 - [x] **Fix telecomando** (bug noto su `main`). *Causa principale*: nella settings UI `useRemoteControl().dispatchKey` restituiva un `Task` che i pulsanti non eseguivano, quindi il telecomando della UI non mandava mai niente. Ora l'e2e clicca `RED` nella UI e l'app nel tab attivo riceve 403. Il percorso host → pagina → `keydown` è verificato anche direttamente dal background. *Cause trovate e corrette, verificate dal test e2e con un'app di prova*: l'attach `non-visual` non esponeva i metodi sugli `<object>`; la runtime arrivava dopo gli script dell'app; il `Keyset` non aveva `value`/costanti; su questo branch inoltre la runtime non collegava proprio gli oggetti. Da confermare con un'app reale. Restano da fare: i tasti colore/VCR dalla tastiera (mappatura) e il filtro dei tasti in base al keyset. Altri punti da controllare: verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
 - [ ] Rimuovere `core/src/mixin.ts`.
 
 ### 1.4 Host
 - [ ] `chrome-v3` — parità funzionale con `main`.
 - [ ] `chrome-v2` — target Chromium 47 → (Chrome < 128 se confermato).
-- [ ] `firefox-v2` — target Firefox ESR recente.
+- [x] `firefox-v2` — riscrittura del content-type, runtime, bridge, background, UA HTTP, config sincrona. Verificato su Firefox 158.
+  - [ ] Settings UI (`sidebar_action`, l'equivalente della side panel).
+  - [ ] Verificare sull'ESR effettivo (oggi solo Firefox 158) e fissare `strict_min_version`.
+  - [ ] ID dell'add-on: oggi `hbbtv-emulator@example.com`.
 
 ### 1.4b Più avanti: WebKit legacy
 - [ ] Hook di preload JS in una build di WebKit r152340 / WebKitGTK 2.2.6 (non esiste ancora: da realizzare come patch versionata in `browsers/webkitgtk-2`; esiste solo un esperimento locale di log da JS).
@@ -182,7 +188,8 @@ Il progetto cresce in tre fasi:
 ### 1.6 Test
 - [ ] Suite di app HbbTV di prova (pagine statiche in `e2e/fixtures`) che esercitano le API: ~~ApplicationManager/Keyset~~ (base ✅), VideoBroadcast (setChannel, stream events), AVControl, Capabilities/Configuration.
 - [x] E2E con Playwright su chrome-v3: estensione compilata caricata in Chromium, app servite con il content-type HbbTV vero (`bun run test:e2e`).
-- [ ] E2E su Firefox e sugli altri host.
+- [x] E2E su Firefox (`firefox-v2`): Puppeteer + WebDriver BiDi, che installa l'add-on non firmato come temporaneo; Playwright non supporta estensioni su Firefox.
+- [ ] E2E sugli altri host (chrome-v2 / Chromium legacy, WebKit).
 - [ ] Smoke test su engine legacy (script di lancio dei binari in `browsers/`).
 
 **Done quando:** la stessa app HbbTV di prova passa la suite su Chrome recente (MV3), Chromium 47 (MV2) e Firefox ESR, con lo stesso codice di page runtime.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createEventDispatcher, keyName } from "./remoteControl";
+import { createEventDispatcher, detectKeyTargetRule, keyName } from "./remoteControl";
 
 type Seen = { type: string; target: string; key: string; keyCode: number; which: number; charCode: number };
 
@@ -48,7 +48,7 @@ describe("remote control key events", () => {
     ]);
   });
 
-  it("in an XHTML document with nothing focused, are delivered to the root element (as Chromium does)", () => {
+  it("in an XHTML document with nothing focused, Blink and WebKit deliver them to the root element (as Chromium does)", () => {
     const xhtml = new DOMParser().parseFromString(
       '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>app</title></head><body></body></html>',
       "application/xhtml+xml",
@@ -56,9 +56,22 @@ describe("remote control key events", () => {
     const targets: string[] = [];
     xhtml.addEventListener("keydown", (event) => targets.push((event.target as Element).localName));
 
-    createEventDispatcher(xhtml).dispatchKeyEvent(403)();
+    createEventDispatcher(xhtml, "blink-webkit").dispatchKeyEvent(403)();
 
     expect(targets).toEqual(["html"]);
+  });
+
+  it("in an XHTML document with nothing focused, Gecko delivers them to the body (as Firefox does)", () => {
+    const xhtml = new DOMParser().parseFromString(
+      '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>app</title></head><body></body></html>',
+      "application/xhtml+xml",
+    );
+    const targets: string[] = [];
+    xhtml.addEventListener("keydown", (event) => targets.push((event.target as Element).localName));
+
+    createEventDispatcher(xhtml, "gecko").dispatchKeyEvent(403)();
+
+    expect(targets).toEqual(["body"]);
   });
 
   it("are delivered to the focused element", () => {
@@ -117,5 +130,12 @@ describe("keyName", () => {
       "9",
       "Unidentified",
     ]);
+  });
+});
+
+describe("detectKeyTargetRule", () => {
+  it("recognises Gecko by a feature, not by the user agent", () => {
+    expect(detectKeyTargetRule({} as Window)).toBe("blink-webkit");
+    expect(detectKeyTargetRule({ mozInnerScreenX: 0 } as unknown as Window)).toBe("gecko");
   });
 });

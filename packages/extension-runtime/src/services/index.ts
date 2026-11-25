@@ -3,6 +3,7 @@ import { type AdapterConfig, type AdapterEnv, type BaseMessage, createAdapterEnv
 
 export * from "./background";
 export * from "./bridge";
+export * from "./injector/injector";
 export * from "./ui";
 
 export interface ServiceEnv<TState, TEvents extends BaseMessage> {
