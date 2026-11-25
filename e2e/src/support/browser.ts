@@ -26,6 +26,8 @@ export type ExtensionBrowser = Readonly<{
   context: BrowserContext;
   /** The extension's MV3 service worker (background). */
   serviceWorker: Worker;
+  /** Flips the extension's "Allow User Scripts" toggle on, as a user would in chrome://extensions. */
+  allowUserScripts: () => Promise<void>;
   close: () => Promise<void>;
 }>;
 
@@ -46,9 +48,18 @@ export const launchWithExtension = async (extensionDir: string): Promise<Extensi
   // declarativeNetRequest rules are active before the first navigation.
   const serviceWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
 
+  const allowUserScripts = async () => {
+    const page = await context.newPage();
+    await page.goto(`chrome://extensions/?id=${new URL(serviceWorker.url()).host}`);
+    const toggle = page.locator("#allow-user-scripts"); // Playwright's CSS pierces the shadow DOM
+    if (!(await toggle.evaluate((row) => (row as HTMLElement & { checked: boolean }).checked))) await toggle.click();
+    await page.close();
+  };
+
   return {
     context,
     serviceWorker,
+    allowUserScripts,
     close: async () => {
       await context.close();
       await rm(userDataDir, { recursive: true, force: true });

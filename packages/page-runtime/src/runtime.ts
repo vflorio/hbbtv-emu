@@ -7,7 +7,9 @@ import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtim
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import type { PageConfig } from "@hbb-emu/protocol";
+import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
 import { toBroadcastChannel } from "./channel";
 import type { PageRuntimeControl } from "./host";
 
@@ -27,26 +29,35 @@ const playerRuntimeFactory: PlayerRuntimeFactory = {
   },
 };
 
+/** The runtime still takes the old extension state: the host configuration over the defaults. */
+export const toExtensionState = (config: PageConfig): ExtensionState => ({
+  ...DEFAULT_EXTENSION_STATE,
+  userAgent: config.userAgent,
+  channels: [...config.channels],
+});
+
 /**
- * Starts from the default configuration: the host's one is applied when it arrives.
+ * Starts with the host configuration when the page already has it (bootstrap),
+ * with the defaults otherwise: the host's one is then applied when it arrives.
  * One shared player for video/broadcast, a new one for every A/V Control object.
  */
 export const startRuntime =
-  (state: ExtensionState = DEFAULT_EXTENSION_STATE): IO.IO<RuntimeHandle> =>
+  (config: O.Option<PageConfig> = O.none): IO.IO<RuntimeHandle> =>
   () =>
-    runtime(createRuntimeEnv(state, createPlayerRuntime(), playerRuntimeFactory))();
+    runtime(
+      createRuntimeEnv(
+        pipe(
+          config,
+          O.match(() => DEFAULT_EXTENSION_STATE, toExtensionState),
+        ),
+        createPlayerRuntime(),
+        playerRuntimeFactory,
+      ),
+    )();
 
-/**
- * Today the runtime can only update the stream event schedule after start; the
- * channel list and the user agent are fixed at start (ROADMAP: config at start).
- */
+/** Configuration can be applied any time: the user agent and the channel lineup are live. */
 export const controlRuntime = (handle: RuntimeHandle): PageRuntimeControl => ({
-  applyConfig: (config: PageConfig) =>
-    handle.updateExtensionState({
-      ...DEFAULT_EXTENSION_STATE,
-      userAgent: config.userAgent,
-      channels: [...config.channels],
-    }),
+  applyConfig: (config: PageConfig) => handle.updateExtensionState(toExtensionState(config)),
   dispatchKey: handle.dispatchKey,
   applyState: handle.updateState,
   playChannel: (channel) =>

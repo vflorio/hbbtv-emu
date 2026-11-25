@@ -1,8 +1,9 @@
-import type { HostMessage } from "@hbb-emu/protocol";
+import { configBootstrapScript, type HostMessage } from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import {
   createFakeMessaging,
+  createFakePageBootstrap,
   createFakeStorage,
   createFakeTabs,
   createFakeUi,
@@ -20,10 +21,11 @@ const OPEN_TABS = [
   { id: 2, url: "http://app/b.xhtml" },
 ];
 
-const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS) => {
+const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS, bootstrapAvailable = true) => {
   const messaging = createFakeMessaging<HostMessage>();
   const ui = createFakeUi();
   const userAgent = createFakeUserAgent();
+  const bootstrap = createFakePageBootstrap(bootstrapAvailable);
   const background = new BackgroundService({
     config: { engine: "chrome", manifest: 3, storageKey: "test" },
     logger: silentLogger(),
@@ -34,10 +36,11 @@ const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS) => {
       webRequest: createFakeWebRequest().webRequest,
       ui: ui.ui,
       userAgent: userAgent.userAgent,
+      pageBootstrap: bootstrap.pageBootstrap,
     },
   });
   expect(E.isRight(await background.init()())).toBe(true);
-  return { background, messaging, ui, userAgent };
+  return { background, messaging, ui, userAgent, bootstrap };
 };
 
 describe("BackgroundService", () => {
@@ -86,6 +89,45 @@ describe("BackgroundService", () => {
     await flushPromises();
 
     expect(messaging.sent).toEqual([]);
+  });
+});
+
+describe("BackgroundService — configuration bootstrap", () => {
+  const stored = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, userAgent: "Custom TV/1.0" } };
+
+  it("publishes the configuration for pages to find at document_start, before any page loads", async () => {
+    const { bootstrap } = await setup(stored);
+
+    expect(bootstrap.published).toEqual([configBootstrapScript(toPageConfig(stored))]);
+  });
+
+  it("publishes it again when the configuration changes", async () => {
+    const { ui, bootstrap } = await setup();
+    const saved = { ...toUiState(DEFAULT_STATE), userAgent: "Custom TV/1.0" };
+
+    await ui.request({ _tag: "UI/SaveState", state: saved });
+
+    expect(bootstrap.published[bootstrap.published.length - 1]).toContain("Custom TV/1.0");
+  });
+
+  it("when not allowed, still starts, and retries when a page loads (the user may have allowed it since)", async () => {
+    const { messaging, bootstrap } = await setup(stored, OPEN_TABS, false);
+    expect(bootstrap.published).toEqual([]);
+
+    bootstrap.setAvailable(true);
+    messaging.receive({ _tag: "Page/Ready", url: "http://app" }, 7);
+    await flushPromises();
+
+    expect(bootstrap.published).toEqual([configBootstrapScript(toPageConfig(stored))]);
+  });
+
+  it("once published, a page load does not publish again", async () => {
+    const { messaging, bootstrap } = await setup();
+
+    messaging.receive({ _tag: "Page/Ready", url: "http://app" }, 7);
+    await flushPromises();
+
+    expect(bootstrap.published).toHaveLength(1);
   });
 });
 

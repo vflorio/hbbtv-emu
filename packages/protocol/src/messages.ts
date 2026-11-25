@@ -30,6 +30,9 @@ export type HostMessage =
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
+export const isPageConfig = (value: unknown): value is PageConfig =>
+  isRecord(value) && typeof value.userAgent === "string" && Array.isArray(value.channels);
+
 export const isPageMessage = (value: unknown): value is PageMessage =>
   isRecord(value) && value._tag === "Page/Ready" && typeof value.url === "string";
 
@@ -39,9 +42,7 @@ export const isHostMessage = (value: unknown): value is HostMessage => {
     case "Host/Hello":
       return true;
     case "Host/Config":
-      return (
-        isRecord(value.config) && typeof value.config.userAgent === "string" && Array.isArray(value.config.channels)
-      );
+      return isPageConfig(value.config);
     case "Host/DispatchKey":
       return typeof value.keyCode === "number" && Number.isInteger(value.keyCode);
     case "Host/ApplyState":

@@ -8,6 +8,7 @@ import {
   type TabsAdapter,
   type WebRequestAdapter,
 } from "..";
+import { createPageBootstrapAdapter, type PageBootstrapAdapter } from "./pageBootstrap";
 import type { StorageAdapter } from "./storage";
 import { createUiAdapter, type UiAdapter } from "./ui";
 import { createUserAgentAdapter, type UserAgentAdapter } from "./userAgent";
@@ -54,6 +55,7 @@ export type AdapterEnv<TState, TEvents extends BaseMessage> = {
   readonly tabs: TabsAdapter;
   readonly ui: UiAdapter;
   readonly userAgent: UserAgentAdapter;
+  readonly pageBootstrap: PageBootstrapAdapter;
 };
 
 export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
@@ -66,6 +68,7 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
   tabs: env?.tabs ?? createTabsAdapter(config),
   ui: env?.ui ?? createUiAdapter(config),
   userAgent: env?.userAgent ?? createUserAgentAdapter(config),
+  pageBootstrap: env?.pageBootstrap ?? createPageBootstrapAdapter(config),
 });
 
 // Errors
@@ -74,4 +77,6 @@ export type AdapterError =
   | { readonly _tag: "StorageReadError"; readonly cause: unknown }
   | { readonly _tag: "StorageWriteError"; readonly cause: unknown }
   | { readonly _tag: "MessageForwardError"; readonly tabId: number; readonly cause: unknown }
-  | { readonly _tag: "UserAgentOverrideError"; readonly cause: unknown };
+  | { readonly _tag: "UserAgentOverrideError"; readonly cause: unknown }
+  | { readonly _tag: "PageBootstrapUnavailable"; readonly reason: string }
+  | { readonly _tag: "PageBootstrapError"; readonly cause: unknown };

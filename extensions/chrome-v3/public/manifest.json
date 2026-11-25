@@ -11,7 +11,8 @@
     "webRequest",
     "declarativeNetRequestWithHostAccess",
     "scripting",
-    "tabs"
+    "tabs",
+    "userScripts"
   ],
   "host_permissions": ["http://*/*", "https://*/*"],
   "action": {

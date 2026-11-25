@@ -13,6 +13,7 @@ import type {
   BaseMessage,
   ExtensionChannel,
   MessagingAdapter,
+  PageBootstrapAdapter,
   StorageAdapter,
   TabInfo,
   TabQuery,
@@ -205,4 +206,24 @@ export const createFakeUserAgent = () => {
     },
   };
   return { userAgent, applied };
+};
+
+/** Records the bootstrap code published; `available: false` plays a host (or a user) that does not allow it. */
+export const createFakePageBootstrap = (initiallyAvailable = true) => {
+  const published: string[] = [];
+  let available = initiallyAvailable;
+  const pageBootstrap: PageBootstrapAdapter = {
+    publish: (code) => {
+      if (!available) return TE.left({ _tag: "PageBootstrapUnavailable", reason: "not allowed" });
+      published.push(code);
+      return TE.right(undefined);
+    },
+  };
+  return {
+    pageBootstrap,
+    published,
+    setAvailable: (value: boolean) => {
+      available = value;
+    },
+  };
 };

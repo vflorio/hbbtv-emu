@@ -13,6 +13,7 @@ import * as TE from "fp-ts/TaskEither";
 import type { AdapterError, BaseMessage } from "../..";
 import { type ExtensionState, toPageConfig } from "../../state";
 import type { ServiceEnv } from "..";
+import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
 import { handleUiRequest } from "./ui";
@@ -22,6 +23,7 @@ export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotIn
 export class BackgroundService {
   private logger!: Logger;
   private readonly stateManager: StateManager;
+  private pageBootstrap!: PageBootstrap;
   tabsManager!: TabsManager;
 
   private messagingUnsubscribe?: () => void;
@@ -51,6 +53,11 @@ export class BackgroundService {
           TE.orElse(() => TE.right<BackgroundServiceError, void>(undefined)),
         ),
       ),
+      // Also before any page loads: the configuration pages find at document_start.
+      TE.tapIO(() => () => {
+        this.pageBootstrap = createPageBootstrap(this.env.adapter.pageBootstrap, this.logger);
+      }),
+      TE.tap((state) => TE.fromTask(this.pageBootstrap.publish(toPageConfig(state)))),
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
@@ -71,6 +78,7 @@ export class BackgroundService {
             tabs: this.env.adapter.tabs,
             ui: this.env.adapter.ui,
             userAgent: this.env.adapter.userAgent,
+            pageBootstrap: this.pageBootstrap,
             logger: this.logger,
           }),
         );
@@ -134,6 +142,8 @@ export class BackgroundService {
               this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
               TE.orElseFirstIOK((error) => this.logger.warn(`Could not send the configuration to tab ${tabId}`, error)),
             )();
+            // This page got it late; if the bootstrap has become possible, the next ones won't.
+            void this.pageBootstrap.retry(toPageConfig(state))();
           },
         ),
       ),

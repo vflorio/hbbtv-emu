@@ -1,6 +1,7 @@
 export * from "./adapter";
 export * from "./extensionChannel";
 export * from "./messaging";
+export * from "./pageBootstrap";
 export * from "./storage";
 export * from "./tabs";
 export * from "./ui";

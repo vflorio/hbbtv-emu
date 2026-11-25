@@ -32,6 +32,12 @@ bun run extension:build   # builds extensions/{chrome-v3,chrome-v2,firefox-v2}
 
 Load the unpacked extension from `extensions/<target>/dist`.
 
+**chrome-v3**: use Chromium (branded Chrome ignores unpacked extensions loaded from the
+command line since v137), then in `chrome://extensions` → HbbTV Emulator → Details turn on
+**Allow User Scripts** (Chrome 138+; developer mode on older versions). With it, pages
+start with the configured user agent and channels, as on a TV; without it, the
+configuration reaches them only after their first scripts have run.
+
 ### Demo apps
 
 ```bash

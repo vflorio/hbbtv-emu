@@ -240,13 +240,30 @@ describe("chrome-v3: settings UI", () => {
 
       const seen = server.requests.filter((r) => r.url === `/${path}` || r.url === "/basic-app/index.xhtml?xhr");
       expect(seen.map((r) => r.userAgent)).toEqual([userAgent, userAgent]);
+      // Without user scripts allowed, it arrives later: by the time the page has loaded.
       await page.waitForFunction((expected) => navigator.userAgent === expected, userAgent);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
 
-      // Known gap (ROADMAP): the configuration reaches the page asynchronously.
-      const atFirstScript = await page.evaluate(
-        () => (window as unknown as { __e2e: BasicAppState }).__e2e.userAgentAtFirstScript,
-      );
-      console.info(`[e2e] user agent at the first application script: ${atFirstScript}`);
+  // Last: it changes the browser for the tests after it.
+  it("with user scripts allowed, the application's first script already sees the configuration", async () => {
+    await browser.allowUserScripts();
+    const { ui } = await openUi();
+    type UiState = { userAgent: string };
+    const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
+    const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV/2.0 HbbTV/1.5.1 (+DRM; e2e; TV; 2.0;)";
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, userAgent } });
+      const { page, errors } = await openPage(`basic-app/index.xhtml?bootstrap=${Date.now()}`);
+
+      const state = await page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e);
+      expect(errors).toEqual([]);
+      expect(state.initError).toBeNull();
+      expect(state.userAgentAtFirstScript).toBe(userAgent);
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

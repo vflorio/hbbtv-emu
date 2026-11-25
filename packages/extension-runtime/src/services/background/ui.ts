@@ -19,6 +19,7 @@ import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { MessagingAdapter, TabsAdapter, UiAdapter, UserAgentAdapter } from "../../adapter";
 import { type ExtensionState, fromUiState, toPageConfig, toUiState } from "../../state";
+import type { PageBootstrap } from "./bootstrap";
 import type { StateManager } from "./managers/state";
 
 export type UiEnv = Readonly<{
@@ -27,6 +28,7 @@ export type UiEnv = Readonly<{
   tabs: TabsAdapter;
   ui: UiAdapter;
   userAgent: UserAgentAdapter;
+  pageBootstrap: PageBootstrap;
   logger: Logger;
 }>;
 
@@ -102,7 +104,9 @@ const propagate =
         sameJson(toPageConfig(before), toPageConfig(after))
           ? T.of(undefined)
           : pipe(
-              allTabIds(env),
+              // Pages loaded from now on start with it; open pages get it as a message.
+              env.pageBootstrap.publish(toPageConfig(after)),
+              T.flatMap(() => allTabIds(env)),
               T.flatMap((ids) => sendTo(ids, { _tag: "Host/Config", config: toPageConfig(after) })(env)),
             ),
       ),
