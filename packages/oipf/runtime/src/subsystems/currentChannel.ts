@@ -42,10 +42,11 @@ export type CurrentChannelEnv = Readonly<{
  * This provides a simple shared state for the current channel that can be
  * read by ApplicationPrivateData and written by VideoBroadcast.
  *
+ * @param initial - The channel the TV is tuned to when the page starts
  * @returns CurrentChannelEnv
  */
-export const createCurrentChannelEnv = (): CurrentChannelEnv => {
-  let currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
+export const createCurrentChannelEnv = (initial: OIPF.DAE.Broadcast.Channel | null = null): CurrentChannelEnv => {
+  let currentChannel: OIPF.DAE.Broadcast.Channel | null = initial;
   const listeners = new Set<OnChannelChangeListener>();
 
   const getCurrentChannel = (): OIPF.DAE.Broadcast.Channel | null => {

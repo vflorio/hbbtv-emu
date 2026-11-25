@@ -1,5 +1,5 @@
 import { createLogger } from "@hbb-emu/core";
-import type { ExtensionState } from "@hbb-emu/extension-common";
+import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import {
   DEFAULT_BROADCAST_PLAY_STATE,
   DEFAULT_FULL_SCREEN,
@@ -7,7 +7,7 @@ import {
   DEFAULT_OIPF_CAPABILITIES,
   DEFAULT_OIPF_CONFIGURATION,
   type HbbTVState,
-  type OIPF,
+  OIPF,
   type OipfCapabilitiesState,
   type OipfConfigurationState,
 } from "@hbb-emu/oipf-api";
@@ -42,6 +42,8 @@ import {
   createUserAgentEnv,
   dispatchRemoteKey,
   initializeUserAgent,
+  initialTunedChannel,
+  isSameService,
   type RemoteControlEnv,
   type StreamEventSchedulerApi,
   type UserAgentEnv,
@@ -152,11 +154,22 @@ export type Runtime = Readonly<{
    * Dispatches a remote control key event.
    */
   dispatchKey: (keyCode: number) => IO.IO<void>;
+
+  /**
+   * Tunes the TV to a channel (the host's TV session says so).
+   */
+  tune: (channel: ChannelConfig | null) => IO.IO<void>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime Service
 // ─────────────────────────────────────────────────────────────────────────────
+
+type Tunable = Pick<OIPF.DAE.Broadcast.VideoBroadcast, "currentChannel" | "playState" | "setChannel">;
+
+/** Released by the application: no longer bound to the broadcast. */
+const isReleased = (videoBroadcast: Tunable): boolean =>
+  videoBroadcast.playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED;
 
 export class RuntimeService implements Runtime {
   readonly #env: RuntimeEnv;
@@ -222,6 +235,33 @@ export class RuntimeService implements Runtime {
   dispatchKey = (keyCode: number): IO.IO<void> => dispatchRemoteKey(keyCode)(this.#env.remoteControl);
 
   /**
+   * Tunes the TV: the current channel the applications read, and every
+   * `video/broadcast` on another channel switches to it, as on a TV when the viewer
+   * changes channel. Stopped ones too: a stream that failed also ends up stopped.
+   * Objects the application released stay so.
+   */
+  tune = (channel: ChannelConfig | null): IO.IO<void> =>
+    pipe(
+      IO.of(initialTunedChannel(channel, [])),
+      IO.tap((tuned) => () => this.#env.bindings.setCurrentChannel(tuned)),
+      IO.tap((tuned) =>
+        pipe(
+          this.#provider.instancesOf("videoBroadcast"),
+          IO.map((instances) => {
+            if (tuned === null) return;
+            for (const instance of instances as unknown as ReadonlyArray<Tunable>) {
+              if (!isReleased(instance) && !isSameService(instance.currentChannel, tuned)) {
+                instance.setChannel(tuned);
+              }
+            }
+          }),
+        ),
+      ),
+      IO.tap(() => logger.debug("Tuned to", channel?.id ?? null)),
+      IO.asUnit,
+    );
+
+  /**
    * Sets the PlayerRuntime instance.
    * Called by the content script to inject the runtime with configured adapters.
    */
@@ -275,7 +315,9 @@ export const createRuntimeEnv = (
   createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding> = createDefaultBindings,
 ): RuntimeEnv => {
   const channelRegistry = createChannelRegistryEnv(extensionState);
-  const currentChannelEnv = createCurrentChannelEnv();
+  const currentChannelEnv = createCurrentChannelEnv(
+    initialTunedChannel(extensionState.currentChannel, extensionState.channels),
+  );
   const streamEventScheduler = createStreamEventScheduler(extensionState.channels);
 
   // Create no-op factory if not provided
@@ -332,6 +374,8 @@ export type RuntimeHandle = Readonly<{
   collectState: () => IO.IO<GlobalState>;
   /** Dispatches a remote control key event */
   dispatchKey: (keyCode: number) => IO.IO<void>;
+  /** Tunes the TV to a channel (from the host's TV session) */
+  tune: (channel: ChannelConfig | null) => IO.IO<void>;
   /** Stops DOM observation and tears down runtime services */
   stop: () => IO.IO<void>;
   /** Sets the PlayerRuntime instance (for player UI integration) */
@@ -353,6 +397,7 @@ export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
         updateExtensionState: (state) => service.updateExtensionState(state),
         collectState: service.collectState,
         dispatchKey: service.dispatchKey,
+        tune: service.tune,
         stop: service.stop,
         setPlayerRuntime: service.setPlayerRuntime,
         getPlayerRuntime: service.getPlayerRuntime,

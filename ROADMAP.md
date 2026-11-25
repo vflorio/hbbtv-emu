@@ -134,6 +134,10 @@ Il progetto cresce in tre fasi:
 ### 1.2 Servizi
 - [ ] **Background**: completare routing dei messaggi, propagazione dello stato a tutti i tab/UI, ciclo di vita tab (oggi solo `onTabAdded/Removed` con TODO).
 - [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3.
+  - [x] **TvSession per tab**, modalità *App*: aperta dal primo `Page/Ready` di un tab, mantenuta tra le navigazioni e i reload, chiusa con il tab (`tabs.onRemoved`; prima "unloaded" contava come chiusura, e ogni "loading" loggava "Tab added"). Persistita in `chrome.storage.session` su MV3, in memoria su MV2 (background persistente); al riavvio si scartano le sessioni dei tab chiusi e quelle non valide. Oggi contiene il canale sintonizzato; la pagina la riceve con `Host/Session`, dopo `Host/Config`. Verificata in e2e su Chromium e Firefox.
+  - [ ] Il canale della sessione arriva in modo asincrono: una pagina parte sul primo canale della lineup e si risintonizza quando arriva `Host/Session` (solo se il tab era su un altro canale). Il bootstrap sincrono è condiviso da tutti i tab; per la modalità *TV* il background potrà pubblicarlo prima di navigare.
+  - [ ] Modalità *TV* (avvio da "Accendi la TV", lineup completa, cambio canale come navigazione).
+  - [ ] Keyset, volume, app attiva nella sessione.
 - [ ] **Bridge** (ISOLATED world): inoltro MAIN ↔ background con contesto `tabId`.
 - [x] **Page runtime** (`@hbb-emu/page-runtime`): si avvia da sola solo nei documenti HbbTV, una volta per finestra. Su chrome-v3 è un content script `world: "MAIN"` a `document_start`, quindi **le API OIPF esistono prima del primo script dell'app**. Su `main` arrivavano solo dopo `DOMContentLoaded` e una richiesta asincrona al background.
 - [x] **Bridge** (chrome-v3): content script ISOLATED che collega la page runtime (canale DOM: `CustomEvent` con JSON, invisibile ai listener `message` dell'app) al background. Protocollo in `@hbb-emu/protocol`: `Page/Ready` → `Host/Config`; `Host/Hello` per l'ordine di avvio; `Host/DispatchKey`. La runtime non aspetta mai l'host.
@@ -148,7 +152,8 @@ Il progetto cresce in tre fasi:
   - Scartate: cookie via DNR (sporca i cookie, che sono oggetto di test), `Server-Timing` (esposto solo in contesti sicuri, le app sono spesso http), `localStorage`/`sessionStorage` (condivisi con l'app), XHR sincrona verso l'estensione (il service worker non la intercetta).
 - [x] **Settings UI nella side panel** di chrome-v3 (`settings-ui` condivisa, collegata tramite `createUiClient`). Il background trasforma ogni salvataggio in: configurazione → tutti i tab aperti; patch minima dello stato degli oggetti (`Host/ApplyState`, calcolata con `diffPatch`) → solo il tab attivo. Telecomando e "play channel" → tab attivo. Le pagine dell'estensione si riconoscono dall'origine del mittente, anche se aperte in un tab.
 - [ ] La UI mostra lo stato degli oggetti salvato nel background, non quello reale della pagina (es. il keyset impostato dall'app). Serve un messaggio pagina → host con lo stato corrente del tab attivo.
-- [ ] Il `currentChannel` scelto dalla UI non è ancora legato alla sessione del tab (D5).
+- [x] Il canale corrente della UI è quello della sessione del tab attivo (`null` se il tab non è una TV); "play" sintonizza solo quel tab e non è più salvato nello stato condiviso (`runtime.currentChannel` rimosso, scartato dagli stati salvati).
+  - [ ] La UI non si aggiorna quando cambia il tab attivo.
 - [x] Iniezione della page runtime su Firefox MV2: il content script `injector.js` contiene il bundle della page runtime e lo esegue inline. Il bundle è lo stesso di chrome-v3.
 - [ ] Lo stesso su Chromium legacy (chrome-v2).
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).
@@ -161,6 +166,7 @@ Il progetto cresce in tre fasi:
 - [ ] Dimensione di un `video/broadcast` senza CSS: oggi 0×0. Da verificare cosa fanno le TV (probabile 300×150 come un elemento sostituito, o il full-screen).
 - [ ] Il `<video>` montato è visibile all'app in `object.childNodes`/`innerHTML`. Accettabile finché nessuna app ne dipende.
 - [ ] **Eventi OIPF**: oggi sono solo callback sincrone verso le proprietà `onXxx` dell'elemento. Da verificare e allineare alla spec: dispatch asincrono e DOM events (`addEventListener("FullScreenChange", …)`, richiesti da HbbTV 2.0).
+- [x] Un `video/broadcast` presenta il canale su cui è sintonizzata la TV (prima: una tripletta fissa 1/1/1), e `privateData.currentChannel` lo restituisce anche senza `video/broadcast`. Quando la sessione cambia canale, ogni `video/broadcast` non rilasciato dall'app lo segue (anche quelli fermi: uno stream fallito finisce in STOPPED).
 - [ ] Il volume è della TV, non del singolo oggetto: con D5 lo `volumeState` va preso dalla TvSession (un `IORef` condiviso iniettato nell'env) invece di crearne uno per ogni `video/broadcast`.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
 - [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).

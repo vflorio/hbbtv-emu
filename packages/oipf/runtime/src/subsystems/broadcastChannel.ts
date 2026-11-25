@@ -37,3 +37,22 @@ export const toBroadcastChannel = (channel: ChannelConfig): BroadcastChannel => 
   hybrid: true,
   fta: true,
 });
+
+/** Two channels are the same service when their DVB triplets match (names and ids aside). */
+export const isSameService = (
+  a: Pick<OIPF.DAE.Broadcast.Channel, "onid" | "tsid" | "sid"> | null,
+  b: Pick<OIPF.DAE.Broadcast.Channel, "onid" | "tsid" | "sid"> | null,
+): boolean => a === b || (a !== null && b !== null && a.onid === b.onid && a.tsid === b.tsid && a.sid === b.sid);
+
+/**
+ * The channel the TV is tuned to when a page starts: the one the host says, or the
+ * first of the lineup until it does.
+ */
+export const initialTunedChannel = (
+  current: ChannelConfig | null,
+  channels: ReadonlyArray<ChannelConfig>,
+): OIPF.DAE.Broadcast.Channel | null => {
+  const channel = current ?? channels[0] ?? null;
+  // The OIPF Channel object has more members (methods, …) than the emulator fills in.
+  return channel ? (toBroadcastChannel(channel) as OIPF.DAE.Broadcast.Channel) : null;
+};

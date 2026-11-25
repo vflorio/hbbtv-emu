@@ -39,6 +39,11 @@ export type ProviderApi = Readonly<{
    * Collects current state from all managed instances.
    */
   collectState: () => IO.IO<GlobalState>;
+
+  /**
+   * The live instances bound for a key (e.g. every `video/broadcast` in the page).
+   */
+  instancesOf: (stateKey: StateKey) => IO.IO<ReadonlyArray<AnyStateful>>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,6 +115,10 @@ export class ProviderService implements ProviderApi {
       avControls,
     };
   };
+
+  instancesOf =
+    (stateKey: StateKey): IO.IO<ReadonlyArray<AnyStateful>> =>
+    () => [...this.#registry.getInstances(stateKey)];
 
   // ───────────────────────────────────────────────────────────────────────────
   // Private Methods

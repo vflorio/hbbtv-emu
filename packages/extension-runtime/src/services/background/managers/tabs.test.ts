@@ -6,17 +6,16 @@ import { TabsManager } from "./tabs";
 const setup = async () => {
   const tabs = createFakeTabs();
   const webRequest = createFakeWebRequest();
-  const onTabAdded = vi.fn((_: number) => IO.of(undefined));
   const onTabRemoved = vi.fn((_: number) => IO.of(undefined));
 
   new TabsManager({
     logger: silentLogger(),
     tabs: tabs.tabs,
     webRequest: webRequest.webRequest,
-    handlers: { onTabAdded, onTabRemoved },
+    handlers: { onTabRemoved },
   });
 
-  return { tabs, webRequest, onTabAdded, onTabRemoved };
+  return { tabs, webRequest, onTabRemoved };
 };
 
 const header = (name: string, value: string) => ({ name, value });
@@ -71,33 +70,25 @@ describe("TabsManager — content-type rewrite", () => {
 });
 
 describe("TabsManager — tab lifecycle", () => {
-  it("notifies the handler when a tab starts loading", async () => {
-    const { tabs, onTabAdded } = await setup();
-
-    tabs.emit(7, "loading");
-    await flushPromises();
-
-    expect(onTabAdded).toHaveBeenCalledWith(7);
-  });
-
-  it("notifies the handler when a tab is unloaded", async () => {
+  it("notifies the handler when a tab is closed", async () => {
     const { tabs, onTabRemoved } = await setup();
 
-    tabs.emit(7, "loading");
-    await flushPromises();
-    tabs.emit(7, "unloaded");
+    tabs.close(7);
     await flushPromises();
 
     expect(onTabRemoved).toHaveBeenCalledWith(7);
   });
 
-  it("ignores the 'complete' status", async () => {
-    const { tabs, onTabAdded, onTabRemoved } = await setup();
+  it.each([
+    "loading",
+    "complete",
+    "unloaded",
+  ] as const)("a tab that is %s is still open (navigations, reloads and discarded tabs end nothing)", async (status) => {
+    const { tabs, onTabRemoved } = await setup();
 
-    tabs.emit(7, "complete");
+    tabs.emit(7, status);
     await flushPromises();
 
-    expect(onTabAdded).not.toHaveBeenCalled();
     expect(onTabRemoved).not.toHaveBeenCalled();
   });
 });

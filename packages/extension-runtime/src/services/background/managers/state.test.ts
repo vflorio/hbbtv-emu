@@ -92,4 +92,18 @@ describe("StateManager", () => {
     expect("enabledTabIds" in getStateOrThrow(manager)).toBe(false);
     expect(storage.stored()).not.toHaveProperty("enabledTabIds");
   });
+
+  it("drops the single current channel older versions stored (it belongs to each tab's session)", async () => {
+    const legacy = {
+      ...DEFAULT_STATE,
+      runtime: { ...DEFAULT_STATE.runtime, currentChannel: DEFAULT_STATE.runtime.channels[0] },
+    } as unknown as ExtensionState;
+    const storage = createFakeStorage<ExtensionState>(legacy);
+    const { manager } = await initialized(storage);
+
+    await manager.updateState((s) => ({ ...s, common: { ...s.common, playerUiVisible: true } }))();
+
+    expect("currentChannel" in getStateOrThrow(manager).runtime).toBe(false);
+    expect(storage.stored()?.runtime).not.toHaveProperty("currentChannel");
+  });
 });

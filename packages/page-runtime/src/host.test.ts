@@ -21,12 +21,12 @@ const createFakeChannel = () => {
 
 const setup = () => {
   const fake = createFakeChannel();
-  const calls: Array<{ config: PageConfig } | { key: number } | { patch: unknown } | { channel: string }> = [];
+  const calls: Array<{ config: PageConfig } | { key: number } | { patch: unknown } | { tunedTo: string | null }> = [];
   const control: PageRuntimeControl = {
     applyConfig: (config) => () => void calls.push({ config }),
     dispatchKey: (key) => () => void calls.push({ key }),
     applyState: (patch) => () => void calls.push({ patch }),
-    playChannel: (channel) => () => void calls.push({ channel: channel.id }),
+    applySession: (session) => () => void calls.push({ tunedTo: session.channel?.id ?? null }),
   };
   const disconnect = connectToHost({ channel: fake.channel, control, url: "http://app/index.xhtml" })();
   return { ...fake, calls, disconnect };
@@ -73,15 +73,15 @@ describe("connectToHost", () => {
     expect(calls).toEqual([{ patch: { videoBroadcast: { volume: 30 } } }]);
   });
 
-  it("plays a channel", () => {
+  it("applies the tab's TV session", () => {
     const { calls, deliver } = setup();
 
     deliver({
-      _tag: "Host/PlayChannel",
-      channel: { id: "dmax", name: "DMAX", onid: 1, tsid: 2, sid: 52 } as never,
+      _tag: "Host/Session",
+      session: { channel: { id: "dmax", name: "DMAX", onid: 1, tsid: 2, sid: 52 } as never },
     });
 
-    expect(calls).toEqual([{ channel: "dmax" }]);
+    expect(calls).toEqual([{ tunedTo: "dmax" }]);
   });
 
   it("stops handling messages once disconnected", () => {
@@ -102,7 +102,7 @@ describe("connectToHost", () => {
         applyConfig: () => IO.of(undefined),
         dispatchKey: () => IO.of(undefined),
         applyState: () => IO.of(undefined),
-        playChannel: () => IO.of(undefined),
+        applySession: () => IO.of(undefined),
       },
       url: "x",
     });

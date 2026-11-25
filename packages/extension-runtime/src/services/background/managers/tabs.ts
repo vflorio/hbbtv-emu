@@ -2,55 +2,37 @@ import type { Logger } from "@hbb-emu/core";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
-import { match } from "ts-pattern";
-import type { TabStatus, TabsAdapter, WebRequestAdapter } from "../../../adapter";
+import type { TabsAdapter, WebRequestAdapter } from "../../../adapter";
 
 export type TabsManangerEnv = {
   logger: Logger;
   tabs: TabsAdapter;
   webRequest: WebRequestAdapter;
   handlers: {
-    onTabAdded: (tabId: number) => IO.IO<void>;
+    /** The tab was closed. */
     onTabRemoved: (tabId: number) => IO.IO<void>;
   };
 };
 
 export class TabsManager {
-  protected readonly tabs: number[] = [];
   private readonly logger: Logger;
 
   constructor(protected readonly env: TabsManangerEnv) {
     this.logger = env.logger.create("TabsManager");
 
-    this.env.tabs.onTabsUpdated(this.onTabsUpdated);
+    this.env.tabs.onTabRemoved(this.onTabRemoved);
     this.env.webRequest.onHeadersReceived(this.onHeadersReceived);
   }
 
-  private readonly onTabsUpdated = (tabId: number, tabStatus: TabStatus): void =>
+  /**
+   * Only closing a tab ends what happens in it: navigations and reloads do not
+   * (nor a tab being discarded to save memory: it reloads in place).
+   */
+  private readonly onTabRemoved = (tabId: number): void =>
     pipe(
-      IOO.fromNullable(tabStatus),
-      IOO.filter((status) => status === "loading" || status === "unloaded"),
-      IOO.tapIO((status) =>
-        match(status)
-          .with("loading", () =>
-            pipe(
-              IO.Do,
-              IO.tap(() => this.env.handlers.onTabAdded(tabId)),
-              IO.tap(() => this.logger.info(`Tab ${tabId} Loading`)),
-            ),
-          )
-          .with("unloaded", () =>
-            pipe(
-              IO.Do,
-              IO.tap(() => this.env.handlers.onTabRemoved(tabId)),
-              IO.tap(() => this.logger.info(`Tab ${tabId} Unloaded`)),
-            ),
-          )
-          .exhaustive(),
-      ),
-      IO.asUnit,
+      this.logger.debug(`Tab ${tabId} closed`),
+      IO.flatMap(() => this.env.handlers.onTabRemoved(tabId)),
     )();
 
   private readonly onHeadersReceived = ({

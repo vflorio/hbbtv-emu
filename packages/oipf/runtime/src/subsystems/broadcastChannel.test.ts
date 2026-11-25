@@ -1,7 +1,7 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
 import { describe, expect, it } from "vitest";
-import { toBroadcastChannel } from "./channel";
+import { toBroadcastChannel } from "./broadcastChannel";
 
 const channel = { ...DEFAULT_EXTENSION_STATE.channels[0]!, id: "dmax", name: "DMAX", onid: 318, tsid: 5, sid: 52 };
 

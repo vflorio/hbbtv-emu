@@ -57,6 +57,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px") => {
     channelRegistry: { getChannels: () => [] },
     videoStream: stream.videoStream,
     videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
+    getTunedChannel: () => null,
     onCurrentChannelChange: () => {},
     streamEventScheduler: noopStreamEventScheduler,
     defaults: { fullScreen: false, playState: 0 },

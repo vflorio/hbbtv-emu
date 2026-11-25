@@ -14,13 +14,22 @@ export type StateManagerEnv = {
 };
 
 /**
- * What older versions stored, as it comes back from JSON storage. `enabledTabIds`
- * was a Set (stored as `{}`, which crashed every update after a service-worker
- * restart) that nothing read: per-tab state belongs to the TvSession (ROADMAP D5).
+ * What older versions stored, as it comes back from JSON storage. Per-tab state
+ * belongs to the tab's TV session (ROADMAP D5), not here:
+ * - `enabledTabIds` was a Set (stored as `{}`, which crashed every update after a
+ *   service-worker restart) that nothing read;
+ * - `runtime.currentChannel` was one channel for every tab.
  */
-type StoredState = ExtensionState & { enabledTabIds?: unknown };
+type StoredState = Omit<ExtensionState, "runtime"> & {
+  enabledTabIds?: unknown;
+  runtime: ExtensionState["runtime"] & { currentChannel?: unknown };
+};
 
-export const fromStoredState = ({ enabledTabIds: _dropped, ...state }: StoredState): ExtensionState => state;
+export const fromStoredState = ({
+  enabledTabIds: _dropped,
+  runtime: { currentChannel: _droppedToo, ...runtime },
+  ...state
+}: StoredState): ExtensionState => ({ ...state, runtime });
 
 export class StateManager {
   private state: O.Option<ExtensionState> = O.none;

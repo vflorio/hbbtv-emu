@@ -31,13 +31,9 @@ export const WithController = <T extends ClassType<VideoBroadcastEnv & ChannelAP
         }
       });
 
-      this.setChannel({
-        idType: OIPF.DAE.Broadcast.ChannelIdType.ID_DVB_T2,
-        name: "Default Channel",
-        onid: 1,
-        tsid: 1,
-        sid: 1,
-      });
+      // Presents the channel the TV is tuned to (none with an empty lineup).
+      const tuned = this.env.getTunedChannel();
+      if (tuned) this.setChannel(tuned);
 
       logger.info("Initialized")();
     }

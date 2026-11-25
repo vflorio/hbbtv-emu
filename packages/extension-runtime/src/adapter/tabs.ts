@@ -11,6 +11,8 @@ export type TabQuery = Readonly<{ active?: boolean; lastFocusedWindow?: boolean 
 
 export interface TabsAdapter {
   onTabsUpdated: (handler: (tabId: number, status: TabStatus) => void) => UnsubscribeFn;
+  /** A tab was closed (or its window was). */
+  onTabRemoved: (handler: (tabId: number) => void) => UnsubscribeFn;
   /** Tabs matching the query (all tabs for `{}`); never fails, returns [] instead. */
   query: (query: TabQuery) => T.Task<ReadonlyArray<TabInfo>>;
 }
@@ -40,5 +42,11 @@ export const createTabsAdapter = ({ manifest }: AdapterConfig): TabsAdapter => (
 
     chrome.tabs.onUpdated.addListener(listener);
     return () => chrome.tabs.onUpdated.removeListener(listener);
+  },
+
+  onTabRemoved: (handler) => {
+    const listener = (tabId: number) => handler(tabId);
+    chrome.tabs.onRemoved.addListener(listener);
+    return () => chrome.tabs.onRemoved.removeListener(listener);
   },
 });

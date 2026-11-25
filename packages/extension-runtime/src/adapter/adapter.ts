@@ -8,8 +8,9 @@ import {
   type TabsAdapter,
   type WebRequestAdapter,
 } from "..";
+import type { TvSessions } from "../state";
 import { createPageBootstrapAdapter, type PageBootstrapAdapter } from "./pageBootstrap";
-import type { StorageAdapter } from "./storage";
+import { createSessionStorageAdapter, type StorageAdapter } from "./storage";
 import { createUiAdapter, type UiAdapter } from "./ui";
 import { createUserAgentAdapter, type UserAgentAdapter } from "./userAgent";
 
@@ -50,6 +51,8 @@ export const defaultAdapterConfig: AdapterConfig = {
 
 export type AdapterEnv<TState, TEvents extends BaseMessage> = {
   readonly storage: StorageAdapter<TState>;
+  /** The TV session of every tab: as long as the browser session, not across restarts. */
+  readonly sessionStorage: StorageAdapter<TvSessions>;
   readonly messaging: MessagingAdapter<TEvents>;
   readonly webRequest: WebRequestAdapter;
   readonly tabs: TabsAdapter;
@@ -63,6 +66,7 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
   env?: Partial<AdapterEnv<TState, TEvents>>,
 ): AdapterEnv<TState, TEvents> => ({
   storage: env?.storage ?? createStorageAdapter(config),
+  sessionStorage: env?.sessionStorage ?? createSessionStorageAdapter(config),
   messaging: env?.messaging ?? createMessagingAdapter(config),
   webRequest: env?.webRequest ?? createWebRequestAdapter(config),
   tabs: env?.tabs ?? createTabsAdapter(config),

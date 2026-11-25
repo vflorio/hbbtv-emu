@@ -93,3 +93,74 @@ describe("runtime — host configuration", () => {
     expect(await resolve()).toEqual(E.right({ url: channel.mp4Source, config: channel }));
   });
 });
+
+describe("runtime — tuned channel (the tab's TV session)", () => {
+  const dmax = { id: "dmax", name: "DMAX", mp4Source: "http://tv/dmax.mp4", onid: 318, tsid: 1, sid: 52 };
+  const hgtv = { id: "hgtv", name: "HGTV", mp4Source: "http://tv/hgtv.mp4", onid: 318, tsid: 1, sid: 56 };
+
+  type VideoBroadcastObject = {
+    currentChannel: { ccid: string } | null;
+    playState: number;
+    release: () => void;
+  };
+  type PrivateData = { currentChannel: { ccid: string; sid: number } | null };
+
+  const start = () => {
+    const handle = runtime(createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [dmax, hgtv] }))();
+    started.push(handle);
+    return handle;
+  };
+
+  const privateData = async (): Promise<PrivateData> => {
+    const appMgr = addObject("application/oipfApplicationManager") as unknown as {
+      getOwnerApplication: (doc: Document) => { privateData: PrivateData };
+    };
+    await flushMutations();
+    return appMgr.getOwnerApplication(document).privateData;
+  };
+
+  const videoBroadcast = async (): Promise<VideoBroadcastObject> => {
+    const object = addObject("video/broadcast") as unknown as VideoBroadcastObject;
+    await flushMutations();
+    return object;
+  };
+
+  it("until the host says otherwise, the TV is on the first channel of the lineup", async () => {
+    start();
+
+    expect((await privateData()).currentChannel).toMatchObject({ ccid: "dmax", sid: 52 });
+  });
+
+  it("a video/broadcast presents the channel the TV is tuned to", async () => {
+    start().tune(hgtv)();
+
+    expect((await videoBroadcast()).currentChannel).toMatchObject({ ccid: "hgtv" });
+  });
+
+  it("tuning changes the channel applications read, and switches a presenting video/broadcast", async () => {
+    const handle = start();
+    const data = await privateData();
+    const object = await videoBroadcast();
+    expect(object.currentChannel).toMatchObject({ ccid: "dmax" });
+
+    handle.tune(hgtv)();
+    await flushMutations();
+
+    expect(data.currentChannel).toMatchObject({ ccid: "hgtv" });
+    expect(object.currentChannel).toMatchObject({ ccid: "hgtv" });
+  });
+
+  it("a video/broadcast the application released stays released", async () => {
+    const handle = start();
+    const object = await videoBroadcast();
+    object.release();
+    await flushMutations();
+    expect(object.playState).toBe(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
+
+    handle.tune(hgtv)();
+    await flushMutations();
+
+    expect(object.playState).toBe(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
+    expect(object.currentChannel).toMatchObject({ ccid: "dmax" });
+  });
+});

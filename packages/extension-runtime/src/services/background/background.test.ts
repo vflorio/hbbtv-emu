@@ -12,7 +12,7 @@ import {
   flushPromises,
   silentLogger,
 } from "../../__tests__/fakes";
-import { DEFAULT_STATE, type ExtensionState, toPageConfig, toUiState } from "../../state";
+import { DEFAULT_STATE, type ExtensionState, type TvSessions, toPageConfig, toUiState } from "../../state";
 import { BackgroundService } from "./background";
 
 /** Tab 1 is the active one (where the side panel is), tab 2 is in the background. */
@@ -21,8 +21,15 @@ const OPEN_TABS = [
   { id: 2, url: "http://app/b.xhtml" },
 ];
 
-const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS, bootstrapAvailable = true) => {
+const setup = async (
+  stored?: ExtensionState,
+  openTabs = OPEN_TABS,
+  bootstrapAvailable = true,
+  storedSessions?: TvSessions,
+) => {
   const messaging = createFakeMessaging<HostMessage>();
+  const tabs = createFakeTabs(openTabs);
+  const sessionStorage = createFakeStorage<TvSessions>(storedSessions);
   const ui = createFakeUi();
   const userAgent = createFakeUserAgent();
   const bootstrap = createFakePageBootstrap(bootstrapAvailable);
@@ -31,8 +38,9 @@ const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS, bootstrapAva
     logger: silentLogger(),
     adapter: {
       storage: createFakeStorage<ExtensionState>(stored).storage,
+      sessionStorage: sessionStorage.storage,
       messaging: messaging.messaging,
-      tabs: createFakeTabs(openTabs).tabs,
+      tabs: tabs.tabs,
       webRequest: createFakeWebRequest().webRequest,
       ui: ui.ui,
       userAgent: userAgent.userAgent,
@@ -40,11 +48,11 @@ const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS, bootstrapAva
     },
   });
   expect(E.isRight(await background.init()())).toBe(true);
-  return { background, messaging, ui, userAgent, bootstrap };
+  return { background, messaging, ui, userAgent, bootstrap, tabs, sessionStorage };
 };
 
 describe("BackgroundService", () => {
-  it("sends the configuration to a page runtime that announces itself", async () => {
+  it("sends the configuration, then the tab's TV session, to a page runtime that announces itself", async () => {
     const { messaging } = await setup();
 
     messaging.receive({ _tag: "Page/Ready", url: "http://app" }, 7);
@@ -52,6 +60,7 @@ describe("BackgroundService", () => {
 
     expect(messaging.sent).toEqual([
       { tabId: 7, message: { _tag: "Host/Config", config: toPageConfig(DEFAULT_STATE) } },
+      { tabId: 7, message: { _tag: "Host/Session", session: { channel: DEFAULT_STATE.runtime.channels[0] } } },
     ]);
   });
 
@@ -194,15 +203,6 @@ describe("BackgroundService — settings UI", () => {
     expect(messaging.sent).toEqual([{ tabId: 1, message: { _tag: "Host/DispatchKey", keyCode: 403 } }]);
   });
 
-  it("playing a channel targets the active tab", async () => {
-    const { ui, messaging } = await setup();
-    const channel = uiState.channels[0]!;
-
-    await ui.request({ _tag: "UI/PlayChannel", channel });
-
-    expect(messaging.sent).toEqual([{ tabId: 1, message: { _tag: "Host/PlayChannel", channel } }]);
-  });
-
   it("reports when there is no tab to send a key to", async () => {
     const { ui } = await setup(undefined, []);
 
@@ -216,5 +216,122 @@ describe("BackgroundService — settings UI", () => {
     const { ui } = await setup();
 
     expect(await ui.request({ _tag: "Page/Ready", url: "x" })).toBe("ignored");
+  });
+});
+
+describe("BackgroundService — TV sessions (one per tab)", () => {
+  const [first] = DEFAULT_STATE.runtime.channels;
+  const dmax = { ...first!, id: "dmax", name: "DMAX", sid: 52 };
+  const hgtv = { ...first!, id: "hgtv", name: "HGTV", sid: 56 };
+  const lineup = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels: [dmax, hgtv] } };
+
+  type Sent = { tabId: number; message: HostMessage };
+  const tunedTo = (sent: ReadonlyArray<Sent>, tabId: number) =>
+    sent
+      .filter((s) => s.tabId === tabId && s.message._tag === "Host/Session")
+      .map((s) => (s.message as Extract<HostMessage, { _tag: "Host/Session" }>).session.channel?.id ?? null);
+
+  const pageReady = async (messaging: { receive: (m: object, tabId: number) => void }, tabId: number) => {
+    messaging.receive({ _tag: "Page/Ready", url: "http://app/index.xhtml" }, tabId);
+    await flushPromises();
+  };
+
+  it("the first HbbTV page of a tab opens a TV session on the first channel of the lineup", async () => {
+    const { messaging } = await setup(lineup);
+
+    await pageReady(messaging, 1);
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax"]);
+  });
+
+  it("the UI tunes the TV in the active tab, which the page follows", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+
+    expect(await ui.request({ _tag: "UI/PlayChannel", channel: hgtv })).toEqual({ _tag: "UI/Done" });
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv"]);
+    expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: toUiState(lineup, hgtv) }]);
+  });
+
+  it("the session outlives the pages of its tab, and is not shared with other tabs", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+
+    await pageReady(messaging, 1); // a navigation or a reload in the same tab
+    await pageReady(messaging, 2);
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv", "hgtv"]);
+    expect(tunedTo(messaging.sent, 2)).toEqual(["dmax"]);
+  });
+
+  it("closing the tab ends its session", async () => {
+    const { messaging, ui, tabs } = await setup(lineup);
+    await pageReady(messaging, 1);
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+
+    tabs.close(1);
+    await flushPromises();
+    await pageReady(messaging, 1);
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv", "dmax"]);
+  });
+
+  it("a restarted background (MV3 service worker) finds the sessions of the tabs still open", async () => {
+    const stored: TvSessions = { "1": { mode: "app", channelId: "hgtv" }, "99": { mode: "app", channelId: "hgtv" } };
+    const { messaging, sessionStorage } = await setup(lineup, OPEN_TABS, true, stored);
+
+    await pageReady(messaging, 1);
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["hgtv"]);
+    expect(Object.keys(sessionStorage.stored() ?? {})).toEqual(["1"]);
+  });
+
+  it("drops stored sessions it does not understand", async () => {
+    const stored = { "1": { mode: "tv-from-the-future", channel: 3 } } as unknown as TvSessions;
+    const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
+
+    await pageReady(messaging, 1);
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax"]);
+  });
+
+  it("a session whose channel left the lineup is back on the first channel", async () => {
+    const stored: TvSessions = { "1": { mode: "app", channelId: "gone" } };
+    const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
+
+    await pageReady(messaging, 1);
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax"]);
+  });
+
+  it("the UI shows the channel of the active tab's TV, none if that tab is not a TV", async () => {
+    const { messaging, ui } = await setup(lineup);
+    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: toUiState(lineup, null) });
+
+    await pageReady(messaging, 1);
+
+    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: toUiState(lineup, dmax) });
+  });
+
+  it("the UI cannot tune a tab that is not a TV", async () => {
+    const { messaging, ui } = await setup(lineup);
+
+    expect(await ui.request({ _tag: "UI/PlayChannel", channel: hgtv })).toEqual({
+      _tag: "UI/Failed",
+      reason: "The active tab does not run the emulator (tab 1)",
+    });
+    expect(messaging.sent).toEqual([]);
+  });
+
+  it("the UI cannot tune to a channel outside the lineup", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+
+    expect(await ui.request({ _tag: "UI/PlayChannel", channel: { ...hgtv, id: "nope" } })).toEqual({
+      _tag: "UI/Failed",
+      reason: "Unknown channel: nope",
+    });
   });
 });

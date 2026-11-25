@@ -18,6 +18,21 @@ type BasicAppState = {
   configAtFirstScript: boolean;
 };
 
+type Channel = { id: string; sid: number };
+
+/** The channel as the application reads it: its own (privateData) and its video/broadcast's. */
+const channelSeen = () => {
+  type WithChannel = { currentChannel: { ccid: string } | null };
+  const appMgr = document.getElementById("appmgr") as unknown as {
+    getOwnerApplication: (d: Document) => { privateData: WithChannel };
+  };
+  const video = document.getElementById("video") as unknown as WithChannel;
+  return {
+    application: appMgr.getOwnerApplication(document).privateData.currentChannel?.ccid ?? null,
+    videoBroadcast: video.currentChannel?.ccid ?? null,
+  };
+};
+
 let server: FixtureServer;
 let firefox: FirefoxWithExtension;
 
@@ -162,13 +177,19 @@ describe("firefox-v2: settings UI (sidebar)", () => {
   const openUi = async () => {
     const { page: ui, errors } = await firefox.openExtensionPage("index.html");
     // `browser.*` returns promises; Firefox's `chrome.*` takes callbacks.
-    const request = (message: object) =>
-      ui.evaluate(
-        (m) =>
-          (
-            globalThis as unknown as { browser: { runtime: { sendMessage: (m: object) => Promise<unknown> } } }
-          ).browser.runtime.sendMessage(m),
-        message,
+    // As JSON: WebDriver BiDi sends an object seen twice in a value (e.g. the current
+    // channel, also in the lineup) as a reference, which Puppeteer turns into undefined.
+    const request = async (message: object): Promise<unknown> =>
+      JSON.parse(
+        await ui.evaluate(
+          async (m) =>
+            JSON.stringify(
+              await (
+                globalThis as unknown as { browser: { runtime: { sendMessage: (m: object) => Promise<unknown> } } }
+              ).browser.runtime.sendMessage(m),
+            ),
+          message,
+        ),
       );
     return { ui, errors, request };
   };
@@ -206,6 +227,34 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       const state = await appState(page);
       expect(state.userAgentAtFirstScript).toBe(userAgent);
       expect(server.requests.find((r) => r.url === `/${path}`)?.userAgent).toBe(userAgent);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
+  it("each tab is a TV of its own: its channel survives a reload, other tabs keep theirs", async () => {
+    const { request } = await openUi();
+    type UiState = { channels: Channel[]; currentChannel: Channel | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Channel];
+    const second = { ...first, id: "e2e-second", name: "e2e second", sid: first.sid + 1000 };
+    const on = (id: string) => ({ application: id, videoBroadcast: id });
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, second] } });
+      const { page: tv } = await openPage(`basic-app/index.xhtml?tv=${Date.now()}`);
+      const { page: other } = await openPage(`basic-app/index.xhtml?other=${Date.now()}`);
+      await tv.bringToFront(); // the UI acts on the active tab
+      // Its TV session opens once the page has announced itself.
+      await expect.poll(async () => (await getState()).currentChannel?.id, { timeout: 5000 }).toBe(first.id);
+
+      expect(await request({ _tag: "UI/PlayChannel", channel: second })).toEqual({ _tag: "UI/Done" });
+      await expect.poll(() => tv.evaluate(channelSeen), { timeout: 5000 }).toEqual(on(second.id));
+
+      await tv.reload();
+      await expect.poll(() => tv.evaluate(channelSeen), { timeout: 5000 }).toEqual(on(second.id));
+      expect(await other.evaluate(channelSeen)).toEqual(on(first.id));
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

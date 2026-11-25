@@ -47,3 +47,43 @@ export const createStorageAdapter = <T>({ manifest, storageKey }: AdapterConfig)
       }),
     ),
 });
+
+/**
+ * Storage for what lasts as long as the browser session, not across restarts
+ * (e.g. the TV session of each tab: tab ids do not survive a restart).
+ *
+ * MV3: `chrome.storage.session` (Chrome 102+), so it survives the service worker
+ * being stopped. MV2: memory, which is enough since the background page is persistent.
+ *
+ * @since Chrome 102+ (MV3), any (MV2)
+ */
+export const createSessionStorageAdapter = <T>({ manifest, storageKey }: AdapterConfig): StorageAdapter<T> => {
+  const key = `${storageKey}_sessions`;
+  const area =
+    manifest === MANIFEST_VERSION_3 ? (chrome.storage as { session?: chrome.storage.StorageArea }).session : undefined;
+  if (!area) return createMemoryStorageAdapter<T>();
+  return {
+    read: () =>
+      TE.tryCatch(
+        async () => O.fromNullable((await area.get(key))[key] as T | undefined),
+        (cause): AdapterError => ({ _tag: "StorageReadError", cause }),
+      ),
+    write: (state) =>
+      TE.tryCatch(
+        () => area.set({ [key]: state }),
+        (cause): AdapterError => ({ _tag: "StorageWriteError", cause }),
+      ),
+  };
+};
+
+/** Lives as long as the page (or worker) that created it. */
+export const createMemoryStorageAdapter = <T>(): StorageAdapter<T> => {
+  let value: O.Option<T> = O.none;
+  return {
+    read: () => TE.right(value),
+    write: (state) => {
+      value = O.some(state);
+      return TE.right(undefined);
+    },
+  };
+};

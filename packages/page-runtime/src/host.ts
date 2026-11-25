@@ -6,9 +6,8 @@
  * host configuration is applied whenever it arrives.
  */
 
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { HbbTVState } from "@hbb-emu/oipf-api";
-import type { DomChannel, HostMessage, PageConfig, PageMessage } from "@hbb-emu/protocol";
+import type { DomChannel, HostMessage, PageConfig, PageMessage, PageSession } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
@@ -19,7 +18,8 @@ export type PageRuntimeControl = Readonly<{
   dispatchKey: (keyCode: number) => IO.IO<void>;
   /** An explicit edit of OIPF object state: only the given fields change. */
   applyState: (patch: Partial<HbbTVState>) => IO.IO<void>;
-  playChannel: (channel: ChannelConfig) => IO.IO<void>;
+  /** The tab's TV session (e.g. the channel the TV is tuned to). */
+  applySession: (session: PageSession) => IO.IO<void>;
 }>;
 
 export type HostEnv = Readonly<{
@@ -42,8 +42,8 @@ const handle =
         return env.control.dispatchKey(message.keyCode);
       case "Host/ApplyState":
         return env.control.applyState(message.patch);
-      case "Host/PlayChannel":
-        return env.control.playChannel(message.channel);
+      case "Host/Session":
+        return env.control.applySession(message.session);
     }
   };
 

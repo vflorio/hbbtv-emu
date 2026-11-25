@@ -112,6 +112,7 @@ export const createVideoBroadcastBinding = (
       channelRegistry: env.channelRegistry,
       videoStream,
       videoWindow: createObjectVideoWindow(element, videoStream.videoElement),
+      getTunedChannel: env.getCurrentChannel,
       onCurrentChannelChange: env.setCurrentChannel,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaultVideoBroadcast,

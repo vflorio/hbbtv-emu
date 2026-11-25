@@ -68,20 +68,31 @@ export const createFakeStorage = <T>(initial?: T) => {
   };
 };
 
-/** `open` lists the tabs `query({})` returns; the first one is the active tab. */
+/**
+ * `open` lists the tabs `query({})` returns; the first one is the active tab.
+ * `close` plays the user closing a tab.
+ */
 export const createFakeTabs = (open: ReadonlyArray<TabInfo> = []) => {
   const handlers = new Set<(tabId: number, status: TabStatus) => void>();
+  const removedHandlers = new Set<(tabId: number) => void>();
   const tabs: TabsAdapter = {
     query: (query: TabQuery) => () => Promise.resolve(query.active ? open.slice(0, 1) : open),
     onTabsUpdated: (handler) => {
       handlers.add(handler);
       return () => handlers.delete(handler);
     },
+    onTabRemoved: (handler) => {
+      removedHandlers.add(handler);
+      return () => removedHandlers.delete(handler);
+    },
   };
   return {
     tabs,
     emit: (tabId: number, status: TabStatus) => {
       for (const handler of handlers) handler(tabId, status);
+    },
+    close: (tabId: number) => {
+      for (const handler of removedHandlers) handler(tabId);
     },
   };
 };

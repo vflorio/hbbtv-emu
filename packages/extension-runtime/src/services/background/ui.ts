@@ -5,11 +5,14 @@
  * - the new configuration for every page (channels, user agent, …);
  * - a minimal patch of OIPF object state, only for the TV the user is looking at
  *   (the active tab), so nothing the applications did is overwritten (ROADMAP D5).
+ *
+ * The current channel the UI shows and plays is the one of the active tab's TV session.
  */
 
 import { diffPatch, type Logger } from "@hbb-emu/core";
+import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { HbbTVState } from "@hbb-emu/oipf-api";
-import type { HostMessage, UiRequest, UiResponse } from "@hbb-emu/protocol";
+import type { HostMessage, UiRequest, UiResponse, UiState } from "@hbb-emu/protocol";
 import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
@@ -18,9 +21,18 @@ import type * as RT from "fp-ts/ReaderTask";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { MessagingAdapter, TabsAdapter, UiAdapter, UserAgentAdapter } from "../../adapter";
-import { type ExtensionState, fromUiState, toPageConfig, toUiState } from "../../state";
+import {
+  type ExtensionState,
+  findChannel,
+  fromUiState,
+  sessionChannel,
+  toPageConfig,
+  toPageSession,
+  toUiState,
+} from "../../state";
 import type { PageBootstrap } from "./bootstrap";
 import type { StateManager } from "./managers/state";
+import type { Sessions } from "./sessions";
 
 export type UiEnv = Readonly<{
   stateManager: StateManager;
@@ -29,6 +41,7 @@ export type UiEnv = Readonly<{
   ui: UiAdapter;
   userAgent: UserAgentAdapter;
   pageBootstrap: PageBootstrap;
+  sessions: Sessions;
   logger: Logger;
 }>;
 
@@ -62,6 +75,34 @@ const activeTabId: RT.ReaderTask<UiEnv, O.Option<number>> = ({ tabs }) =>
     T.map((found) => O.fromNullable(found[0]?.id)),
   );
 
+/** The channel of the TV in the active tab; `null` if that tab is not a TV. */
+const activeChannel =
+  (state: ExtensionState): RT.ReaderTask<UiEnv, ChannelConfig | null> =>
+  (env) =>
+    pipe(
+      activeTabId(env),
+      T.map((tabId) =>
+        pipe(
+          tabId,
+          O.flatMap((id) => env.sessions.get(id)()),
+          O.match(
+            () => null,
+            (session) => sessionChannel(state, session),
+          ),
+        ),
+      ),
+    );
+
+const uiStateOf =
+  (state: ExtensionState): RT.ReaderTask<UiEnv, UiState> =>
+  (env) =>
+    pipe(
+      activeChannel(state)(env),
+      T.map((channel) => toUiState(state, channel)),
+    );
+
+const notAnEmulatedTab = (tabId: number) => failed(`The active tab does not run the emulator (tab ${tabId})`);
+
 const toActiveTab =
   (message: HostMessage): RT.ReaderTask<UiEnv, UiResponse> =>
   (env) =>
@@ -74,7 +115,7 @@ const toActiveTab =
             pipe(
               env.messaging.sendToTab(tabId, message),
               TE.match(
-                () => failed(`The active tab does not run the emulator (tab ${tabId})`),
+                () => notAnEmulatedTab(tabId),
                 () => done,
               ),
             ),
@@ -148,7 +189,8 @@ const saveState =
                   (after) =>
                     pipe(
                       propagate(before, after)(env),
-                      T.flatMap(() => env.ui.notify({ _tag: "UI/StateChanged", state: toUiState(after) })),
+                      T.flatMap(() => uiStateOf(after)(env)),
+                      T.flatMap((state) => env.ui.notify({ _tag: "UI/StateChanged", state })),
                       T.map(() => done),
                     ),
                 ),
@@ -158,6 +200,37 @@ const saveState =
       ),
     );
 
+/** Tunes the TV in the active tab: its session changes, then the page follows. */
+const playChannel =
+  (request: Extract<UiRequest, { _tag: "UI/PlayChannel" }>): RT.ReaderTask<UiEnv, UiResponse> =>
+  (env) =>
+    pipe(
+      T.Do,
+      T.bind("state", () => readState(env)),
+      T.bind("tabId", () => activeTabId(env)),
+      T.flatMap(({ state, tabId }) => {
+        if (O.isNone(state)) return T.of(failed("State not initialized"));
+        if (O.isNone(tabId)) return T.of(failed("No active tab"));
+        const channel = findChannel(state.value, request.channel.id);
+        if (channel === null) return T.of(failed(`Unknown channel: ${request.channel.id}`));
+        return pipe(
+          env.sessions.update(tabId.value, (session) => ({ ...session, channelId: channel.id })),
+          T.flatMap(
+            O.match(
+              () => T.of(notAnEmulatedTab(tabId.value)),
+              (session) =>
+                pipe(
+                  sendTo([tabId.value], { _tag: "Host/Session", session: toPageSession(state.value, session) })(env),
+                  T.flatMap(() => uiStateOf(state.value)(env)),
+                  T.flatMap((ui) => env.ui.notify({ _tag: "UI/StateChanged", state: ui })),
+                  T.map(() => done),
+                ),
+            ),
+          ),
+        );
+      }),
+    );
+
 export const handleUiRequest =
   (request: UiRequest): RT.ReaderTask<UiEnv, UiResponse> =>
   (env) => {
@@ -165,10 +238,14 @@ export const handleUiRequest =
       case "UI/GetState":
         return pipe(
           readState(env),
-          T.map(
+          T.flatMap(
             O.match(
-              () => failed("State not initialized"),
-              (state): UiResponse => ({ _tag: "UI/State", state: toUiState(state) }),
+              () => T.of(failed("State not initialized")),
+              (state) =>
+                pipe(
+                  uiStateOf(state)(env),
+                  T.map((ui): UiResponse => ({ _tag: "UI/State", state: ui })),
+                ),
             ),
           ),
         );
@@ -177,6 +254,6 @@ export const handleUiRequest =
       case "UI/DispatchKey":
         return toActiveTab({ _tag: "Host/DispatchKey", keyCode: request.keyCode })(env);
       case "UI/PlayChannel":
-        return toActiveTab({ _tag: "Host/PlayChannel", channel: request.channel })(env);
+        return playChannel(request)(env);
     }
   };

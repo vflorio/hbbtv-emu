@@ -9,13 +9,15 @@ import { type HostMessage, isPageMessage, isUiRequest, type PageMessage } from "
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { AdapterError, BaseMessage } from "../..";
-import { type ExtensionState, toPageConfig } from "../../state";
+import { type ExtensionState, newSession, toPageConfig, toPageSession } from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
+import { createSessions, type Sessions } from "./sessions";
 import { handleUiRequest } from "./ui";
 
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
@@ -24,6 +26,7 @@ export class BackgroundService {
   private logger!: Logger;
   private readonly stateManager: StateManager;
   private pageBootstrap!: PageBootstrap;
+  private sessions!: Sessions;
   tabsManager!: TabsManager;
 
   private messagingUnsubscribe?: () => void;
@@ -58,13 +61,24 @@ export class BackgroundService {
         this.pageBootstrap = createPageBootstrap(this.env.adapter.pageBootstrap, this.logger);
       }),
       TE.tap((state) => TE.fromTask(this.pageBootstrap.publish(toPageConfig(state)))),
+      // The TV sessions of a stopped service worker, minus the tabs closed meanwhile.
+      TE.tapIO(() => () => {
+        this.sessions = createSessions(this.env.adapter.sessionStorage, this.logger);
+      }),
+      TE.tap(() =>
+        TE.fromTask(
+          pipe(
+            this.env.adapter.tabs.query({}),
+            T.flatMap((tabs) => this.sessions.load(tabs.map((tab) => tab.id))),
+          ),
+        ),
+      ),
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
           tabs: this.env.adapter.tabs,
           webRequest: this.env.adapter.webRequest,
           handlers: {
-            onTabAdded: this.onTabAdded,
             onTabRemoved: this.onTabRemoved,
           },
         });
@@ -78,6 +92,7 @@ export class BackgroundService {
             ui: this.env.adapter.ui,
             userAgent: this.env.adapter.userAgent,
             pageBootstrap: this.pageBootstrap,
+            sessions: this.sessions,
             logger: this.logger,
           }),
         );
@@ -102,19 +117,12 @@ export class BackgroundService {
   // EVENT HANDLERS
   // ===========================================================================
 
-  /**
-   * Handles tab added event from TabsManager
-   */
-  private readonly onTabAdded = (tabId: number): IO.IO<void> =>
-    pipe(
-      // TODO
-      this.logger.info(`Tab added: ${tabId}`),
-    );
-
-  /**
-   * Handles tab removed event from TabsManager
-   */
-  private readonly onTabRemoved = (tabId: number): IO.IO<void> => pipe(this.logger.info(`Tab removed: ${tabId}`));
+  /** The TV in that tab is gone. */
+  private readonly onTabRemoved =
+    (tabId: number): IO.IO<void> =>
+    () => {
+      void this.sessions.close(tabId)();
+    };
 
   /**
    * Handles messages from other extension scripts
@@ -126,7 +134,8 @@ export class BackgroundService {
     );
 
   /**
-   * A page runtime started in a tab: send it the configuration.
+   * A page runtime started in a tab: send it the configuration, then the tab's TV
+   * session (opened now if this is the first HbbTV page of the tab).
    * Object state is never pushed here (ROADMAP D5).
    */
   private readonly onPageMessage = (message: PageMessage, tabId: number): IO.IO<void> =>
@@ -139,7 +148,14 @@ export class BackgroundService {
           (state) => () => {
             void pipe(
               this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
-              TE.orElseFirstIOK((error) => this.logger.warn(`Could not send the configuration to tab ${tabId}`, error)),
+              TE.flatMap(() => TE.fromTask(this.sessions.open(tabId, newSession(state)))),
+              TE.flatMap((session) =>
+                this.env.adapter.messaging.sendToTab(tabId, {
+                  _tag: "Host/Session",
+                  session: toPageSession(state, session),
+                }),
+              ),
+              TE.orElseFirstIOK((error) => this.logger.warn(`Could not configure the page in tab ${tabId}`, error)),
             )();
             // This page got it late; if the bootstrap has become possible, the next ones won't.
             void this.pageBootstrap.retry(toPageConfig(state))();

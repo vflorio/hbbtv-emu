@@ -40,6 +40,8 @@ export type VideoBroadcastEnv = Readonly<{
   env: ChannelRegistryEnv &
     ChannelVideoStreamEnv & {
       videoWindow: VideoWindow;
+      /** The channel the TV is tuned to: what a new object presents. */
+      getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
@@ -51,6 +53,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
   readonly env: ChannelRegistryEnv &
     ChannelVideoStreamEnv & {
       videoWindow: VideoWindow;
+      getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
@@ -61,6 +64,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
     channelRegistry: ChannelRegistryEnv;
     videoStream: ChannelVideoStreamEnv;
     videoWindow: VideoWindow;
+    getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
     onCurrentChannelChange: SetCurrentChannelCallback;
     streamEventScheduler: StreamEventSchedulerApi;
     defaults: VideoBroadcastDefaults;
@@ -70,6 +74,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
       ...env.channelRegistry,
       ...env.videoStream,
       videoWindow: env.videoWindow,
+      getTunedChannel: env.getTunedChannel,
       onCurrentChannelChange: env.onCurrentChannelChange,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaults,

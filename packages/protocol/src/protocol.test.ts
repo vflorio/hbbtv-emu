@@ -91,12 +91,14 @@ describe("DOM channel", () => {
   });
 });
 
-describe("host edits", () => {
+describe("host edits and session", () => {
   it.each<[unknown, boolean]>([
     [{ _tag: "Host/ApplyState", patch: { videoBroadcast: { volume: 30 } } }, true],
     [{ _tag: "Host/ApplyState", patch: "volume=30" }, false],
-    [{ _tag: "Host/PlayChannel", channel: { id: "ch1", name: "DMAX" } }, true],
-    [{ _tag: "Host/PlayChannel", channel: { name: "DMAX" } }, false],
+    [{ _tag: "Host/Session", session: { channel: { id: "ch1", name: "DMAX" } } }, true],
+    [{ _tag: "Host/Session", session: { channel: null } }, true],
+    [{ _tag: "Host/Session", session: { channel: { name: "DMAX" } } }, false],
+    [{ _tag: "Host/Session", session: {} }, false],
   ])("isHostMessage(%j) → %s", (value, expected) => {
     expect(isHostMessage(value)).toBe(expected);
   });

@@ -1,3 +1,4 @@
+export * from "./broadcastChannel";
 export * from "./channelRegistry";
 export * from "./currentChannel";
 export * from "./remoteControl";

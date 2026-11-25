@@ -10,7 +10,6 @@ import type { PageConfig } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
-import { toBroadcastChannel } from "./channel";
 import type { PageRuntimeControl } from "./host";
 
 const createPlayerRuntime = (): PlayerRuntime =>
@@ -60,8 +59,5 @@ export const controlRuntime = (handle: RuntimeHandle): PageRuntimeControl => ({
   applyConfig: (config: PageConfig) => handle.updateExtensionState(toExtensionState(config)),
   dispatchKey: handle.dispatchKey,
   applyState: handle.updateState,
-  playChannel: (channel) =>
-    handle.updateState({
-      videoBroadcast: { currentChannel: toBroadcastChannel(channel) as never },
-    }),
+  applySession: (session) => handle.tune(session.channel),
 });
