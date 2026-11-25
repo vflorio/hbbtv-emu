@@ -19,6 +19,7 @@ import type {
   TabStatus,
   TabsAdapter,
   UiAdapter,
+  UserAgentAdapter,
   WebRequestAdapter,
 } from "../adapter";
 
@@ -192,4 +193,16 @@ export const createFakeUi = () => {
       return entry.handler(message as never)();
     },
   };
+};
+
+/** Records every user agent the background asks the browser to send. */
+export const createFakeUserAgent = () => {
+  const applied: string[] = [];
+  const userAgent: UserAgentAdapter = {
+    setUserAgent: (value) => {
+      applied.push(value);
+      return TE.right(undefined);
+    },
+  };
+  return { userAgent, applied };
 };

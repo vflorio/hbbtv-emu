@@ -54,7 +54,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px") => {
   object.appendChild(stream.videoStream.videoElement);
   document.body.appendChild(object);
   const videoBroadcast = new VideoBroadcast({
-    channelRegistry: { channels: [] },
+    channelRegistry: { getChannels: () => [] },
     videoStream: stream.videoStream,
     videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
     onCurrentChannelChange: () => {},

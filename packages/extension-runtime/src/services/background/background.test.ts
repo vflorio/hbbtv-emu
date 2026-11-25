@@ -6,6 +6,7 @@ import {
   createFakeStorage,
   createFakeTabs,
   createFakeUi,
+  createFakeUserAgent,
   createFakeWebRequest,
   flushPromises,
   silentLogger,
@@ -22,6 +23,7 @@ const OPEN_TABS = [
 const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS) => {
   const messaging = createFakeMessaging<HostMessage>();
   const ui = createFakeUi();
+  const userAgent = createFakeUserAgent();
   const background = new BackgroundService({
     config: { engine: "chrome", manifest: 3, storageKey: "test" },
     logger: silentLogger(),
@@ -31,10 +33,11 @@ const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS) => {
       tabs: createFakeTabs(openTabs).tabs,
       webRequest: createFakeWebRequest().webRequest,
       ui: ui.ui,
+      userAgent: userAgent.userAgent,
     },
   });
   expect(E.isRight(await background.init()())).toBe(true);
-  return { background, messaging, ui };
+  return { background, messaging, ui, userAgent };
 };
 
 describe("BackgroundService", () => {
@@ -69,6 +72,13 @@ describe("BackgroundService", () => {
     expect(Object.keys(config).sort()).toEqual(["channels", "userAgent"]);
   });
 
+  it("makes the browser send the stored user agent before any page loads", async () => {
+    const stored = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, userAgent: "Custom TV/1.0" } };
+    const { userAgent } = await setup(stored);
+
+    expect(userAgent.applied).toEqual(["Custom TV/1.0"]);
+  });
+
   it("ignores messages that are not from a page runtime", async () => {
     const { messaging } = await setup();
 
@@ -98,7 +108,7 @@ describe("BackgroundService — settings UI", () => {
   });
 
   it("a configuration change is persisted, sent to every open tab and announced to the UIs", async () => {
-    const { ui, messaging } = await setup();
+    const { ui, messaging, userAgent } = await setup();
     const saved = { ...uiState, userAgent: "Custom TV/1.0" };
 
     expect(await ui.request({ _tag: "UI/SaveState", state: saved })).toEqual({ _tag: "UI/Done" });
@@ -108,6 +118,7 @@ describe("BackgroundService — settings UI", () => {
       [2, "Host/Config"],
     ]);
     expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: saved }]);
+    expect(userAgent.applied).toEqual([DEFAULT_STATE.runtime.userAgent, "Custom TV/1.0"]);
     expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: saved });
   });
 
@@ -126,11 +137,12 @@ describe("BackgroundService — settings UI", () => {
   });
 
   it("saving an unchanged state sends nothing to the pages", async () => {
-    const { ui, messaging } = await setup();
+    const { ui, messaging, userAgent } = await setup();
 
     await ui.request({ _tag: "UI/SaveState", state: uiState });
 
     expect(messaging.sent).toEqual([]);
+    expect(userAgent.applied).toHaveLength(1); // only the one at start
   });
 
   it("remote-control keys go to the active tab", async () => {

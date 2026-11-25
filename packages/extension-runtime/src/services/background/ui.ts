@@ -17,7 +17,7 @@ import * as O from "fp-ts/Option";
 import type * as RT from "fp-ts/ReaderTask";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
-import type { MessagingAdapter, TabsAdapter, UiAdapter } from "../../adapter";
+import type { MessagingAdapter, TabsAdapter, UiAdapter, UserAgentAdapter } from "../../adapter";
 import { type ExtensionState, fromUiState, toPageConfig, toUiState } from "../../state";
 import type { StateManager } from "./managers/state";
 
@@ -26,6 +26,7 @@ export type UiEnv = Readonly<{
   messaging: MessagingAdapter<HostMessage>;
   tabs: TabsAdapter;
   ui: UiAdapter;
+  userAgent: UserAgentAdapter;
   logger: Logger;
 }>;
 
@@ -81,16 +82,30 @@ const toActiveTab =
 
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/** The HTTP user agent; the pages get theirs with the configuration. */
+const applyUserAgent =
+  (before: ExtensionState, after: ExtensionState): RT.ReaderTask<UiEnv, void> =>
+  ({ userAgent, logger }) =>
+    before.runtime.userAgent === after.runtime.userAgent
+      ? T.of(undefined)
+      : pipe(
+          userAgent.setUserAgent(after.runtime.userAgent),
+          TE.getOrElseW((error) => T.fromIO(logger.error("Could not set the HTTP user agent", error))),
+        );
+
 const propagate =
   (before: ExtensionState, after: ExtensionState): RT.ReaderTask<UiEnv, void> =>
   (env) =>
     pipe(
-      sameJson(toPageConfig(before), toPageConfig(after))
-        ? T.of(undefined)
-        : pipe(
-            allTabIds(env),
-            T.flatMap((ids) => sendTo(ids, { _tag: "Host/Config", config: toPageConfig(after) })(env)),
-          ),
+      applyUserAgent(before, after)(env),
+      T.flatMap(() =>
+        sameJson(toPageConfig(before), toPageConfig(after))
+          ? T.of(undefined)
+          : pipe(
+              allTabIds(env),
+              T.flatMap((ids) => sendTo(ids, { _tag: "Host/Config", config: toPageConfig(after) })(env)),
+            ),
+      ),
       T.flatMap(() =>
         pipe(
           diffPatch(before.runtime.api, after.runtime.api),

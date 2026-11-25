@@ -126,7 +126,9 @@ Il progetto cresce in tre fasi:
 - [ ] `TabsAdapter` ✅ base — gestire anche chiusura tab, reload, navigazione cross-origin.
 - [ ] `ContentTypeRewrite` (nuova): `webRequestBlocking` (MV2/Firefox), DNR (MV3), nativo (WebKit fork / app standalone).
 - [ ] `ScriptInjection` (nuova): `scripting.executeScript({ world: "MAIN" })` (MV3), `<script>` iniettato a `document_start` dal content script (MV2/Firefox), hook di preload (WebKit fork).
-- [ ] `UserAgentOverride` (nuova): DNR / `webRequest` / flag di lancio del browser.
+- [x] `UserAgentAdapter`: header `User-Agent` su ogni richiesta http(s) (regola DNR di sessione su MV3, `webRequest.onBeforeSendHeaders` blocking su MV2/Firefox). Applicato all'avvio del background e a ogni cambio dalla UI.
+  - [ ] Oggi vale per tutto il browser, non solo per i tab TV: restringerlo ai tab della TvSession (D5) quando esiste (`tabIds` nella condizione DNR). Il problema: la prima richiesta di una pagina parte prima di sapere se è HbbTV.
+  - [ ] Flag di lancio del browser (app standalone, fase 3).
 
 ### 1.2 Servizi
 - [ ] **Background**: completare routing dei messaggi, propagazione dello stato a tutti i tab/UI, ciclo di vita tab (oggi solo `onTabAdded/Removed` con TODO).
@@ -135,7 +137,12 @@ Il progetto cresce in tre fasi:
 - [x] **Page runtime** (`@hbb-emu/page-runtime`): si avvia da sola solo nei documenti HbbTV, una volta per finestra. Su chrome-v3 è un content script `world: "MAIN"` a `document_start`, quindi **le API OIPF esistono prima del primo script dell'app**. Su `main` arrivavano solo dopo `DOMContentLoaded` e una richiesta asincrona al background.
 - [x] **Bridge** (chrome-v3): content script ISOLATED che collega la page runtime (canale DOM: `CustomEvent` con JSON, invisibile ai listener `message` dell'app) al background. Protocollo in `@hbb-emu/protocol`: `Page/Ready` → `Host/Config`; `Host/Hello` per l'ordine di avvio; `Host/DispatchKey`. La runtime non aspetta mai l'host.
 - [x] **L'host non spinge lo stato degli oggetti OIPF alla pagina**, solo configurazione e comandi. `main` applicava all'avvio tutto `DEFAULT_HBBTV_STATE`: keyset azzerato dopo il `setValue` dell'app, `video/broadcast` forzato a 1280×720, `playState` e volume reimpostati.
-- [ ] Configurazione all'avvio: oggi arriva in modo asincrono e la runtime può aggiornare solo lo schedule degli stream event. Lista canali e user agent restano quelli di default. Va trovato un modo per averli in modo sincrono a `document_start` (es. ultima configurazione nota in un content script generato), oppure resi aggiornabili.
+- [x] Configurazione applicata dal vivo: lista canali (registry letto a ogni uso) e `navigator.userAgent` si aggiornano quando arriva `Host/Config`.
+- [ ] **Configurazione sincrona a `document_start`**. Misurato in e2e: il primo script inline dell'app vede ancora lo UA di default, perché `Host/Config` arriva dopo (giro pagina → bridge → service worker → ritorno). Conta anche per il canale corrente (D5), che le app leggono all'avvio. Strade per host:
+  - MV3: `chrome.userScripts.register({ js: [{ code }], world: "MAIN", runAt: "document_start" })` con la configurazione serializzata, riscritto a ogni cambio. Richiede Chrome 120+ e il toggle "Allow User Scripts" (o la modalità sviluppatore prima di Chrome 138); senza, si ripiega sull'asincrono. Da verificare l'ordine rispetto al content script `page-runtime.js`.
+  - Firefox MV2: `browser.contentScripts.register({ js: [{ code }] })`, che accetta codice.
+  - Chromium legacy MV2: nessuna API equivalente; da valutare.
+  - Scartate: cookie via DNR (sporca i cookie, che sono oggetto di test), `Server-Timing` (esposto solo in contesti sicuri, le app sono spesso http), `localStorage`/`sessionStorage` (condivisi con l'app), XHR sincrona verso l'estensione (il service worker non la intercetta).
 - [x] **Settings UI nella side panel** di chrome-v3 (`settings-ui` condivisa, collegata tramite `createUiClient`). Il background trasforma ogni salvataggio in: configurazione → tutti i tab aperti; patch minima dello stato degli oggetti (`Host/ApplyState`, calcolata con `diffPatch`) → solo il tab attivo. Telecomando e "play channel" → tab attivo. Le pagine dell'estensione si riconoscono dall'origine del mittente, anche se aperte in un tab.
 - [ ] La UI mostra lo stato degli oggetti salvato nel background, non quello reale della pagina (es. il keyset impostato dall'app). Serve un messaggio pagina → host con lo stato corrente del tab attivo.
 - [ ] Il `currentChannel` scelto dalla UI non è ancora legato alla sessione del tab (D5).
@@ -182,6 +189,7 @@ Il progetto cresce in tre fasi:
 
 ### 2.1 Modello del dispositivo
 - [ ] Device profile: versione HbbTV (1.5 / 2.0.x), UA, capabilities XML, keyset supportato, risoluzione, quirk.
+  - [ ] Coerenza con lo UA: header `Sec-CH-UA*` e `navigator.userAgentData` oggi rivelano il Chrome reale (una TV con un browser vecchio non li ha).
 - [ ] Libreria di profili predefiniti (es. "Samsung Tizen 2.4", "LG webOS x", …), generati a partire dalla tabella di UA reali.
 
 ### 2.2 Lineup canali e AIT

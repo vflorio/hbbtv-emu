@@ -19,6 +19,8 @@
   <script type="text/javascript">
   //<![CDATA[
     var e2e = (window.__e2e = { initError: null, keysetValue: null, keys: [], events: [] });
+    // What the application sees when it sniffs the device, as many do at start.
+    e2e.userAgentAtFirstScript = navigator.userAgent;
     try {
       var app = document.getElementById("appmgr").getOwnerApplication(document);
       // RED | GREEN | YELLOW | BLUE | NAVIGATION

@@ -33,6 +33,7 @@ import * as IO from "fp-ts/IO";
 import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/controlVideo";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
 import {
+  type ChannelRegistry,
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
   createCurrentChannelEnv,
@@ -110,6 +111,8 @@ export type BindingsEnv = Readonly<{
  * All dependencies needed to initialize and run the HbbTV runtime.
  */
 export type RuntimeEnv = Readonly<{
+  /** The channel lineup, replaceable while the page runs (bindings only read it) */
+  channelRegistry: ChannelRegistry;
   /** User agent configuration and override capabilities */
   userAgent: UserAgentEnv;
   /** Remote control key dispatching */
@@ -234,14 +237,21 @@ export class RuntimeService implements Runtime {
   };
 
   /**
-   * Updates extension-level config (channels and stream event scheduling).
-   * Note: OIPF object instances keep the initial channel registry; this currently
-   * updates the stream-event scheduler only.
+   * Applies new host configuration: the channel lineup (for the OIPF objects and the
+   * stream-event scheduler) and the user agent.
    */
   updateExtensionState = (state: ExtensionState): IO.IO<void> =>
     pipe(
       logger.debug("Updating extension state"),
+      IO.tap(() => this.#env.channelRegistry.setChannels(state.channels)),
       IO.tap(() => this.#streamEventScheduler.updateChannels(state.channels)),
+      IO.tap(() =>
+        initializeUserAgent({
+          ...this.#env.userAgent,
+          getUserAgent: () => state.userAgent,
+          getHbbTVVersion: () => state.hbbtv.oipfCapabilities?.hbbtvVersion,
+        }),
+      ),
     );
 }
 
@@ -301,6 +311,7 @@ export const createRuntimeEnv = (
   };
 
   return {
+    channelRegistry,
     userAgent: createUserAgentEnv(extensionState),
     remoteControl: createRemoteControlEnv(),
     bindings: bindingsEnv,

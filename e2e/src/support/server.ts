@@ -17,14 +17,20 @@ const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=UTF-8",
 };
 
+export type RecordedRequest = Readonly<{ url: string; userAgent: string | undefined }>;
+
 export type FixtureServer = Readonly<{
   /** Absolute URL of a fixture, e.g. `url("basic-app/index.xhtml")`. */
   url: (path: string) => string;
+  /** Every request received so far, in order (what the "broadcaster" saw). */
+  requests: ReadonlyArray<RecordedRequest>;
   close: () => Promise<void>;
 }>;
 
 export const startFixtureServer = async (root: string): Promise<FixtureServer> => {
+  const requests: RecordedRequest[] = [];
   const server: Server = createServer(async (request, response) => {
+    requests.push({ url: request.url ?? "/", userAgent: request.headers["user-agent"] });
     const path = normalize(decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname));
     if (path.includes("..")) {
       response.writeHead(400).end();
@@ -44,6 +50,7 @@ export const startFixtureServer = async (root: string): Promise<FixtureServer> =
 
   return {
     url: (path) => `http://127.0.0.1:${port}/${path}`,
+    requests,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 };

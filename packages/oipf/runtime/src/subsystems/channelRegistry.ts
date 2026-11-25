@@ -7,6 +7,8 @@ import {
 import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
+import type * as IO from "fp-ts/IO";
+import { IORef } from "fp-ts/IORef";
 import type * as O from "fp-ts/Option";
 import * as RTE from "fp-ts/ReaderTaskEither";
 import * as RA from "fp-ts/ReadonlyArray";
@@ -21,13 +23,23 @@ export type ChannelResolution = Readonly<{
   config: ChannelConfig;
 }>;
 
+/** The channel lineup is read when used: the host can replace it while the page runs. */
 export type ChannelRegistryEnv = Readonly<{
-  channels: ReadonlyArray<ChannelConfig>;
+  getChannels: IO.IO<ReadonlyArray<ChannelConfig>>;
 }>;
 
-export const createChannelRegistryEnv = (extensionState: ExtensionState): ChannelRegistryEnv => ({
-  channels: extensionState.channels,
-});
+export type ChannelRegistry = ChannelRegistryEnv &
+  Readonly<{
+    setChannels: (channels: ReadonlyArray<ChannelConfig>) => IO.IO<void>;
+  }>;
+
+export const createChannelRegistry = (initial: ReadonlyArray<ChannelConfig>): ChannelRegistry => {
+  const channels = new IORef<ReadonlyArray<ChannelConfig>>(initial);
+  return { getChannels: channels.read, setChannels: channels.write };
+};
+
+export const createChannelRegistryEnv = (extensionState: ExtensionState): ChannelRegistry =>
+  createChannelRegistry(extensionState.channels);
 
 type ResolveChannelError =
   | {
@@ -58,7 +70,7 @@ export const resolveChannelUrl = (
     RTE.ask<ChannelRegistryEnv>(),
     RTE.flatMap((env) =>
       pipe(
-        env.channels,
+        env.getChannels(),
         findChannelByTriplet(triplet),
         RTE.fromOption(() => channelNotFound),
       ),

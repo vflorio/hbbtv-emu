@@ -43,6 +43,14 @@ export class BackgroundService {
       }),
       TE.tapIO(() => this.stateManager.setLogger(this.logger)),
       TE.tapIO(() => this.logger.info("Initializing")),
+      // Before any page loads: the TV's user agent on every HTTP request.
+      TE.tap((state) =>
+        pipe(
+          this.env.adapter.userAgent.setUserAgent(state.runtime.userAgent),
+          TE.orElseFirstIOK((error) => this.logger.error("Could not set the HTTP user agent", error)),
+          TE.orElse(() => TE.right<BackgroundServiceError, void>(undefined)),
+        ),
+      ),
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
@@ -62,6 +70,7 @@ export class BackgroundService {
             messaging: this.env.adapter.messaging,
             tabs: this.env.adapter.tabs,
             ui: this.env.adapter.ui,
+            userAgent: this.env.adapter.userAgent,
             logger: this.logger,
           }),
         );

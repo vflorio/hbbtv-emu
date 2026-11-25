@@ -10,6 +10,7 @@ import {
 } from "..";
 import type { StorageAdapter } from "./storage";
 import { createUiAdapter, type UiAdapter } from "./ui";
+import { createUserAgentAdapter, type UserAgentAdapter } from "./userAgent";
 
 // Engines
 
@@ -52,6 +53,7 @@ export type AdapterEnv<TState, TEvents extends BaseMessage> = {
   readonly webRequest: WebRequestAdapter;
   readonly tabs: TabsAdapter;
   readonly ui: UiAdapter;
+  readonly userAgent: UserAgentAdapter;
 };
 
 export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
@@ -63,6 +65,7 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
   webRequest: env?.webRequest ?? createWebRequestAdapter(config),
   tabs: env?.tabs ?? createTabsAdapter(config),
   ui: env?.ui ?? createUiAdapter(config),
+  userAgent: env?.userAgent ?? createUserAgentAdapter(config),
 });
 
 // Errors
@@ -70,4 +73,5 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
 export type AdapterError =
   | { readonly _tag: "StorageReadError"; readonly cause: unknown }
   | { readonly _tag: "StorageWriteError"; readonly cause: unknown }
-  | { readonly _tag: "MessageForwardError"; readonly tabId: number; readonly cause: unknown };
+  | { readonly _tag: "MessageForwardError"; readonly tabId: number; readonly cause: unknown }
+  | { readonly _tag: "UserAgentOverrideError"; readonly cause: unknown };
