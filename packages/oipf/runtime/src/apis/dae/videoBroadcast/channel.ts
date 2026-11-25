@@ -1,12 +1,39 @@
+/**
+ * video/broadcast — channel
+ *
+ * OIPF DAE §7.13.1: `currentChannel`, `playState`, `bindToCurrentChannel()`,
+ * `setChannel()`, `stop()`, `release()`, `createChannelObject()`.
+ * `prevChannel()`, `nextChannel()` and `getChannelConfig()` are not implemented yet.
+ *
+ * Reader-style module (ROADMAP D1), same shape as `./volume.ts` and `./display.ts`:
+ * - the object's `playState` and `currentChannel` live in an injected `IORef`;
+ * - `BroadcastPlayer` is the stream the object presents;
+ * - the TV the object belongs to answers which channel it is tuned to
+ *   (`getTunedChannel`) and decides an application's change to another service
+ *   (`requestChannelChange`);
+ * - `ChannelEvents` notifies the application and the rest of the page.
+ *
+ * Rules:
+ * - an application's `setChannel()` to the service the TV is on only presents it; to
+ *   another one the TV decides first, and a channel missing from the lineup fails
+ *   before anything changes;
+ * - the TV's own tuning (`tuneTo`) asks nobody;
+ * - `onPlayStateChange` fires only when `playState` actually changes.
+ */
+
 import { type ClassType, createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf-api";
 import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import { type IORef, newIORef } from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
+import type * as R from "fp-ts/Reader";
 import * as RIO from "fp-ts/ReaderIO";
+import * as RT from "fp-ts/ReaderTask";
 import * as RTE from "fp-ts/ReaderTaskEither";
 import * as RA from "fp-ts/ReadonlyArray";
+import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import {
@@ -26,145 +53,333 @@ import type { VideoBroadcastEnv } from ".";
 
 const logger = createLogger("VideoBroadcast:Channel");
 
-// API
+type Channel = OIPF.DAE.Broadcast.Channel;
+type PlayState = OIPF.DAE.Broadcast.PlayState;
+type ChannelChangeErrorCode = OIPF.DAE.Broadcast.ChannelChangeErrorCode;
 
-export interface ChannelAPI {
-  // State
-  currentChannel: OIPF.DAE.Broadcast.VideoBroadcast["currentChannel"];
-  _currentChannel: OIPF.DAE.Broadcast.VideoBroadcast["currentChannel"];
-  playState: OIPF.DAE.Broadcast.VideoBroadcast["playState"];
-  _playState: OIPF.DAE.Broadcast.VideoBroadcast["playState"];
-  // Methods
-  bindToCurrentChannel: OIPF.DAE.Broadcast.VideoBroadcast["bindToCurrentChannel"];
-  setChannel: OIPF.DAE.Broadcast.VideoBroadcast["setChannel"];
-  stop: OIPF.DAE.Broadcast.VideoBroadcast["stop"];
-  release: OIPF.DAE.Broadcast.VideoBroadcast["release"];
-  prevChannel: OIPF.DAE.Broadcast.VideoBroadcast["prevChannel"];
-  nextChannel: OIPF.DAE.Broadcast.VideoBroadcast["nextChannel"];
-  getChannelConfig: OIPF.DAE.Broadcast.VideoBroadcast["getChannelConfig"];
-  createChannelObject: OIPF.DAE.Broadcast.VideoBroadcast["createChannelObject"];
-  // Internal Methods
-  setPlayState: (newState: OIPF.DAE.Broadcast.PlayState) => void;
-  /** The TV changed channel (not the application): the object presents it, nobody is asked. */
-  tuneTo: (channel: OIPF.DAE.Broadcast.Channel) => void;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Environment
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Mixin
+export type ChannelState = Readonly<{
+  playState: PlayState;
+  currentChannel: Channel | null;
+}>;
 
-export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
-  class extends Base implements ChannelAPI {
-    #withChannelEnv = {
-      ...this.env,
-      ...createChannelEnv(this),
-    };
+/** The stream the object presents. */
+export type BroadcastPlayer = Readonly<{
+  loadSource: (source: VideoStreamSource) => IO.IO<void>;
+  play: TE.TaskEither<Error, void>;
+  stop: IO.IO<void>;
+  destroy: IO.IO<void>;
+}>;
 
-    _playState: OIPF.DAE.Broadcast.PlayState = this.env.defaults.playState;
-    _currentChannel: OIPF.DAE.Broadcast.Channel | null = null;
+export type ChannelEvents = Readonly<{
+  onPlayStateChange: (playState: PlayState) => IO.IO<void>;
+  onChannelChangeError: (channel: Channel, error: ChannelChangeErrorCode) => IO.IO<void>;
+  /** The object presents another channel (or none): the rest of the page follows it. */
+  onCurrentChannelChange: (channel: Channel | null) => IO.IO<void>;
+}>;
 
-    get currentChannel(): OIPF.DAE.Broadcast.Channel | null {
-      return this._currentChannel;
-    }
+export type ChannelEnv = ChannelRegistryEnv &
+  Readonly<{
+    channelState: IORef<ChannelState>;
+    player: BroadcastPlayer;
+    /** The channel the TV is tuned to. */
+    getTunedChannel: IO.IO<Channel | null>;
+    /** Asks the TV before the application changes to another service. */
+    requestChannelChange: ChannelChangeRequest;
+    channelEvents: ChannelEvents;
+  }>;
 
-    get playState(): OIPF.DAE.Broadcast.PlayState {
-      return this._playState;
-    }
+export const createChannelEnv = (
+  dependencies: Omit<ChannelEnv, "channelState">,
+  initialPlayState: PlayState = OIPF.DAE.Broadcast.PlayState.UNREALIZED,
+): IO.IO<ChannelEnv> =>
+  pipe(
+    newIORef<ChannelState>({ playState: initialPlayState, currentChannel: null }),
+    IO.map((channelState) => ({ ...dependencies, channelState })),
+  );
 
-    setChannel = (
-      channel: OIPF.DAE.Broadcast.Channel | null,
-      _trickplay?: boolean,
-      _contentAccessDescriptorURL?: string,
-      _quiet?: OIPF.DAE.Broadcast.QuietMode,
-    ): void => {
-      pipe(
-        TE.Do,
-        TE.tapIO(() => logger.debug("setChannel", channel)),
-        TE.flatMap(() => changeChannel(channel)(this.#withChannelEnv)),
-        TE.match(
-          (error) => (channel ? this.env.eventHandlers.onChannelChangeError(channel, error) : undefined),
-          IO.of(undefined),
-        ),
-      )();
-    };
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
 
-    tuneTo = (channel: OIPF.DAE.Broadcast.Channel): void => {
-      pipe(
-        setChannel(channel)(this.#withChannelEnv),
-        TE.match((error) => this.env.eventHandlers.onChannelChangeError(channel, error), IO.of(undefined)),
-      )();
-    };
+export const readChannelState: RIO.ReaderIO<ChannelEnv, ChannelState> = ({ channelState }) => channelState.read;
 
-    bindToCurrentChannel = bindToCurrentChannel(this.#withChannelEnv);
+export const getPlayState: RIO.ReaderIO<ChannelEnv, PlayState> = pipe(
+  readChannelState,
+  RIO.map((state) => state.playState),
+);
 
-    stop = stop(this.#withChannelEnv);
+export const getCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
+  readChannelState,
+  RIO.map((state) => state.currentChannel),
+);
 
-    release = release(this.#withChannelEnv);
+const noop: RIO.ReaderIO<ChannelEnv, void> = RIO.of(undefined);
 
-    setPlayState = (newState: OIPF.DAE.Broadcast.PlayState): void => {
-      if (this._playState !== newState) {
-        const oldState = this._playState;
-        this._playState = newState;
-        logger.debug("PlayState changed:", oldState, "->", newState)();
-        this.env.eventHandlers.onPlayStateChange(newState);
-      }
-    };
+const writePlayState =
+  (playState: PlayState): RIO.ReaderIO<ChannelEnv, void> =>
+  ({ channelState }) =>
+    channelState.modify((state) => ({ ...state, playState }));
 
-    prevChannel = (): void => {
-      logger.debug("prevChannel")();
-      // TODO: Implement with channel list navigation
-    };
+/** Changes `playState`, notifying the application only if it actually changed. */
+export const setPlayState = (playState: PlayState): RIO.ReaderIO<ChannelEnv, void> =>
+  pipe(
+    getPlayState,
+    RIO.flatMap((current) =>
+      current === playState
+        ? noop
+        : pipe(
+            writePlayState(playState),
+            RIO.tapIO(() => logger.debug("PlayState changed:", current, "->", playState)),
+            RIO.flatMap(() => (env: ChannelEnv) => env.channelEvents.onPlayStateChange(playState)),
+          ),
+    ),
+  );
 
-    nextChannel = (): void => {
-      logger.debug("nextChannel")();
-      // TODO: Implement with channel list navigation
-    };
+/** The object presents `channel` (or none). */
+const presentChannel =
+  (currentChannel: Channel | null): RIO.ReaderIO<ChannelEnv, void> =>
+  ({ channelState, channelEvents }) =>
+    pipe(
+      channelState.modify((state) => ({ ...state, currentChannel })),
+      IO.flatMap(() => channelEvents.onCurrentChannelChange(currentChannel)),
+    );
 
-    getChannelConfig = (): OIPF.DAE.Broadcast.ChannelConfig | null => {
-      logger.debug("getChannelConfig")();
-      // TODO: Implement channel list management
-      return null;
-    };
+/**
+ * Applies external state (settings UI, scenario). `currentChannel` reaches the rest
+ * of the page as when the object changes channel; `playState` is written as is,
+ * without notifying the application.
+ */
+export const applyChannelState = (patch: Partial<ChannelState>): RIO.ReaderIO<ChannelEnv, void> =>
+  pipe(
+    patch.playState === undefined ? noop : writePlayState(patch.playState),
+    RIO.flatMap(() => (patch.currentChannel === undefined ? noop : presentChannel(patch.currentChannel))),
+  );
 
-    createChannelObject = (
-      idType: OIPF.DAE.Broadcast.ChannelIdType,
-      onidOrDsd?: number | string,
-      tsid?: number,
-      sid?: number,
-      _sourceID?: number,
-      _ipBroadcastID?: string,
-    ): OIPF.DAE.Broadcast.Channel | null => {
-      logger.debug("createChannelObject", idType, onidOrDsd, tsid, sid)();
-      return createChannelObject(idType, onidOrDsd, tsid, sid)(this.env)();
-    };
+// ─────────────────────────────────────────────────────────────────────────────
+// Operations
+// ─────────────────────────────────────────────────────────────────────────────
+
+const reportError =
+  (channel: Channel, error: ChannelChangeErrorCode): RIO.ReaderIO<ChannelEnv, void> =>
+  ({ channelEvents }) =>
+    channelEvents.onChannelChangeError(channel, error);
+
+/** Runs a channel change; its failure reaches the application as `onChannelChangeError`. */
+const reportingTo =
+  (channel: Channel | null) =>
+  <A>(change: RTE.ReaderTaskEither<ChannelEnv, ChannelChangeErrorCode, A>): RT.ReaderTask<ChannelEnv, void> =>
+    pipe(
+      change,
+      RTE.matchE(
+        (error) => (channel ? RT.fromReaderIO(reportError(channel, error)) : RT.of(undefined)),
+        () => RT.of(undefined),
+      ),
+    );
+
+/** Starts a task without waiting for it: the OIPF methods are synchronous. */
+const fork =
+  (task: RT.ReaderTask<ChannelEnv, void>): RIO.ReaderIO<ChannelEnv, void> =>
+  (env) =>
+  () => {
+    void task(env)();
   };
 
-// Environment
+const loadStream =
+  (url: string): RIO.ReaderIO<ChannelEnv, void> =>
+  ({ player }) =>
+    player.loadSource({ url, loop: true, autoPlay: true, muted: true });
 
-export type ChannelEnv = {
-  getPlayState: () => OIPF.DAE.Broadcast.PlayState;
-  getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
-  setPlayState: (state: OIPF.DAE.Broadcast.PlayState) => IO.IO<void>;
-  setCurrentChannel: (channel: OIPF.DAE.Broadcast.Channel | null) => IO.IO<void>;
-  onChannelChangeError: (
-    channel: OIPF.DAE.Broadcast.Channel,
-    errorCode: OIPF.DAE.Broadcast.ChannelChangeErrorCode,
-  ) => void;
-};
+const stopPlayer: RIO.ReaderIO<ChannelEnv, void> = ({ player }) => player.stop;
 
-export const createChannelEnv = (instance: ChannelAPI & VideoBroadcastEnv): ChannelEnv => ({
-  getPlayState: () => instance.playState,
-  getCurrentChannel: () => instance.currentChannel,
-  setPlayState: (state) => () => {
-    instance.setPlayState(state);
+const destroyPlayer: RIO.ReaderIO<ChannelEnv, void> = ({ player }) => player.destroy;
+
+/** Presents `channel`: connecting, then its stream. Fails if the lineup has no stream for it. */
+export const playChannel = (channel: Channel): RTE.ReaderTaskEither<ChannelEnv, ChannelChangeErrorCode, string> =>
+  pipe(
+    RTE.rightReaderIO<ChannelEnv, ChannelChangeErrorCode, void>(setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING)),
+    RTE.tapIO(() => logger.debug("playChannel", channel)),
+    RTE.tapReaderIO(() => presentChannel(channel)),
+    RTE.flatMap(() => resolveChannel(channel)),
+    RTE.tapReaderIO((resolved) => loadStream(resolved.url)),
+    RTE.map((resolved) => resolved.url),
+  );
+
+export const stop: RIO.ReaderIO<ChannelEnv, void> = pipe(
+  getPlayState,
+  RIO.tapIO(() => logger.debug("stop")),
+  RIO.flatMap((playState) =>
+    playState === OIPF.DAE.Broadcast.PlayState.STOPPED
+      ? noop
+      : pipe(
+          stopPlayer,
+          RIO.flatMap(() => setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED)),
+        ),
+  ),
+);
+
+export const release: RIO.ReaderIO<ChannelEnv, void> = pipe(
+  getPlayState,
+  RIO.tapIO(() => logger.debug("release")),
+  RIO.flatMap((playState) =>
+    playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED
+      ? noop
+      : pipe(
+          setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED),
+          RIO.flatMap(() => destroyPlayer),
+        ),
+  ),
+);
+
+/** Binds the object to `channel` without asking anyone; `null` releases it. */
+export const bindTo = (
+  channel: Channel | null,
+): RTE.ReaderTaskEither<ChannelEnv, ChannelChangeErrorCode, Channel | null> =>
+  channel === null ? pipe(RTE.rightReaderIO(release), RTE.as(null)) : pipe(playChannel(channel), RTE.as(channel));
+
+/**
+ * The application's `setChannel()`. To the service the TV is on, the object just
+ * presents it. To another one, the TV decides first (`requestChannelChange`); once it
+ * is on the new channel the object presents it too, unless the TV's own tuning
+ * already did. A channel missing from the lineup fails before anything changes.
+ */
+export const changeChannel = (
+  channel: Channel | null,
+): RTE.ReaderTaskEither<ChannelEnv, ChannelChangeErrorCode, Channel | null> =>
+  channel === null
+    ? bindTo(null)
+    : pipe(
+        resolveChannel(channel),
+        RTE.flatMap(({ config }) =>
+          RTE.asksReaderTaskEither((env: ChannelEnv) =>
+            isSameService(env.getTunedChannel(), channel)
+              ? bindTo(channel)
+              : pipe(
+                  RTE.fromTaskEither(env.requestChannelChange(config)),
+                  RTE.flatMap(() => RTE.rightReaderIO(getCurrentChannel)),
+                  RTE.flatMap((current) => (isSameService(current, channel) ? RTE.of(current) : bindTo(channel))),
+                ),
+          ),
+        ),
+      );
+
+/** `setChannel()`: a failure reaches the application as `onChannelChangeError`. */
+export const setChannel = (channel: Channel | null): RT.ReaderTask<ChannelEnv, void> =>
+  pipe(
+    RT.fromIO(logger.debug("setChannel", channel)),
+    RT.flatMap(() => reportingTo(channel)(changeChannel(channel))),
+  );
+
+/** The TV changed channel (not the application): the object presents it, nobody is asked. */
+export const tuneTo = (channel: Channel): RT.ReaderTask<ChannelEnv, void> => reportingTo(channel)(bindTo(channel));
+
+/**
+ * `bindToCurrentChannel()`: stopped, it presents its channel again; connecting or
+ * presenting, it resumes the stream. Returns the channel it is bound to.
+ */
+export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
+  readChannelState,
+  RIO.tapIO(({ playState, currentChannel }) => logger.debug("bindToCurrentChannel", playState, currentChannel)),
+  RIO.flatMap(({ playState, currentChannel }) =>
+    match(playState)
+      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.of<ChannelEnv, Channel | null>(null))
+      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () =>
+        currentChannel === null
+          ? RIO.of<ChannelEnv, Channel | null>(null)
+          : pipe(fork(reportingTo(currentChannel)(playChannel(currentChannel))), RIO.as(currentChannel)),
+      )
+      .otherwise(() =>
+        pipe(
+          fork(({ player }) => T.asUnit(player.play)),
+          RIO.as(currentChannel),
+        ),
+      ),
+  ),
+);
+
+/**
+ * A channel the application can pass to `setChannel()`, from its DVB triplet: the
+ * lineup's one, or a channel the TV does not know (tuning to it fails). `null`
+ * without a full triplet (other id types are not supported yet).
+ */
+export const createChannelObject =
+  (
+    idType: OIPF.DAE.Broadcast.ChannelIdType,
+    onid: number | string | undefined,
+    tsid: number | undefined,
+    sid: number | undefined,
+  ): RIO.ReaderIO<ChannelRegistryEnv, Channel | null> =>
+  (env) =>
+  () => {
+    if (typeof onid !== "number" || typeof tsid !== "number" || typeof sid !== "number") return null;
+    const triplet = { onid, tsid, sid };
+    return pipe(
+      env.getChannels(),
+      RA.findFirst((config) => isSameService(config, triplet)),
+      O.match((): Partial<Channel> => ({ idType, ...triplet }), toBroadcastChannel),
+      // The OIPF Channel object has more members (methods, …) than the emulator fills in.
+      (channel) => channel as Channel,
+    );
+  };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OIPF surface
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ChannelApi = Pick<
+  OIPF.DAE.Broadcast.VideoBroadcast,
+  | "bindToCurrentChannel"
+  | "setChannel"
+  | "stop"
+  | "release"
+  | "prevChannel"
+  | "nextChannel"
+  | "getChannelConfig"
+  | "createChannelObject"
+> &
+  Readonly<Pick<OIPF.DAE.Broadcast.VideoBroadcast, "currentChannel" | "playState">>;
+
+/** The properties and methods exposed to HbbTV applications: synchronous, as the spec defines them. */
+export const channelApi: R.Reader<ChannelEnv, ChannelApi> = (env) => ({
+  get currentChannel() {
+    return getCurrentChannel(env)();
   },
-  setCurrentChannel: (channel) => () => {
-    instance._currentChannel = channel;
-    instance.env.onCurrentChannelChange(channel);
-    instance.env.streamEventScheduler.setCurrentChannel(channel)();
+  get playState() {
+    return getPlayState(env)();
   },
-  onChannelChangeError: (channel, errorCode) => {
-    instance.env.eventHandlers.onChannelChangeError(channel, errorCode);
+  bindToCurrentChannel: () => bindToCurrentChannel(env)(),
+  setChannel: (channel: Channel | null) => {
+    void setChannel(channel)(env)();
+  },
+  stop: () => stop(env)(),
+  release: () => release(env)(),
+  prevChannel: () => {
+    logger.debug("prevChannel")();
+  },
+  nextChannel: () => {
+    logger.debug("nextChannel")();
+  },
+  getChannelConfig: () => {
+    logger.debug("getChannelConfig")();
+    return null;
+  },
+  createChannelObject: (
+    idType: OIPF.DAE.Broadcast.ChannelIdType,
+    onidOrDsd?: number | string,
+    tsid?: number,
+    sid?: number,
+  ): Channel | null => {
+    logger.debug("createChannelObject", idType, onidOrDsd, tsid, sid)();
+    return createChannelObject(idType, onidOrDsd, tsid, sid)(env)();
   },
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Video stream
+// ─────────────────────────────────────────────────────────────────────────────
 
 export type ChannelVideoStreamEnv = {
   // Element
@@ -236,180 +451,83 @@ export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): Chan
   };
 };
 
-// Methods
+// ─────────────────────────────────────────────────────────────────────────────
+// Transitional bridge
+// ─────────────────────────────────────────────────────────────────────────────
 
-export const bindToCurrentChannel = pipe(
-  RIO.ask<ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv>(),
-  RIO.tapIO((env) => logger.debug("bindToCurrentChannel", env.getPlayState(), env.getCurrentChannel())),
-  RIO.flatMap((env) =>
-    match(env.getPlayState())
-      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.of(null))
-      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () =>
-        match(env.getCurrentChannel())
-          .with(null, () => RIO.of(null))
-          .otherwise((channel) =>
+/**
+ * Plugs the Reader module into the VideoBroadcast class while the rest of it is
+ * still composed with mixins. `_playState` / `_currentChannel` stay as accessors
+ * because the state schema (`deriveSchema` mappings in `./index.ts`) reads and writes
+ * them; `setPlayState` and `tuneTo` are used by the controller and the runtime.
+ * Remove once VideoBroadcast is ported to Reader composition.
+ */
+export interface ChannelAPI extends ChannelApi {
+  _playState: PlayState;
+  _currentChannel: Channel | null;
+  setPlayState: (playState: PlayState) => void;
+  /** The TV changed channel (not the application): the object presents it, nobody is asked. */
+  tuneTo: (channel: Channel) => void;
+}
+
+export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
+  class extends Base implements ChannelAPI {
+    readonly _channelEnv: ChannelEnv = createChannelEnv(
+      {
+        getChannels: () => this.env.getChannels(),
+        player: this.env,
+        getTunedChannel: () => this.env.getTunedChannel(),
+        requestChannelChange: (channel) => this.env.requestChannelChange(channel),
+        channelEvents: {
+          onPlayStateChange: (playState) => () => this.env.eventHandlers.onPlayStateChange(playState),
+          onChannelChangeError: (channel, error) => () => this.env.eventHandlers.onChannelChangeError(channel, error),
+          onCurrentChannelChange: (channel) =>
             pipe(
-              RIO.fromIO(() =>
-                pipe(
-                  playChannel(channel)(env),
-                  TE.match(
-                    (error) => env.onChannelChangeError(channel, error),
-                    () => undefined,
-                  ),
-                )(),
-              ),
-              RIO.as(channel),
+              () => this.env.onCurrentChannelChange(channel),
+              IO.flatMap(() => this.env.streamEventScheduler.setCurrentChannel(channel)),
             ),
-          ),
-      )
-      .otherwise(() => pipe(RIO.fromIO(env.play), RIO.as(env.getCurrentChannel()))),
-  ),
-);
+        },
+      },
+      this.env.defaults.playState,
+    )();
 
-export const setChannel = (
-  channel: OIPF.DAE.Broadcast.Channel | null,
-): RTE.ReaderTaskEither<
-  ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv,
-  OIPF.DAE.Broadcast.ChannelChangeErrorCode,
-  OIPF.DAE.Broadcast.Channel | null
-> =>
-  pipe(
-    RTE.Do,
-    RTE.tapIO(() => logger.debug("setChannel", channel)),
-    RTE.flatMap(() =>
-      match(channel)
-        .with(null, () =>
-          pipe(
-            RTE.of(null),
-            RTE.tapReaderIO(() => release),
-          ),
-        )
-        .otherwise((channel) => pipe(playChannel(channel), RTE.as(channel))),
-    ),
-  );
+    // Methods only: `channelApi`'s getters would be read once if spread.
+    readonly bindToCurrentChannel = channelApi(this._channelEnv).bindToCurrentChannel;
+    readonly setChannel = channelApi(this._channelEnv).setChannel;
+    readonly stop = channelApi(this._channelEnv).stop;
+    readonly release = channelApi(this._channelEnv).release;
+    readonly prevChannel = channelApi(this._channelEnv).prevChannel;
+    readonly nextChannel = channelApi(this._channelEnv).nextChannel;
+    readonly getChannelConfig = channelApi(this._channelEnv).getChannelConfig;
+    readonly createChannelObject = channelApi(this._channelEnv).createChannelObject;
 
-/** What an application's channel change needs beyond the object's own channel. */
-export type ChannelChangeEnv = {
-  /** The channel the TV is tuned to. */
-  getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
-  requestChannelChange: ChannelChangeRequest;
-};
+    readonly setPlayState = (playState: PlayState): void => setPlayState(playState)(this._channelEnv)();
 
-type ChangeChannelEnv = ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv & ChannelChangeEnv;
+    readonly tuneTo = (channel: Channel): void => {
+      void tuneTo(channel)(this._channelEnv)();
+    };
 
-/**
- * The application's `setChannel()`. To the service the TV is on, the object just
- * presents it. To another one, the TV decides first (`requestChannelChange`); once it
- * is on the new channel the object presents it too, unless the TV's own tuning
- * already did. A channel missing from the lineup fails before anything changes.
- */
-export const changeChannel = (
-  channel: OIPF.DAE.Broadcast.Channel | null,
-): RTE.ReaderTaskEither<
-  ChangeChannelEnv,
-  OIPF.DAE.Broadcast.ChannelChangeErrorCode,
-  OIPF.DAE.Broadcast.Channel | null
-> =>
-  channel === null
-    ? setChannel(null)
-    : pipe(
-        resolveChannel(channel),
-        RTE.flatMap(({ config }) =>
-          RTE.asksReaderTaskEither((env: ChangeChannelEnv) =>
-            isSameService(env.getTunedChannel(), channel)
-              ? setChannel(channel)
-              : pipe(
-                  RTE.fromTaskEither(env.requestChannelChange(config)),
-                  RTE.flatMap(() =>
-                    isSameService(env.getCurrentChannel(), channel)
-                      ? RTE.of(env.getCurrentChannel())
-                      : setChannel(channel),
-                  ),
-                ),
-          ),
-        ),
-      );
+    get currentChannel(): Channel | null {
+      return getCurrentChannel(this._channelEnv)();
+    }
 
-/**
- * A channel the application can pass to `setChannel()`, from its DVB triplet: the
- * lineup's one, or a channel the TV does not know (tuning to it fails). `null`
- * without a full triplet (other id types are not supported yet).
- */
-export const createChannelObject =
-  (
-    idType: OIPF.DAE.Broadcast.ChannelIdType,
-    onid: number | string | undefined,
-    tsid: number | undefined,
-    sid: number | undefined,
-  ): RIO.ReaderIO<ChannelRegistryEnv, OIPF.DAE.Broadcast.Channel | null> =>
-  (env) =>
-  () => {
-    if (typeof onid !== "number" || typeof tsid !== "number" || typeof sid !== "number") return null;
-    const triplet = { onid, tsid, sid };
-    return pipe(
-      env.getChannels(),
-      RA.findFirst((config) => isSameService(config, triplet)),
-      O.match((): Partial<OIPF.DAE.Broadcast.Channel> => ({ idType, ...triplet }), toBroadcastChannel),
-      // The OIPF Channel object has more members (methods, …) than the emulator fills in.
-      (channel) => channel as OIPF.DAE.Broadcast.Channel,
-    );
+    get playState(): PlayState {
+      return getPlayState(this._channelEnv)();
+    }
+
+    get _currentChannel(): Channel | null {
+      return this.currentChannel;
+    }
+
+    set _currentChannel(currentChannel: Channel | null) {
+      applyChannelState({ currentChannel })(this._channelEnv)();
+    }
+
+    get _playState(): PlayState {
+      return this.playState;
+    }
+
+    set _playState(playState: PlayState) {
+      applyChannelState({ playState })(this._channelEnv)();
+    }
   };
-
-export const playChannel = (
-  channel: OIPF.DAE.Broadcast.Channel,
-): RTE.ReaderTaskEither<
-  ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv,
-  OIPF.DAE.Broadcast.ChannelChangeErrorCode,
-  string
-> =>
-  pipe(
-    RTE.ask<ChannelEnv & ChannelRegistryEnv & ChannelVideoStreamEnv>(),
-    RTE.tapIO(() => logger.debug("playChannel", channel)),
-    RTE.flatMap((env) =>
-      pipe(
-        RTE.Do,
-        RTE.tapIO(() => env.setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING)),
-        RTE.tapIO(() => env.setCurrentChannel(channel)),
-        RTE.flatMap(() => resolveChannel(channel)),
-        RTE.tapIO((resolved) =>
-          env.loadSource({
-            url: resolved.url,
-            loop: true,
-            autoPlay: true,
-            muted: true,
-          }),
-        ),
-        RTE.map((resolved) => resolved.url),
-      ),
-    ),
-  );
-
-export const stop = pipe(
-  RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
-  RIO.tapIO(() => logger.debug("stop")),
-  RIO.flatMap((env) =>
-    match(env.getPlayState())
-      .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => RIO.Do)
-      .otherwise(() =>
-        pipe(
-          RIO.fromIO(env.stop),
-          RIO.flatMapIO(() => env.setPlayState(OIPF.DAE.Broadcast.PlayState.STOPPED)),
-        ),
-      ),
-  ),
-);
-
-export const release = pipe(
-  RIO.ask<ChannelEnv & ChannelVideoStreamEnv>(),
-  RIO.tapIO(() => logger.debug("release")),
-  RIO.flatMap((env) =>
-    match(env.getPlayState())
-      .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () => RIO.Do)
-      .otherwise(() =>
-        pipe(
-          RIO.fromIO(env.setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED)),
-          RIO.flatMapIO(() => env.destroy),
-        ),
-      ),
-  ),
-);

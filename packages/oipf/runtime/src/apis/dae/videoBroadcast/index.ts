@@ -1,7 +1,6 @@
 import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf-api";
-import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
+import type * as IO from "fp-ts/IO";
 import type { ChannelChangeRequest, ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
 import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
 import { WithComponent } from "./component";
@@ -139,22 +138,8 @@ export class VideoBroadcast extends VideoBroadcastAPI implements Stateful<VideoB
     this,
   );
 
-  applyState = (state: Partial<VideoBroadcastState>): IO.IO<void> =>
-    pipe(
-      this.stateful.applyState(state),
-      IO.tap(() => {
-        const propagateCurrentChannel: IO.IO<void> = () => {
-          // When state sets currentChannel directly, propagate side-effects
-          // that would normally be triggered by setChannel().
-          if (!("currentChannel" in state)) return;
-          const channel = this.currentChannel;
-          this.env.onCurrentChannelChange(channel);
-          this.env.streamEventScheduler.setCurrentChannel(channel)();
-        };
-
-        return propagateCurrentChannel;
-      }),
-    );
+  /** `currentChannel` reaches the rest of the page as on `setChannel()` (see `applyChannelState`). */
+  applyState = (state: Partial<VideoBroadcastState>): IO.IO<void> => this.stateful.applyState(state);
 
   getState: IO.IO<Partial<VideoBroadcastState>> = this.stateful.getState;
 
