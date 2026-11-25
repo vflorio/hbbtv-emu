@@ -61,7 +61,6 @@ export class BackgroundService {
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
-          stateManager: this.stateManager,
           tabs: this.env.adapter.tabs,
           webRequest: this.env.adapter.webRequest,
           handlers: {

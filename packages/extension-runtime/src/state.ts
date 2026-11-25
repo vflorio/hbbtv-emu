@@ -10,7 +10,6 @@ import type { PageConfig, UiState } from "@hbb-emu/protocol";
 export type ExtensionState = {
   readonly version: number;
   readonly lastUpdated: number;
-  readonly enabledTabIds: ReadonlySet<number>;
   readonly common: CommonSettings;
   readonly runtime: OipfRuntimeState;
   readonly logger: LoggerState;
@@ -31,7 +30,6 @@ export type CommonSettings = {
 export const DEFAULT_STATE: ExtensionState = {
   version: 1,
   lastUpdated: Date.now(),
-  enabledTabIds: new Set(),
   common: {
     autoInjectHbbTV: true,
     playerUiVisible: false,

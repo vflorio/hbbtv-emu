@@ -4,16 +4,13 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
-import * as T from "fp-ts/Task";
 import { match } from "ts-pattern";
 import type { TabStatus, TabsAdapter, WebRequestAdapter } from "../../../adapter";
-import type { StateManager } from "./state";
 
 export type TabsManangerEnv = {
   logger: Logger;
   tabs: TabsAdapter;
   webRequest: WebRequestAdapter;
-  stateManager: StateManager;
   handlers: {
     onTabAdded: (tabId: number) => IO.IO<void>;
     onTabRemoved: (tabId: number) => IO.IO<void>;
@@ -40,7 +37,6 @@ export class TabsManager {
           .with("loading", () =>
             pipe(
               IO.Do,
-              IO.tap(() => this.enableTab(tabId)),
               IO.tap(() => this.env.handlers.onTabAdded(tabId)),
               IO.tap(() => this.logger.info(`Tab ${tabId} Loading`)),
             ),
@@ -48,7 +44,6 @@ export class TabsManager {
           .with("unloaded", () =>
             pipe(
               IO.Do,
-              IO.tap(() => this.disableTab(tabId)),
               IO.tap(() => this.env.handlers.onTabRemoved(tabId)),
               IO.tap(() => this.logger.info(`Tab ${tabId} Unloaded`)),
             ),
@@ -57,23 +52,6 @@ export class TabsManager {
       ),
       IO.asUnit,
     )();
-
-  private readonly enableTab = (tabId: number): T.Task<void> =>
-    pipe(
-      this.env.stateManager.updateState((state) => ({
-        ...state,
-        enabledTabIds: new Set([...state.enabledTabIds, tabId]),
-      })),
-    );
-
-  private readonly disableTab = (tabId: number): T.Task<void> =>
-    pipe(
-      this.env.stateManager.updateState((state) => {
-        const enabledTabIds = new Set(state.enabledTabIds);
-        enabledTabIds.delete(tabId);
-        return { ...state, enabledTabIds };
-      }),
-    );
 
   private readonly onHeadersReceived = ({
     responseHeaders = [],

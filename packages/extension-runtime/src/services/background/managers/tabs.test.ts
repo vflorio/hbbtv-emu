@@ -1,20 +1,9 @@
-import * as E from "fp-ts/Either";
 import * as IO from "fp-ts/IO";
 import { describe, expect, it, vi } from "vitest";
-import {
-  createFakeStorage,
-  createFakeTabs,
-  createFakeWebRequest,
-  flushPromises,
-  silentLogger,
-} from "../../../__tests__/fakes";
-import type { ExtensionState } from "../../../state";
-import { StateManager } from "./state";
+import { createFakeTabs, createFakeWebRequest, flushPromises, silentLogger } from "../../../__tests__/fakes";
 import { TabsManager } from "./tabs";
 
 const setup = async () => {
-  const stateManager = new StateManager({ storage: createFakeStorage<ExtensionState>().storage });
-  await stateManager.init()();
   const tabs = createFakeTabs();
   const webRequest = createFakeWebRequest();
   const onTabAdded = vi.fn((_: number) => IO.of(undefined));
@@ -22,19 +11,12 @@ const setup = async () => {
 
   new TabsManager({
     logger: silentLogger(),
-    stateManager,
     tabs: tabs.tabs,
     webRequest: webRequest.webRequest,
     handlers: { onTabAdded, onTabRemoved },
   });
 
-  const enabledTabIds = () => {
-    const state = stateManager.getState()();
-    if (E.isLeft(state)) throw new Error("state not initialized");
-    return [...state.right.enabledTabIds];
-  };
-
-  return { tabs, webRequest, onTabAdded, onTabRemoved, enabledTabIds };
+  return { tabs, webRequest, onTabAdded, onTabRemoved };
 };
 
 const header = (name: string, value: string) => ({ name, value });
@@ -89,35 +71,32 @@ describe("TabsManager — content-type rewrite", () => {
 });
 
 describe("TabsManager — tab lifecycle", () => {
-  it("enables a tab when it starts loading and notifies the handler", async () => {
-    const { tabs, onTabAdded, enabledTabIds } = await setup();
+  it("notifies the handler when a tab starts loading", async () => {
+    const { tabs, onTabAdded } = await setup();
 
     tabs.emit(7, "loading");
     await flushPromises();
 
-    expect(enabledTabIds()).toEqual([7]);
     expect(onTabAdded).toHaveBeenCalledWith(7);
   });
 
-  it("disables a tab when it is unloaded", async () => {
-    const { tabs, onTabRemoved, enabledTabIds } = await setup();
+  it("notifies the handler when a tab is unloaded", async () => {
+    const { tabs, onTabRemoved } = await setup();
 
     tabs.emit(7, "loading");
     await flushPromises();
     tabs.emit(7, "unloaded");
     await flushPromises();
 
-    expect(enabledTabIds()).toEqual([]);
     expect(onTabRemoved).toHaveBeenCalledWith(7);
   });
 
   it("ignores the 'complete' status", async () => {
-    const { tabs, onTabAdded, onTabRemoved, enabledTabIds } = await setup();
+    const { tabs, onTabAdded, onTabRemoved } = await setup();
 
     tabs.emit(7, "complete");
     await flushPromises();
 
-    expect(enabledTabIds()).toEqual([]);
     expect(onTabAdded).not.toHaveBeenCalled();
     expect(onTabRemoved).not.toHaveBeenCalled();
   });

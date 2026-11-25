@@ -69,21 +69,27 @@ describe("StateManager", () => {
     expect(E.isLeft(manager.getState()())).toBe(true);
   });
 
-  /**
-   * KNOWN BUG — `enabledTabIds` is a Set, and chrome.storage serializes to JSON:
-   * after a reload (e.g. the MV3 service worker restarts) it comes back as `{}`
-   * and the next update that spreads it throws.
-   * Fix with the Scenario/TvSession split (ROADMAP D5) + io-ts codecs.
-   * `it.fails` turns red once the bug is fixed: then switch it to `it`.
-   */
-  it.fails("keeps working after the state survives a storage round-trip", async () => {
+  it("keeps working after the state survives a storage round-trip (service-worker restart)", async () => {
     const storage = createFakeStorage<ExtensionState>();
     const first = await initialized(storage);
-    await first.manager.updateState((s) => ({ ...s, enabledTabIds: new Set([1]) }))();
+    await first.manager.updateState((s) => ({ ...s, common: { ...s.common, playerUiVisible: true } }))();
 
     const afterRestart = await initialized(storage);
-    await afterRestart.manager.updateState((s) => ({ ...s, enabledTabIds: new Set([...s.enabledTabIds, 2]) }))();
+    await afterRestart.manager.updateState((s) => ({ ...s, runtime: { ...s.runtime, userAgent: "Custom TV/1.0" } }))();
 
-    expect([...getStateOrThrow(afterRestart.manager).enabledTabIds]).toEqual([1, 2]);
+    const state = getStateOrThrow(afterRestart.manager);
+    expect(state.common.playerUiVisible).toBe(true);
+    expect(state.runtime.userAgent).toBe("Custom TV/1.0");
+  });
+
+  it("loads a state stored by an older version, dropping enabledTabIds (a Set stored as {})", async () => {
+    const legacy = { ...DEFAULT_STATE, enabledTabIds: {} } as unknown as ExtensionState;
+    const storage = createFakeStorage<ExtensionState>(legacy);
+    const { manager } = await initialized(storage);
+
+    await manager.updateState((s) => ({ ...s, common: { ...s.common, playerUiVisible: true } }))();
+
+    expect("enabledTabIds" in getStateOrThrow(manager)).toBe(false);
+    expect(storage.stored()).not.toHaveProperty("enabledTabIds");
   });
 });
