@@ -9,6 +9,7 @@ import {
   type WebRequestAdapter,
 } from "..";
 import type { StorageAdapter } from "./storage";
+import { createUiAdapter, type UiAdapter } from "./ui";
 
 // Engines
 
@@ -50,6 +51,7 @@ export type AdapterEnv<TState, TEvents extends BaseMessage> = {
   readonly messaging: MessagingAdapter<TEvents>;
   readonly webRequest: WebRequestAdapter;
   readonly tabs: TabsAdapter;
+  readonly ui: UiAdapter;
 };
 
 export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
@@ -60,6 +62,7 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
   messaging: env?.messaging ?? createMessagingAdapter(config),
   webRequest: env?.webRequest ?? createWebRequestAdapter(config),
   tabs: env?.tabs ?? createTabsAdapter(config),
+  ui: env?.ui ?? createUiAdapter(config),
 });
 
 // Errors

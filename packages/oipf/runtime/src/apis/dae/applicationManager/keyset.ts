@@ -24,8 +24,10 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
     return this.#value;
   }
 
-  setValue = (value: number, _otherKeys?: ReadonlyArray<number>): void => {
+  /** Every key group is available, so the requested keyset is the delivered one. */
+  setValue = (value: number, _otherKeys?: ReadonlyArray<number>): number => {
     this.#value = value;
+    return this.#value;
   };
 }
 

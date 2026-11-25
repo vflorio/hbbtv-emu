@@ -5,27 +5,36 @@ import {
   createFakeMessaging,
   createFakeStorage,
   createFakeTabs,
+  createFakeUi,
   createFakeWebRequest,
   flushPromises,
   silentLogger,
 } from "../../__tests__/fakes";
-import { DEFAULT_STATE, type ExtensionState, toPageConfig } from "../../state";
+import { DEFAULT_STATE, type ExtensionState, toPageConfig, toUiState } from "../../state";
 import { BackgroundService } from "./background";
 
-const setup = async (stored?: ExtensionState) => {
+/** Tab 1 is the active one (where the side panel is), tab 2 is in the background. */
+const OPEN_TABS = [
+  { id: 1, url: "http://app/a.xhtml" },
+  { id: 2, url: "http://app/b.xhtml" },
+];
+
+const setup = async (stored?: ExtensionState, openTabs = OPEN_TABS) => {
   const messaging = createFakeMessaging<HostMessage>();
+  const ui = createFakeUi();
   const background = new BackgroundService({
     config: { engine: "chrome", manifest: 3, storageKey: "test" },
     logger: silentLogger(),
     adapter: {
       storage: createFakeStorage<ExtensionState>(stored).storage,
       messaging: messaging.messaging,
-      tabs: createFakeTabs().tabs,
+      tabs: createFakeTabs(openTabs).tabs,
       webRequest: createFakeWebRequest().webRequest,
+      ui: ui.ui,
     },
   });
   expect(E.isRight(await background.init()())).toBe(true);
-  return { background, messaging };
+  return { background, messaging, ui };
 };
 
 describe("BackgroundService", () => {
@@ -76,5 +85,82 @@ describe("default configuration", () => {
 
     expect(config.userAgent).toContain("HbbTV/");
     expect(config.channels.length).toBeGreaterThan(0);
+  });
+});
+
+describe("BackgroundService — settings UI", () => {
+  const uiState = toUiState(DEFAULT_STATE);
+
+  it("returns the current state", async () => {
+    const { ui } = await setup();
+
+    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: uiState });
+  });
+
+  it("a configuration change is persisted, sent to every open tab and announced to the UIs", async () => {
+    const { ui, messaging } = await setup();
+    const saved = { ...uiState, userAgent: "Custom TV/1.0" };
+
+    expect(await ui.request({ _tag: "UI/SaveState", state: saved })).toEqual({ _tag: "UI/Done" });
+
+    expect(messaging.sent.map((s) => [s.tabId, s.message._tag])).toEqual([
+      [1, "Host/Config"],
+      [2, "Host/Config"],
+    ]);
+    expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: saved }]);
+    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: saved });
+  });
+
+  it("an object-state edit becomes a minimal patch for the active tab only", async () => {
+    const { ui, messaging } = await setup();
+    const saved = {
+      ...uiState,
+      hbbtv: { ...uiState.hbbtv, videoBroadcast: { ...uiState.hbbtv.videoBroadcast, volume: 30 } },
+    };
+
+    await ui.request({ _tag: "UI/SaveState", state: saved });
+
+    expect(messaging.sent).toEqual([
+      { tabId: 1, message: { _tag: "Host/ApplyState", patch: { videoBroadcast: { volume: 30 } } } },
+    ]);
+  });
+
+  it("saving an unchanged state sends nothing to the pages", async () => {
+    const { ui, messaging } = await setup();
+
+    await ui.request({ _tag: "UI/SaveState", state: uiState });
+
+    expect(messaging.sent).toEqual([]);
+  });
+
+  it("remote-control keys go to the active tab", async () => {
+    const { ui, messaging } = await setup();
+
+    expect(await ui.request({ _tag: "UI/DispatchKey", keyCode: 403 })).toEqual({ _tag: "UI/Done" });
+    expect(messaging.sent).toEqual([{ tabId: 1, message: { _tag: "Host/DispatchKey", keyCode: 403 } }]);
+  });
+
+  it("playing a channel targets the active tab", async () => {
+    const { ui, messaging } = await setup();
+    const channel = uiState.channels[0]!;
+
+    await ui.request({ _tag: "UI/PlayChannel", channel });
+
+    expect(messaging.sent).toEqual([{ tabId: 1, message: { _tag: "Host/PlayChannel", channel } }]);
+  });
+
+  it("reports when there is no tab to send a key to", async () => {
+    const { ui } = await setup(undefined, []);
+
+    expect(await ui.request({ _tag: "UI/DispatchKey", keyCode: 403 })).toEqual({
+      _tag: "UI/Failed",
+      reason: "No active tab",
+    });
+  });
+
+  it("ignores messages that are not UI requests", async () => {
+    const { ui } = await setup();
+
+    expect(await ui.request({ _tag: "Page/Ready", url: "x" })).toBe("ignored");
   });
 });

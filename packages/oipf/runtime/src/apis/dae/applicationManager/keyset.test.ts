@@ -26,6 +26,12 @@ describe("Keyset", () => {
     expect(keyset.value).toBe(0x13);
   });
 
+  it("setValue() returns the keyset that will be delivered", () => {
+    const keyset = createKeyset();
+
+    expect(keyset.setValue(keyset.RED | keyset.VCR)).toBe(0x21);
+  });
+
   it("value is read-only", () => {
     const keyset = createKeyset(0x1) as { value: number };
 

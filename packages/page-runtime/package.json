@@ -25,6 +25,7 @@
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
     "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/oipf-api": "workspace:*",
     "@hbb-emu/oipf-runtime": "workspace:*",
     "@hbb-emu/player-adapter-web": "workspace:*",
     "@hbb-emu/player-runtime": "workspace:*",

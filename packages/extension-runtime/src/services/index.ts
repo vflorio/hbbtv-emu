@@ -3,8 +3,7 @@ import { type AdapterConfig, type AdapterEnv, type BaseMessage, createAdapterEnv
 
 export * from "./background";
 export * from "./bridge";
-//export * from "./content";
-//export * from "./ui";
+export * from "./ui";
 
 export interface ServiceEnv<TState, TEvents extends BaseMessage> {
   readonly adapter: AdapterEnv<TState, TEvents>;

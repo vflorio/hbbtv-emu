@@ -3,15 +3,20 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/extension-runtime": "workspace:*",
     "@hbb-emu/page-runtime": "workspace:*",
-    "@hbb-emu/protocol": "workspace:*"
+    "@hbb-emu/protocol": "workspace:*",
+    "@hbb-emu/settings-ui": "workspace:*",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
     "@types/chrome": "0.1.29",
     "@types/node": "24.10.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "5.1.1",
     "fp-ts": "2.16.11",
     "typescript": "5.9.3",
     "vite": "7.2.2"
@@ -19,12 +24,13 @@
   "main": "./dist/index.js",
   "scripts": {
     "clean": "rm -rf dist",
-    "extension:build": "bun run extension:build:background && bun run extension:build:bridge && bun run extension:build:page && bun run extension:build:assets",
+    "extension:build": "bun run extension:build:background && bun run extension:build:bridge && bun run extension:build:page && bun run extension:build:ui && bun run extension:build:assets",
     "extension:build:assets": "cp -r public/* dist/",
     "extension:build:background": "vite build --config vite.background.config.ts",
     "extension:build:bridge": "vite build --config vite.bridge.config.ts",
     "extension:build:page": "vite build --config vite.page.config.ts",
-    "extension:dev": "vite",
+    "extension:build:ui": "vite build --config vite.ui.config.ts",
+    "extension:dev": "vite --config vite.ui.config.ts",
     "preview": "vite preview"
   },
   "type": "module"

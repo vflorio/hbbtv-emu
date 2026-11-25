@@ -5,7 +5,7 @@
  */
 
 import type { Logger } from "@hbb-emu/core";
-import { type HostMessage, isPageMessage, type PageMessage } from "@hbb-emu/protocol";
+import { type HostMessage, isPageMessage, isUiRequest, type PageMessage } from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -15,6 +15,7 @@ import { type ExtensionState, toPageConfig } from "../../state";
 import type { ServiceEnv } from "..";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
+import { handleUiRequest } from "./ui";
 
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
 
@@ -24,6 +25,7 @@ export class BackgroundService {
   tabsManager!: TabsManager;
 
   private messagingUnsubscribe?: () => void;
+  private uiUnsubscribe?: () => void;
 
   constructor(protected readonly env: ServiceEnv<ExtensionState, HostMessage>) {
     this.stateManager = new StateManager({
@@ -54,6 +56,15 @@ export class BackgroundService {
         });
 
         this.messagingUnsubscribe = this.env.adapter.messaging.onMessage(this.onMessageReceived);
+        this.uiUnsubscribe = this.env.adapter.ui.onRequest(isUiRequest, (request) =>
+          handleUiRequest(request)({
+            stateManager: this.stateManager,
+            messaging: this.env.adapter.messaging,
+            tabs: this.env.adapter.tabs,
+            ui: this.env.adapter.ui,
+            logger: this.logger,
+          }),
+        );
       }),
       TE.tapIO(() => this.logger.info("Initialized")),
       TE.asUnit,
@@ -66,6 +77,7 @@ export class BackgroundService {
       IO.flatMap(() => this.stateManager.destroy()),
       IO.flatMap(() => () => {
         this.messagingUnsubscribe?.();
+        this.uiUnsubscribe?.();
       }),
       IO.flatMap(() => this.logger.info("Destroyed")),
     );

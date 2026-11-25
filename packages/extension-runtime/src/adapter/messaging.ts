@@ -68,7 +68,7 @@ export const createMessagingAdapter = <T extends BaseMessage>({ manifest }: Adap
   onMessage: (handler) => {
     const listener = (message: unknown, sender: chrome.runtime.MessageSender) => {
       const tabId = sender.tab?.id;
-      if (!tabId || !isBaseMessage(message)) return;
+      if (!tabId || isFromExtensionPage(sender) || !isBaseMessage(message)) return;
       handler(message, tabId)();
     };
 
@@ -76,6 +76,13 @@ export const createMessagingAdapter = <T extends BaseMessage>({ manifest }: Adap
     return () => chrome.runtime.onMessage.removeListener(listener);
   },
 });
+
+/**
+ * Whether a message comes from one of the extension's own pages (side panel, options,
+ * even when opened in a tab) rather than from a content script running in a web page.
+ */
+export const isFromExtensionPage = (sender: chrome.runtime.MessageSender): boolean =>
+  sender.url?.startsWith(chrome.runtime.getURL("")) ?? false;
 
 const isBaseMessage = (value: unknown): value is BaseMessage =>
   typeof value === "object" &&

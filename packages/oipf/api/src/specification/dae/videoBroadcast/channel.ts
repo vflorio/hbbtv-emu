@@ -13,58 +13,53 @@
 // ============================================================================
 
 /**
- * Channel identification type constants.
+ * Channel identification type constants (OIPF DAE, Channel class constants).
  *
  * These constants identify the type of channel and determine which
  * properties are used for channel identification.
  */
 export enum ChannelIdType {
-  /** DVB-C (Cable) channel identified by DVB triplet */
-  ID_DVB_C = 0,
+  /** Analogue channel, identified by `freq` (and optionally `cni` or `name`) */
+  ID_ANALOG = 0,
 
-  /** DVB-S (Satellite) channel identified by DVB triplet */
-  ID_DVB_S = 1,
+  /** DVB-C channel identified by DVB triplet */
+  ID_DVB_C = 10,
 
-  /** DVB-T (Terrestrial) channel identified by DVB triplet */
-  ID_DVB_T = 2,
+  /** DVB-S channel identified by DVB triplet */
+  ID_DVB_S = 11,
 
-  /** DVB-C2 (Cable second generation) channel */
-  ID_DVB_C2 = 3,
+  /** DVB-T channel identified by DVB triplet */
+  ID_DVB_T = 12,
 
-  /** DVB-S2 (Satellite second generation) channel */
-  ID_DVB_S2 = 4,
-
-  /** DVB-T2 (Terrestrial second generation) channel */
-  ID_DVB_T2 = 5,
-
-  /** ATSC-T channel identified by source_ID */
-  ID_ATSC_T = 10,
-
-  /** Analogue channel */
-  ID_ANALOG = 11,
-
-  /** IPTV channel via SDS (Service Discovery and Selection) */
-  ID_IPTV_SDS = 12,
-
-  /**
-   * DVB-SI direct channel.
-   *
-   * Channel identified by delivery system descriptor and service ID.
-   * Created via createChannelObject() with tuning parameters.
-   */
+  /** Channel identified by its DVB-SI delivery system descriptor (createChannelObject) */
   ID_DVB_SI_DIRECT = 13,
 
-  /** IPTV channel via URI */
-  ID_IPTV_URI = 14,
+  /** DVB-C or DVB-C2 channel identified by DVB triplet */
+  ID_DVB_C2 = 14,
 
-  /** ISDB-C channel */
+  /** DVB-S or DVB-S2 channel identified by DVB triplet */
+  ID_DVB_S2 = 15,
+
+  /** DVB-T or DVB-T2 channel identified by DVB triplet */
+  ID_DVB_T2 = 16,
+
+  /** ISDB-C channel identified by triplet */
   ID_ISDB_C = 20,
 
-  /** ISDB-S channel */
+  /** ISDB-S channel identified by triplet */
   ID_ISDB_S = 21,
 
-  /** ISDB-T channel */
+  /** ISDB-T channel identified by triplet */
   ID_ISDB_T = 22,
+
+  /** ATSC-T channel identified by source_ID */
+  ID_ATSC_T = 30,
+
+  /** IP broadcast channel identified through SD&S by a DVB textual service identifier */
+  ID_IPTV_SDS = 40,
+
+  /** IP broadcast channel identified by a DVB MCAST URI or an HTTP(S) DASH MPD URI */
+  ID_IPTV_URI = 41,
 }
 
 /**

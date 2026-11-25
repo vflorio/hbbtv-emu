@@ -9,6 +9,7 @@
  */
 
 import type { ChannelConfig } from "@hbb-emu/extension-common";
+import type { HbbTVState } from "@hbb-emu/oipf-api";
 
 /** What the page runtime needs from the host's configuration. */
 export type PageConfig = Readonly<{
@@ -22,7 +23,10 @@ export type HostMessage =
   /** The bridge started: the page announces itself again (the two may start in any order). */
   | Readonly<{ _tag: "Host/Hello" }>
   | Readonly<{ _tag: "Host/Config"; config: PageConfig }>
-  | Readonly<{ _tag: "Host/DispatchKey"; keyCode: number }>;
+  | Readonly<{ _tag: "Host/DispatchKey"; keyCode: number }>
+  /** An explicit edit (e.g. from the settings UI): only the fields that changed. */
+  | Readonly<{ _tag: "Host/ApplyState"; patch: Partial<HbbTVState> }>
+  | Readonly<{ _tag: "Host/PlayChannel"; channel: ChannelConfig }>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
@@ -40,6 +44,10 @@ export const isHostMessage = (value: unknown): value is HostMessage => {
       );
     case "Host/DispatchKey":
       return typeof value.keyCode === "number" && Number.isInteger(value.keyCode);
+    case "Host/ApplyState":
+      return isRecord(value.patch);
+    case "Host/PlayChannel":
+      return isRecord(value.channel) && typeof value.channel.id === "string";
     default:
       return false;
   }

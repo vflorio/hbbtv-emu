@@ -11,6 +11,8 @@ import type { BaseMessage } from "./messaging";
  */
 export interface ExtensionChannel<Out extends BaseMessage> {
   readonly send: (message: Out) => TE.TaskEither<AdapterError, void>;
+  /** Like `send`, resolving with the receiver's response. */
+  readonly request: (message: Out) => TE.TaskEither<AdapterError, unknown>;
   /** Only messages sent by the extension itself (not by other tabs). */
   readonly onMessage: (handler: (message: unknown) => IO.IO<void>) => UnsubscribeFn;
 }
@@ -35,6 +37,24 @@ export const createExtensionChannel = <Out extends BaseMessage>({
               ),
           )
           .with(MANIFEST_VERSION_3, () => chrome.runtime.sendMessage(message).then(() => undefined))
+          .exhaustive(),
+      (cause): AdapterError => ({ _tag: "MessageForwardError", tabId: 0, cause }),
+    ),
+
+  request: (message) =>
+    TE.tryCatch(
+      () =>
+        match(manifest)
+          .with(
+            MANIFEST_VERSION_2,
+            () =>
+              new Promise<unknown>((resolve, reject) =>
+                chrome.runtime.sendMessage(message, (response: unknown) =>
+                  chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(response),
+                ),
+              ),
+          )
+          .with(MANIFEST_VERSION_3, (): Promise<unknown> => chrome.runtime.sendMessage(message))
           .exhaustive(),
       (cause): AdapterError => ({ _tag: "MessageForwardError", tabId: 0, cause }),
     ),

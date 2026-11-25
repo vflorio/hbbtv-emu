@@ -9,9 +9,11 @@ import { useSideEffects } from "../context/AppState";
 export const useRemoteControl = () => {
   const sideEffects = useSideEffects();
 
+  // Runs the request: event handlers ignore returned Tasks, so returning one
+  // (as before) meant the remote-control buttons never sent anything.
   const dispatchKey = useCallback(
-    (keyCode: number) =>
-      pipe(
+    (keyCode: number): void => {
+      void pipe(
         sideEffects.dispatchKey(keyCode),
         TE.match(
           (error) => {
@@ -21,7 +23,8 @@ export const useRemoteControl = () => {
             console.log(`[useRemoteControl] Key ${keyCode} dispatched successfully`);
           },
         ),
-      ),
+      )();
+    },
     [sideEffects],
   );
 

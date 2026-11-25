@@ -166,3 +166,34 @@ describe("chrome-v3: page runtime ↔ background", () => {
     expect(keys).toEqual([403]);
   });
 });
+
+describe("chrome-v3: settings UI", () => {
+  const openUi = async () => {
+    const extensionId = new URL(browser.serviceWorker.url()).host;
+    const ui = await browser.context.newPage();
+    const errors: string[] = [];
+    ui.on("pageerror", (error) => errors.push(error.message));
+    await ui.goto(`chrome-extension://${extensionId}/index.html`);
+    return { ui, errors };
+  };
+
+  it("loads the state from the background", async () => {
+    const { ui, errors } = await openUi();
+
+    await ui.getByRole("button", { name: "RED" }).waitFor();
+
+    expect(errors).toEqual([]);
+  });
+
+  it("its remote control drives the application in the active tab", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?ui=${Date.now()}`);
+    await app.bringToFront(); // the side panel sits next to the active tab
+
+    await ui.getByRole("button", { name: "RED" }).click();
+
+    await app.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length > 0);
+    const keys = await app.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys);
+    expect(keys).toEqual([403]);
+  });
+});

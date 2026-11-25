@@ -90,3 +90,14 @@ describe("DOM channel", () => {
     expect(atPage.received).toEqual([]);
   });
 });
+
+describe("host edits", () => {
+  it.each<[unknown, boolean]>([
+    [{ _tag: "Host/ApplyState", patch: { videoBroadcast: { volume: 30 } } }, true],
+    [{ _tag: "Host/ApplyState", patch: "volume=30" }, false],
+    [{ _tag: "Host/PlayChannel", channel: { id: "ch1", name: "DMAX" } }, true],
+    [{ _tag: "Host/PlayChannel", channel: { name: "DMAX" } }, false],
+  ])("isHostMessage(%j) → %s", (value, expected) => {
+    expect(isHostMessage(value)).toBe(expected);
+  });
+});

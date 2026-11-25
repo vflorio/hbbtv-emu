@@ -14,8 +14,11 @@ import type {
   ExtensionChannel,
   MessagingAdapter,
   StorageAdapter,
+  TabInfo,
+  TabQuery,
   TabStatus,
   TabsAdapter,
+  UiAdapter,
   WebRequestAdapter,
 } from "../adapter";
 
@@ -63,9 +66,11 @@ export const createFakeStorage = <T>(initial?: T) => {
   };
 };
 
-export const createFakeTabs = () => {
+/** `open` lists the tabs `query({})` returns; the first one is the active tab. */
+export const createFakeTabs = (open: ReadonlyArray<TabInfo> = []) => {
   const handlers = new Set<(tabId: number, status: TabStatus) => void>();
   const tabs: TabsAdapter = {
+    query: (query: TabQuery) => () => Promise.resolve(query.active ? open.slice(0, 1) : open),
     onTabsUpdated: (handler) => {
       handlers.add(handler);
       return () => handlers.delete(handler);
@@ -128,7 +133,12 @@ export const createFakeExtensionChannel = <T extends BaseMessage>() => {
   const sent: T[] = [];
   let handler: ((message: unknown) => IO.IO<void>) | undefined;
   let failNext = false;
+  let respond: (message: T) => unknown = () => undefined;
   const channel: ExtensionChannel<T> = {
+    request: (message) => {
+      sent.push(message);
+      return TE.right(respond(message));
+    },
     send: (message) => {
       if (failNext) {
         failNext = false;
@@ -150,6 +160,36 @@ export const createFakeExtensionChannel = <T extends BaseMessage>() => {
     receive: (message: unknown) => handler?.(message)(),
     failNextSend: () => {
       failNext = true;
+    },
+    /** How the other side answers `request`. */
+    respondWith: (responder: (message: T) => unknown) => {
+      respond = responder;
+    },
+  };
+};
+
+/** Background side of the UI: `request` plays the settings UI. */
+export const createFakeUi = () => {
+  const notified: unknown[] = [];
+  let entry: { isRequest: (m: unknown) => boolean; handler: (request: never) => () => Promise<unknown> } | undefined;
+  const ui: UiAdapter = {
+    onRequest: (isRequest, handler) => {
+      entry = { isRequest, handler: handler as never };
+      return () => {
+        entry = undefined;
+      };
+    },
+    notify: (message) => () => {
+      notified.push(message);
+      return Promise.resolve();
+    },
+  };
+  return {
+    ui,
+    notified,
+    request: async (message: unknown): Promise<unknown> => {
+      if (!entry?.isRequest(message)) return "ignored";
+      return entry.handler(message as never)();
     },
   };
 };

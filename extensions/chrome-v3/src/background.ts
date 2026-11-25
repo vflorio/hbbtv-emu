@@ -13,3 +13,6 @@ const backgroundService = new BackgroundService(
 );
 
 backgroundService.init()();
+
+// The toolbar button opens the settings UI in the side panel.
+void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});

@@ -92,7 +92,7 @@ export interface ApplicationPrivateData {
 
 /**
  * Keyset: the remote-control keys the application wants to receive (OIPF DAE Keyset class).
- * Still missing: maximumValue, otherKeys, maximumOtherKeys, supportsPointer, getKey(), getKeyIcon().
+ * Still missing: maximumValue, otherKeys, maximumOtherKeys, supportsPointer, getKeyIcon(), getKeyLabel().
  */
 export interface Keyset {
   readonly RED: 0x1;
@@ -108,7 +108,8 @@ export interface Keyset {
   readonly OTHER: 0x400;
   /** The keyset currently requested by the application (bitmask of the constants above). */
   readonly value: number;
-  setValue(value: number, otherKeys?: ReadonlyArray<number>): void;
+  /** Returns the keys that will actually be delivered to the application (a mask of the constants above). */
+  setValue(value: number, otherKeys?: ReadonlyArray<number>): number;
 }
 
 export type ApplicationManagerEventType =

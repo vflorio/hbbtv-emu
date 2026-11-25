@@ -8,6 +8,7 @@ import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-
 import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import type { PageConfig } from "@hbb-emu/protocol";
 import type * as IO from "fp-ts/IO";
+import { toBroadcastChannel } from "./channel";
 import type { PageRuntimeControl } from "./host";
 
 const createPlayerRuntime = (): PlayerRuntime =>
@@ -47,4 +48,9 @@ export const controlRuntime = (handle: RuntimeHandle): PageRuntimeControl => ({
       channels: [...config.channels],
     }),
   dispatchKey: handle.dispatchKey,
+  applyState: handle.updateState,
+  playChannel: (channel) =>
+    handle.updateState({
+      videoBroadcast: { currentChannel: toBroadcastChannel(channel) as never },
+    }),
 });

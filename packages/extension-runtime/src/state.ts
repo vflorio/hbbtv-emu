@@ -1,7 +1,7 @@
 import { DEFAULT_LOGGER_STATE, type LoggerState } from "@hbb-emu/core";
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
-import type { PageConfig } from "@hbb-emu/protocol";
+import type { PageConfig, UiState } from "@hbb-emu/protocol";
 
 /**
  * Extension State Domain Types
@@ -49,4 +49,26 @@ export const DEFAULT_STATE: ExtensionState = {
 export const toPageConfig = (state: ExtensionState): PageConfig => ({
   userAgent: state.runtime.userAgent,
   channels: state.runtime.channels,
+});
+
+/** The snapshot the settings UI edits. */
+export const toUiState = (state: ExtensionState): UiState => ({
+  userAgent: state.runtime.userAgent,
+  channels: [...state.runtime.channels],
+  currentChannel: state.runtime.currentChannel,
+  playerUiVisible: state.common.playerUiVisible,
+  hbbtv: state.runtime.api,
+});
+
+/** Applies a UI snapshot onto the stored state (everything the UI does not edit is kept). */
+export const fromUiState = (state: ExtensionState, ui: UiState): ExtensionState => ({
+  ...state,
+  common: { ...state.common, playerUiVisible: ui.playerUiVisible },
+  runtime: {
+    ...state.runtime,
+    userAgent: ui.userAgent,
+    channels: ui.channels,
+    currentChannel: ui.currentChannel,
+    api: ui.hbbtv,
+  },
 });
