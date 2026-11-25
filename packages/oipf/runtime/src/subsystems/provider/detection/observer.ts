@@ -84,6 +84,20 @@ export class DetectionObserver {
     };
 
   /**
+   * Binds `element` now, whether or not it is in the document (e.g. an object the
+   * application creates with `oipfObjectFactory`). Inserting it later binds nothing
+   * more. Returns whether a matcher took it.
+   */
+  bind =
+    (element: Element): IO.IO<boolean> =>
+    () => {
+      for (const matcher of this.#matchers) {
+        this.#processElement(element, matcher)();
+      }
+      return this.#state.processedElements.has(element);
+    };
+
+  /**
    * Starts observing DOM mutations.
    */
   start = (): IO.IO<void> => () => {

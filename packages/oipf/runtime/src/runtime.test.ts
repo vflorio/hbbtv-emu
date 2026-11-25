@@ -261,3 +261,87 @@ describe("runtime — an application's channel change (setChannel)", () => {
     expect(object.createChannelObject(DVB_T)).toBeNull();
   });
 });
+
+describe("runtime — oipfObjectFactory", () => {
+  const dmax = { id: "dmax", name: "DMAX", mp4Source: "http://tv/dmax.mp4", onid: 318, tsid: 1, sid: 52 };
+  const hgtv = { id: "hgtv", name: "HGTV", mp4Source: "http://tv/hgtv.mp4", onid: 318, tsid: 1, sid: 56 };
+
+  type Factory = Record<string, (...args: unknown[]) => unknown> & {
+    isObjectSupported: (mimeType: string) => boolean;
+  };
+  const factory = () => (window as unknown as { oipfObjectFactory?: Factory }).oipfObjectFactory;
+
+  const start = () => {
+    const handle = runtime(createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [dmax, hgtv] }))();
+    started.push(handle);
+    return handle;
+  };
+
+  it("is window.oipfObjectFactory while the runtime runs", () => {
+    const handle = start();
+    expect(factory()).toBeDefined();
+
+    handle.stop()();
+
+    expect(factory()).toBeUndefined();
+  });
+
+  it("supports exactly the objects the runtime binds", () => {
+    start();
+    const supported = (mimeType: string) => factory()?.isObjectSupported(mimeType);
+
+    expect(supported("video/broadcast")).toBe(true);
+    expect(supported("application/oipfApplicationManager")).toBe(true);
+    expect(supported("application/oipfCapabilities")).toBe(true);
+    expect(supported("application/oipfConfiguration")).toBe(true);
+    expect(supported("video/mp4")).toBe(true);
+    expect(supported("application/oipfDrmAgent")).toBe(false);
+    expect(supported("application/oipfStatusView")).toBe(false);
+  });
+
+  it("creates objects that work before the application inserts them", () => {
+    start();
+
+    const appMgr = factory()?.createApplicationManagerObject() as HTMLObjectElement & {
+      getOwnerApplication: (doc: Document) => { privateData: { currentChannel: { ccid: string } | null } };
+    };
+
+    expect(appMgr.type).toBe("application/oipfApplicationManager");
+    expect(appMgr.isConnected).toBe(false);
+    expect(appMgr.getOwnerApplication(document).privateData.currentChannel).toMatchObject({ ccid: "dmax" });
+  });
+
+  it("a created video/broadcast presents the TV's channel, and inserting it binds nothing more", async () => {
+    start();
+
+    const video = factory()?.createVideoBroadcastObject() as HTMLObjectElement & {
+      currentChannel: { ccid: string } | null;
+    };
+    document.body.appendChild(video);
+    await flushMutations();
+
+    expect(video.type).toBe("video/broadcast");
+    expect(video.currentChannel).toMatchObject({ ccid: "dmax" });
+    expect(video.querySelectorAll("video")).toHaveLength(1);
+  });
+
+  it("createChannelConfig() lists the lineup", () => {
+    start();
+
+    const config = factory()?.createChannelConfig() as {
+      channelList: { length: number; item: (i: number) => unknown };
+    };
+
+    expect(config.channelList.length).toBe(2);
+    expect(config.channelList.item(1)).toMatchObject({ ccid: "hgtv" });
+  });
+
+  it("has no method for an object the emulator does not implement: calling it is a TypeError", () => {
+    start();
+    // What an application written for a full OITF would call.
+    const unsupported = factory() as unknown as { createDrmAgentObject: () => unknown };
+
+    expect(unsupported.createDrmAgentObject).toBeUndefined();
+    expect(() => unsupported.createDrmAgentObject()).toThrow(TypeError);
+  });
+});

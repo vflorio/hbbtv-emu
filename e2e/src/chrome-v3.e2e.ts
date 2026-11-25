@@ -16,6 +16,7 @@ type BasicAppState = {
   events: unknown[];
   userAgentAtFirstScript: string;
   channelAtFirstScript: string | null;
+  factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
 };
 
 type Channel = { id: string; sid: number };
@@ -69,6 +70,12 @@ describe("chrome-v3: HbbTV application", () => {
     expect(errors).toEqual([]);
     expect(state.initError).toBeNull();
     expect(state.keysetValue).toBe(0x1f);
+    // oipfObjectFactory too, and what it creates works without being inserted.
+    expect(state.factoryAtFirstScript).toEqual({
+      videoBroadcast: true,
+      drmAgent: false,
+      channel: state.channelAtFirstScript,
+    });
   });
 
   it("delivers navigation keys to the application", async () => {

@@ -32,6 +32,14 @@
       app.privateData.keyset.setValue(0x1 | 0x2 | 0x4 | 0x8 | 0x10);
       app.show();
       e2e.keysetValue = app.privateData.keyset.value;
+      // What an application that does not declare its objects does: it asks the factory.
+      var factory = window.oipfObjectFactory;
+      var created = factory.createApplicationManagerObject().getOwnerApplication(document);
+      e2e.factoryAtFirstScript = {
+        videoBroadcast: factory.isObjectSupported("video/broadcast"),
+        drmAgent: factory.isObjectSupported("application/oipfDrmAgent"),
+        channel: created.privateData.currentChannel ? created.privateData.currentChannel.ccid : null,
+      };
     } catch (error) {
       e2e.initError = String((error && error.message) || error);
     }

@@ -44,6 +44,12 @@ export type ProviderApi = Readonly<{
    * The live instances bound for a key (e.g. every `video/broadcast` in the page).
    */
   instancesOf: (stateKey: StateKey) => IO.IO<ReadonlyArray<AnyStateful>>;
+
+  /**
+   * Binds `element` now, in the document or not (see `DetectionObserver.bind`).
+   * Returns whether a binding took it.
+   */
+  bindElement: (element: HTMLObjectElement) => IO.IO<boolean>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,6 +125,8 @@ export class ProviderService implements ProviderApi {
   instancesOf =
     (stateKey: StateKey): IO.IO<ReadonlyArray<AnyStateful>> =>
     () => [...this.#registry.getInstances(stateKey)];
+
+  bindElement = (element: HTMLObjectElement): IO.IO<boolean> => this.#observer.bind(element);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Private Methods

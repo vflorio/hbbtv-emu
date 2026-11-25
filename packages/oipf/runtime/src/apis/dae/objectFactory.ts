@@ -1,154 +1,121 @@
-import { createLogger, notImplementedError } from "@hbb-emu/core";
-import type { OIPF } from "@hbb-emu/oipf-api";
+/**
+ * oipfObjectFactory (OIPF DAE §7.1)
+ *
+ * "The OITF shall support a globally accessible object of type OipfObjectFactory as
+ * a static property oipfObjectFactory of the Window interface."
+ *
+ * Reader-style module (ROADMAP D1). Rules:
+ * - `isObjectSupported(mimeType)` is true if and only if the runtime binds objects of
+ *   that type (the bindings' own predicates decide, so it cannot drift from them);
+ * - a `create…()` method returns an `<object>` of that type, already bound: it works
+ *   before (or without) the application inserting it into the document, and
+ *   inserting it binds nothing more. For a supported type it never fails (§7.1.1);
+ * - only the objects the emulator implements have a `create…()` method. Calling a
+ *   missing one throws a `TypeError`, as the spec requires for an unsupported method
+ *   name, and an application that checks for the method sees it is not there;
+ * - `createChannelConfig()` gives the lineup, as video/broadcast `getChannelConfig()`.
+ */
+
+import { createLogger } from "@hbb-emu/core";
+import { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import type * as R from "fp-ts/Reader";
 import type * as RIO from "fp-ts/ReaderIO";
-import * as RA from "fp-ts/ReadonlyArray";
+import { type ChannelRegistryEnv, toBroadcastChannel } from "../../subsystems";
+import { createChannelConfig } from "./videoBroadcast/channelConfig";
 
 const logger = createLogger("OipfObjectFactory");
 
-const defineWindowBinding =
-  (instance: unknown, key: string): IO.IO<void> =>
+// ─────────────────────────────────────────────────────────────────────────────
+// Environment
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ObjectFactoryEnv = Readonly<{
+  document: Document;
+  /** Whether the runtime binds this `<object>` (its bindings' predicates). */
+  isBindable: (element: HTMLObjectElement) => boolean;
+  /** Binds the `<object>` now, in the document or not. */
+  bindElement: (element: HTMLObjectElement) => IO.IO<boolean>;
+  channelRegistry: ChannelRegistryEnv;
+}>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Operations
+// ─────────────────────────────────────────────────────────────────────────────
+
+const objectOfType =
+  (mimeType: string): RIO.ReaderIO<ObjectFactoryEnv, HTMLObjectElement> =>
+  ({ document }) =>
   () => {
-    Object.defineProperty(window, key, {
-      value: instance,
+    const element = document.createElement("object");
+    element.type = mimeType;
+    return element;
+  };
+
+export const isObjectSupported =
+  (mimeType: string): RIO.ReaderIO<ObjectFactoryEnv, boolean> =>
+  (env) =>
+    pipe(objectOfType(mimeType)(env), IO.map(env.isBindable));
+
+/** A bound `<object>` of that type. */
+export const createObject =
+  (mimeType: string): RIO.ReaderIO<ObjectFactoryEnv, HTMLObjectElement> =>
+  (env) =>
+    pipe(
+      logger.debug("create", mimeType),
+      IO.flatMap(() => objectOfType(mimeType)(env)),
+      IO.tap(env.bindElement),
+    );
+
+export const createLineupConfig: RIO.ReaderIO<ObjectFactoryEnv, OIPF.DAE.Broadcast.ChannelConfig> =
+  ({ channelRegistry }) =>
+  () =>
+    createChannelConfig(
+      // The OIPF Channel object has more members (methods, …) than the emulator fills in.
+      channelRegistry
+        .getChannels()
+        .map((config) => toBroadcastChannel(config) as OIPF.DAE.Broadcast.Channel),
+    );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OIPF surface
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The factory's methods for the objects the emulator implements. */
+export type ObjectFactory = Pick<
+  OIPF.DAE.ObjectFactory.OipfObjectFactory,
+  | "isObjectSupported"
+  | "createVideoBroadcastObject"
+  | "createApplicationManagerObject"
+  | "createCapabilitiesObject"
+  | "createConfigurationObject"
+  | "createChannelConfig"
+>;
+
+export const objectFactory: R.Reader<ObjectFactoryEnv, ObjectFactory> = (env) => ({
+  isObjectSupported: (mimeType) => isObjectSupported(mimeType)(env)(),
+  // Required capabilities aside, the emulator can always present: it never returns null.
+  createVideoBroadcastObject: () => createObject(OIPF.DAE.Broadcast.MIME_TYPE)(env)(),
+  createApplicationManagerObject: () => createObject(OIPF.DAE.ApplicationManager.MIME_TYPE)(env)(),
+  createCapabilitiesObject: () => createObject(OIPF.DAE.Capabilities.MIME_TYPE)(env)(),
+  createConfigurationObject: () => createObject(OIPF.DAE.Configuration.MIME_TYPE)(env)(),
+  createChannelConfig: () => createLineupConfig(env)(),
+});
+
+export const OBJECT_FACTORY_KEY = "oipfObjectFactory";
+
+/** Makes the factory `window.oipfObjectFactory`. Returns the effect that removes it. */
+export const installObjectFactory =
+  (window: Window): RIO.ReaderIO<ObjectFactoryEnv, IO.IO<void>> =>
+  (env) =>
+  () => {
+    Object.defineProperty(window, OBJECT_FACTORY_KEY, {
+      value: objectFactory(env),
       writable: false,
       configurable: true,
     });
+    return () => {
+      Reflect.deleteProperty(window, OBJECT_FACTORY_KEY);
+    };
   };
-
-const injectToWindow = (instance: unknown, key: string): IO.IO<void> =>
-  pipe(
-    logger.debug("Injecting to window:", key),
-    IO.tap(() => defineWindowBinding(instance, key)),
-    IO.tap(() => logger.debug("Inject strategy complete for:", key)),
-  );
-
-// API Implementation
-
-export class OipfObjectFactory implements OIPF.DAE.ObjectFactory.OipfObjectFactory {
-  isObjectSupported = (mimeType: string): boolean =>
-    pipe(
-      logger.debug("isObjectSupported:", mimeType),
-      IO.map(() => isSupportedMimeType(mimeType)),
-    )();
-
-  // Visual Objects (HTMLObjectElement)
-
-  createVideoBroadcastObject = (_requiredCapabilities?: readonly string[]): HTMLObjectElement | null =>
-    pipe(
-      logger.debug("createVideoBroadcastObject"),
-      IO.flatMap(() => createObjectElement("video/broadcast")),
-    )();
-
-  createVideoMpegObject = (_requiredCapabilities?: readonly string[]): HTMLObjectElement | null =>
-    pipe(
-      logger.debug("createVideoMpegObject"),
-      IO.flatMap(() => createObjectElement("video/mpeg")),
-    )();
-
-  createStatusViewObject = (): HTMLObjectElement =>
-    pipe(
-      logger.debug("createStatusViewObject"),
-      IO.flatMap(() => createObjectElement("application/oipfStatusView")),
-    )();
-
-  // HbbTV-specific Visual Objects
-
-  createMediaSynchroniser = (): OIPF.DAE.ObjectFactory.MediaSynchroniser => {
-    logger.debug("createMediaSynchroniser")();
-    return {};
-  };
-
-  createCSManager = (): OIPF.DAE.ObjectFactory.HbbTVCSManager => {
-    logger.debug("createCSManager")();
-    return {};
-  };
-
-  // Non-Visual Objects (JavaScript Objects)
-
-  createApplicationManagerObject = (): OIPF.DAE.ApplicationManager.ApplicationManager => {
-    logger.debug("createApplicationManagerObject")();
-    //TODO new OipfApplicationManager();
-    return null as unknown as OIPF.DAE.ApplicationManager.ApplicationManager;
-  };
-
-  createCapabilitiesObject = (): OIPF.DAE.Capabilities.Capabilities => {
-    logger.debug("createCapabilitiesObject")();
-
-    // TODO new OipfCapabilities();
-    return null as unknown as OIPF.DAE.Capabilities.Capabilities;
-  };
-
-  createChannelConfig = (): OIPF.DAE.Broadcast.ChannelConfig => {
-    logger.debug("createChannelConfig")();
-    // TODO ChannelEnv
-    return {
-      channelList: { length: 0, item: () => null },
-      favouriteLists: { length: 0, getFavouriteList: () => null },
-      currentFavouriteList: null,
-      getChannelByTriplet: () => null,
-    } as unknown as OIPF.DAE.Broadcast.ChannelConfig;
-  };
-
-  createConfigurationObject = (): OIPF.DAE.Configuration.Configuration => {
-    logger.debug("createConfigurationObject")();
-    // TODO new OipfConfiguration();
-    return null as unknown as OIPF.DAE.Configuration.Configuration;
-  };
-
-  // Not Implemented Objects
-
-  createCodManagerObject = (): object => notImplementedError("createCodManagerObject");
-  createDownloadManagerObject = (): object => notImplementedError("createDownloadManagerObject");
-  createDownloadTriggerObject = (): object => notImplementedError("createDownloadTriggerObject");
-  createDrmAgentObject = (): object => notImplementedError("createDrmAgentObject");
-  createGatewayInfoObject = (): object => notImplementedError("createGatewayInfoObject");
-  createIMSObject = (): object => notImplementedError("createIMSObject");
-  createMDTFObject = (): object => notImplementedError("createMDTFObject");
-  createNotifSocketObject = (): object => notImplementedError("createNotifSocketObject");
-  createParentalControlManagerObject = (): object => notImplementedError("createParentalControlManagerObject");
-  createRecordingSchedulerObject = (): object => notImplementedError("createRecordingSchedulerObject");
-  createRemoteControlFunctionObject = (): object => notImplementedError("createRemoteControlFunctionObject");
-  createRemoteManagementObject = (): object => notImplementedError("createRemoteManagementObject");
-  createSearchManagerObject = (): object => notImplementedError("createSearchManagerObject");
-}
-
-const SUPPORTED_MIME_TYPES: ReadonlyArray<OIPF.DAE.ObjectFactory.ObjectFactoryMimeType> = [
-  "application/oipfApplicationManager",
-  "application/oipfCapabilities",
-  "application/oipfConfiguration",
-  "video/broadcast",
-];
-
-const isSupportedMimeType = (mimeType: string): boolean =>
-  pipe(
-    SUPPORTED_MIME_TYPES,
-    RA.some((supported) => supported === mimeType),
-  );
-
-const createObjectElement = (mimeType: string): IO.IO<HTMLObjectElement> =>
-  pipe(
-    IO.of(document.createElement("object")),
-    IO.tap((el) =>
-      IO.of(() => {
-        el.type = mimeType;
-      }),
-    ),
-  );
-
-// Provider
-
-export type OipfObjectFactoryEnv = {
-  getOipfObjectFactory: IO.IO<OIPF.DAE.ObjectFactory.OipfObjectFactory>;
-};
-
-export const initializeOipfObjectFactory: RIO.ReaderIO<OipfObjectFactoryEnv, void> = (env) =>
-  pipe(
-    env.getOipfObjectFactory,
-    IO.flatMap((factory) => injectToWindow(factory, "oipfObjectFactory")),
-  );
-
-export const createOipfObjectFactoryEnv = (): OipfObjectFactoryEnv => ({
-  getOipfObjectFactory: IO.of(new OipfObjectFactory()),
-});

@@ -32,6 +32,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/controlVideo";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
+import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
 import {
   type ChannelChangeRequest,
   type ChannelRegistry,
@@ -184,6 +185,8 @@ export class RuntimeService implements Runtime {
   readonly #env: RuntimeEnv;
   readonly #provider: ProviderService;
   readonly #streamEventScheduler: StreamEventSchedulerApi;
+  readonly #objectFactory: ObjectFactoryEnv;
+  #uninstallObjectFactory: IO.IO<void> = IO.of(undefined);
   #playerRuntime: PlayerRuntime | null = null;
 
   constructor(env: RuntimeEnv) {
@@ -199,6 +202,13 @@ export class RuntimeService implements Runtime {
     // Create provider with bindings
     const providerEnv = createProviderEnv(bindings);
     this.#provider = new ProviderService(providerEnv);
+
+    this.#objectFactory = {
+      document,
+      isBindable: (element) => bindings.some((binding) => binding.connector.predicate(element)),
+      bindElement: this.#provider.bindElement,
+      channelRegistry: env.channelRegistry,
+    };
   }
 
   /**
@@ -210,6 +220,10 @@ export class RuntimeService implements Runtime {
       IO.tap(() => initializeUserAgent(this.#env.userAgent)),
       IO.tap(() => this.#streamEventScheduler.start()),
       IO.tap(() => this.#provider.start()),
+      // After the provider: the objects it creates are bound at once.
+      IO.tap(() => () => {
+        this.#uninstallObjectFactory = installObjectFactory(window)(this.#objectFactory)();
+      }),
       IO.tap(() => logger.info("Started")),
     );
 
@@ -219,6 +233,7 @@ export class RuntimeService implements Runtime {
   stop = (): IO.IO<void> =>
     pipe(
       logger.info("Stopping"),
+      IO.tap(() => this.#uninstallObjectFactory),
       IO.tap(() => this.#provider.stop()),
       IO.tap(() => this.#streamEventScheduler.stop()),
       IO.tap(() => logger.info("Stopped")),

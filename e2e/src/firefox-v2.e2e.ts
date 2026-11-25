@@ -17,6 +17,7 @@ type BasicAppState = {
   userAgentAtFirstScript: string;
   configAtFirstScript: boolean;
   channelAtFirstScript: string | null;
+  factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
 };
 
 type Channel = { id: string; sid: number };
@@ -87,6 +88,12 @@ describe("firefox-v2: HbbTV application", () => {
     expect(errors).toEqual([]);
     expect(state.initError).toBeNull();
     expect(state.keysetValue).toBe(0x1f);
+    // oipfObjectFactory too, and what it creates works without being inserted.
+    expect(state.factoryAtFirstScript).toEqual({
+      videoBroadcast: true,
+      drmAgent: false,
+      channel: state.channelAtFirstScript,
+    });
   });
 
   it("has the host's configuration at the first application script", async () => {
