@@ -12,32 +12,106 @@
  * moment, in an order the host does not guarantee (Chromium runs content scripts
  * first): the runtime takes the configuration if it is already there, and is
  * notified otherwise.
+ *
+ * The bootstrap is one script for every tab: the hosts cannot inject per tab. What
+ * is per tab (the channel each TV is on) is told by URL instead: the page whose URL
+ * a TV is showing is on that TV's channel (`Tuning`).
  */
 
+import type { ChannelConfig } from "@hbb-emu/extension-common";
+import { channelSignalling } from "@hbb-emu/oipf-api";
 import type * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import { isPageConfig, type PageConfig } from "./messages";
 
-/** Where the configuration is left in the page (a symbol: invisible to `Object.keys(window)`). */
+/** The TV of a tab showing `url` is on `channelId`. */
+export type Tuning = Readonly<{ url: string; channelId: string }>;
+
+/** What the bootstrap gives the page: the configuration, and what each TV is tuned to. */
+export type BootstrapData = Readonly<{
+  config: PageConfig;
+  tunings: ReadonlyArray<Tuning>;
+}>;
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const isTuning = (value: unknown): value is Tuning =>
+  isRecord(value) && typeof value.url === "string" && typeof value.channelId === "string";
+
+export const isBootstrapData = (value: unknown): value is BootstrapData =>
+  isRecord(value) && isPageConfig(value.config) && Array.isArray(value.tunings) && value.tunings.every(isTuning);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The channel a page starts on
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A URL without its fragment: a page and its anchors are the same document. */
+const documentUrl = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    return parsed.href.slice(0, parsed.href.length - parsed.hash.length);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The channel the TVs showing this page are on; `null` if none is, or if TVs on
+ * different channels show it (the page cannot tell which tab it is in).
+ */
+export const tunedChannelId = (tunings: ReadonlyArray<Tuning>, url: string): string | null => {
+  const page = documentUrl(url);
+  if (page === null) return null;
+  const ids = new Set(tunings.filter((tuning) => documentUrl(tuning.url) === page).map((t) => t.channelId));
+  return ids.size === 1 ? [...ids][0]! : null;
+};
+
+/**
+ * The channel a page starts on, before the host says which one its tab is on:
+ * 1. the channel of the TV showing it (a reload, a navigation the host made);
+ * 2. the channel whose AIT signals its application;
+ * 3. the first of the lineup.
+ * The background opens a tab's TV session with the same rule and the same data, so
+ * the two agree and the session does not retune the page.
+ */
+export const initialChannel = ({ config, tunings }: BootstrapData, url: string): ChannelConfig | null => {
+  const tunedId = tunedChannelId(tunings, url);
+  const tuned = tunedId === null ? undefined : config.channels.find((channel) => channel.id === tunedId);
+  return tuned ?? channelSignalling(config.channels, url) ?? config.channels[0] ?? null;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Injection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Where the data is left in the page (a symbol: invisible to `Object.keys(window)`). */
 export const CONFIG_KEY_NAME = "hbb-emu.config";
 
 const CONFIG_KEY = Symbol.for(CONFIG_KEY_NAME);
 
-/** The code a host injects into the page's own world at `document_start`. */
-export const configBootstrapScript = (config: PageConfig): string =>
-  `globalThis[Symbol.for(${JSON.stringify(CONFIG_KEY_NAME)})] = ${JSON.stringify(config)};`;
+/**
+ * The code a host injects into the page's own world at `document_start`. Only HbbTV
+ * documents get the data (some hosts run it in every page): the same check as
+ * `isHbbTVDocument`, repeated because the code must be self-contained.
+ */
+export const configBootstrapScript = (data: BootstrapData): string =>
+  `(function () {
+  var type = String(document.contentType || "").toLowerCase();
+  if (type !== "application/xhtml+xml" && type.indexOf("hbbtv") === -1) return;
+  globalThis[Symbol.for(${JSON.stringify(CONFIG_KEY_NAME)})] = ${JSON.stringify(data)};
+})();`;
 
 type Scope = Record<symbol, unknown>;
 
 /**
- * Page side. Returns the configuration if the bootstrap script already ran;
- * otherwise `none`, and `onLateConfig` is called when (if) it runs.
+ * Page side. Returns the data if the bootstrap script already ran; otherwise
+ * `none`, and `onLate` is called when (if) it runs.
  */
-export const receiveBootstrapConfig =
-  (scope: object, onLateConfig: (config: PageConfig) => void): IO.IO<O.Option<PageConfig>> =>
+export const receiveBootstrap =
+  (scope: object, onLate: (data: BootstrapData) => void): IO.IO<O.Option<BootstrapData>> =>
   () => {
     const present = (scope as Scope)[CONFIG_KEY];
-    if (isPageConfig(present)) return O.some(present);
+    if (isBootstrapData(present)) return O.some(present);
 
     let value: unknown;
     Object.defineProperty(scope, CONFIG_KEY, {
@@ -46,7 +120,7 @@ export const receiveBootstrapConfig =
       get: () => value,
       set: (next: unknown) => {
         value = next;
-        if (isPageConfig(next)) onLateConfig(next);
+        if (isBootstrapData(next)) onLate(next);
       },
     });
     return O.none;

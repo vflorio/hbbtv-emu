@@ -3,11 +3,10 @@
  */
 
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
-import { channelSignalling } from "@hbb-emu/oipf-api";
 import { createRuntimeEnv, type PlayerRuntimeFactory, type RuntimeHandle, runtime } from "@hbb-emu/oipf-runtime";
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime } from "@hbb-emu/player-runtime";
-import type { PageConfig } from "@hbb-emu/protocol";
+import { type BootstrapData, initialChannel, type PageConfig } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -37,36 +36,30 @@ export const toExtensionState = (config: PageConfig, currentChannel: ChannelConf
   currentChannel,
 });
 
-const DEFAULT_CONFIG: PageConfig = {
-  userAgent: DEFAULT_EXTENSION_STATE.userAgent,
-  channels: DEFAULT_EXTENSION_STATE.channels,
+/** Without bootstrap: the defaults, until the host's configuration arrives. */
+const DEFAULT_BOOTSTRAP: BootstrapData = {
+  config: { userAgent: DEFAULT_EXTENSION_STATE.userAgent, channels: DEFAULT_EXTENSION_STATE.channels },
+  tunings: [],
 };
-
-/**
- * The channel a page starts on, before the host says which one its tab is tuned to:
- * the channel whose AIT signals the page's application, the first of the lineup
- * otherwise. The background opens a tab's session the same way, so for the first
- * page of a tab the two agree and the session does not retune it.
- */
-export const initialChannel = (config: PageConfig, url: string): ChannelConfig | null =>
-  channelSignalling(config.channels, url) ?? config.channels[0] ?? null;
 
 /**
  * Starts with the host configuration when the page already has it (bootstrap),
  * with the defaults otherwise: the host's one is then applied when it arrives.
- * One shared player for video/broadcast, a new one for every A/V Control object.
+ * The channel is the one `initialChannel` says (the host opens the tab's session
+ * with the same rule). One shared player for video/broadcast, a new one for every
+ * A/V Control object.
  */
 export const startRuntime =
   (url: string) =>
-  (bootstrap: O.Option<PageConfig> = O.none): IO.IO<RuntimeHandle> =>
+  (bootstrap: O.Option<BootstrapData> = O.none): IO.IO<RuntimeHandle> =>
   () => {
-    const config = pipe(
+    const data = pipe(
       bootstrap,
-      O.getOrElse(() => DEFAULT_CONFIG),
+      O.getOrElse(() => DEFAULT_BOOTSTRAP),
     );
     return runtime(
       createRuntimeEnv(
-        toExtensionState(config, initialChannel(config, url)),
+        toExtensionState(data.config, initialChannel(data, url)),
         createPlayerRuntime(),
         playerRuntimeFactory,
       ),
@@ -74,16 +67,16 @@ export const startRuntime =
   };
 
 /**
- * The bootstrap configuration, when it runs after the runtime started (Chromium's
- * order): applied as if it had been there at start, channel included. Still before
- * the application's first script.
+ * The bootstrap, when it runs after the runtime started (Chromium's order): applied
+ * as if it had been there at start, channel included. Still before the
+ * application's first script.
  */
-export const applyBootstrapConfig =
+export const applyBootstrap =
   (handle: RuntimeHandle, url: string) =>
-  (config: PageConfig): IO.IO<void> =>
+  (data: BootstrapData): IO.IO<void> =>
     pipe(
-      handle.updateExtensionState(toExtensionState(config)),
-      IO.flatMap(() => handle.tune(initialChannel(config, url))),
+      handle.updateExtensionState(toExtensionState(data.config)),
+      IO.flatMap(() => handle.tune(initialChannel(data, url))),
     );
 
 /** Configuration can be applied any time: the user agent and the channel lineup are live. */

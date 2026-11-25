@@ -26,6 +26,7 @@ import {
   findChannel,
   fromUiState,
   sessionChannel,
+  toBootstrapData,
   toPageConfig,
   toPageSession,
   toUiState,
@@ -123,6 +124,12 @@ const toActiveTab =
       ),
     );
 
+/** Pages loaded from now on get the configuration and the channel of each TV. */
+const republish =
+  (state: ExtensionState): RT.ReaderTask<UiEnv, void> =>
+  ({ pageBootstrap, sessions }) =>
+    pageBootstrap.publish(toBootstrapData(state, sessions.all()));
+
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The HTTP user agent; the pages get theirs with the configuration. */
@@ -146,7 +153,7 @@ const propagate =
           ? T.of(undefined)
           : pipe(
               // Pages loaded from now on start with it; open pages get it as a message.
-              env.pageBootstrap.publish(toPageConfig(after)),
+              republish(after)(env),
               T.flatMap(() => allTabIds(env)),
               T.flatMap((ids) => sendTo(ids, { _tag: "Host/Config", config: toPageConfig(after) })(env)),
             ),
@@ -221,6 +228,8 @@ const playChannel =
               (session) =>
                 pipe(
                   sendTo([tabId.value], { _tag: "Host/Session", session: toPageSession(state.value, session) })(env),
+                  // A reload of the tab finds the new channel at document_start.
+                  T.flatMap(() => republish(state.value)(env)),
                   T.flatMap(() => uiStateOf(state.value)(env)),
                   T.flatMap((ui) => env.ui.notify({ _tag: "UI/StateChanged", state: ui })),
                   T.map(() => done),

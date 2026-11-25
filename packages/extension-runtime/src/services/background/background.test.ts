@@ -1,4 +1,4 @@
-import { configBootstrapScript, type HostMessage } from "@hbb-emu/protocol";
+import { type BootstrapData, configBootstrapScript, type HostMessage } from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import {
@@ -103,11 +103,16 @@ describe("BackgroundService", () => {
 
 describe("BackgroundService — configuration bootstrap", () => {
   const stored = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, userAgent: "Custom TV/1.0" } };
+  const [first] = DEFAULT_STATE.runtime.channels;
+  const hgtv = { ...first!, id: "hgtv", name: "HGTV", sid: 56 };
+  const lineup = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels: [first!, hgtv] } };
+  const script = (state: ExtensionState, tunings: BootstrapData["tunings"] = []) =>
+    configBootstrapScript({ config: toPageConfig(state), tunings });
 
   it("publishes the configuration for pages to find at document_start, before any page loads", async () => {
     const { bootstrap } = await setup(stored);
 
-    expect(bootstrap.published).toEqual([configBootstrapScript(toPageConfig(stored))]);
+    expect(bootstrap.published).toEqual([script(stored)]);
   });
 
   it("publishes it again when the configuration changes", async () => {
@@ -124,19 +129,44 @@ describe("BackgroundService — configuration bootstrap", () => {
     expect(bootstrap.published).toEqual([]);
 
     bootstrap.setAvailable(true);
-    messaging.receive({ _tag: "Page/Ready", url: "http://app" }, 7);
+    messaging.receive({ _tag: "Page/Ready", url: "http://app/" }, 7);
     await flushPromises();
 
-    expect(bootstrap.published).toEqual([configBootstrapScript(toPageConfig(stored))]);
+    expect(bootstrap.published).toEqual([script(stored, [{ url: "http://app/", channelId: first!.id }])]);
   });
 
-  it("once published, a page load does not publish again", async () => {
-    const { messaging, bootstrap } = await setup();
-
-    messaging.receive({ _tag: "Page/Ready", url: "http://app" }, 7);
+  it("tells pages which channel the TV showing them is on: a reload finds it at document_start", async () => {
+    const { messaging, ui, bootstrap } = await setup(lineup);
+    messaging.receive({ _tag: "Page/Ready", url: "http://app/a.xhtml" }, 1);
     await flushPromises();
 
-    expect(bootstrap.published).toHaveLength(1);
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+
+    expect(bootstrap.published).toEqual([
+      script(lineup),
+      script(lineup, [{ url: "http://app/a.xhtml", channelId: first!.id }]),
+      script(lineup, [{ url: "http://app/a.xhtml", channelId: "hgtv" }]),
+    ]);
+  });
+
+  it("publishes only when what pages get changes, and forgets the tuning of a closed tab", async () => {
+    const { messaging, bootstrap, tabs } = await setup(lineup);
+    const ready = async () => {
+      messaging.receive({ _tag: "Page/Ready", url: "http://app/a.xhtml" }, 1);
+      await flushPromises();
+    };
+
+    await ready();
+    await ready(); // a reload: same page, same channel
+    expect(bootstrap.published).toHaveLength(2);
+
+    tabs.close(1);
+    await flushPromises();
+    expect(bootstrap.published).toEqual([
+      script(lineup),
+      script(lineup, [{ url: "http://app/a.xhtml", channelId: first!.id }]),
+      script(lineup),
+    ]);
   });
 });
 
@@ -295,6 +325,16 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "dmax"]);
   });
 
+  it("a tab opened on the page another TV shows starts on that TV's channel, as the page itself does", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+
+    await pageReady(messaging, 2);
+
+    expect(tunedTo(messaging.sent, 2)).toEqual(["hgtv"]);
+  });
+
   it("the UI tunes the TV in the active tab, which the page follows", async () => {
     const { messaging, ui } = await setup(lineup);
     await pageReady(messaging, 1);
@@ -311,7 +351,7 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
 
     await pageReady(messaging, 1); // a navigation or a reload in the same tab
-    await pageReady(messaging, 2);
+    await pageReady(messaging, 2, "http://app/other.xhtml");
 
     expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv", "hgtv"]);
     expect(tunedTo(messaging.sent, 2)).toEqual(["dmax"]);
@@ -330,7 +370,10 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
   });
 
   it("a restarted background (MV3 service worker) finds the sessions of the tabs still open", async () => {
-    const stored: TvSessions = { "1": { mode: "app", channelId: "hgtv" }, "99": { mode: "app", channelId: "hgtv" } };
+    const stored: TvSessions = {
+      "1": { mode: "app", channelId: "hgtv", url: null },
+      "99": { mode: "app", channelId: "hgtv", url: null },
+    };
     const { messaging, sessionStorage } = await setup(lineup, OPEN_TABS, true, stored);
 
     await pageReady(messaging, 1);
@@ -349,7 +392,7 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
   });
 
   it("a session whose channel left the lineup is back on the first channel", async () => {
-    const stored: TvSessions = { "1": { mode: "app", channelId: "gone" } };
+    const stored: TvSessions = { "1": { mode: "app", channelId: "gone", url: null } };
     const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
 
     await pageReady(messaging, 1);

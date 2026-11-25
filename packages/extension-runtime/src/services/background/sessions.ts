@@ -21,6 +21,7 @@ export type Sessions = Readonly<{
   /** Loads the stored sessions, keeping only those of tabs still open. */
   load: (openTabIds: ReadonlyArray<number>) => T.Task<void>;
   get: (tabId: number) => IO.IO<O.Option<TvSession>>;
+  all: IO.IO<TvSessions>;
   /** The tab's session, created with `initial` if the tab has none yet. */
   open: (tabId: number, initial: TvSession) => T.Task<TvSession>;
   /** Changes the tab's session; none if the tab has no session (it is not a TV). */
@@ -28,21 +29,27 @@ export type Sessions = Readonly<{
   close: (tabId: number) => T.Task<void>;
 }>;
 
-const isTvSession = (value: unknown): value is TvSession => {
-  if (typeof value !== "object" || value === null) return false;
-  const session = value as Record<string, unknown>;
-  return session.mode === "app" && (session.channelId === null || typeof session.channelId === "string");
+const isNullableString = (value: unknown): value is string | null => value === null || typeof value === "string";
+
+/** A stored session, as this version understands it; older ones had no `url`. */
+const toTvSession = (value: unknown): O.Option<TvSession> => {
+  if (typeof value !== "object" || value === null) return O.none;
+  const { mode, channelId, url = null } = value as Record<string, unknown>;
+  return mode === "app" && isNullableString(channelId) && isNullableString(url)
+    ? O.some({ mode, channelId, url })
+    : O.none;
 };
 
 /** What the storage returns may come from another version: anything unexpected is dropped. */
 const keepValid = (stored: unknown, openTabIds: ReadonlyArray<number>): TvSessions => {
   if (typeof stored !== "object" || stored === null) return {};
   const open = new Set(openTabIds.map(String));
-  return Object.fromEntries(
-    Object.entries(stored as Record<string, unknown>).filter(
-      (entry): entry is [string, TvSession] => open.has(entry[0]) && isTvSession(entry[1]),
-    ),
-  );
+  const valid: Record<string, TvSession> = {};
+  for (const [tabId, value] of Object.entries(stored as Record<string, unknown>)) {
+    const session = toTvSession(value);
+    if (open.has(tabId) && O.isSome(session)) valid[tabId] = session.value;
+  }
+  return valid;
 };
 
 export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logger): Sessions => {
@@ -80,6 +87,8 @@ export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logg
       ),
 
     get,
+
+    all: sessions.read,
 
     open: (tabId, initial) =>
       pipe(

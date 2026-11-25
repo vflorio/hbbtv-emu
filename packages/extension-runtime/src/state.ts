@@ -1,7 +1,7 @@
 import { DEFAULT_LOGGER_STATE, type LoggerState } from "@hbb-emu/core";
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
-import { channelSignalling, DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
-import type { PageConfig, PageSession, UiState } from "@hbb-emu/protocol";
+import { DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
+import { type BootstrapData, initialChannel, type PageConfig, type PageSession, type UiState } from "@hbb-emu/protocol";
 
 /**
  * Extension State Domain Types
@@ -62,6 +62,8 @@ export type TvSession = Readonly<{
   mode: "app";
   /** The channel the TV is tuned to (an id of the lineup). */
   channelId: string | null;
+  /** The page the TV shows (the last one that started in the tab); `null` before any. */
+  url: string | null;
 }>;
 
 /** Every open TV, by tab id. */
@@ -70,14 +72,24 @@ export type TvSessions = Readonly<Record<string, TvSession>>;
 /** Until device profiles exist, a TV is on the first channel of the lineup when nothing else says. */
 export const defaultChannel = (state: ExtensionState): ChannelConfig | null => state.runtime.channels[0] ?? null;
 
+/** What every page finds at `document_start`: the configuration, and the page each TV shows on which channel. */
+export const toBootstrapData = (state: ExtensionState, sessions: TvSessions): BootstrapData => ({
+  config: toPageConfig(state),
+  tunings: Object.values(sessions).flatMap((session) => {
+    const channel = sessionChannel(state, session);
+    return session.url === null || channel === null ? [] : [{ url: session.url, channelId: channel.id }];
+  }),
+});
+
 /**
- * The TV of a tab opened on an application (`url`): tuned to the channel that
- * signals it in its AIT, the first of the lineup if none does.
- * The page works it out by itself in the same way (`channelSignalling`), so the two agree.
+ * The TV of a tab whose first HbbTV page is `url`: on the channel `initialChannel`
+ * gives, with the data the page itself got at `document_start`, so the two agree
+ * (the TV already showing that page, else the channel signalling it, else the first).
  */
-export const newSession = (state: ExtensionState, url: string): TvSession => ({
+export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => ({
   mode: "app",
-  channelId: (channelSignalling(state.runtime.channels, url) ?? defaultChannel(state))?.id ?? null,
+  channelId: initialChannel(toBootstrapData(state, sessions), url)?.id ?? null,
+  url,
 });
 
 export const findChannel = (state: ExtensionState, channelId: string): ChannelConfig | null =>

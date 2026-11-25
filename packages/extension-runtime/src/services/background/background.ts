@@ -9,10 +9,18 @@ import { type HostMessage, isPageMessage, isUiRequest, type PageMessage } from "
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
+import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { AdapterError, BaseMessage } from "../..";
-import { type ExtensionState, newSession, toPageConfig, toPageSession } from "../../state";
+import {
+  type ExtensionState,
+  newSession,
+  type TvSession,
+  toBootstrapData,
+  toPageConfig,
+  toPageSession,
+} from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
 import { StateManager } from "./managers/state";
@@ -56,11 +64,6 @@ export class BackgroundService {
           TE.orElse(() => TE.right<BackgroundServiceError, void>(undefined)),
         ),
       ),
-      // Also before any page loads: the configuration pages find at document_start.
-      TE.tapIO(() => () => {
-        this.pageBootstrap = createPageBootstrap(this.env.adapter.pageBootstrap, this.logger);
-      }),
-      TE.tap((state) => TE.fromTask(this.pageBootstrap.publish(toPageConfig(state)))),
       // The TV sessions of a stopped service worker, minus the tabs closed meanwhile.
       TE.tapIO(() => () => {
         this.sessions = createSessions(this.env.adapter.sessionStorage, this.logger);
@@ -73,6 +76,11 @@ export class BackgroundService {
           ),
         ),
       ),
+      // Also before any page loads: what pages find at document_start.
+      TE.tapIO(() => () => {
+        this.pageBootstrap = createPageBootstrap(this.env.adapter.pageBootstrap, this.logger);
+      }),
+      TE.tap((state) => TE.fromTask(this.pageBootstrap.publish(toBootstrapData(state, this.sessions.all())))),
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
@@ -117,11 +125,23 @@ export class BackgroundService {
   // EVENT HANDLERS
   // ===========================================================================
 
-  /** The TV in that tab is gone. */
+  /** Pages loaded from now on get the current configuration and tunings. */
+  private readonly republish = (): T.Task<void> =>
+    pipe(
+      T.fromIO(this.stateManager.getState()),
+      T.flatMap(
+        E.match(
+          () => T.of(undefined),
+          (state) => this.pageBootstrap.publish(toBootstrapData(state, this.sessions.all())),
+        ),
+      ),
+    );
+
+  /** The TV in that tab is gone, and so is its tuning. */
   private readonly onTabRemoved =
     (tabId: number): IO.IO<void> =>
     () => {
-      void this.sessions.close(tabId)();
+      void pipe(this.sessions.close(tabId), T.flatMap(this.republish))();
     };
 
   /**
@@ -135,8 +155,8 @@ export class BackgroundService {
 
   /**
    * A page runtime started in a tab: send it the configuration, then the tab's TV
-   * session (opened now if this is the first HbbTV page of the tab).
-   * Object state is never pushed here (ROADMAP D5).
+   * session (opened now if this is the first HbbTV page of the tab), which now shows
+   * this page. Object state is never pushed here (ROADMAP D5).
    */
   private readonly onPageMessage = (message: PageMessage, tabId: number): IO.IO<void> =>
     pipe(
@@ -148,7 +168,7 @@ export class BackgroundService {
           (state) => () => {
             void pipe(
               this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
-              TE.flatMap(() => TE.fromTask(this.sessions.open(tabId, newSession(state, message.url)))),
+              TE.flatMap(() => TE.fromTask(this.showing(tabId, message.url, state))),
               TE.flatMap((session) =>
                 this.env.adapter.messaging.sendToTab(tabId, {
                   _tag: "Host/Session",
@@ -156,11 +176,26 @@ export class BackgroundService {
                 }),
               ),
               TE.orElseFirstIOK((error) => this.logger.warn(`Could not configure the page in tab ${tabId}`, error)),
+              // A reload of this page will find its channel at document_start. And if this
+              // page got its data late, the bootstrap may have become possible since.
+              TE.tap(() => TE.fromTask(this.republish())),
             )();
-            // This page got it late; if the bootstrap has become possible, the next ones won't.
-            void this.pageBootstrap.retry(toPageConfig(state))();
           },
         ),
+      ),
+    );
+
+  /** The tab's TV session, opened if needed, now showing `url`. */
+  private readonly showing = (tabId: number, url: string, state: ExtensionState): T.Task<TvSession> =>
+    pipe(
+      this.sessions.open(tabId, newSession(state, this.sessions.all(), url)),
+      T.flatMap((session) =>
+        session.url === url
+          ? T.of(session)
+          : pipe(
+              this.sessions.update(tabId, (current) => ({ ...current, url })),
+              T.map(O.getOrElse(() => session)),
+            ),
       ),
     );
 }

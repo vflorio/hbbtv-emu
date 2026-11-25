@@ -289,4 +289,28 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       await request({ _tag: "UI/SaveState", state: original });
     }
   });
+
+  it("after a reload, an application's first script sees the channel the UI tuned its tab to", async () => {
+    const { request } = await openUi();
+    type UiState = { channels: Channel[]; currentChannel: Channel | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Channel];
+    const second = { ...first, id: "e2e-second", name: "e2e second", sid: first.sid + 1000 };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, second] } });
+      const { page, errors } = await openPage(`basic-app/index.xhtml?retuned=${Date.now()}`);
+      await page.bringToFront();
+      await expect.poll(async () => (await getState()).currentChannel?.id, { timeout: 5000 }).toBe(first.id);
+      expect(await request({ _tag: "UI/PlayChannel", channel: second })).toEqual({ _tag: "UI/Done" });
+
+      await page.reload();
+
+      expect(errors).toEqual([]);
+      expect((await appState(page)).channelAtFirstScript).toBe(second.id);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
 });
