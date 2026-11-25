@@ -2,9 +2,8 @@ import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallbac
 import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf-api";
 import type * as IO from "fp-ts/IO";
 import type { ChannelChangeRequest, ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
-import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
+import { type ChannelVideoStreamEnv, startChannel, WithChannel } from "./channel";
 import { WithComponent } from "./component";
-import { WithController } from "./controller";
 import { type VideoWindow, WithDisplay } from "./display";
 import { WithMisc } from "./misc";
 import { WithStreamEvent } from "./streamEvent";
@@ -107,17 +106,15 @@ type EventHandlerKeys =
   | "onComponentChanged";
 
 class VideoBroadcastAPI
-  extends compose(
-    BaseVideoBroadcast,
-    WithChannel,
-    WithComponent,
-    WithDisplay,
-    WithVolume,
-    WithStreamEvent,
-    WithMisc,
-    WithController,
-  )
-  implements Omit<OIPF.DAE.Broadcast.VideoBroadcast, EventHandlerKeys> {}
+  extends compose(BaseVideoBroadcast, WithChannel, WithComponent, WithDisplay, WithVolume, WithStreamEvent, WithMisc)
+  implements Omit<OIPF.DAE.Broadcast.VideoBroadcast, EventHandlerKeys>
+{
+  constructor(env: ConstructorParameters<typeof BaseVideoBroadcast>[0]) {
+    super(env);
+    // Once every part exists: the object follows its stream and presents the TV's channel.
+    startChannel(this._channelEnv)();
+  }
+}
 
 export class VideoBroadcast extends VideoBroadcastAPI implements Stateful<VideoBroadcastState> {
   readonly stateful = createStatefulMethods(

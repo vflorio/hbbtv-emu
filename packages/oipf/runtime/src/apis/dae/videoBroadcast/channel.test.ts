@@ -3,7 +3,13 @@ import { OIPF } from "@hbb-emu/oipf-api";
 import * as E from "fp-ts/Either";
 import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it } from "vitest";
-import { type ChannelChangeRequest, toBroadcastChannel, tuneAlone } from "../../../subsystems";
+import {
+  type ChannelChangeRequest,
+  VideoStreamPlayState as Stream,
+  toBroadcastChannel,
+  tuneAlone,
+  type VideoStreamPlayState,
+} from "../../../subsystems";
 import {
   applyChannelState,
   bindToCurrentChannel,
@@ -12,13 +18,16 @@ import {
   channelApi,
   createChannelEnv,
   createChannelObject,
+  followStream,
   getChannelConfig,
   getCurrentChannel,
   getPlayState,
   release,
   setChannel,
   setPlayState,
+  startChannel,
   stop,
+  toPlayState,
   tuneTo,
   zap,
 } from "./channel";
@@ -43,6 +52,7 @@ type Call =
   | { readonly destroy: true }
   | { readonly playState: number }
   | { readonly error: number }
+  | { readonly succeeded: string | undefined }
   | { readonly presents: string | null };
 
 /** A video/broadcast on a TV tuned to `tuned`, whose answer to a change is `requestChannelChange`. */
@@ -60,6 +70,7 @@ const setup = ({
   const calls: Call[] = [];
   const asked: string[] = [];
   const tunedChannel = tuned ? channel(tuned) : null;
+  const streamListeners = new Set<(state: VideoStreamPlayState) => void>();
   const env: ChannelEnv = createChannelEnv(
     {
       getChannels: () => lineup,
@@ -76,6 +87,10 @@ const setup = ({
         destroy: () => {
           calls.push({ destroy: true });
         },
+        onStreamStateChange: (listener) => {
+          streamListeners.add(listener);
+          return () => streamListeners.delete(listener);
+        },
       },
       getTunedChannel: () => tunedChannel,
       requestChannelChange: (config) => {
@@ -85,6 +100,9 @@ const setup = ({
       channelEvents: {
         onPlayStateChange: (state) => () => {
           calls.push({ playState: state });
+        },
+        onChannelChangeSucceeded: (succeeded) => () => {
+          calls.push({ succeeded: succeeded.ccid });
         },
         onChannelChangeError: (_, error) => () => {
           calls.push({ error });
@@ -96,14 +114,19 @@ const setup = ({
     },
     playState,
   )();
-  return { env, calls, asked };
+  /** The stream changes state, as the player reports it. */
+  const stream = (state: VideoStreamPlayState) => {
+    for (const listener of streamListeners) listener(state);
+  };
+  return { env, calls, asked, stream, streamListeners };
 };
 
 /** A video/broadcast presenting `config`, with the calls it took cleared. */
 const presenting = async (config: ChannelConfig, options: Parameters<typeof setup>[0] = {}) => {
   const fixture = setup({ tuned: config, ...options });
-  await tuneTo(channel(config))(fixture.env)();
-  setPlayState(PlayState.PRESENTING)(fixture.env)();
+  startChannel(fixture.env)();
+  await flush();
+  fixture.stream(Stream.playing());
   fixture.calls.length = 0;
   return fixture;
 };
@@ -390,5 +413,77 @@ describe("channelApi", () => {
 
     expect(api.currentChannel).toMatchObject({ ccid: "hgtv" });
     expect(api.playState).toBe(PlayState.CONNECTING);
+  });
+});
+
+describe("the stream (followStream)", () => {
+  it.each([
+    [Stream.idle(), PlayState.UNREALIZED],
+    [Stream.connecting(), PlayState.CONNECTING],
+    [Stream.buffering(), PlayState.CONNECTING],
+    [Stream.playing(), PlayState.PRESENTING],
+    [Stream.paused(), PlayState.PRESENTING],
+    [Stream.stopped(), PlayState.STOPPED],
+    [Stream.finished(), PlayState.STOPPED],
+  ])("%o is play state %d", (stream, playState) => {
+    expect(toPlayState(stream)).toBe(playState);
+  });
+
+  it("a channel change succeeds once its stream presents, and only once", async () => {
+    const { env, calls, stream } = await presenting(dmax);
+
+    await tuneTo(channel(hgtv))(env)();
+    stream(Stream.playing());
+    stream(Stream.buffering());
+    stream(Stream.playing());
+
+    expect(calls.filter((call) => "succeeded" in call)).toEqual([{ succeeded: "hgtv" }]);
+    expect(getPlayState(env)()).toBe(PlayState.PRESENTING);
+  });
+
+  it("a change the application stopped before it presented does not succeed later", async () => {
+    const { env, calls } = await presenting(dmax);
+
+    await tuneTo(channel(hgtv))(env)();
+    stop(env)();
+    followStream(Stream.playing())(env)();
+
+    expect(calls.filter((call) => "succeeded" in call)).toEqual([]);
+  });
+});
+
+describe("startChannel (a new object)", () => {
+  it("presents the channel the TV is tuned to, which succeeds once its stream plays", async () => {
+    const { env, calls, stream } = setup({ tuned: hgtv });
+
+    startChannel(env)();
+    await flush();
+    stream(Stream.playing());
+
+    expect(getCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
+    expect(calls).toEqual([
+      { playState: PlayState.CONNECTING },
+      { presents: "hgtv" },
+      { load: hgtv.mp4Source },
+      { playState: PlayState.PRESENTING },
+      { succeeded: "hgtv" },
+    ]);
+  });
+
+  it("on a TV presenting nothing, follows its stream and presents nothing", () => {
+    const { env, calls, streamListeners } = setup({ tuned: null });
+
+    startChannel(env)();
+
+    expect(streamListeners.size).toBe(1);
+    expect(calls).toEqual([]);
+  });
+
+  it("returns the effect that stops following the stream", () => {
+    const { env, streamListeners } = setup({ tuned: null });
+
+    startChannel(env)()();
+
+    expect(streamListeners.size).toBe(0);
   });
 });
