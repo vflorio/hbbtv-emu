@@ -288,14 +288,15 @@ export interface ChannelList {
   getChannel(ccid: string): Channel | null;
 
   /**
-   * Returns the channel with the specified DVB triplet.
+   * Returns the first channel with the specified DVB or ISDB triplet (OIPF DAE §7.13.10.1).
    *
    * @param onid - Original network ID
-   * @param tsid - Transport stream ID
+   * @param tsid - Transport stream ID; `null` matches any
    * @param sid - Service ID
+   * @param nid - Network ID (optional)
    * @returns The first matching Channel, or `null` if not found
    */
-  getChannelByTriplet(onid: number, tsid: number, sid: number): Channel | null;
+  getChannelByTriplet(onid: number, tsid: number | null, sid: number, nid?: number): Channel | null;
 
   /**
    * Array-like index access.

@@ -47,7 +47,6 @@ const unknown = { idType: DVB_T, onid: 1, tsid: 2, sid: 3 } as OIPF.DAE.Broadcas
 
 type Call =
   | { readonly load: string }
-  | { readonly play: true }
   | { readonly stop: true }
   | { readonly destroy: true }
   | { readonly playState: number }
@@ -78,9 +77,6 @@ const setup = ({
         loadSource: (source) => () => {
           calls.push({ load: source.url });
         },
-        play: TE.fromIO(() => {
-          calls.push({ play: true });
-        }),
         stop: () => {
           calls.push({ stop: true });
         },
@@ -274,13 +270,13 @@ describe("bindToCurrentChannel", () => {
     expect(getPlayState(env)()).toBe(PlayState.CONNECTING);
   });
 
-  it("presenting, resumes the stream", async () => {
+  it("presenting, has no effect and returns its channel", async () => {
     const { env, calls } = await presenting(dmax);
 
     expect(bindToCurrentChannel(env)()).toMatchObject({ ccid: "dmax" });
     await flush();
 
-    expect(calls).toEqual([{ play: true }]);
+    expect(calls).toEqual([]);
   });
 
   it("unrealized, binds to the channel the TV presents, e.g. after the application released it", async () => {
@@ -295,11 +291,11 @@ describe("bindToCurrentChannel", () => {
     expect(getPlayState(env)()).toBe(PlayState.CONNECTING);
   });
 
-  it("unrealized on a TV presenting nothing, binds nothing", () => {
+  it("unrealized on a TV presenting nothing, binds nothing and tells the application it stays unrealized", () => {
     const { env, calls } = setup({ tuned: null });
 
     expect(bindToCurrentChannel(env)()).toBeNull();
-    expect(calls).toEqual([]);
+    expect(calls).toEqual([{ playState: PlayState.UNREALIZED }]);
   });
 });
 

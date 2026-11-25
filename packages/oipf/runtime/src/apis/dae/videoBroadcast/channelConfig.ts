@@ -21,8 +21,11 @@ export const createChannelList = (channels: ReadonlyArray<Channel>): OIPF.DAE.Br
     length: channels.length,
     item: (index) => channels[index],
     getChannel: (ccid) => channels.find((channel) => channel.ccid === ccid) ?? null,
+    // A null tsid matches any; channels carry no network id, so `nid` cannot narrow the match.
     getChannelByTriplet: (onid, tsid, sid) =>
-      channels.find((channel) => isSameService(channel, { onid, tsid, sid })) ?? null,
+      channels.find(
+        (channel) => channel.onid === onid && channel.sid === sid && (tsid === null || channel.tsid === tsid),
+      ) ?? null,
   };
   channels.forEach((channel, index) => {
     list[index] = channel;

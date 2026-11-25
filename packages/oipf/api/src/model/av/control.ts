@@ -6,6 +6,8 @@
  */
 
 import * as t from "io-ts";
+import { ErrorCode, PlayState } from "../../specification/av/control/control";
+import { enumCodec } from "../enumCodec";
 import { AVComponentStateCodec, SelectedComponentsStateCodec } from "./component";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,15 +18,7 @@ import { AVComponentStateCodec, SelectedComponentsStateCodec } from "./component
  * A/V Control play state.
  * Maps to Control.PlayState enum.
  */
-export const AVControlPlayStateCodec = t.union([
-  t.literal(0), // STOPPED
-  t.literal(1), // PLAYING
-  t.literal(2), // PAUSED
-  t.literal(3), // CONNECTING
-  t.literal(4), // BUFFERING
-  t.literal(5), // FINISHED
-  t.literal(6), // ERROR
-]);
+export const AVControlPlayStateCodec = enumCodec<PlayState>("PlayState", PlayState);
 
 export type AVControlPlayState = t.TypeOf<typeof AVControlPlayStateCodec>;
 
@@ -35,14 +29,7 @@ export type AVControlPlayState = t.TypeOf<typeof AVControlPlayStateCodec>;
 /**
  * A/V Control error codes.
  */
-export const AVControlErrorCodeCodec = t.union([
-  t.literal(0), // MEDIA_ERR_UNKNOWN
-  t.literal(1), // MEDIA_ERR_ABORTED
-  t.literal(2), // MEDIA_ERR_NETWORK
-  t.literal(3), // MEDIA_ERR_DECODE
-  t.literal(4), // MEDIA_ERR_SRC_NOT_SUPPORTED
-  t.literal(5), // MEDIA_ERR_ENCRYPTED
-]);
+export const AVControlErrorCodeCodec = enumCodec<ErrorCode>("ErrorCode", ErrorCode);
 
 export type AVControlErrorCode = t.TypeOf<typeof AVControlErrorCodeCodec>;
 

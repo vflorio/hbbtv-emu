@@ -6,6 +6,8 @@
  */
 
 import * as t from "io-ts";
+import { AudioType, ComponentType } from "../../specification/av/component/component";
+import { enumCodec } from "../enumCodec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component Type
@@ -14,11 +16,7 @@ import * as t from "io-ts";
 /**
  * Component type.
  */
-export const ComponentTypeCodec = t.union([
-  t.literal(0), // VIDEO
-  t.literal(1), // AUDIO
-  t.literal(2), // SUBTITLE
-]);
+export const ComponentTypeCodec = enumCodec<ComponentType>("ComponentType", ComponentType);
 
 export type ComponentTypeState = t.TypeOf<typeof ComponentTypeCodec>;
 
@@ -29,12 +27,7 @@ export type ComponentTypeState = t.TypeOf<typeof ComponentTypeCodec>;
 /**
  * Audio component type.
  */
-export const AudioTypeCodec = t.union([
-  t.literal(0), // NORMAL
-  t.literal(1), // AUDIO_DESCRIPTION
-  t.literal(2), // CLEAN_AUDIO
-  t.literal(3), // SPOKEN_SUBTITLES
-]);
+export const AudioTypeCodec = enumCodec<AudioType>("AudioType", AudioType);
 
 export type AudioTypeState = t.TypeOf<typeof AudioTypeCodec>;
 

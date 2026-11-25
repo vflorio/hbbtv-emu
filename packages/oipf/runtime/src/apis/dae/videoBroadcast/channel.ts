@@ -40,7 +40,6 @@ import * as RIO from "fp-ts/ReaderIO";
 import * as RT from "fp-ts/ReaderTask";
 import * as RTE from "fp-ts/ReaderTaskEither";
 import * as RA from "fp-ts/ReadonlyArray";
-import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import {
@@ -78,7 +77,6 @@ export type ChannelState = Readonly<{
 /** The stream the object presents. */
 export type BroadcastPlayer = Readonly<{
   loadSource: (source: VideoStreamSource) => IO.IO<void>;
-  play: TE.TaskEither<Error, void>;
   stop: IO.IO<void>;
   destroy: IO.IO<void>;
   /** Subscribes to the stream's state; returns the unsubscribe function. */
@@ -304,10 +302,19 @@ const presentAgain = (channel: Channel | null): RIO.ReaderIO<ChannelEnv, Channel
   channel === null ? RIO.of(null) : pipe(fork(reportingTo(channel)(playChannel(channel))), RIO.as(channel));
 
 /**
- * `bindToCurrentChannel()`: unrealized, it binds to the channel the TV presents
- * (OIPF DAE §7.13.1.3), e.g. after the application released it for on-demand
- * content; stopped, it presents its channel again; connecting or presenting, it
- * resumes the stream. Returns the channel it is bound to.
+ * No channel to bind to: the application hears the object stays unrealized, even
+ * though the state does not change (OIPF DAE §7.13.1.3).
+ */
+const stayUnrealized: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
+  (env: ChannelEnv) => env.channelEvents.onPlayStateChange(OIPF.DAE.Broadcast.PlayState.UNREALIZED),
+  RIO.as(null),
+);
+
+/**
+ * `bindToCurrentChannel()` (OIPF DAE §7.13.1.3): unrealized, it binds to the channel
+ * the TV presents, e.g. after the application released it for on-demand content;
+ * stopped, it presents its channel again; connecting or presenting, it has no
+ * effect. Returns the channel it is bound to.
  */
 export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
   readChannelState,
@@ -317,16 +324,11 @@ export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pi
       .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () =>
         pipe(
           RIO.asks((env: ChannelEnv) => env.getTunedChannel()),
-          RIO.flatMap(presentAgain),
+          RIO.flatMap((tuned) => (tuned === null ? stayUnrealized : presentAgain(tuned))),
         ),
       )
       .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => presentAgain(currentChannel))
-      .otherwise(() =>
-        pipe(
-          fork(({ player }) => T.asUnit(player.play)),
-          RIO.as(currentChannel),
-        ),
-      ),
+      .otherwise(() => RIO.of(currentChannel)),
   ),
 );
 

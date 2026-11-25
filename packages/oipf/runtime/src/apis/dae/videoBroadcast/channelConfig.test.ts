@@ -38,6 +38,13 @@ describe("createChannelList", () => {
     expect(list.getChannel("missing")).toBeNull();
     expect(list.getChannelByTriplet(1, 2, 3)).toBeNull();
   });
+
+  it("a null tsid matches any transport stream", () => {
+    const list = createChannelList(lineup);
+
+    expect(list.getChannelByTriplet(318, null, 60)).toBe(news);
+    expect(list.getChannelByTriplet(318, 9, 60)).toBeNull();
+  });
 });
 
 describe("createChannelConfig", () => {

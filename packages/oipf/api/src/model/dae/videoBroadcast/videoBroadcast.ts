@@ -5,7 +5,9 @@
  */
 
 import * as t from "io-ts";
+import { PlayState } from "../../../specification/dae/videoBroadcast/videoBroadcast";
 import { AVComponentStateCodec, SelectedComponentsStateCodec } from "../../av/component";
+import { enumCodec } from "../../enumCodec";
 import { ChannelStateCodec } from "./channel";
 import { ProgrammeStateCodec } from "./programme";
 
@@ -17,12 +19,7 @@ import { ProgrammeStateCodec } from "./programme";
  * Broadcast play state.
  * Maps to Broadcast.VideoBroadcast.PlayState enum.
  */
-export const BroadcastPlayStateCodec = t.union([
-  t.literal(0), // UNREALIZED
-  t.literal(1), // CONNECTING
-  t.literal(2), // PRESENTING
-  t.literal(3), // STOPPED
-]);
+export const BroadcastPlayStateCodec = enumCodec<PlayState>("PlayState", PlayState);
 
 export type BroadcastPlayState = t.TypeOf<typeof BroadcastPlayStateCodec>;
 

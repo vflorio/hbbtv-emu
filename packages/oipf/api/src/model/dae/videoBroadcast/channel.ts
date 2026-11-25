@@ -6,6 +6,11 @@
  */
 
 import * as t from "io-ts";
+import {
+  ChannelIdType as SpecChannelIdType,
+  ChannelType as SpecChannelType,
+} from "../../../specification/dae/videoBroadcast/channel";
+import { enumCodec } from "../../enumCodec";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel ID Type
@@ -15,22 +20,7 @@ import * as t from "io-ts";
  * Channel identification type.
  * Maps to Broadcast.Channel.ChannelIdType enum values.
  */
-export const ChannelIdTypeCodec = t.union([
-  t.literal(0), // ID_DVB_C
-  t.literal(1), // ID_DVB_S
-  t.literal(2), // ID_DVB_T
-  t.literal(3), // ID_DVB_C2
-  t.literal(4), // ID_DVB_S2
-  t.literal(5), // ID_DVB_T2
-  t.literal(10), // ID_ATSC_T
-  t.literal(11), // ID_ANALOG
-  t.literal(12), // ID_IPTV_SDS
-  t.literal(13), // ID_DVB_SI_DIRECT
-  t.literal(14), // ID_IPTV_URI
-  t.literal(20), // ID_ISDB_C
-  t.literal(21), // ID_ISDB_S
-  t.literal(22), // ID_ISDB_T
-]);
+export const ChannelIdTypeCodec = enumCodec<SpecChannelIdType>("ChannelIdType", SpecChannelIdType);
 
 export type ChannelIdType = t.TypeOf<typeof ChannelIdTypeCodec>;
 
@@ -41,11 +31,7 @@ export type ChannelIdType = t.TypeOf<typeof ChannelIdTypeCodec>;
 /**
  * Channel type (TV, Radio, Other).
  */
-export const ChannelTypeCodec = t.union([
-  t.literal(0), // TYPE_TV
-  t.literal(1), // TYPE_RADIO
-  t.literal(2), // TYPE_OTHER
-]);
+export const ChannelTypeCodec = enumCodec<SpecChannelType>("ChannelType", SpecChannelType);
 
 export type ChannelType = t.TypeOf<typeof ChannelTypeCodec>;
 
