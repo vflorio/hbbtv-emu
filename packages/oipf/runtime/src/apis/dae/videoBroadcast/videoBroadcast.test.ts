@@ -1,10 +1,11 @@
+import { proxyProperties } from "@hbb-emu/core";
 import * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import { type StreamEventSchedulerApi, tuneAlone } from "../../../subsystems";
 import { FULLSCREEN_ATTRIBUTE } from "../../../subsystems/provider/detection/embedded";
 import type { ChannelVideoStreamEnv } from "./channel";
-import { VideoBroadcast, type VideoBroadcastEventHandlers } from "./index";
+import { createVideoBroadcast, type VideoBroadcastEventHandlers } from "./index";
 import { createObjectVideoWindow } from "./videoWindow";
 
 const createFakeVideoStream = () => {
@@ -53,7 +54,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px") => {
   object.setAttribute("style", objectStyle);
   object.appendChild(stream.videoStream.videoElement);
   document.body.appendChild(object);
-  const videoBroadcast = new VideoBroadcast({
+  const videoBroadcast = createVideoBroadcast({
     channelRegistry: { getChannels: () => [] },
     videoStream: stream.videoStream,
     videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
@@ -154,5 +155,54 @@ describe("VideoBroadcast — display", () => {
 
     expect(object.style.width).toBe("320px");
     expect(object.style.height).toBe("180px");
+  });
+});
+
+describe("VideoBroadcast — one object composed of its parts", () => {
+  it("has every part's members, accessors read live", () => {
+    const { videoBroadcast } = setup();
+
+    expect(videoBroadcast.COMPONENT_TYPE_AUDIO).toBe(1);
+    expect(videoBroadcast.data).toBe("");
+    expect(typeof videoBroadcast.setChannel).toBe("function");
+    expect(typeof videoBroadcast.addStreamEventListener).toBe("function");
+    expect(videoBroadcast.fullScreen).toBe(false);
+
+    videoBroadcast.setFullScreen(true);
+
+    expect(videoBroadcast.fullScreen).toBe(true);
+  });
+
+  it("exposed on its <object>, the accessors stay live and the handlers the application sets reach it", () => {
+    const { videoBroadcast, object } = setup();
+    const element = object as HTMLObjectElement & Record<string, unknown>;
+    proxyProperties(element, videoBroadcast, ["width", "height"])();
+    const onProgrammesChanged = () => {};
+
+    videoBroadcast.setFullScreen(true);
+    element.onProgrammesChanged = onProgrammesChanged;
+
+    expect(element.fullScreen).toBe(true);
+    expect(element.width).toBe(1280);
+    expect(videoBroadcast.onProgrammesChanged).toBe(onProgrammesChanged);
+  });
+
+  it("the settings UI reads the application's stream event subscriptions, and cannot write them", () => {
+    const { videoBroadcast } = setup();
+    videoBroadcast.addStreamEventListener("dvb://1", "now", () => {});
+
+    videoBroadcast.applyState({ streamEventListeners: [] })();
+
+    expect(videoBroadcast.getState()).toMatchObject({
+      streamEventListeners: [{ targetURL: "dvb://1", eventName: "now" }],
+    });
+  });
+
+  it("the settings UI's programmes and components read back as written", () => {
+    const { videoBroadcast } = setup();
+
+    videoBroadcast.applyState({ programmes: [], components: [], selectedComponents: {} })();
+
+    expect(videoBroadcast.getState()).toMatchObject({ programmes: [], components: [], selectedComponents: {} });
   });
 });

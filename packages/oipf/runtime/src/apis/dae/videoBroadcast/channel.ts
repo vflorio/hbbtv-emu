@@ -28,7 +28,7 @@
  *   (`startChannel`).
  */
 
-import { type ClassType, createLogger } from "@hbb-emu/core";
+import { createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf-api";
 import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
@@ -56,7 +56,6 @@ import {
   VideoStreamService,
   type VideoStreamSource,
 } from "../../../subsystems/videoStream";
-import type { VideoBroadcastEnv } from ".";
 import { createChannelConfig, neighbourChannel, type Step } from "./channelConfig";
 
 const logger = createLogger("VideoBroadcast:Channel");
@@ -555,82 +554,3 @@ export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): Chan
     },
   };
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Transitional bridge
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Plugs the Reader module into the VideoBroadcast class while the rest of it is
- * still composed with mixins. `_playState` / `_currentChannel` stay as accessors
- * because the state schema (`deriveSchema` mappings in `./index.ts`) reads and writes
- * them; `tuneTo` is used by the runtime.
- * Remove once VideoBroadcast is ported to Reader composition.
- */
-export interface ChannelAPI extends ChannelApi {
-  _playState: PlayState;
-  _currentChannel: Channel | null;
-  /** The TV changed channel (not the application): the object presents it, nobody is asked. */
-  tuneTo: (channel: Channel) => void;
-}
-
-export const WithChannel = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
-  class extends Base implements ChannelAPI {
-    readonly _channelEnv: ChannelEnv = createChannelEnv(
-      {
-        getChannels: () => this.env.getChannels(),
-        player: this.env,
-        getTunedChannel: () => this.env.getTunedChannel(),
-        requestChannelChange: (channel) => this.env.requestChannelChange(channel),
-        channelEvents: {
-          onPlayStateChange: (playState) => () => this.env.eventHandlers.onPlayStateChange(playState),
-          onChannelChangeSucceeded: (channel) => () => this.env.eventHandlers.onChannelChangeSucceeded(channel),
-          onChannelChangeError: (channel, error) => () => this.env.eventHandlers.onChannelChangeError(channel, error),
-          onCurrentChannelChange: (channel) =>
-            pipe(
-              () => this.env.onCurrentChannelChange(channel),
-              IO.flatMap(() => this.env.streamEventScheduler.setCurrentChannel(channel)),
-            ),
-        },
-      },
-      this.env.defaults.playState,
-    )();
-
-    // Methods only: `channelApi`'s getters would be read once if spread.
-    readonly bindToCurrentChannel = channelApi(this._channelEnv).bindToCurrentChannel;
-    readonly setChannel = channelApi(this._channelEnv).setChannel;
-    readonly stop = channelApi(this._channelEnv).stop;
-    readonly release = channelApi(this._channelEnv).release;
-    readonly prevChannel = channelApi(this._channelEnv).prevChannel;
-    readonly nextChannel = channelApi(this._channelEnv).nextChannel;
-    readonly getChannelConfig = channelApi(this._channelEnv).getChannelConfig;
-    readonly createChannelObject = channelApi(this._channelEnv).createChannelObject;
-
-    readonly tuneTo = (channel: Channel): void => {
-      void tuneTo(channel)(this._channelEnv)();
-    };
-
-    get currentChannel(): Channel | null {
-      return getCurrentChannel(this._channelEnv)();
-    }
-
-    get playState(): PlayState {
-      return getPlayState(this._channelEnv)();
-    }
-
-    get _currentChannel(): Channel | null {
-      return this.currentChannel;
-    }
-
-    set _currentChannel(currentChannel: Channel | null) {
-      applyChannelState({ currentChannel })(this._channelEnv)();
-    }
-
-    get _playState(): PlayState {
-      return this.playState;
-    }
-
-    set _playState(playState: PlayState) {
-      applyChannelState({ playState })(this._channelEnv)();
-    }
-  };

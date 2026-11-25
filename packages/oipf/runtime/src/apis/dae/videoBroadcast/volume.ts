@@ -13,7 +13,6 @@
  * immediately, as it does on a TV.
  */
 
-import type { ClassType } from "@hbb-emu/core";
 import { DEFAULT_MUTED, DEFAULT_VOLUME, type OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -21,7 +20,6 @@ import { type IORef, newIORef } from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type * as R from "fp-ts/Reader";
 import * as RIO from "fp-ts/ReaderIO";
-import type { VideoBroadcastEnv } from ".";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment
@@ -166,45 +164,3 @@ export const volumeApi: R.Reader<VolumeEnv, VolumeApi> = (env) => ({
   setVolume: (volume) => setVolume(volume)(env)(),
   getVolume: () => getVolume(env)(),
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Transitional bridge
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Plugs the Reader module into the VideoBroadcast class while the rest of it is
- * still composed with mixins. `_volume` / `_muted` stay as accessors because the
- * state schema (`deriveSchema` mappings in `./index.ts`) reads and writes them.
- * Remove once VideoBroadcast is ported to Reader composition.
- */
-export interface VolumeAPI extends VolumeApi {
-  _volume: number;
-  _muted: boolean;
-}
-
-export const WithVolume = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
-  class extends Base implements VolumeAPI {
-    readonly _volumeEnv: VolumeEnv = createVolumeEnv({
-      setVolume: (volume) => this.env.setVolume(volume),
-      setMuted: (muted) => this.env.setMuted(muted),
-    })();
-
-    readonly setVolume = volumeApi(this._volumeEnv).setVolume;
-    readonly getVolume = volumeApi(this._volumeEnv).getVolume;
-
-    get _volume(): number {
-      return readVolumeState(this._volumeEnv)().volume;
-    }
-
-    set _volume(volume: number) {
-      applyVolumeState({ volume })(this._volumeEnv)();
-    }
-
-    get _muted(): boolean {
-      return readVolumeState(this._volumeEnv)().muted;
-    }
-
-    set _muted(muted: boolean) {
-      applyVolumeState({ muted })(this._volumeEnv)();
-    }
-  };

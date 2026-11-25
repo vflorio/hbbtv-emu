@@ -17,7 +17,6 @@
  *   (the application or the settings UI).
  */
 
-import type { ClassType } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -25,7 +24,6 @@ import { type IORef, newIORef } from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type * as R from "fp-ts/Reader";
 import * as RIO from "fp-ts/ReaderIO";
-import type { VideoBroadcastEnv } from ".";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment
@@ -197,76 +195,3 @@ export const displayApi: R.Reader<DisplayEnv, DisplayApi> = (env) => ({
     setHeight(value)(env)();
   },
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Transitional bridge
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Plugs the Reader module into the VideoBroadcast class while the rest of it is
- * still composed with mixins. `_fullScreen` / `_width` / `_height` stay as accessors
- * because the state schema (`deriveSchema` mappings in `./index.ts`) reads and writes them.
- * Remove once VideoBroadcast is ported to Reader composition.
- */
-export interface DisplayAPI extends DisplayApi {
-  _fullScreen: boolean;
-  _width: number;
-  _height: number;
-}
-
-export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
-  class extends Base implements DisplayAPI {
-    readonly _displayEnv: DisplayEnv = createDisplayEnv(
-      this.env.videoWindow,
-      {
-        onFullScreenChange: (fullScreen) => () => this.env.eventHandlers.onFullScreenChange(fullScreen),
-      },
-      this.env.defaults.fullScreen,
-    )();
-
-    readonly setFullScreen = (fullScreen: boolean): void => setFullScreen(fullScreen)(this._displayEnv)();
-
-    get fullScreen(): boolean {
-      return isFullScreen(this._displayEnv)();
-    }
-
-    get width(): number {
-      return getSize(this._displayEnv)().width;
-    }
-
-    set width(value: number) {
-      setWidth(value)(this._displayEnv)();
-    }
-
-    get height(): number {
-      return getSize(this._displayEnv)().height;
-    }
-
-    set height(value: number) {
-      setHeight(value)(this._displayEnv)();
-    }
-
-    get _fullScreen(): boolean {
-      return this.fullScreen;
-    }
-
-    set _fullScreen(fullScreen: boolean) {
-      applyDisplayState({ fullScreen })(this._displayEnv)();
-    }
-
-    get _width(): number {
-      return this.width;
-    }
-
-    set _width(width: number) {
-      applyDisplayState({ width })(this._displayEnv)();
-    }
-
-    get _height(): number {
-      return this.height;
-    }
-
-    set _height(height: number) {
-      applyDisplayState({ height })(this._displayEnv)();
-    }
-  };

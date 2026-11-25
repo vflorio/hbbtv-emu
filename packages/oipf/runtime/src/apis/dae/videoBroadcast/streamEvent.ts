@@ -1,76 +1,107 @@
-import { type ClassType, createLogger } from "@hbb-emu/core";
+/**
+ * video/broadcast — stream events
+ *
+ * OIPF DAE (DSM-CC stream events on video/broadcast), as HbbTV uses them:
+ * `addStreamEventListener()` and `removeStreamEventListener()`. The events themselves come from the page's stream
+ * event scheduler, which knows the channel and the schedule.
+ *
+ * Reader-style module (ROADMAP D1): the object's subscriptions live in an injected
+ * `IORef`.
+ * - the same listener can be added more than once; each addition is a subscription;
+ * - removing takes away one subscription with that URL, name and listener.
+ */
+
+import { createLogger } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf-api";
-import type * as IO from "fp-ts/IO";
-import type { VideoBroadcastEnv } from ".";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import { type IORef, newIORef } from "fp-ts/IORef";
+import type * as R from "fp-ts/Reader";
+import * as RIO from "fp-ts/ReaderIO";
+import type { StreamEventSchedulerApi } from "../../../subsystems";
 
 const logger = createLogger("VideoBroadcast:StreamEvent");
 
-export interface StreamEventAPI {
-  _streamEventListeners: unknown[];
-  addStreamEventListener: OIPF.DAE.Broadcast.VideoBroadcast["addStreamEventListener"];
-  removeStreamEventListener: OIPF.DAE.Broadcast.VideoBroadcast["removeStreamEventListener"];
-}
+type Listener = OIPF.DAE.Broadcast.StreamEventListener;
 
-export const WithStreamEvent = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
-  class extends Base implements StreamEventAPI {
-    _streamEventListeners: unknown[] = [];
+// ─────────────────────────────────────────────────────────────────────────────
+// Environment
+// ─────────────────────────────────────────────────────────────────────────────
 
-    #subscriptions = new Map<
-      string,
-      {
-        targetURL: string;
-        eventName: string;
-        listener: OIPF.DAE.Broadcast.StreamEventListener;
-        unsubscribe: IO.IO<void>;
-      }
-    >();
+type Subscription = Readonly<{
+  targetURL: string;
+  eventName: string;
+  listener: Listener;
+  unsubscribe: IO.IO<void>;
+}>;
 
-    #refreshListenerState = (): void => {
-      this._streamEventListeners = [...this.#subscriptions.values()].map((s) => ({
-        targetURL: s.targetURL,
-        eventName: s.eventName,
-      }));
-    };
+/** A subscription as the settings UI sees it. */
+export type StreamEventListenerState = Readonly<{ targetURL: string; eventName: string }>;
 
-    addStreamEventListener = (
-      _targetURL: string,
-      _eventName: string,
-      _listener: OIPF.DAE.Broadcast.StreamEventListener,
-    ): void => {
-      const targetURL = _targetURL;
-      const eventName = _eventName;
-      const listener = _listener;
+export type StreamEventEnv = Readonly<{
+  scheduler: Pick<StreamEventSchedulerApi, "addListener">;
+  subscriptions: IORef<ReadonlyArray<Subscription>>;
+}>;
 
-      logger.debug("addStreamEventListener", targetURL, eventName)();
+export const createStreamEventEnv = (scheduler: StreamEventEnv["scheduler"]): IO.IO<StreamEventEnv> =>
+  pipe(
+    newIORef<ReadonlyArray<Subscription>>([]),
+    IO.map((subscriptions) => ({ scheduler, subscriptions })),
+  );
 
-      // Allow multiple registrations of the same listener; key by identity.
-      const key = `${targetURL}::${eventName}::${String(this.#subscriptions.size)}::${Date.now()}`;
-      const subscription = this.env.streamEventScheduler.addListener(targetURL, eventName, listener)();
-      const unsubscribe = subscription.unsubscribe;
-      this.#subscriptions.set(key, { targetURL, eventName, listener, unsubscribe });
-      this.#refreshListenerState();
-    };
+// ─────────────────────────────────────────────────────────────────────────────
+// Operations
+// ─────────────────────────────────────────────────────────────────────────────
 
-    removeStreamEventListener = (
-      _targetURL: string,
-      _eventName: string,
-      _listener: OIPF.DAE.Broadcast.StreamEventListener,
-    ): void => {
-      const targetURL = _targetURL;
-      const eventName = _eventName;
-      const listener = _listener;
+export const addStreamEventListener =
+  (targetURL: string, eventName: string, listener: Listener): RIO.ReaderIO<StreamEventEnv, void> =>
+  ({ scheduler, subscriptions }) =>
+    pipe(
+      logger.debug("addStreamEventListener", targetURL, eventName),
+      IO.flatMap(() => scheduler.addListener(targetURL, eventName, listener)),
+      IO.flatMap(({ unsubscribe }) =>
+        subscriptions.modify((list) => [...list, { targetURL, eventName, listener, unsubscribe }]),
+      ),
+    );
 
-      logger.debug("removeStreamEventListener", targetURL, eventName)();
+export const removeStreamEventListener =
+  (targetURL: string, eventName: string, listener: Listener): RIO.ReaderIO<StreamEventEnv, void> =>
+  ({ subscriptions }) =>
+    pipe(
+      logger.debug("removeStreamEventListener", targetURL, eventName),
+      IO.flatMap(() => subscriptions.read),
+      IO.flatMap((list) => {
+        const index = list.findIndex(
+          (s) => s.targetURL === targetURL && s.eventName === eventName && s.listener === listener,
+        );
+        const found = list[index];
+        return found === undefined
+          ? IO.of(undefined)
+          : pipe(
+              found.unsubscribe,
+              IO.flatMap(() => subscriptions.write(list.filter((_, i) => i !== index))),
+            );
+      }),
+    );
 
-      for (const [key, sub] of this.#subscriptions) {
-        if (sub.targetURL !== targetURL) continue;
-        if (sub.eventName !== eventName) continue;
-        if (sub.listener !== listener) continue;
-        sub.unsubscribe();
-        this.#subscriptions.delete(key);
-        break;
-      }
+export const readStreamEventListeners: RIO.ReaderIO<StreamEventEnv, ReadonlyArray<StreamEventListenerState>> = pipe(
+  RIO.asks((env: StreamEventEnv) => env.subscriptions),
+  RIO.flatMapIO((subscriptions) => subscriptions.read),
+  RIO.map((list) => list.map(({ targetURL, eventName }) => ({ targetURL, eventName }))),
+);
 
-      this.#refreshListenerState();
-    };
-  };
+// ─────────────────────────────────────────────────────────────────────────────
+// OIPF surface
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type StreamEventApi = Pick<
+  OIPF.DAE.Broadcast.VideoBroadcast,
+  "addStreamEventListener" | "removeStreamEventListener"
+>;
+
+export const streamEventApi: R.Reader<StreamEventEnv, StreamEventApi> = (env) => ({
+  addStreamEventListener: (targetURL, eventName, listener) =>
+    addStreamEventListener(targetURL, eventName, listener)(env)(),
+  removeStreamEventListener: (targetURL, eventName, listener) =>
+    removeStreamEventListener(targetURL, eventName, listener)(env)(),
+});

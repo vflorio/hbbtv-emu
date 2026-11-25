@@ -1,41 +1,70 @@
-import type { ClassType } from "@hbb-emu/core";
+/**
+ * video/broadcast — data, programmes, and the handlers of what the emulator does
+ * not produce yet (programmes, parental rating, DRM).
+ *
+ * Reader-style module (ROADMAP D1): the programmes live in an injected `IORef`.
+ * - `data` has no meaning for a video/broadcast: setting it has no effect, reading
+ *   it gives the empty string (OIPF DAE §7.13.1.2);
+ * - `programmes` is the collection the settings UI or a scenario provides.
+ */
+
 import type { OIPF } from "@hbb-emu/oipf-api";
-import type { VideoBroadcastEnv } from ".";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import { type IORef, newIORef } from "fp-ts/IORef";
+import type * as R from "fp-ts/Reader";
+import type * as RIO from "fp-ts/ReaderIO";
 
-export interface MiscAPI {
-  // State
-  _programmes: OIPF.DAE.Broadcast.Programme[];
-  // Properties
-  data: string;
-  programmes: OIPF.DAE.Broadcast.ProgrammeCollection;
-  // Events
-  onProgrammesChanged: OIPF.DAE.Broadcast.VideoBroadcast["onProgrammesChanged"];
-  onParentalRatingChange: OIPF.DAE.Broadcast.VideoBroadcast["onParentalRatingChange"];
-  onParentalRatingError: OIPF.DAE.Broadcast.VideoBroadcast["onParentalRatingError"];
-  onDRMRightsError: OIPF.DAE.Broadcast.VideoBroadcast["onDRMRightsError"];
-}
+type Programme = OIPF.DAE.Broadcast.Programme;
 
-export const WithMisc = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
-  class extends Base implements MiscAPI {
-    _programmes: OIPF.DAE.Broadcast.Programme[] = [];
+// ─────────────────────────────────────────────────────────────────────────────
+// Environment
+// ─────────────────────────────────────────────────────────────────────────────
 
-    get data(): string {
-      return "";
-    }
+export type MiscEnv = Readonly<{
+  programmes: IORef<ReadonlyArray<Programme>>;
+}>;
 
-    set data(_value: string) {
-      // Setting data property has no effect for video/broadcast
-    }
+export const createMiscEnv: IO.IO<MiscEnv> = pipe(
+  newIORef<ReadonlyArray<Programme>>([]),
+  IO.map((programmes) => ({ programmes })),
+);
 
-    get programmes(): OIPF.DAE.Broadcast.ProgrammeCollection {
-      return {
-        length: this._programmes.length,
-        item: (index: number) => this._programmes[index],
-      };
-    }
+// ─────────────────────────────────────────────────────────────────────────────
+// Operations
+// ─────────────────────────────────────────────────────────────────────────────
 
-    onProgrammesChanged: OIPF.DAE.Broadcast.OnProgrammesChangedHandler | null = null;
-    onParentalRatingChange: OIPF.DAE.Broadcast.OnParentalRatingChangeHandler | null = null;
-    onParentalRatingError: OIPF.DAE.Broadcast.OnParentalRatingErrorHandler | null = null;
-    onDRMRightsError: OIPF.DAE.Broadcast.OnDRMRightsErrorHandler | null = null;
-  };
+export const readProgrammes: RIO.ReaderIO<MiscEnv, ReadonlyArray<Programme>> = ({ programmes }) => programmes.read;
+
+/** External state (settings UI, scenario): the object keeps its own copy. */
+export const applyProgrammes =
+  (list: ReadonlyArray<Programme>): RIO.ReaderIO<MiscEnv, void> =>
+  ({ programmes }) =>
+    programmes.write([...list]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OIPF surface
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MiscApi = Pick<
+  OIPF.DAE.Broadcast.VideoBroadcast,
+  "data" | "onProgrammesChanged" | "onParentalRatingChange" | "onParentalRatingError" | "onDRMRightsError"
+> &
+  Readonly<Pick<OIPF.DAE.Broadcast.VideoBroadcast, "programmes">>;
+
+export const miscApi: R.Reader<MiscEnv, MiscApi> = (env) => ({
+  get data() {
+    return "";
+  },
+  set data(_value: string) {
+    // No effect on a video/broadcast.
+  },
+  get programmes() {
+    const list = readProgrammes(env)();
+    return { length: list.length, item: (index: number) => list[index] };
+  },
+  onProgrammesChanged: null,
+  onParentalRatingChange: null,
+  onParentalRatingError: null,
+  onDRMRightsError: null,
+});

@@ -31,7 +31,7 @@ import { OipfApplicationManager } from "./dae/applicationManager";
 import { createKeyset } from "./dae/applicationManager/keyset";
 import { OipfCapabilities } from "./dae/capabilities";
 import { OipfConfiguration } from "./dae/configuration";
-import { VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
+import { createVideoBroadcast, type VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
 import { createChannelVideoStreamEnv } from "./dae/videoBroadcast/channel";
 import { createObjectVideoWindow } from "./dae/videoBroadcast/videoWindow";
 
@@ -108,7 +108,7 @@ export const createVideoBroadcastBinding = (
   },
   factory: (element) => {
     const videoStream = createChannelVideoStreamEnv(env.getSharedPlayerRuntime() ?? undefined);
-    return new VideoBroadcast({
+    return createVideoBroadcast({
       channelRegistry: env.channelRegistry,
       videoStream,
       videoWindow: createObjectVideoWindow(element, videoStream.videoElement),

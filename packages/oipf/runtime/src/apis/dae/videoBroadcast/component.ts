@@ -1,58 +1,94 @@
-import { type ClassType, createLogger } from "@hbb-emu/core";
+/**
+ * video/broadcast — components (video, audio and subtitle tracks)
+ *
+ * OIPF DAE component extensions to video/broadcast: `COMPONENT_TYPE_*`,
+ * `getComponents()`, `getCurrentActiveComponents()`, `selectComponent()`,
+ * `unselectComponent()`. Not implemented yet: the methods answer "not known"
+ * (`undefined`) or do nothing. The settings UI's component state is kept, so it
+ * reads back as it was written.
+ *
+ * Reader-style module (ROADMAP D1): the state lives in an injected `IORef`.
+ */
+
+import { createLogger } from "@hbb-emu/core";
 import type { OIPF } from "@hbb-emu/oipf-api";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
+import { type IORef, newIORef } from "fp-ts/IORef";
+import type * as R from "fp-ts/Reader";
+import type * as RIO from "fp-ts/ReaderIO";
 
 const logger = createLogger("VideoBroadcast:Component");
 
-export interface ComponentAPI {
-  // State
-  _selectedComponents: Record<string, unknown>;
-  _components: unknown[];
+// ─────────────────────────────────────────────────────────────────────────────
+// Environment
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Constants (COMPONENT_TYPE_*)
-  readonly COMPONENT_TYPE_VIDEO: OIPF.DAE.Broadcast.VideoBroadcast["COMPONENT_TYPE_VIDEO"];
-  readonly COMPONENT_TYPE_AUDIO: OIPF.DAE.Broadcast.VideoBroadcast["COMPONENT_TYPE_AUDIO"];
-  readonly COMPONENT_TYPE_SUBTITLE: OIPF.DAE.Broadcast.VideoBroadcast["COMPONENT_TYPE_SUBTITLE"];
-  // Events
-  onSelectedComponentChanged: OIPF.DAE.Broadcast.VideoBroadcast["onSelectedComponentChanged"];
-  onComponentChanged: OIPF.DAE.Broadcast.VideoBroadcast["onComponentChanged"];
-  // Methods
-  getComponents: OIPF.DAE.Broadcast.VideoBroadcast["getComponents"];
-  getCurrentActiveComponents: OIPF.DAE.Broadcast.VideoBroadcast["getCurrentActiveComponents"];
-  selectComponent: OIPF.DAE.Broadcast.VideoBroadcast["selectComponent"];
-  unselectComponent: OIPF.DAE.Broadcast.VideoBroadcast["unselectComponent"];
-}
+export type ComponentState = Readonly<{
+  components: ReadonlyArray<unknown>;
+  selectedComponents: Readonly<Record<string, unknown>>;
+}>;
 
-export const WithComponent = <T extends ClassType>(Base: T) =>
-  class extends Base implements ComponentAPI {
-    _selectedComponents: Record<string, unknown> = {};
-    _components: unknown[] = [];
+export type ComponentEnv = Readonly<{
+  componentState: IORef<ComponentState>;
+}>;
 
-    readonly COMPONENT_TYPE_VIDEO = 0 as const;
-    readonly COMPONENT_TYPE_AUDIO = 1 as const;
-    readonly COMPONENT_TYPE_SUBTITLE = 2 as const;
+export const createComponentEnv: IO.IO<ComponentEnv> = pipe(
+  newIORef<ComponentState>({ components: [], selectedComponents: {} }),
+  IO.map((componentState) => ({ componentState })),
+);
 
-    onSelectedComponentChanged: OIPF.DAE.Broadcast.OnSelectedComponentChangedHandler | null = null;
-    onComponentChanged: OIPF.DAE.Broadcast.OnComponentChangedHandler | null = null;
+// ─────────────────────────────────────────────────────────────────────────────
+// Operations
+// ─────────────────────────────────────────────────────────────────────────────
 
-    getComponents = (_componentType?: number | null): undefined => {
-      logger.debug("getComponents")();
-      // TODO: Implement component management
-      return undefined;
-    };
+export const readComponentState: RIO.ReaderIO<ComponentEnv, ComponentState> = ({ componentState }) =>
+  componentState.read;
 
-    getCurrentActiveComponents = (_componentType?: number): undefined => {
-      logger.debug("getCurrentActiveComponents")();
-      // TODO: Implement
-      return undefined;
-    };
+/** External state (settings UI, scenario): the object keeps its own copy. */
+export const applyComponentState =
+  (patch: Partial<ComponentState>): RIO.ReaderIO<ComponentEnv, void> =>
+  ({ componentState }) =>
+    componentState.modify((state) => ({
+      components: patch.components ? [...patch.components] : state.components,
+      selectedComponents: patch.selectedComponents ? { ...patch.selectedComponents } : state.selectedComponents,
+    }));
 
-    selectComponent = (_component: unknown): void => {
-      logger.debug("selectComponent")();
-      // TODO: Implement
-    };
+// ─────────────────────────────────────────────────────────────────────────────
+// OIPF surface
+// ─────────────────────────────────────────────────────────────────────────────
 
-    unselectComponent = (_component: unknown): void => {
-      logger.debug("unselectComponent")();
-      // TODO: Implement
-    };
-  };
+export type ComponentApi = Pick<
+  OIPF.DAE.Broadcast.VideoBroadcast,
+  | "COMPONENT_TYPE_VIDEO"
+  | "COMPONENT_TYPE_AUDIO"
+  | "COMPONENT_TYPE_SUBTITLE"
+  | "onSelectedComponentChanged"
+  | "onComponentChanged"
+  | "getComponents"
+  | "getCurrentActiveComponents"
+  | "selectComponent"
+  | "unselectComponent"
+>;
+
+export const componentApi: R.Reader<ComponentEnv, ComponentApi> = () => ({
+  COMPONENT_TYPE_VIDEO: 0,
+  COMPONENT_TYPE_AUDIO: 1,
+  COMPONENT_TYPE_SUBTITLE: 2,
+  onSelectedComponentChanged: null,
+  onComponentChanged: null,
+  getComponents: () => {
+    logger.debug("getComponents")();
+    return undefined;
+  },
+  getCurrentActiveComponents: () => {
+    logger.debug("getCurrentActiveComponents")();
+    return undefined;
+  },
+  selectComponent: () => {
+    logger.debug("selectComponent")();
+  },
+  unselectComponent: () => {
+    logger.debug("unselectComponent")();
+  },
+});

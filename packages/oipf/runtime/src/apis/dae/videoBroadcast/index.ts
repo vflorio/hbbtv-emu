@@ -1,13 +1,48 @@
-import { compose, createStatefulMethods, deriveSchema, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
-import { type OIPF, type VideoBroadcastState, VideoBroadcastStateCodec } from "@hbb-emu/oipf-api";
-import type * as IO from "fp-ts/IO";
+/**
+ * video/broadcast (OIPF DAE §7.13.1)
+ *
+ * The object is composed from its parts (ROADMAP D1): each one is a Reader module
+ * with its own environment (`channel`, `display`, `volume`, `component`,
+ * `streamEvent`, `misc`), and the object exposes the union of their OIPF surfaces.
+ * No inheritance: the parts depend only on what their environment provides.
+ *
+ * The settings UI's state (`VideoBroadcastState`) is read and written through the
+ * same modules, so its edits follow the same rules as the application's.
+ */
+
+import { createStatefulMethods, type PropertyDescriptor, type Stateful } from "@hbb-emu/core";
+import type { OIPF, VideoBroadcastState } from "@hbb-emu/oipf-api";
+import { pipe } from "fp-ts/function";
+import * as IO from "fp-ts/IO";
 import type { ChannelChangeRequest, ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
-import { type ChannelVideoStreamEnv, startChannel, WithChannel } from "./channel";
-import { WithComponent } from "./component";
-import { type VideoWindow, WithDisplay } from "./display";
-import { WithMisc } from "./misc";
-import { WithStreamEvent } from "./streamEvent";
-import { WithVolume } from "./volume";
+import {
+  applyChannelState,
+  type ChannelApi,
+  type ChannelVideoStreamEnv,
+  channelApi,
+  createChannelEnv,
+  readChannelState,
+  startChannel,
+  tuneTo,
+} from "./channel";
+import {
+  applyComponentState,
+  type ComponentApi,
+  componentApi,
+  createComponentEnv,
+  readComponentState,
+} from "./component";
+import {
+  applyDisplayState,
+  createDisplayEnv,
+  type DisplayApi,
+  displayApi,
+  readDisplayState,
+  type VideoWindow,
+} from "./display";
+import { applyProgrammes, createMiscEnv, type MiscApi, miscApi, readProgrammes } from "./misc";
+import { createStreamEventEnv, readStreamEventListeners, type StreamEventApi, streamEventApi } from "./streamEvent";
+import { applyVolumeState, createVolumeEnv, readVolumeState, type VolumeApi, volumeApi } from "./volume";
 
 /**
  * Callback to notify the global current channel provider of channel changes.
@@ -35,115 +70,177 @@ export type VideoBroadcastEventHandlers = Readonly<{
   onComponentChanged: (componentType: number, added: boolean) => void;
 }>;
 
-export type VideoBroadcastEnv = Readonly<{
-  env: ChannelRegistryEnv &
-    ChannelVideoStreamEnv & {
-      videoWindow: VideoWindow;
-      /** The channel the TV is tuned to: what a new object presents. */
-      getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
-      /** Asks the TV before the application changes to another service. */
-      requestChannelChange: ChannelChangeRequest;
-      onCurrentChannelChange: SetCurrentChannelCallback;
-      streamEventScheduler: StreamEventSchedulerApi;
-      defaults: VideoBroadcastDefaults;
-      eventHandlers: VideoBroadcastEventHandlers;
-    };
+export type VideoBroadcastDependencies = Readonly<{
+  channelRegistry: ChannelRegistryEnv;
+  videoStream: ChannelVideoStreamEnv;
+  videoWindow: VideoWindow;
+  /** The channel the TV is tuned to: what a new object presents. */
+  getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
+  /** Asks the TV before the application changes to another service. */
+  requestChannelChange: ChannelChangeRequest;
+  onCurrentChannelChange: SetCurrentChannelCallback;
+  streamEventScheduler: StreamEventSchedulerApi;
+  defaults: VideoBroadcastDefaults;
+  eventHandlers: VideoBroadcastEventHandlers;
 }>;
 
-class BaseVideoBroadcast implements VideoBroadcastEnv {
-  readonly env: ChannelRegistryEnv &
-    ChannelVideoStreamEnv & {
-      videoWindow: VideoWindow;
-      getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
-      requestChannelChange: ChannelChangeRequest;
-      onCurrentChannelChange: SetCurrentChannelCallback;
-      streamEventScheduler: StreamEventSchedulerApi;
-      defaults: VideoBroadcastDefaults;
-      eventHandlers: VideoBroadcastEventHandlers;
-    };
-
-  constructor(env: {
-    channelRegistry: ChannelRegistryEnv;
-    videoStream: ChannelVideoStreamEnv;
-    videoWindow: VideoWindow;
-    getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
-    requestChannelChange: ChannelChangeRequest;
-    onCurrentChannelChange: SetCurrentChannelCallback;
-    streamEventScheduler: StreamEventSchedulerApi;
-    defaults: VideoBroadcastDefaults;
-    eventHandlers: VideoBroadcastEventHandlers;
-  }) {
-    this.env = {
-      ...env.channelRegistry,
-      ...env.videoStream,
-      videoWindow: env.videoWindow,
-      getTunedChannel: env.getTunedChannel,
-      requestChannelChange: env.requestChannelChange,
-      onCurrentChannelChange: env.onCurrentChannelChange,
-      streamEventScheduler: env.streamEventScheduler,
-      defaults: env.defaults,
-      eventHandlers: env.eventHandlers,
-    };
-  }
-
-  get videoElement(): HTMLVideoElement {
-    return this.env.videoElement;
-  }
-}
-
+/** Handlers the application sets on the element itself (see `extractVideoBroadcastEventHandlers`). */
 type EventHandlerKeys =
   | "onPlayStateChange"
   | "onFullScreenChange"
   | "onfocus"
   | "onblur"
   | "onChannelChangeSucceeded"
-  | "onChannelChangeError"
-  | "onProgrammesChanged"
-  | "onParentalRatingChange"
-  | "onParentalRatingError"
-  | "onDRMRightsError"
-  | "onSelectedComponentChanged"
-  | "onComponentChanged";
+  | "onChannelChangeError";
 
-class VideoBroadcastAPI
-  extends compose(BaseVideoBroadcast, WithChannel, WithComponent, WithDisplay, WithVolume, WithStreamEvent, WithMisc)
-  implements Omit<OIPF.DAE.Broadcast.VideoBroadcast, EventHandlerKeys>
-{
-  constructor(env: ConstructorParameters<typeof BaseVideoBroadcast>[0]) {
-    super(env);
-    // Once every part exists: the object follows its stream and presents the TV's channel.
-    startChannel(this._channelEnv)();
-  }
-}
+export type VideoBroadcastApi = ChannelApi & DisplayApi & VolumeApi & ComponentApi & StreamEventApi & MiscApi;
 
-export class VideoBroadcast extends VideoBroadcastAPI implements Stateful<VideoBroadcastState> {
-  readonly stateful = createStatefulMethods(
-    deriveSchema<VideoBroadcastState, VideoBroadcastAPI>(VideoBroadcastStateCodec, {
-      mappings: {
-        playState: "_playState",
-        fullScreen: "_fullScreen",
-        width: "_width",
-        height: "_height",
-        currentChannel: "_currentChannel",
-        programmes: "_programmes",
-        volume: "_volume",
-        muted: "_muted",
-        components: "_components",
-        selectedComponents: "_selectedComponents",
-        streamEventListeners: "_streamEventListeners",
+export type VideoBroadcast = VideoBroadcastApi &
+  Stateful<VideoBroadcastState> &
+  Readonly<{
+    /** The video the object presents, mounted inside the `<object>`. */
+    videoElement: HTMLVideoElement;
+    /** The TV changed channel (not the application): the object presents it, nobody is asked. */
+    tuneTo: (channel: OIPF.DAE.Broadcast.Channel) => void;
+  }>;
+
+type Intersection<T extends ReadonlyArray<object>> = T extends readonly [
+  infer Head,
+  ...infer Rest extends ReadonlyArray<object>,
+]
+  ? Head & Intersection<Rest>
+  : unknown;
+
+/** One object with the members of all `parts`, accessors included (a spread would read getters once). */
+const combine = <T extends ReadonlyArray<object>>(...parts: T): Intersection<T> =>
+  Object.defineProperties(
+    {},
+    Object.assign({}, ...parts.map((part) => Object.getOwnPropertyDescriptors(part))),
+  ) as Intersection<T>;
+
+type Field = Readonly<{ read: IO.IO<unknown>; apply: (value: never) => IO.IO<void> }>;
+
+/** How each key of the settings UI's state is read from, and applied to, the object's parts. */
+const stateSchema = <T extends object>(
+  fields: Readonly<Record<keyof VideoBroadcastState, Field>>,
+): ReadonlyArray<PropertyDescriptor<VideoBroadcastState, T>> =>
+  (Object.keys(fields) as Array<keyof VideoBroadcastState>).map((stateKey) => ({
+    stateKey,
+    // Not an instance property: the parts' environments hold the state.
+    instanceKey: stateKey as unknown as keyof T,
+    apply: (_instance, value) => fields[stateKey].apply(value as never)(),
+    read: () => fields[stateKey].read(),
+  }));
+
+export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): VideoBroadcast => {
+  const { videoStream, eventHandlers, defaults } = dependencies;
+
+  const channel = createChannelEnv(
+    {
+      getChannels: dependencies.channelRegistry.getChannels,
+      player: videoStream,
+      getTunedChannel: dependencies.getTunedChannel,
+      requestChannelChange: dependencies.requestChannelChange,
+      channelEvents: {
+        onPlayStateChange: (playState) => () => eventHandlers.onPlayStateChange(playState),
+        onChannelChangeSucceeded: (current) => () => eventHandlers.onChannelChangeSucceeded(current),
+        onChannelChangeError: (target, error) => () => eventHandlers.onChannelChangeError(target, error),
+        onCurrentChannelChange: (current) =>
+          pipe(
+            () => dependencies.onCurrentChannelChange(current),
+            IO.flatMap(() => dependencies.streamEventScheduler.setCurrentChannel(current)),
+          ),
+      },
+    },
+    defaults.playState,
+  )();
+  const display = createDisplayEnv(
+    dependencies.videoWindow,
+    { onFullScreenChange: (fullScreen) => () => eventHandlers.onFullScreenChange(fullScreen) },
+    defaults.fullScreen,
+  )();
+  const volume = createVolumeEnv({ setVolume: videoStream.setVolume, setMuted: videoStream.setMuted })();
+  const component = createComponentEnv();
+  const misc = createMiscEnv();
+  const streamEvent = createStreamEventEnv(dependencies.streamEventScheduler)();
+
+  const api = combine(
+    channelApi(channel),
+    displayApi(display),
+    volumeApi(volume),
+    componentApi(component),
+    streamEventApi(streamEvent),
+    miscApi(misc),
+  );
+  // Every member of the spec's video/broadcast, but the handlers set on the element.
+  type ObjectApi = Omit<OIPF.DAE.Broadcast.VideoBroadcast, EventHandlerKeys> & VideoBroadcastApi;
+  const object: ObjectApi = api;
+
+  type Channel = OIPF.DAE.Broadcast.Channel;
+  type Programmes = ReadonlyArray<OIPF.DAE.Broadcast.Programme>;
+  const stateful = createStatefulMethods<VideoBroadcastState, ObjectApi>(
+    stateSchema<ObjectApi>({
+      playState: {
+        read: () => readChannelState(channel)().playState,
+        apply: (playState: OIPF.DAE.Broadcast.PlayState) => applyChannelState({ playState })(channel),
+      },
+      currentChannel: {
+        read: () => readChannelState(channel)().currentChannel,
+        apply: (currentChannel: Channel) => applyChannelState({ currentChannel })(channel),
+      },
+      fullScreen: {
+        read: () => readDisplayState(display)().fullScreen,
+        apply: (fullScreen: boolean) => applyDisplayState({ fullScreen })(display),
+      },
+      width: {
+        read: () => readDisplayState(display)().width,
+        apply: (width: number) => applyDisplayState({ width })(display),
+      },
+      height: {
+        read: () => readDisplayState(display)().height,
+        apply: (height: number) => applyDisplayState({ height })(display),
+      },
+      volume: {
+        read: () => readVolumeState(volume)().volume,
+        apply: (level: number) => applyVolumeState({ volume: level })(volume),
+      },
+      muted: {
+        read: () => readVolumeState(volume)().muted,
+        apply: (muted: boolean) => applyVolumeState({ muted })(volume),
+      },
+      programmes: {
+        read: () => [...readProgrammes(misc)()],
+        apply: (programmes: Programmes) => applyProgrammes(programmes)(misc),
+      },
+      components: {
+        read: () => [...readComponentState(component)().components],
+        apply: (components: ReadonlyArray<unknown>) => applyComponentState({ components })(component),
+      },
+      selectedComponents: {
+        read: () => ({ ...readComponentState(component)().selectedComponents }),
+        apply: (selectedComponents: Record<string, unknown>) => applyComponentState({ selectedComponents })(component),
+      },
+      // The application's subscriptions: the settings UI only reads them.
+      streamEventListeners: {
+        read: () => [...readStreamEventListeners(streamEvent)()],
+        apply: () => IO.of(undefined),
       },
     }),
-    this,
+    object,
   );
 
-  /** `currentChannel` reaches the rest of the page as on `setChannel()` (see `applyChannelState`). */
-  applyState = (state: Partial<VideoBroadcastState>): IO.IO<void> => this.stateful.applyState(state);
+  const videoBroadcast: VideoBroadcast = combine(object, {
+    videoElement: videoStream.videoElement,
+    tuneTo: (to: Channel) => {
+      void tuneTo(to)(channel)();
+    },
+    applyState: stateful.applyState,
+    getState: stateful.getState,
+    subscribe: stateful.subscribe,
+    notifyStateChange: stateful.notifyStateChange,
+  });
 
-  getState: IO.IO<Partial<VideoBroadcastState>> = this.stateful.getState;
-
-  subscribe = (callback: OnStateChangeCallback<VideoBroadcastState>): IO.IO<() => void> =>
-    this.stateful.subscribe(callback);
-
-  notifyStateChange = (changedKeys: ReadonlyArray<keyof VideoBroadcastState>): IO.IO<void> =>
-    this.stateful.notifyStateChange(changedKeys);
-}
+  // Once every part exists: the object follows its stream and presents the TV's channel.
+  startChannel(channel)();
+  return videoBroadcast;
+};
