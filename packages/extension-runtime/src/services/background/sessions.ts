@@ -8,6 +8,7 @@
  */
 
 import type { Logger } from "@hbb-emu/core";
+import type { AitApplicationId } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import { IORef } from "fp-ts/IORef";
@@ -31,12 +32,21 @@ export type Sessions = Readonly<{
 
 const isNullableString = (value: unknown): value is string | null => value === null || typeof value === "string";
 
-/** A stored session, as this version understands it; older ones had no `url`. */
+const isApplicationId = (value: unknown): value is AitApplicationId => {
+  if (typeof value !== "object" || value === null) return false;
+  const { orgId, appId } = value as Record<string, unknown>;
+  return typeof orgId === "number" && typeof appId === "number";
+};
+
+/** A stored session, as this version understands it; older ones had no `url` nor `app`. */
 const toTvSession = (value: unknown): O.Option<TvSession> => {
   if (typeof value !== "object" || value === null) return O.none;
-  const { mode, channelId, url = null } = value as Record<string, unknown>;
-  return mode === "app" && isNullableString(channelId) && isNullableString(url)
-    ? O.some({ mode, channelId, url })
+  const { mode, channelId, url = null, app = null } = value as Record<string, unknown>;
+  return (mode === "app" || mode === "tv") &&
+    isNullableString(channelId) &&
+    isNullableString(url) &&
+    (app === null || isApplicationId(app))
+    ? O.some({ mode, channelId, url, app })
     : O.none;
 };
 

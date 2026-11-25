@@ -7,6 +7,7 @@
  *   (the active tab), so nothing the applications did is overwritten (ROADMAP D5).
  *
  * The current channel the UI shows and plays is the one of the active tab's TV session.
+ * The UI also turns on new TVs (TV mode, ROADMAP D5).
  */
 
 import { diffPatch, type Logger } from "@hbb-emu/core";
@@ -22,14 +23,17 @@ import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { MessagingAdapter, TabsAdapter, UiAdapter, UserAgentAdapter } from "../../adapter";
 import {
+  changeChannel,
   type ExtensionState,
   findChannel,
   fromUiState,
   sessionChannel,
+  type TvPageUrl,
   toBootstrapData,
   toPageConfig,
   toPageSession,
   toUiState,
+  turnedOnSession,
 } from "../../state";
 import type { PageBootstrap } from "./bootstrap";
 import type { StateManager } from "./managers/state";
@@ -43,6 +47,8 @@ export type UiEnv = Readonly<{
   userAgent: UserAgentAdapter;
   pageBootstrap: PageBootstrap;
   sessions: Sessions;
+  /** Where a TV shows a channel without application. */
+  tvPage: TvPageUrl;
   logger: Logger;
 }>;
 
@@ -207,7 +213,19 @@ const saveState =
       ),
     );
 
-/** Tunes the TV in the active tab: its session changes, then the page follows. */
+const notifyUis =
+  (state: ExtensionState): RT.ReaderTask<UiEnv, void> =>
+  (env) =>
+    pipe(
+      uiStateOf(state)(env),
+      T.flatMap((ui) => env.ui.notify({ _tag: "UI/StateChanged", state: ui })),
+    );
+
+/**
+ * Changes the channel of the TV in the active tab (`changeChannel`): either the page
+ * retunes, or the tab loads what the new channel shows. Either way the bootstrap
+ * says the new channel first, so the next page starts on it.
+ */
 const playChannel =
   (request: Extract<UiRequest, { _tag: "UI/PlayChannel" }>): RT.ReaderTask<UiEnv, UiResponse> =>
   (env) =>
@@ -220,24 +238,63 @@ const playChannel =
         if (O.isNone(tabId)) return T.of(failed("No active tab"));
         const channel = findChannel(state.value, request.channel.id);
         if (channel === null) return T.of(failed(`Unknown channel: ${request.channel.id}`));
+        const current = env.sessions.get(tabId.value)();
+        if (O.isNone(current)) return T.of(notAnEmulatedTab(tabId.value));
+        const change = changeChannel(current.value, channel, env.tvPage);
         return pipe(
-          env.sessions.update(tabId.value, (session) => ({ ...session, channelId: channel.id })),
-          T.flatMap(
-            O.match(
-              () => T.of(notAnEmulatedTab(tabId.value)),
-              (session) =>
-                pipe(
-                  sendTo([tabId.value], { _tag: "Host/Session", session: toPageSession(state.value, session) })(env),
-                  // A reload of the tab finds the new channel at document_start.
-                  T.flatMap(() => republish(state.value)(env)),
-                  T.flatMap(() => uiStateOf(state.value)(env)),
-                  T.flatMap((ui) => env.ui.notify({ _tag: "UI/StateChanged", state: ui })),
-                  T.map(() => done),
-                ),
-            ),
+          TE.fromTask(env.sessions.update(tabId.value, () => change.session)),
+          TE.tap(() => TE.fromTask(republish(state.value)(env))),
+          TE.tap(() =>
+            change.navigateTo === null
+              ? TE.fromTask(
+                  sendTo([tabId.value], { _tag: "Host/Session", session: toPageSession(state.value, change.session) })(
+                    env,
+                  ),
+                )
+              : env.tabs.navigate(tabId.value, change.navigateTo),
+          ),
+          TE.tap(() => TE.fromTask(notifyUis(state.value)(env))),
+          TE.match(
+            (error) => failed(`Could not change channel (${error._tag})`),
+            () => done,
           ),
         );
       }),
+    );
+
+/**
+ * Turns on a new TV on a channel: a new tab whose session (TV mode) is open, and
+ * published in the bootstrap, before the tab loads the channel's page. So the
+ * application's first script already sees the channel, even when other channels
+ * signal the same application.
+ */
+const turnOnTv =
+  (request: Extract<UiRequest, { _tag: "UI/TurnOnTv" }>): RT.ReaderTask<UiEnv, UiResponse> =>
+  (env) =>
+    pipe(
+      readState(env),
+      T.flatMap(
+        O.match(
+          () => T.of(failed("State not initialized")),
+          (state) => {
+            const channel = findChannel(state, request.channelId);
+            if (channel === null) return T.of(failed(`Unknown channel: ${request.channelId}`));
+            const session = turnedOnSession(channel, env.tvPage);
+            return pipe(
+              env.tabs.create("about:blank"),
+              TE.tap((tabId) => TE.fromTask(env.sessions.open(tabId, session))),
+              TE.tap(() => TE.fromTask(republish(state)(env))),
+              TE.tap((tabId) => env.tabs.navigate(tabId, session.url)),
+              TE.tapIO((tabId) => env.logger.info(`TV turned on in tab ${tabId}`, session)),
+              TE.tap(() => TE.fromTask(notifyUis(state)(env))),
+              TE.match(
+                (error) => failed(`Could not turn on the TV (${error._tag})`),
+                () => done,
+              ),
+            );
+          },
+        ),
+      ),
     );
 
 export const handleUiRequest =
@@ -264,5 +321,7 @@ export const handleUiRequest =
         return toActiveTab({ _tag: "Host/DispatchKey", keyCode: request.keyCode })(env);
       case "UI/PlayChannel":
         return playChannel(request)(env);
+      case "UI/TurnOnTv":
+        return turnOnTv(request)(env);
     }
   };

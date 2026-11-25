@@ -25,8 +25,10 @@ export interface SideEffects {
   save: (state: ExtensionState) => TE.TaskEither<unknown, void>;
   /** Subscribe to external state updates (returns unsubscribe function) */
   subscribe: (callback: (state: ExtensionState) => void) => () => void;
-  /** Play a channel (side effect) */
+  /** Tune the TV in the active tab to a channel */
   playChannel: (channel: ChannelConfig) => TE.TaskEither<unknown, void>;
+  /** Turn on a new TV (a new tab) on a channel */
+  turnOnTv: (channelId: string) => TE.TaskEither<unknown, void>;
   /** Dispatch a remote control key event */
   dispatchKey: (keyCode: number) => TE.TaskEither<unknown, void>;
 }

@@ -313,4 +313,52 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       await request({ _tag: "UI/SaveState", state: original });
     }
   });
+
+  it("a TV turned on from the UI loads its channel's application, and changes channel as a TV does", async () => {
+    const { ui, request } = await openUi();
+    type UiState = { channels: Channel[]; currentChannel: Channel | null };
+    const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const [first] = original.channels as [Channel];
+    const appUrl = server.url(`basic-app/index.xhtml?linear=${Date.now()}`);
+    // DMAX and HGTV signal the same application at the same URL: only the TV knows its channel.
+    const linear = { applications: [{ orgId: 10, appId: 1, controlCode: "AUTOSTART", url: appUrl }] };
+    const dmax = { ...first, id: "e2e-dmax", name: "e2e DMAX", sid: first.sid + 3000, ait: linear };
+    const hgtv = { ...first, id: "e2e-hgtv", name: "e2e HGTV", sid: first.sid + 3001, ait: linear };
+    const done = { _tag: "UI/Done" };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, dmax, hgtv] } });
+      const opened = firefox.browser.waitForTarget((target) => target.url() === appUrl);
+      expect(await request({ _tag: "UI/TurnOnTv", channelId: hgtv.id })).toEqual(done);
+      const tv = (await (await opened).page())!;
+      await tv.waitForFunction(() => "__e2e" in window && document.readyState === "complete");
+      expect((await appState(tv)).channelAtFirstScript).toBe(hgtv.id);
+
+      // DMAX signals the running application: it keeps running, on the new channel.
+      await tv.evaluate(() => Object.assign(window, { __stayed: true }));
+      expect(await request({ _tag: "UI/PlayChannel", channel: dmax })).toEqual(done);
+      await expect
+        .poll(() => tv.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({
+          application: dmax.id,
+          videoBroadcast: dmax.id,
+        });
+      expect(await tv.evaluate(() => "__stayed" in window)).toBe(true);
+
+      // The first channel signals no application: the TV shows the channel alone.
+      expect(await request({ _tag: "UI/PlayChannel", channel: first })).toEqual(done);
+      // Puppeteer does not follow a tab onto a privileged page: the extension tells where it is.
+      const tabUrls = () =>
+        ui.evaluate(async () => {
+          const tabs = (
+            globalThis as unknown as { browser: { tabs: { query: (q: object) => Promise<{ url?: string }[]> } } }
+          ).browser.tabs;
+          return (await tabs.query({})).map((tab) => tab.url);
+        });
+      await expect.poll(tabUrls, { timeout: 5000 }).toContain(firefox.extensionUrl(`tv.html?channel=${first.id}`));
+      await tv.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
 });

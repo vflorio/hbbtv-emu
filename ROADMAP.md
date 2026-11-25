@@ -139,7 +139,11 @@ Il progetto cresce in tre fasi:
   - [x] **Canale per tab nel bootstrap**: il bootstrap è uno solo per tutti i tab (nessun host sa iniettare per tab), quindi porta anche le *tuning* `{ url, channelId }`, cioè la pagina che mostra ogni TV e il suo canale. Regola comune a pagina e background (`initialChannel` in `@hbb-emu/protocol`): TV che mostra quella pagina → canale che la segnala nell'AIT → primo della lineup. Ripubblicato (in serie, solo se cambia) quando una pagina parte, quando la UI cambia canale e quando un tab si chiude. Verificato in e2e su Chromium e Firefox: dopo il reload il primo script vede il canale scelto dalla UI. È anche il meccanismo con cui la modalità *TV* darà il canale prima di navigare (sessione aggiornata con l'URL di destinazione, poi navigazione).
     - Limite: una pagina mostrata da due TV su canali diversi non ha indicazione (vale l'AIT, poi `Host/Session` corregge). Un tab nuovo aperto sulla pagina di un'altra TV ne prende il canale (pagina e sessione concordano).
     - Il bootstrap ora espone i dati solo nei documenti HbbTV (su MV3 lo user script gira in tutte le pagine).
-  - [ ] Modalità *TV* (avvio da "Accendi la TV", lineup completa, cambio canale come navigazione).
+  - [x] **Modalità *TV***: "Turn on the TV" dalla settings UI (per canale) apre un tab nuovo con una sessione in modalità `tv`. La sessione, con l'URL di destinazione, e il bootstrap sono pronti *prima* della navigazione (il tab nasce su `about:blank`), quindi il primo script dell'app vede il canale giusto anche quando più canali segnalano la stessa app allo stesso URL. Il tab carica l'app AUTOSTART del canale, oppure `tv.html?channel=<id>` se il canale non ne ha.
+    - Cambio canale dalla UI ("Play here") secondo l'AIT (`changeChannel`): l'app in esecuzione (stessi `orgId`/`appId`) sopravvive se il nuovo canale la segnala e si risintonizza; altrimenti il tab carica l'app autostart del nuovo canale o la pagina TV. In modalità *app* il cambio canale risintonizza soltanto la pagina, come prima.
+    - Verificato in e2e su Chromium e Firefox: DMAX e HGTV segnalano la stessa app allo stesso URL; acceso su HGTV, il primo script vede HGTV; passando a DMAX l'app resta in esecuzione; su un canale senza AIT il tab passa a `tv.html`.
+    - [ ] `setChannel()` dell'app → background con la stessa regola; in modalità *app* `onChannelChangeError`.
+    - [ ] La cronologia del tab contiene `about:blank` e le pagine dei canali precedenti (il "Back" del browser non è quello della TV).
   - [ ] Keyset, volume, app attiva nella sessione.
 - [ ] **Bridge** (ISOLATED world): inoltro MAIN ↔ background con contesto `tabId`.
 - [x] **Page runtime** (`@hbb-emu/page-runtime`): si avvia da sola solo nei documenti HbbTV, una volta per finestra. Su chrome-v3 è un content script `world: "MAIN"` a `document_start`, quindi **le API OIPF esistono prima del primo script dell'app**. Su `main` arrivavano solo dopo `DOMContentLoaded` e una richiesta asincrona al background.
@@ -218,9 +222,11 @@ Il progetto cresce in tre fasi:
 - [ ] Import di AIT reali (XML AIT; poi da MPEG-TS).
 - [ ] Ciclo di vita delle app conforme alla spec al cambio canale: chiusura/avvio app secondo l'AIT, `createApplication`/`destroyApplication`, app che sopravvivono al cambio canale.
 - [ ] Cambio canale tramite navigazione del tab (D5), con ritardo configurabile di "acquisizione AIT". Caso di test di riferimento: app *linear* che naviga da DMAX (52) a HGTV (56).
+  - [x] Dalla settings UI, in modalità *TV* (sezione 1.2). Manca il cambio chiesto dall'app (`setChannel()`) e il ritardo di acquisizione.
 
 ### 2.3 Shell TV
 - [ ] `tv.html` (pagina dell'estensione): la "TV senza app", cioè canale senza AIT, menu e lista canali, punto d'ingresso "Accendi la TV".
+  - [x] Versione minima (`startTvShell`): lo stream del canale a tutto schermo (muto: l'autoplay con audio richiede un gesto dell'utente) e il banner con numero (posizione nella lineup, finché non c'è l'LCN) e nome. Mancano menu, lista canali e telecomando (i tasti verso `tv.html` oggi falliscono: non c'è page runtime).
 - [ ] OSD iniettato nella pagina dell'app: banner del cambio canale, numero canale, volume.
 - [ ] Menu/OSD della TV: lista canali, channel up/down, numero canale, info programma.
 - [ ] Telecomando virtuale + mappatura tastiera configurabile, gestione keyset (tasti consegnati all'app solo se nel keyset).

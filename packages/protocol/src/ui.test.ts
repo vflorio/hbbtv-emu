@@ -12,6 +12,8 @@ describe("UI messages", () => {
     [{ _tag: "UI/DispatchKey", keyCode: 403 }, true],
     [{ _tag: "UI/DispatchKey", keyCode: "red" }, false],
     [{ _tag: "UI/PlayChannel", channel: state.channels[0] }, true],
+    [{ _tag: "UI/TurnOnTv", channelId: "channel-1" }, true],
+    [{ _tag: "UI/TurnOnTv", channel: state.channels[0] }, false],
     [{ _tag: "Page/Ready", url: "x" }, false],
   ])("isUiRequest(%j) → %s", (value, expected) => {
     expect(isUiRequest(value)).toBe(expected);

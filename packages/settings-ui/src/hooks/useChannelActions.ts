@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import { useAppState, useDispatch, useSideEffects } from "../context/AppState";
 
 /**
- * Hook for managing channel actions such as upsert, remove, and play.
+ * Hook for managing channel actions: upsert, remove, play on the active TV, turn on a new TV.
  */
 export const useChannelActions = () => {
   const dispatch = useDispatch();
@@ -46,19 +46,10 @@ export const useChannelActions = () => {
     [dispatch, sideEffects, config],
   );
 
-  const play = useCallback(
-    (channel: ChannelConfig) =>
-      pipe(
-        TE.of({ ...config, currentChannel: channel }),
-        TE.tap((newConfig) => sideEffects.save(newConfig)),
-        TE.tapIO(() => () => {
-          dispatch({ type: "SET_CURRENT_CHANNEL", payload: channel });
-        }),
-        TE.tap(() => sideEffects.playChannel(channel)),
-        TE.asUnit,
-      ),
-    [sideEffects, dispatch, config],
-  );
+  /** The background answers with the new state (the active tab's channel), like any change. */
+  const play = useCallback((channel: ChannelConfig) => sideEffects.playChannel(channel), [sideEffects]);
 
-  return { upsert, remove, play };
+  const turnOnTv = useCallback((channel: ChannelConfig) => sideEffects.turnOnTv(channel.id), [sideEffects]);
+
+  return { upsert, remove, play, turnOnTv };
 };

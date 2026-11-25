@@ -75,6 +75,22 @@ const isRunnable = (application: AitApplication): boolean =>
 
 const priorityOf = (application: AitApplication): number => application.priority ?? 0;
 
+/** What identifies an application across services: its organisation and application ids. */
+export type AitApplicationId = Readonly<{ orgId: number; appId: number }>;
+
+export const applicationIdOf = ({ orgId, appId }: AitApplication): AitApplicationId => ({ orgId, appId });
+
+/**
+ * Whether the AIT signals this application as runnable (AUTOSTART or PRESENT).
+ * On a channel change, a running broadcast-related application the new service
+ * signals keeps running; any other is stopped (TS 102 796 §6.2.2.2, assuming
+ * `service_bound_flag` = 0, which the emulator does not model yet).
+ */
+export const signalsApplication = (ait: Ait | undefined, id: AitApplicationId): boolean =>
+  (ait?.applications ?? []).some(
+    (application) => isRunnable(application) && application.orgId === id.orgId && application.appId === id.appId,
+  );
+
 /**
  * The application the terminal starts when the service is selected: the AUTOSTART
  * one with the highest priority (the first signalled among equals). `null` when the

@@ -1,6 +1,6 @@
 import { isRight } from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
-import { type AitApplication, AitCodec, autostartApplication, channelSignalling } from "./ait";
+import { type AitApplication, AitCodec, autostartApplication, channelSignalling, signalsApplication } from "./ait";
 
 const app = (url: string, overrides: Partial<AitApplication> = {}): AitApplication => ({
   orgId: 1,
@@ -40,6 +40,22 @@ describe("autostartApplication", () => {
   it("is null when nothing is signalled as AUTOSTART", () => {
     expect(autostartApplication(undefined)).toBeNull();
     expect(autostartApplication({ applications: [app("http://a.example/", { controlCode: "PRESENT" })] })).toBeNull();
+  });
+});
+
+describe("signalsApplication", () => {
+  it("is whether the AIT signals that organisation's application as runnable, wherever it is loaded from", () => {
+    const ait = {
+      applications: [
+        app("http://a.example/", { orgId: 10, appId: 1, controlCode: "PRESENT" }),
+        app("http://b.example/", { orgId: 10, appId: 2, controlCode: "KILL" }),
+      ],
+    };
+
+    expect(signalsApplication(ait, { orgId: 10, appId: 1 })).toBe(true);
+    expect(signalsApplication(ait, { orgId: 10, appId: 2 })).toBe(false);
+    expect(signalsApplication(ait, { orgId: 11, appId: 1 })).toBe(false);
+    expect(signalsApplication(undefined, { orgId: 10, appId: 1 })).toBe(false);
   });
 });
 

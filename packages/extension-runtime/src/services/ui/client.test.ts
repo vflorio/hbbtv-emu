@@ -28,8 +28,14 @@ describe("UI client", () => {
     await client.saveState(state)();
     await client.dispatchKey(403)();
     await client.playChannel(state.channels[0]!)();
+    await client.turnOnTv("channel-1")();
 
-    expect(channel.sent.map((m) => m._tag)).toEqual(["UI/SaveState", "UI/DispatchKey", "UI/PlayChannel"]);
+    expect(channel.sent.map((m) => m._tag)).toEqual([
+      "UI/SaveState",
+      "UI/DispatchKey",
+      "UI/PlayChannel",
+      "UI/TurnOnTv",
+    ]);
   });
 
   it("turns a background failure into an error the UI can show", async () => {

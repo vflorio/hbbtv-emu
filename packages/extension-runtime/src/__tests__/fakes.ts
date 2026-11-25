@@ -5,6 +5,7 @@
  */
 
 import { DEFAULT_LOGGER_STATE, Logger } from "@hbb-emu/core";
+import * as E from "fp-ts/Either";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
@@ -72,11 +73,28 @@ export const createFakeStorage = <T>(initial?: T) => {
  * `open` lists the tabs `query({})` returns; the first one is the active tab.
  * `close` plays the user closing a tab.
  */
-export const createFakeTabs = (open: ReadonlyArray<TabInfo> = []) => {
+/**
+ * Tabs in a window: the first one is the active tab. A created tab comes in front;
+ * `navigations` records every page the background asked a tab to load (creation included).
+ */
+export const createFakeTabs = (initial: ReadonlyArray<TabInfo> = []) => {
+  let open: ReadonlyArray<TabInfo> = initial;
+  let nextId = 100;
+  const navigations: Array<{ tabId: number; url: string }> = [];
   const handlers = new Set<(tabId: number, status: TabStatus) => void>();
   const removedHandlers = new Set<(tabId: number) => void>();
   const tabs: TabsAdapter = {
     query: (query: TabQuery) => () => Promise.resolve(query.active ? open.slice(0, 1) : open),
+    create: (url) => () => {
+      const id = nextId++;
+      open = [{ id, url }, ...open];
+      navigations.push({ tabId: id, url });
+      return Promise.resolve(E.right(id));
+    },
+    navigate: (tabId, url) => () => {
+      navigations.push({ tabId, url });
+      return Promise.resolve(E.right(undefined));
+    },
     onTabsUpdated: (handler) => {
       handlers.add(handler);
       return () => handlers.delete(handler);
@@ -88,10 +106,12 @@ export const createFakeTabs = (open: ReadonlyArray<TabInfo> = []) => {
   };
   return {
     tabs,
+    navigations,
     emit: (tabId: number, status: TabStatus) => {
       for (const handler of handlers) handler(tabId, status);
     },
     close: (tabId: number) => {
+      open = open.filter((tab) => tab.id !== tabId);
       for (const handler of removedHandlers) handler(tabId);
     },
   };
@@ -196,6 +216,7 @@ export const createFakeUi = () => {
       notified.push(message);
       return Promise.resolve();
     },
+    pageUrl: (path) => `ext://hbb-emu/${path}`,
   };
   return {
     ui,

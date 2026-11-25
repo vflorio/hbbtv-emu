@@ -371,8 +371,8 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
 
   it("a restarted background (MV3 service worker) finds the sessions of the tabs still open", async () => {
     const stored: TvSessions = {
-      "1": { mode: "app", channelId: "hgtv", url: null },
-      "99": { mode: "app", channelId: "hgtv", url: null },
+      "1": { mode: "app", channelId: "hgtv", url: null, app: null },
+      "99": { mode: "app", channelId: "hgtv", url: null, app: null },
     };
     const { messaging, sessionStorage } = await setup(lineup, OPEN_TABS, true, stored);
 
@@ -392,7 +392,7 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
   });
 
   it("a session whose channel left the lineup is back on the first channel", async () => {
-    const stored: TvSessions = { "1": { mode: "app", channelId: "gone", url: null } };
+    const stored: TvSessions = { "1": { mode: "app", channelId: "gone", url: null, app: null } };
     const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
 
     await pageReady(messaging, 1);
@@ -427,5 +427,94 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
       _tag: "UI/Failed",
       reason: "Unknown channel: nope",
     });
+  });
+});
+
+describe("BackgroundService — TV mode (turned on from the UI)", () => {
+  const [first] = DEFAULT_STATE.runtime.channels;
+  const app = (orgId: number, appId: number, url: string) => ({
+    applications: [{ orgId, appId, controlCode: "AUTOSTART" as const, url }],
+  });
+  // DMAX and HGTV signal the same application (org 10, app 1) from different URLs;
+  // NEWS signals another one; RADIO none.
+  const dmax = { ...first!, id: "dmax", sid: 52, ait: app(10, 1, "http://linear.example/dmax.html") };
+  const hgtv = { ...first!, id: "hgtv", sid: 56, ait: app(10, 1, "http://linear.example/hgtv.html") };
+  const news = { ...first!, id: "news", sid: 60, ait: app(20, 1, "http://news.example/") };
+  const radio = { ...first!, id: "radio", sid: 70 };
+  const lineup = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels: [dmax, hgtv, news, radio] } };
+  const TV_TAB = 100; // the first tab the fake creates
+
+  type Sent = { tabId: number; message: HostMessage };
+  const sessionsSent = (sent: ReadonlyArray<Sent>, tabId: number) =>
+    sent
+      .filter((s) => s.tabId === tabId && s.message._tag === "Host/Session")
+      .map((s) => (s.message as Extract<HostMessage, { _tag: "Host/Session" }>).session.channel?.id ?? null);
+
+  const turnOn = async (channelId: string) => {
+    const env = await setup(lineup);
+    expect(await env.ui.request({ _tag: "UI/TurnOnTv", channelId })).toEqual({ _tag: "UI/Done" });
+    return env;
+  };
+
+  it("turns on a new tab on the channel's autostart application, its channel already in the bootstrap", async () => {
+    const { tabs, bootstrap, messaging } = await turnOn("hgtv");
+
+    expect(tabs.navigations).toEqual([
+      { tabId: TV_TAB, url: "about:blank" },
+      { tabId: TV_TAB, url: "http://linear.example/hgtv.html" },
+    ]);
+    expect(bootstrap.published[bootstrap.published.length - 1]).toBe(
+      configBootstrapScript({
+        config: toPageConfig(lineup),
+        tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv" }],
+      }),
+    );
+
+    messaging.receive({ _tag: "Page/Ready", url: "http://linear.example/hgtv.html" }, TV_TAB);
+    await flushPromises();
+    expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["hgtv"]);
+  });
+
+  it("shows the TV page for a channel without application", async () => {
+    const { tabs, ui } = await turnOn("radio");
+
+    expect(tabs.navigations[1]).toEqual({ tabId: TV_TAB, url: "ext://hbb-emu/tv.html?channel=radio" });
+    // The new tab is the active one: the UI shows its channel.
+    expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: toUiState(lineup, radio) }]);
+  });
+
+  it("does not turn on a TV on a channel outside the lineup", async () => {
+    const { ui, tabs } = await setup(lineup);
+
+    expect(await ui.request({ _tag: "UI/TurnOnTv", channelId: "nope" })).toEqual({
+      _tag: "UI/Failed",
+      reason: "Unknown channel: nope",
+    });
+    expect(tabs.navigations).toEqual([]);
+  });
+
+  it("on a channel that signals the running application, the application stays and retunes", async () => {
+    const { ui, tabs, messaging } = await turnOn("dmax");
+
+    expect(await ui.request({ _tag: "UI/PlayChannel", channel: hgtv })).toEqual({ _tag: "UI/Done" });
+
+    expect(tabs.navigations).toHaveLength(2); // about:blank, then DMAX's page: nothing more
+    expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["hgtv"]);
+  });
+
+  it("on any other channel, the tab loads its autostart application, or the TV page", async () => {
+    const { ui, tabs, messaging, bootstrap } = await turnOn("dmax");
+
+    await ui.request({ _tag: "UI/PlayChannel", channel: news });
+    expect(bootstrap.published[bootstrap.published.length - 1]).toContain('"channelId":"news"');
+    await ui.request({ _tag: "UI/PlayChannel", channel: radio });
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+
+    expect(tabs.navigations.slice(2).map((n) => n.url)).toEqual([
+      "http://news.example/",
+      "ext://hbb-emu/tv.html?channel=radio",
+      "http://linear.example/hgtv.html",
+    ]);
+    expect(sessionsSent(messaging.sent, TV_TAB)).toEqual([]);
   });
 });

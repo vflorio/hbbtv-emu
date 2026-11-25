@@ -83,4 +83,5 @@ export type AdapterError =
   | { readonly _tag: "MessageForwardError"; readonly tabId: number; readonly cause: unknown }
   | { readonly _tag: "UserAgentOverrideError"; readonly cause: unknown }
   | { readonly _tag: "PageBootstrapUnavailable"; readonly reason: string }
-  | { readonly _tag: "PageBootstrapError"; readonly cause: unknown };
+  | { readonly _tag: "PageBootstrapError"; readonly cause: unknown }
+  | { readonly _tag: "TabError"; readonly cause: unknown };

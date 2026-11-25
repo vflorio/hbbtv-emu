@@ -1,6 +1,13 @@
 import { DEFAULT_LOGGER_STATE, type LoggerState } from "@hbb-emu/core";
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
-import { DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
+import {
+  type AitApplicationId,
+  applicationIdOf,
+  autostartApplication,
+  DEFAULT_HBBTV_STATE,
+  type HbbTVState,
+  signalsApplication,
+} from "@hbb-emu/oipf-api";
 import { type BootstrapData, initialChannel, type PageConfig, type PageSession, type UiState } from "@hbb-emu/protocol";
 
 /**
@@ -56,15 +63,64 @@ export const toPageConfig = (state: ExtensionState): PageConfig => ({
  * as long as the tab and outlives the pages loaded in it.
  *
  * - `app`: the tab was opened on an HbbTV application (detected by its content type).
- *   Its channel is the one the application is broadcast-related to.
+ *   Its channel is the one the application is broadcast-related to; changing it only
+ *   retunes the page.
+ * - `tv`: the TV was turned on from the UI, on a channel of the lineup. Changing
+ *   channel follows the AIT, as on a TV: the running application survives if the new
+ *   channel signals it, otherwise the tab loads the new channel's autostart
+ *   application (or the TV page, `tv.html`, when it has none).
  */
 export type TvSession = Readonly<{
-  mode: "app";
+  mode: "app" | "tv";
   /** The channel the TV is tuned to (an id of the lineup). */
   channelId: string | null;
   /** The page the TV shows (the last one that started in the tab); `null` before any. */
   url: string | null;
+  /** The application the TV started from the AIT (`tv` mode); `null` when it runs none. */
+  app: AitApplicationId | null;
 }>;
+
+/** The page that shows a channel without application: the TV's own, `tv.html?channel=<id>`. */
+export type TvPageUrl = (channelId: string) => string;
+
+export const TV_PAGE = "tv.html";
+
+export const tvPageUrl =
+  (base: string): TvPageUrl =>
+  (channelId) =>
+    `${base}?channel=${encodeURIComponent(channelId)}`;
+
+/** What a TV shows when it selects the channel: its autostart application, or the TV page. */
+const selectService = (channel: ChannelConfig, tvPage: TvPageUrl): Readonly<{ url: string; app: TvSession["app"] }> => {
+  const autostart = autostartApplication(channel.ait);
+  return autostart === null
+    ? { url: tvPage(channel.id), app: null }
+    : { url: autostart.url, app: applicationIdOf(autostart) };
+};
+
+/** The TV turned on from the UI, on `channel`: the tab still has to load `url`. */
+export const turnedOnSession = (channel: ChannelConfig, tvPage: TvPageUrl): TvSession & { url: string } => ({
+  mode: "tv",
+  channelId: channel.id,
+  ...selectService(channel, tvPage),
+});
+
+/**
+ * The session after a channel change, and the page the tab must load for it
+ * (`null`: the page stays, it only retunes). See `TvSession` for the two modes.
+ */
+export const changeChannel = (
+  session: TvSession,
+  channel: ChannelConfig,
+  tvPage: TvPageUrl,
+): Readonly<{ session: TvSession; navigateTo: string | null }> => {
+  const retuned = { ...session, channelId: channel.id };
+  if (session.mode === "app" || (session.app !== null && signalsApplication(channel.ait, session.app))) {
+    return { session: retuned, navigateTo: null };
+  }
+  const selected = selectService(channel, tvPage);
+  return { session: { ...retuned, ...selected }, navigateTo: selected.url };
+};
 
 /** Every open TV, by tab id. */
 export type TvSessions = Readonly<Record<string, TvSession>>;
@@ -90,6 +146,7 @@ export const newSession = (state: ExtensionState, sessions: TvSessions, url: str
   mode: "app",
   channelId: initialChannel(toBootstrapData(state, sessions), url)?.id ?? null,
   url,
+  app: null,
 });
 
 export const findChannel = (state: ExtensionState, channelId: string): ChannelConfig | null =>

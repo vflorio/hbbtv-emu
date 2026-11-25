@@ -17,6 +17,7 @@ const sideEffects: SideEffects = {
   save: client.saveState,
   subscribe: client.subscribe,
   playChannel: client.playChannel,
+  turnOnTv: client.turnOnTv,
   dispatchKey: client.dispatchKey,
 };
 

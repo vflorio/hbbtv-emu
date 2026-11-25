@@ -15,7 +15,9 @@ export type UiRequest =
   | Readonly<{ _tag: "UI/GetState" }>
   | Readonly<{ _tag: "UI/SaveState"; state: UiState }>
   | Readonly<{ _tag: "UI/DispatchKey"; keyCode: number }>
-  | Readonly<{ _tag: "UI/PlayChannel"; channel: ChannelConfig }>;
+  | Readonly<{ _tag: "UI/PlayChannel"; channel: ChannelConfig }>
+  /** A new TV (a new tab, in TV mode) on this channel of the lineup. */
+  | Readonly<{ _tag: "UI/TurnOnTv"; channelId: string }>;
 
 export type UiResponse =
   | Readonly<{ _tag: "UI/State"; state: UiState }>
@@ -41,6 +43,8 @@ export const isUiRequest = (value: unknown): value is UiRequest => {
       return typeof value.keyCode === "number" && Number.isInteger(value.keyCode);
     case "UI/PlayChannel":
       return isRecord(value.channel) && typeof value.channel.id === "string";
+    case "UI/TurnOnTv":
+      return typeof value.channelId === "string";
     default:
       return false;
   }

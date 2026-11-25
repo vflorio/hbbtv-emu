@@ -17,6 +17,8 @@ export interface UiAdapter {
   ) => UnsubscribeFn;
   /** Succeeds even when no UI is open. */
   readonly notify: (message: unknown) => T.Task<void>;
+  /** The URL of one of the extension's pages, e.g. `pageUrl("tv.html")`. */
+  readonly pageUrl: (path: string) => string;
 }
 
 /**
@@ -36,6 +38,8 @@ export const createUiAdapter = ({ manifest }: AdapterConfig): UiAdapter => ({
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
   },
+
+  pageUrl: (path) => chrome.runtime.getURL(path),
 
   notify: (message) =>
     pipe(

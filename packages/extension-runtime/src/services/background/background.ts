@@ -16,10 +16,12 @@ import type { AdapterError, BaseMessage } from "../..";
 import {
   type ExtensionState,
   newSession,
+  TV_PAGE,
   type TvSession,
   toBootstrapData,
   toPageConfig,
   toPageSession,
+  tvPageUrl,
 } from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
@@ -101,6 +103,7 @@ export class BackgroundService {
             userAgent: this.env.adapter.userAgent,
             pageBootstrap: this.pageBootstrap,
             sessions: this.sessions,
+            tvPage: tvPageUrl(this.env.adapter.ui.pageUrl(TV_PAGE)),
             logger: this.logger,
           }),
         );

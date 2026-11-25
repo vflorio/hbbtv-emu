@@ -16,6 +16,8 @@ export type UiClient = Readonly<{
   saveState: (state: UiState) => TE.TaskEither<UiClientError, void>;
   dispatchKey: (keyCode: number) => TE.TaskEither<UiClientError, void>;
   playChannel: (channel: ChannelConfig) => TE.TaskEither<UiClientError, void>;
+  /** Turns on a new TV (a new tab) on this channel. */
+  turnOnTv: (channelId: string) => TE.TaskEither<UiClientError, void>;
   /** State changes made anywhere (another UI, the background). Returns the unsubscribe function. */
   subscribe: (listener: (state: UiState) => void) => () => void;
 }>;
@@ -46,6 +48,7 @@ export const createUiClient = (channel: ExtensionChannel<UiRequest>): UiClient =
   saveState: (state) => command(channel, { _tag: "UI/SaveState", state }),
   dispatchKey: (keyCode) => command(channel, { _tag: "UI/DispatchKey", keyCode }),
   playChannel: (channelConfig) => command(channel, { _tag: "UI/PlayChannel", channel: channelConfig }),
+  turnOnTv: (channelId) => command(channel, { _tag: "UI/TurnOnTv", channelId }),
   subscribe: (listener) =>
     channel.onMessage((message) => () => {
       if (isUiNotification(message)) listener(message.state);

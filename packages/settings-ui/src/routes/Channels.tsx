@@ -1,6 +1,6 @@
 import { randomUUID } from "@hbb-emu/core";
 import type { ChannelConfig } from "@hbb-emu/extension-common";
-import { Add as AddIcon, ExpandMore } from "@mui/icons-material";
+import { Add as AddIcon, ExpandMore, PlayArrow, Tv } from "@mui/icons-material";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
@@ -90,8 +90,17 @@ function ChannelItem({
   isExpanded: boolean;
   onToggleExpand: (expanded: boolean) => void;
 }) {
-  const { upsert } = useChannelActions();
+  const { upsert, play, turnOnTv } = useChannelActions();
   const [localChannel, setLocalChannel] = useState(channel);
+
+  const run = (label: string, action: TE.TaskEither<unknown, void>) =>
+    void pipe(
+      action,
+      TE.match(
+        (error) => console.error(`${label} failed:`, error),
+        () => undefined,
+      ),
+    )();
 
   useEffect(() => {
     setLocalChannel(channel);
@@ -115,6 +124,24 @@ function ChannelItem({
       </AccordionSummary>
       <AccordionDetails>
         <Stack gap={2}>
+          <Stack direction="row" gap={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PlayArrow />}
+              onClick={() => run("Play", play(channel))}
+            >
+              Play here
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Tv />}
+              onClick={() => run("Turn on", turnOnTv(channel))}
+            >
+              Turn on the TV
+            </Button>
+          </Stack>
           <ChannelBasicInfo
             name={localChannel.name}
             mp4Source={localChannel.mp4Source}
