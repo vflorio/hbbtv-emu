@@ -134,7 +134,7 @@ export class ProviderService implements ProviderApi {
         this.#elementInstances.set(detected.element, { stateKey: binding.name, instance });
       }),
       IO.tap((instance) => this.#registerInstance(binding, instance)),
-      IO.tap((instance) => applyAttachStrategy(binding.connector.attachStrategy, detected, instance)),
+      IO.tap((instance) => applyAttachStrategy(binding.connector, detected, instance)),
       IO.map(() => undefined),
     );
 

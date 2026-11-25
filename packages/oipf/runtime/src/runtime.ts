@@ -6,8 +6,6 @@ import {
   DEFAULT_KEYSET_VALUE,
   DEFAULT_OIPF_CAPABILITIES,
   DEFAULT_OIPF_CONFIGURATION,
-  DEFAULT_VIDEO_HEIGHT,
-  DEFAULT_VIDEO_WIDTH,
   type HbbTVState,
   type OIPF,
   type OipfCapabilitiesState,
@@ -100,8 +98,6 @@ export type BindingsEnv = Readonly<{
   /** Defaults for newly created VideoBroadcast objects */
   defaultVideoBroadcast: Readonly<{
     fullScreen: boolean;
-    width: number;
-    height: number;
     playState: OIPF.DAE.Broadcast.PlayState;
   }>;
 
@@ -299,8 +295,6 @@ export const createRuntimeEnv = (
     defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
     defaultVideoBroadcast: {
       fullScreen: DEFAULT_FULL_SCREEN,
-      width: DEFAULT_VIDEO_WIDTH,
-      height: DEFAULT_VIDEO_HEIGHT,
       playState: DEFAULT_BROADCAST_PLAY_STATE,
     },
     defaultAvControlVideo: DEFAULT_AV_CONTROL_VIDEO_DEFAULTS,

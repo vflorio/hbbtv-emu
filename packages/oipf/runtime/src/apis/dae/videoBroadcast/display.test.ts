@@ -3,41 +3,58 @@ import { describe, expect, it } from "vitest";
 import {
   applyDisplayState,
   createDisplayEnv,
-  type DisplayState,
   displayApi,
   parseDimension,
   readDisplayState,
+  type Size,
   setFullScreen,
   setHeight,
   setWidth,
+  type VideoWindow,
 } from "./display";
 
 type Call =
-  | { readonly resize: readonly [number, number] }
+  | { readonly width: number }
+  | { readonly height: number }
   | { readonly fullScreen: boolean }
   | { readonly event: boolean };
 
-const WINDOWED: DisplayState = { fullScreen: false, width: 1280, height: 720 };
-
-const setup = (initial: DisplayState = WINDOWED) => {
+/** A window whose size behaves like an element's style: it changes only when written. */
+const setup = (initial: { fullScreen?: boolean; size?: Size } = {}) => {
   const calls: Call[] = [];
-  const env = createDisplayEnv(
-    {
-      resize: (width, height) => () => {
-        calls.push({ resize: [width, height] });
-      },
-      setFullScreen: (fullScreen) => () => {
-        calls.push({ fullScreen });
-      },
+  let size: Size = initial.size ?? { width: 1280, height: 720 };
+  const videoWindow: VideoWindow = {
+    getSize: () => size,
+    setWidth: (width) => () => {
+      size = { ...size, width };
+      calls.push({ width });
     },
+    setHeight: (height) => () => {
+      size = { ...size, height };
+      calls.push({ height });
+    },
+    setFullScreen: (fullScreen) => () => {
+      calls.push({ fullScreen });
+    },
+  };
+  const env = createDisplayEnv(
+    videoWindow,
     {
       onFullScreenChange: (fullScreen) => () => {
         calls.push({ event: fullScreen });
       },
     },
-    initial,
+    initial.fullScreen ?? false,
   )();
-  return { env, calls, state: () => readDisplayState(env)() };
+  return {
+    env,
+    calls,
+    state: () => readDisplayState(env)(),
+    /** Simulates something else (application CSS) changing the object's size. */
+    resizeExternally: (next: Size) => {
+      size = next;
+    },
+  };
 };
 
 describe("parseDimension", () => {
@@ -54,6 +71,16 @@ describe("parseDimension", () => {
   });
 });
 
+describe("readDisplayState", () => {
+  it("combines the full-screen flag with the live window size", () => {
+    const { state, resizeExternally } = setup();
+
+    resizeExternally({ width: 320, height: 180 });
+
+    expect(state()).toEqual({ fullScreen: false, width: 320, height: 180 });
+  });
+});
+
 describe("setFullScreen", () => {
   it("enters full-screen: updates state, the window, then notifies the application", () => {
     const { env, calls, state } = setup();
@@ -64,12 +91,13 @@ describe("setFullScreen", () => {
     expect(calls).toEqual([{ fullScreen: true }, { event: true }]);
   });
 
-  it("leaving full-screen restores the windowed size before notifying", () => {
-    const { env, calls } = setup({ fullScreen: true, width: 640, height: 360 });
+  it("leaves full-screen without touching the window size", () => {
+    const { env, calls, state } = setup({ fullScreen: true, size: { width: 640, height: 360 } });
 
     setFullScreen(false)(env)();
 
-    expect(calls).toEqual([{ fullScreen: false }, { resize: [640, 360] }, { event: false }]);
+    expect(state()).toEqual({ fullScreen: false, width: 640, height: 360 });
+    expect(calls).toEqual([{ fullScreen: false }, { event: false }]);
   });
 
   it("does nothing, and fires no event, when the mode does not change", () => {
@@ -82,18 +110,18 @@ describe("setFullScreen", () => {
 });
 
 describe("width / height written by the application", () => {
-  it("resizes the window while windowed", () => {
+  it("writes only the dimension that changes", () => {
     const { env, calls, state } = setup();
 
     setWidth(640)(env)();
     setHeight(360)(env)();
 
     expect(state()).toMatchObject({ width: 640, height: 360 });
-    expect(calls).toEqual([{ resize: [640, 720] }, { resize: [640, 360] }]);
+    expect(calls).toEqual([{ width: 640 }, { height: 360 }]);
   });
 
   it("is ignored while in full-screen", () => {
-    const { env, calls, state } = setup({ fullScreen: true, width: 1280, height: 720 });
+    const { env, calls, state } = setup({ fullScreen: true });
 
     setWidth(640)(env)();
     setHeight(360)(env)();
@@ -123,41 +151,29 @@ describe("applyDisplayState (settings UI)", () => {
     expect(calls).toEqual([{ fullScreen: true }, { event: true }]);
   });
 
-  it("may change the windowed size while in full-screen; it is applied on exit", () => {
-    const { env, calls, state } = setup({ fullScreen: true, width: 1280, height: 720 });
+  it("may resize the window while in full-screen", () => {
+    const { env, calls, state } = setup({ fullScreen: true });
 
     applyDisplayState({ width: 640, height: 360 })(env)();
-    expect(state()).toMatchObject({ fullScreen: true, width: 640, height: 360 });
-    expect(calls).toEqual([]);
 
-    applyDisplayState({ fullScreen: false })(env)();
-    expect(calls).toEqual([{ fullScreen: false }, { resize: [640, 360] }, { event: false }]);
+    expect(state()).toEqual({ fullScreen: true, width: 640, height: 360 });
+    expect(calls).toEqual([{ width: 640 }, { height: 360 }]);
   });
 
-  it("leaving full-screen and resizing in one patch ends windowed at the new size", () => {
-    const { env, calls, state } = setup({ fullScreen: true, width: 1280, height: 720 });
+  it("applies size and mode from a single patch", () => {
+    const { env, state } = setup({ fullScreen: true });
 
     applyDisplayState({ fullScreen: false, width: 640, height: 360 })(env)();
 
     expect(state()).toEqual({ fullScreen: false, width: 640, height: 360 });
-    expect(calls[calls.length - 1]).toEqual({ resize: [640, 360] });
   });
 
-  it("resizing and entering full-screen in one patch keeps the new windowed size", () => {
-    const { env, state } = setup();
+  it("ignores invalid and unchanged sizes, and does nothing on an empty patch", () => {
+    const { env, calls } = setup();
 
-    applyDisplayState({ fullScreen: true, width: 640, height: 360 })(env)();
-
-    expect(state()).toEqual({ fullScreen: true, width: 640, height: 360 });
-  });
-
-  it("ignores invalid sizes and does nothing on an empty patch", () => {
-    const { env, calls, state } = setup();
-
-    applyDisplayState({ width: -1 })(env)();
+    applyDisplayState({ width: -1, height: 720 })(env)();
     applyDisplayState({})(env)();
 
-    expect(state()).toEqual(WINDOWED);
     expect(calls).toEqual([]);
   });
 });

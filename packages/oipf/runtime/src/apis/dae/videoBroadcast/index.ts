@@ -6,7 +6,7 @@ import type { ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsy
 import { type ChannelVideoStreamEnv, WithChannel } from "./channel";
 import { WithComponent } from "./component";
 import { WithController } from "./controller";
-import { WithDisplay } from "./display";
+import { type VideoWindow, WithDisplay } from "./display";
 import { WithMisc } from "./misc";
 import { WithStreamEvent } from "./streamEvent";
 import { WithVolume } from "./volume";
@@ -18,8 +18,6 @@ export type SetCurrentChannelCallback = (channel: OIPF.DAE.Broadcast.Channel | n
 
 export type VideoBroadcastDefaults = Readonly<{
   fullScreen: boolean;
-  width: number;
-  height: number;
   playState: OIPF.DAE.Broadcast.PlayState;
 }>;
 
@@ -41,6 +39,7 @@ export type VideoBroadcastEventHandlers = Readonly<{
 export type VideoBroadcastEnv = Readonly<{
   env: ChannelRegistryEnv &
     ChannelVideoStreamEnv & {
+      videoWindow: VideoWindow;
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
@@ -51,6 +50,7 @@ export type VideoBroadcastEnv = Readonly<{
 class BaseVideoBroadcast implements VideoBroadcastEnv {
   readonly env: ChannelRegistryEnv &
     ChannelVideoStreamEnv & {
+      videoWindow: VideoWindow;
       onCurrentChannelChange: SetCurrentChannelCallback;
       streamEventScheduler: StreamEventSchedulerApi;
       defaults: VideoBroadcastDefaults;
@@ -60,6 +60,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
   constructor(env: {
     channelRegistry: ChannelRegistryEnv;
     videoStream: ChannelVideoStreamEnv;
+    videoWindow: VideoWindow;
     onCurrentChannelChange: SetCurrentChannelCallback;
     streamEventScheduler: StreamEventSchedulerApi;
     defaults: VideoBroadcastDefaults;
@@ -68,6 +69,7 @@ class BaseVideoBroadcast implements VideoBroadcastEnv {
     this.env = {
       ...env.channelRegistry,
       ...env.videoStream,
+      videoWindow: env.videoWindow,
       onCurrentChannelChange: env.onCurrentChannelChange,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaults,

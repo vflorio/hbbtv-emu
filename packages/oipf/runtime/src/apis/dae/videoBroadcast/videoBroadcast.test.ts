@@ -2,28 +2,26 @@ import * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import type { StreamEventSchedulerApi } from "../../../subsystems";
+import { FULLSCREEN_ATTRIBUTE } from "../../../subsystems/provider/detection/embedded";
 import type { ChannelVideoStreamEnv } from "./channel";
 import { VideoBroadcast, type VideoBroadcastEventHandlers } from "./index";
+import { createObjectVideoWindow } from "./videoWindow";
 
 const createFakeVideoStream = () => {
   const setVolume = vi.fn((_: number) => IO.of(undefined));
   const setMuted = vi.fn((_: boolean) => IO.of(undefined));
-  const setSize = vi.fn((_width: number, _height: number) => IO.of(undefined));
-  const setFullscreen = vi.fn((_: boolean) => IO.of(undefined));
   const videoStream: ChannelVideoStreamEnv = {
     videoElement: document.createElement("video"),
     play: TE.right(undefined),
     stop: IO.of(undefined),
     destroy: IO.of(undefined),
     loadSource: () => IO.of(undefined),
-    setSize,
-    setFullscreen,
     setVolume,
     setMuted,
     getVolume: IO.of(100),
     onStreamStateChange: () => () => {},
   };
-  return { videoStream, setVolume, setMuted, setSize, setFullscreen };
+  return { videoStream, setVolume, setMuted };
 };
 
 type HandlerSpy = Mock<(...args: unknown[]) => void>;
@@ -47,18 +45,24 @@ const noopStreamEventScheduler: StreamEventSchedulerApi = {
   addListener: () => IO.of({ unsubscribe: IO.of(undefined) }),
 } as unknown as StreamEventSchedulerApi;
 
-const setup = () => {
+const setup = (objectStyle = "width: 1280px; height: 720px") => {
   const stream = createFakeVideoStream();
   const eventHandlers = createEventHandlers();
+  const object = document.createElement("object");
+  object.setAttribute("type", "video/broadcast");
+  object.setAttribute("style", objectStyle);
+  object.appendChild(stream.videoStream.videoElement);
+  document.body.appendChild(object);
   const videoBroadcast = new VideoBroadcast({
     channelRegistry: { channels: [] },
     videoStream: stream.videoStream,
+    videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
     onCurrentChannelChange: () => {},
     streamEventScheduler: noopStreamEventScheduler,
-    defaults: { fullScreen: false, width: 1280, height: 720, playState: 0 },
+    defaults: { fullScreen: false, playState: 0 },
     eventHandlers,
   });
-  return { videoBroadcast, eventHandlers, ...stream };
+  return { videoBroadcast, eventHandlers, object, video: stream.videoStream.videoElement, ...stream };
 };
 
 describe("VideoBroadcast — volume", () => {
@@ -99,44 +103,54 @@ describe("VideoBroadcast — volume", () => {
 });
 
 describe("VideoBroadcast — display", () => {
-  it("starts windowed at the default size", () => {
-    const { videoBroadcast } = setup();
+  it("reports the size of the <object> and starts windowed", () => {
+    const { videoBroadcast } = setup("width: 640px; height: 360px");
 
-    expect(videoBroadcast.getState()).toMatchObject({ fullScreen: false, width: 1280, height: 720 });
+    expect(videoBroadcast.getState()).toMatchObject({ fullScreen: false, width: 640, height: 360 });
   });
 
-  it("setFullScreen() switches the player and notifies the application", () => {
-    const { videoBroadcast, setFullscreen, eventHandlers } = setup();
+  it("setFullScreen() switches the video and notifies the application", () => {
+    const { videoBroadcast, video, eventHandlers } = setup();
 
     videoBroadcast.setFullScreen(true);
 
     expect(videoBroadcast.fullScreen).toBe(true);
     expect(videoBroadcast.getState()).toMatchObject({ fullScreen: true });
-    expect(setFullscreen).toHaveBeenCalledWith(true);
+    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
     expect(eventHandlers.onFullScreenChange).toHaveBeenCalledWith(true);
   });
 
   it("applyState() from the settings UI enters full-screen and notifies the application", () => {
-    const { videoBroadcast, setFullscreen, eventHandlers } = setup();
+    const { videoBroadcast, video, eventHandlers } = setup();
 
     videoBroadcast.applyState({ fullScreen: true })();
 
     expect(videoBroadcast.fullScreen).toBe(true);
-    expect(setFullscreen).toHaveBeenCalledWith(true);
+    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
     expect(eventHandlers.onFullScreenChange).toHaveBeenCalledWith(true);
   });
 
-  it("width and height resize the player only while windowed", () => {
-    const { videoBroadcast, setSize } = setup();
+  it("width and height set the object's style, only while windowed", () => {
+    const { videoBroadcast, object } = setup();
 
     videoBroadcast.width = 640;
-    expect(setSize).toHaveBeenLastCalledWith(640, 720);
+    expect(object.style.width).toBe("640px");
 
     videoBroadcast.setFullScreen(true);
     videoBroadcast.height = 100;
+    expect(object.style.height).toBe("720px");
     expect(videoBroadcast.height).toBe(720);
 
     videoBroadcast.setFullScreen(false);
-    expect(setSize).toHaveBeenLastCalledWith(640, 720);
+    expect(videoBroadcast.getState()).toMatchObject({ fullScreen: false, width: 640, height: 720 });
+  });
+
+  it("applyState() from the settings UI resizes the object", () => {
+    const { videoBroadcast, object } = setup();
+
+    videoBroadcast.applyState({ width: 320, height: 180 })();
+
+    expect(object.style.width).toBe("320px");
+    expect(object.style.height).toBe("180px");
   });
 });

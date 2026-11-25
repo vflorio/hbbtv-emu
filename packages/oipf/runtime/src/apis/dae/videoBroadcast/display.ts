@@ -4,13 +4,15 @@
  * OIPF DAE `width`, `height`, `fullScreen`, `setFullScreen()` and `onFullScreenChange`.
  *
  * Reader-style module (ROADMAP D1), same shape as `./volume.ts`:
- * - state lives in an injected `IORef` and is the source of truth;
- * - `VideoWindow` is where the video is actually rendered (write-only port);
+ * - `fullScreen` lives in an injected `IORef`;
+ * - `VideoWindow` is the box the video is rendered in. Its size is read live: per spec,
+ *   `width`/`height` are the object's `style.width`/`style.height`, so whatever else
+ *   changes them (CSS, the application touching the style) is reflected;
  * - `DisplayEvents` notifies the application.
  *
  * Rules:
  * - `width` / `height` are writable by the application only while not in full-screen;
- * - leaving full-screen restores the windowed size;
+ * - full-screen does not change the object's own size, so leaving it restores the window;
  * - `onFullScreenChange` fires only when `fullScreen` actually changes, whoever changes it
  *   (the application or the settings UI).
  */
@@ -29,16 +31,15 @@ import type { VideoBroadcastEnv } from ".";
 // Environment
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type DisplayState = Readonly<{
-  fullScreen: boolean;
-  /** Windowed size in pixels, kept while in full-screen. */
-  width: number;
-  height: number;
-}>;
+export type Size = Readonly<{ width: number; height: number }>;
 
-/** Where the video is rendered. */
+export type DisplayState = Readonly<{ fullScreen: boolean }> & Size;
+
+/** The box the video is rendered in. */
 export type VideoWindow = Readonly<{
-  resize: (width: number, height: number) => IO.IO<void>;
+  getSize: IO.IO<Size>;
+  setWidth: (width: number) => IO.IO<void>;
+  setHeight: (height: number) => IO.IO<void>;
   setFullScreen: (fullScreen: boolean) => IO.IO<void>;
 }>;
 
@@ -47,7 +48,7 @@ export type DisplayEvents = Readonly<{
 }>;
 
 export type DisplayEnv = Readonly<{
-  displayState: IORef<DisplayState>;
+  fullScreenState: IORef<boolean>;
   videoWindow: VideoWindow;
   displayEvents: DisplayEvents;
 }>;
@@ -55,11 +56,11 @@ export type DisplayEnv = Readonly<{
 export const createDisplayEnv = (
   videoWindow: VideoWindow,
   displayEvents: DisplayEvents,
-  initial: DisplayState,
+  initialFullScreen = false,
 ): IO.IO<DisplayEnv> =>
   pipe(
-    newIORef(initial),
-    IO.map((displayState) => ({ displayState, videoWindow, displayEvents })),
+    newIORef(initialFullScreen),
+    IO.map((fullScreenState) => ({ fullScreenState, videoWindow, displayEvents })),
   );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,56 +79,65 @@ export const parseDimension = (input: unknown): O.Option<number> =>
 // Operations
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const readDisplayState: RIO.ReaderIO<DisplayEnv, DisplayState> = ({ displayState }) => displayState.read;
+export const isFullScreen: RIO.ReaderIO<DisplayEnv, boolean> = ({ fullScreenState }) => fullScreenState.read;
+
+export const getSize: RIO.ReaderIO<DisplayEnv, Size> = ({ videoWindow }) => videoWindow.getSize;
+
+export const readDisplayState: RIO.ReaderIO<DisplayEnv, DisplayState> = pipe(
+  RIO.Do,
+  RIO.bind("fullScreen", () => isFullScreen),
+  RIO.bind("size", () => getSize),
+  RIO.map(({ fullScreen, size }) => ({ fullScreen, ...size })),
+);
 
 const noop: RIO.ReaderIO<DisplayEnv, void> = RIO.of(undefined);
 
-/** Stores the windowed size; the window is resized only when not in full-screen. */
-const writeSize =
-  (width: number, height: number): RIO.ReaderIO<DisplayEnv, void> =>
-  ({ displayState, videoWindow }) =>
-    pipe(
-      displayState.modify((state) => ({ ...state, width, height })),
-      IO.flatMap(() => displayState.read),
-      IO.flatMap((state) => (state.fullScreen ? IO.of(undefined) : videoWindow.resize(width, height))),
-    );
-
 const writeFullScreen =
   (fullScreen: boolean): RIO.ReaderIO<DisplayEnv, void> =>
-  ({ displayState, videoWindow, displayEvents }) =>
+  ({ fullScreenState, videoWindow, displayEvents }) =>
     pipe(
-      displayState.modify((state) => ({ ...state, fullScreen })),
+      fullScreenState.write(fullScreen),
       IO.flatMap(() => videoWindow.setFullScreen(fullScreen)),
-      IO.flatMap(() => displayState.read),
-      IO.flatMap((state) => (fullScreen ? IO.of(undefined) : videoWindow.resize(state.width, state.height))),
       IO.flatMap(() => displayEvents.onFullScreenChange(fullScreen)),
     );
 
 /** `setFullScreen(fullScreen)`: no-op if the mode does not change. */
 export const setFullScreen = (fullScreen: boolean): RIO.ReaderIO<DisplayEnv, void> =>
   pipe(
-    readDisplayState,
-    RIO.flatMap((state) => (state.fullScreen === Boolean(fullScreen) ? noop : writeFullScreen(Boolean(fullScreen)))),
+    isFullScreen,
+    RIO.flatMap((current) => (current === Boolean(fullScreen) ? noop : writeFullScreen(Boolean(fullScreen)))),
   );
 
-/**
- * Application write to `width` / `height`: ignored while in full-screen,
- * for invalid values and when nothing changes.
- */
+type Dimension = keyof Size;
+
+const writeDimension =
+  (key: Dimension, value: number): RIO.ReaderIO<DisplayEnv, void> =>
+  ({ videoWindow }) =>
+    key === "width" ? videoWindow.setWidth(value) : videoWindow.setHeight(value);
+
+/** Valid and different from the current value. */
+const changedDimension = (key: Dimension, input: unknown): RIO.ReaderIO<DisplayEnv, O.Option<number>> =>
+  pipe(
+    getSize,
+    RIO.map((size) =>
+      pipe(
+        parseDimension(input),
+        O.filter((value) => value !== size[key]),
+      ),
+    ),
+  );
+
+/** Application write to `width` / `height`: ignored while in full-screen. */
 const setDimension =
-  (key: "width" | "height") =>
+  (key: Dimension) =>
   (input: number): RIO.ReaderIO<DisplayEnv, void> =>
     pipe(
-      readDisplayState,
-      RIO.flatMap((state) =>
-        pipe(
-          parseDimension(input),
-          O.filter(() => !state.fullScreen),
-          O.filter((value) => value !== state[key]),
-          O.match(
-            () => noop,
-            (value) => (key === "width" ? writeSize(value, state.height) : writeSize(state.width, value)),
-          ),
+      isFullScreen,
+      RIO.flatMap((fullScreen) => (fullScreen ? RIO.of(O.none) : changedDimension(key, input))),
+      RIO.flatMap(
+        O.match(
+          () => noop,
+          (value) => writeDimension(key, value),
         ),
       ),
     );
@@ -137,40 +147,28 @@ export const setHeight = setDimension("height");
 
 /**
  * Applies external state (settings UI, scenario).
- * Unlike the application, external state may update the windowed size while in
- * full-screen: it is stored and used when leaving full-screen.
- * Leaving full-screen happens before resizing, entering it after.
+ * Unlike the application, external state may resize the window while in full-screen:
+ * the object keeps that size and shows it when leaving full-screen.
  */
 export const applyDisplayState = (patch: Partial<DisplayState>): RIO.ReaderIO<DisplayEnv, void> => {
-  const applySize: RIO.ReaderIO<DisplayEnv, void> = pipe(
-    readDisplayState,
-    RIO.flatMap((state) => {
-      const width = pipe(
-        O.fromNullable(patch.width),
-        O.flatMap(parseDimension),
-        O.getOrElse(() => state.width),
-      );
-      const height = pipe(
-        O.fromNullable(patch.height),
-        O.flatMap(parseDimension),
-        O.getOrElse(() => state.height),
-      );
-      return width === state.width && height === state.height ? noop : writeSize(width, height);
-    }),
+  const applyDimension = (key: Dimension): RIO.ReaderIO<DisplayEnv, void> =>
+    patch[key] === undefined
+      ? noop
+      : pipe(
+          changedDimension(key, patch[key]),
+          RIO.flatMap(
+            O.match(
+              () => noop,
+              (value) => writeDimension(key, value),
+            ),
+          ),
+        );
+
+  return pipe(
+    applyDimension("width"),
+    RIO.flatMap(() => applyDimension("height")),
+    RIO.flatMap(() => (patch.fullScreen === undefined ? noop : setFullScreen(patch.fullScreen))),
   );
-
-  const applyFullScreen: RIO.ReaderIO<DisplayEnv, void> =
-    patch.fullScreen === undefined ? noop : setFullScreen(patch.fullScreen);
-
-  return patch.fullScreen === false
-    ? pipe(
-        applyFullScreen,
-        RIO.flatMap(() => applySize),
-      )
-    : pipe(
-        applySize,
-        RIO.flatMap(() => applyFullScreen),
-      );
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,16 +182,16 @@ export type DisplayApi = Pick<OIPF.DAE.Broadcast.VideoBroadcast, "setFullScreen"
 export const displayApi: R.Reader<DisplayEnv, DisplayApi> = (env) => ({
   setFullScreen: (fullScreen) => setFullScreen(fullScreen)(env)(),
   get fullScreen() {
-    return readDisplayState(env)().fullScreen;
+    return isFullScreen(env)();
   },
   get width() {
-    return readDisplayState(env)().width;
+    return getSize(env)().width;
   },
   set width(value: number) {
     setWidth(value)(env)();
   },
   get height() {
-    return readDisplayState(env)().height;
+    return getSize(env)().height;
   },
   set height(value: number) {
     setHeight(value)(env)();
@@ -219,28 +217,21 @@ export interface DisplayAPI extends DisplayApi {
 export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
   class extends Base implements DisplayAPI {
     readonly _displayEnv: DisplayEnv = createDisplayEnv(
-      {
-        resize: (width, height) => this.env.setSize(width, height),
-        setFullScreen: (fullScreen) => this.env.setFullscreen(fullScreen),
-      },
+      this.env.videoWindow,
       {
         onFullScreenChange: (fullScreen) => () => this.env.eventHandlers.onFullScreenChange(fullScreen),
       },
-      {
-        fullScreen: this.env.defaults.fullScreen,
-        width: this.env.defaults.width,
-        height: this.env.defaults.height,
-      },
+      this.env.defaults.fullScreen,
     )();
 
     readonly setFullScreen = (fullScreen: boolean): void => setFullScreen(fullScreen)(this._displayEnv)();
 
     get fullScreen(): boolean {
-      return readDisplayState(this._displayEnv)().fullScreen;
+      return isFullScreen(this._displayEnv)();
     }
 
     get width(): number {
-      return readDisplayState(this._displayEnv)().width;
+      return getSize(this._displayEnv)().width;
     }
 
     set width(value: number) {
@@ -248,7 +239,7 @@ export const WithDisplay = <T extends ClassType<VideoBroadcastEnv>>(Base: T) =>
     }
 
     get height(): number {
-      return readDisplayState(this._displayEnv)().height;
+      return getSize(this._displayEnv)().height;
     }
 
     set height(value: number) {

@@ -161,9 +161,6 @@ export type ChannelVideoStreamEnv = {
   stop: IO.IO<void>;
   destroy: IO.IO<void>;
   loadSource: (source: VideoStreamSource) => IO.IO<void>;
-  // Display
-  setSize: (width: number, height: number) => IO.IO<void>;
-  setFullscreen: (fullscreen: boolean) => IO.IO<void>;
   // Volume
   setVolume: (volume: number) => IO.IO<void>;
   setMuted: (muted: boolean) => IO.IO<void>;
@@ -199,10 +196,6 @@ export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): Chan
         stream.loadSource(source),
         TE.mapLeft((error) => new Error(error.message)),
       ),
-
-    // Display
-    setSize: (width, height) => stream.setSize(width, height),
-    setFullscreen: (fullscreen) => stream.setFullscreen(fullscreen),
 
     // Volume
     setVolume: (volume) =>

@@ -5,7 +5,13 @@ import type * as IO from "fp-ts/IO";
 // Attach Strategy
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type AttachStrategy = "visual" | "non-visual";
+/**
+ * - `visual-embedded`: the video is mounted inside the `<object>` (see `detection/embedded.ts`).
+ * - `visual`: legacy — the video lives in a container inserted after the object, which
+ *   mirrors only the object's inline style. Still used by A/V Control objects.
+ * - `non-visual`: only properties and methods are exposed on the element.
+ */
+export type AttachStrategy = "visual-embedded" | "visual" | "non-visual";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State Keys
@@ -32,6 +38,11 @@ export type OipfConnector = Readonly<{
   predicate: (element: Element) => element is HTMLObjectElement;
   /** Strategy for attaching the binding to the element */
   attachStrategy: AttachStrategy;
+  /**
+   * Native properties of the element that the OIPF object replaces
+   * (e.g. `width`/`height` of `<object>`). Other native keys are never overridden.
+   */
+  nativeOverrides?: ReadonlyArray<string>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────

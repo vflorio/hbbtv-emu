@@ -122,11 +122,11 @@ const defineProxyAccessor =
   };
 
 const proxyProperty =
-  (target: object, source: object) =>
+  (target: object, source: object, overrides: ReadonlyArray<string>) =>
   (key: string): IO.IO<void> =>
     pipe(
-      // Skip if key already exists on target
-      O.fromPredicate((k: string) => !(k in target))(key),
+      // Skip keys the target already has (native DOM API), unless explicitly overridden
+      O.fromPredicate((k: string) => !(k in target) || overrides.includes(k))(key),
       O.flatMap(() => getPropertyDescriptor(source, key)),
       O.match(
         () => IO.of(undefined),
@@ -137,9 +137,15 @@ const proxyProperty =
       ),
     );
 
-export const proxyProperties = (target: object, source: object): IO.IO<void> =>
+/**
+ * Exposes the properties and methods of `source` on `target`, forwarding every
+ * read, write and call. Keys that already exist on `target` are left alone, except
+ * those listed in `overrides` (e.g. `width`/`height` on an `<object>`, whose native
+ * attribute reflection must be replaced by the OIPF semantics).
+ */
+export const proxyProperties = (target: object, source: object, overrides: ReadonlyArray<string> = []): IO.IO<void> =>
   pipe(
     collectPropertyKeys(source),
-    RA.traverse(IO.Applicative)(proxyProperty(target, source)),
+    RA.traverse(IO.Applicative)(proxyProperty(target, source, overrides)),
     IO.map(() => undefined),
   );

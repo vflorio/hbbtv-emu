@@ -51,6 +51,7 @@ Il progetto cresce in tre fasi:
 
 ### Problemi già individuati sul branch
 - [x] Build verde con Bun + turbo (13/13 package, 3 estensioni). Restano le dipendenze verso `packages/extension_old` in 8 package.
+- [x] L'attach `non-visual` costruiva l'IO del proxy senza eseguirlo: gli `<object>` non visuali dichiarati nel markup non avevano nessun metodo OIPF (bug presente anche su `main`). Trovato dai test, corretto.
 - [x] Il logger stampava anche i livelli disabilitati (`O.fromNullable(false)` è `Some`). Trovato dai test, corretto.
 - [ ] `ExtensionState.enabledTabIds` è un `Set`, ma `chrome.storage` serializza in JSON: dopo un riavvio del service worker MV3 torna come `{}` e il primo aggiornamento lancia `enabledTabIds is not iterable`. Fissato con `it.fails` in `state.test.ts`; si risolve con D5 (TvSession) + codec io-ts.
 - [ ] `TabsManager` usa `webRequest.onHeadersReceived` con `"blocking"` anche in **MV3**: non è consentito per estensioni non installate via policy. Su MV3 serve `declarativeNetRequest` (come in `main/apps/chrome-v3/public/rules.json`), quindi il rewrite del content-type va dietro una **port** con implementazioni diverse.
@@ -129,12 +130,16 @@ Il progetto cresce in tre fasi:
 
 ### 1.3 Porting della runtime OIPF (da `main`)
 - [ ] Riscrivere `VideoBroadcast` e `AVControlVideo` secondo D1 (oggi `compose(BaseVideoBroadcast, WithChannel, WithComponent, …)`), una parte alla volta sul modello di `volume.ts`: ~~`volume`~~ ✅, ~~`display`~~ ✅, `channel`, `component`, `streamEvent`, `misc`, `controller`.
-- [ ] **Finestra video fedele alla spec** (nuova implementazione della port `VideoWindow` di `display.ts`): `width`/`height` devono corrispondere allo `style` dell'`<object>` (oggi si ridimensiona solo il `<video>` dentro un container grande quanto l'oggetto, e le dimensioni iniziali sono quelle di default invece di quelle dell'elemento), e il full-screen deve coprire il piano grafico senza cambiare lo z-index (oggi porta il video al 100% del container, cioè resta grande quanto l'oggetto). Tocca l'attach visuale (container + `ObjectStyleMirror`).
+- [x] **Finestra video fedele alla spec per `video/broadcast`**: attach `visual-embedded`, con il video montato *dentro* l'`<object>` come fallback content, così tutto il CSS dell'app (fogli di stile, attributi, posizionamento, z-index) si applica in modo nativo. `width`/`height` sono lo `style` dell'oggetto; il full-screen copre il viewport mantenendo lo z-index. Verificato su Chromium 155 e Firefox 158 con un harness che usa i moduli reali.
+- [ ] Verificare `visual-embedded` sui motori legacy (Chromium 47, WebKit).
+- [ ] Portare **AVControl** su `visual-embedded`: oggi usa ancora il container accanto all'oggetto, che copia solo lo `style` inline e ignora i fogli di stile. Prima va verificato che un `<object type="video/mp4" data="…">` non carichi il media in modo nativo (doppio audio).
+- [ ] Dimensione di un `video/broadcast` senza CSS: oggi 0×0. Da verificare cosa fanno le TV (probabile 300×150 come un elemento sostituito, o il full-screen).
+- [ ] Il `<video>` montato è visibile all'app in `object.childNodes`/`innerHTML`. Accettabile finché nessuna app ne dipende.
 - [ ] **Eventi OIPF**: oggi sono solo callback sincrone verso le proprietà `onXxx` dell'elemento. Da verificare e allineare alla spec: dispatch asincrono e DOM events (`addEventListener("FullScreenChange", …)`, richiesti da HbbTV 2.0).
 - [ ] Il volume è della TV, non del singolo oggetto: con D5 lo `volumeState` va preso dalla TvSession (un `IORef` condiviso iniettato nell'env) invece di crearne uno per ogni `video/broadcast`.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
 - [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).
-- [ ] **Fix telecomando** (bug noto su `main`): verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
+- [ ] **Fix telecomando** (bug noto su `main`). *Probabile causa trovata e corretta*: l'attach `non-visual` non esponeva mai i metodi sugli `<object>` (ApplicationManager, Capabilities, Configuration), quindi `appMgr.getOwnerApplication(document).privateData.keyset.setValue(…)` falliva per le app che dichiarano gli oggetti nel markup. Da confermare con un'app reale. Altri punti da controllare: verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
 - [ ] Rimuovere `core/src/mixin.ts`.
 
 ### 1.4 Host

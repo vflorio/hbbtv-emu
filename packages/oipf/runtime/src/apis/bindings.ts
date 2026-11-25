@@ -33,6 +33,7 @@ import { OipfCapabilities } from "./dae/capabilities";
 import { OipfConfiguration } from "./dae/configuration";
 import { VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
 import { createChannelVideoStreamEnv } from "./dae/videoBroadcast/channel";
+import { createObjectVideoWindow } from "./dae/videoBroadcast/videoWindow";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binding Collection
@@ -100,17 +101,23 @@ export const createVideoBroadcastBinding = (
   connector: {
     selector: `object[type="${OIPF.DAE.Broadcast.MIME_TYPE}"]`,
     predicate: OIPF.DAE.Broadcast.isValidElement,
-    attachStrategy: "visual",
+    attachStrategy: "visual-embedded",
+    // OIPF width/height (numbers, bound to style.width/height) replace the native
+    // HTMLObjectElement attribute reflection (strings).
+    nativeOverrides: ["width", "height"],
   },
-  factory: (element) =>
-    new VideoBroadcast({
+  factory: (element) => {
+    const videoStream = createChannelVideoStreamEnv(env.getSharedPlayerRuntime() ?? undefined);
+    return new VideoBroadcast({
       channelRegistry: env.channelRegistry,
-      videoStream: createChannelVideoStreamEnv(env.getSharedPlayerRuntime() ?? undefined),
+      videoStream,
+      videoWindow: createObjectVideoWindow(element, videoStream.videoElement),
       onCurrentChannelChange: env.setCurrentChannel,
       streamEventScheduler: env.streamEventScheduler,
       defaults: env.defaultVideoBroadcast,
       eventHandlers: extractVideoBroadcastEventHandlers(element),
-    }),
+    });
+  },
 });
 
 /**
