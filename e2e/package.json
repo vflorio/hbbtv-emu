@@ -1,0 +1,17 @@
+{
+  "name": "@hbb-emu/e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end tests: built extensions loaded in real browsers, running HbbTV test applications",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "vitest run"
+  },
+  "dependencies": {
+    "@hbb-emu/extension-chrome-v3": "workspace:*"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "typescript": "5.9.3"
+  }
+}

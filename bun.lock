@@ -103,6 +103,17 @@
         "vite": "npm:rolldown-vite@7.2.5",
       },
     },
+    "e2e": {
+      "name": "@hbb-emu/e2e",
+      "version": "1.0.0",
+      "dependencies": {
+        "@hbb-emu/extension-chrome-v3": "workspace:*",
+      },
+      "devDependencies": {
+        "playwright": "1.56.1",
+        "typescript": "5.9.3",
+      },
+    },
     "extensions/chrome-v2": {
       "name": "@hbb-emu/extension-chrome-v2",
       "version": "1.0.0",
@@ -126,6 +137,7 @@
       "dependencies": {
         "@hbb-emu/core": "workspace:*",
         "@hbb-emu/extension-runtime": "workspace:*",
+        "@hbb-emu/page-runtime": "workspace:*",
       },
       "devDependencies": {
         "@types/chrome": "0.1.29",
@@ -243,6 +255,21 @@
         "fp-ts": "2.16.11",
         "hls.js": "1.6.15",
         "io-ts": "2.2.22",
+        "typescript": "5.9.3",
+      },
+    },
+    "packages/page-runtime": {
+      "name": "@hbb-emu/page-runtime",
+      "version": "1.0.0",
+      "dependencies": {
+        "@hbb-emu/core": "workspace:*",
+        "@hbb-emu/extension-common": "workspace:*",
+        "@hbb-emu/oipf-runtime": "workspace:*",
+        "@hbb-emu/player-adapter-web": "workspace:*",
+        "@hbb-emu/player-runtime": "workspace:*",
+        "fp-ts": "2.16.11",
+      },
+      "devDependencies": {
         "typescript": "5.9.3",
       },
     },
@@ -542,6 +569,8 @@
 
     "@hbb-emu/demo-ui": ["@hbb-emu/demo-ui@workspace:apps/demo-ui"],
 
+    "@hbb-emu/e2e": ["@hbb-emu/e2e@workspace:e2e"],
+
     "@hbb-emu/extension-chrome-v2": ["@hbb-emu/extension-chrome-v2@workspace:extensions/chrome-v2"],
 
     "@hbb-emu/extension-chrome-v3": ["@hbb-emu/extension-chrome-v3@workspace:extensions/chrome-v3"],
@@ -555,6 +584,8 @@
     "@hbb-emu/oipf-api": ["@hbb-emu/oipf-api@workspace:packages/oipf/api"],
 
     "@hbb-emu/oipf-runtime": ["@hbb-emu/oipf-runtime@workspace:packages/oipf/runtime"],
+
+    "@hbb-emu/page-runtime": ["@hbb-emu/page-runtime@workspace:packages/page-runtime"],
 
     "@hbb-emu/player-adapter-hbbtv": ["@hbb-emu/player-adapter-hbbtv@workspace:packages/player/adapters/hbbtv"],
 
@@ -1204,6 +1235,10 @@
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
 
+    "playwright": ["playwright@1.56.1", "", { "dependencies": { "playwright-core": "1.56.1" }, "optionalDependencies": { "fsevents": "2.3.2" }, "bin": { "playwright": "cli.js" } }, "sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw=="],
+
+    "playwright-core": ["playwright-core@1.56.1", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ=="],
+
     "postcss": ["postcss@8.5.33", "", { "dependencies": { "nanoid": "^3.3.20", "picocolors": "^1.1.1", "source-map-js": "^1.2.2" } }, "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ=="],
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
@@ -1469,6 +1504,8 @@
     "micromatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
 
     "ora/strip-ansi": ["strip-ansi@7.2.0", "", { "dependencies": { "ansi-regex": "^6.2.2" } }, "sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w=="],
+
+    "playwright/fsevents": ["fsevents@2.3.2", "", { "os": "darwin", "hasInstallScript": true }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
 
     "prop-types/react-is": ["react-is@16.13.1", "", {}, "sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ=="],
 

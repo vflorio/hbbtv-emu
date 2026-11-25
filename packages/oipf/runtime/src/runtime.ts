@@ -183,9 +183,9 @@ export class RuntimeService implements Runtime {
     pipe(
       logger.info("Starting"),
       IO.tap(() => initializeUserAgent(this.#env.userAgent)),
-      IO.tap(() => this.#streamEventScheduler.start),
-      IO.tap(() => this.#provider.start),
-      IO.tap(() => logger.info("Runtime")),
+      IO.tap(() => this.#streamEventScheduler.start()),
+      IO.tap(() => this.#provider.start()),
+      IO.tap(() => logger.info("Started")),
     );
 
   /**
@@ -194,8 +194,8 @@ export class RuntimeService implements Runtime {
   stop = (): IO.IO<void> =>
     pipe(
       logger.info("Stopping"),
-      IO.tap(() => this.#provider.stop),
-      IO.tap(() => this.#streamEventScheduler.stop),
+      IO.tap(() => this.#provider.stop()),
+      IO.tap(() => this.#streamEventScheduler.stop()),
       IO.tap(() => logger.info("Stopped")),
     );
 

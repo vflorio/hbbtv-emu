@@ -32,13 +32,16 @@ export const createWebRequestAdapter = ({ manifest }: AdapterConfig): WebRequest
     const hasV2ExtraHeaders =
       chrome.webRequest.OnHeadersReceivedOptions && "EXTRA_HEADERS" in chrome.webRequest.OnHeadersReceivedOptions;
 
+    // MV3 does not allow blocking webRequest listeners (unless policy-installed):
+    // the listener only observes, and the content-type rewrite is done by the
+    // declarativeNetRequest rules shipped with the extension.
     const extraInfoSpec = match(manifest)
       .with(MANIFEST_VERSION_2, () => [
         "responseHeaders" as const,
         "blocking" as const,
         ...(hasV2ExtraHeaders ? ["extraHeaders" as const] : []),
       ])
-      .with(MANIFEST_VERSION_3, () => ["responseHeaders" as const, "blocking" as const])
+      .with(MANIFEST_VERSION_3, () => ["responseHeaders" as const])
       .exhaustive();
 
     chrome.webRequest.onHeadersReceived.addListener(listener, { urls: ["<all_urls>"] }, extraInfoSpec);

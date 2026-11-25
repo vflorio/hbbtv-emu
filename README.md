@@ -51,6 +51,14 @@ bun run test:coverage   # coverage report per package (coverage/)
 
 Inside a package: `bun run test` / `bun run test:watch`.
 
+End-to-end tests (`e2e/`) load the built extensions in a real browser and run the HbbTV test applications in `e2e/fixtures`, served with the HbbTV content type:
+
+```bash
+bun run test:e2e        # builds the extensions first (turbo)
+```
+
+They need a Chromium binary (`/usr/bin/chromium` by default, or `HBB_EMU_CHROMIUM=/path/to/chromium`); branded Google Chrome cannot load unpacked extensions from the command line.
+
 Conventions:
 
 - tests live next to the code: `foo.ts` → `foo.test.ts`

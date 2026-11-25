@@ -54,7 +54,12 @@ Il progetto cresce in tre fasi:
 - [x] L'attach `non-visual` costruiva l'IO del proxy senza eseguirlo: gli `<object>` non visuali dichiarati nel markup non avevano nessun metodo OIPF (bug presente anche su `main`). Trovato dai test, corretto.
 - [x] Il logger stampava anche i livelli disabilitati (`O.fromNullable(false)` è `Some`). Trovato dai test, corretto.
 - [ ] `ExtensionState.enabledTabIds` è un `Set`, ma `chrome.storage` serializza in JSON: dopo un riavvio del service worker MV3 torna come `{}` e il primo aggiornamento lancia `enabledTabIds is not iterable`. Fissato con `it.fails` in `state.test.ts`; si risolve con D5 (TvSession) + codec io-ts.
-- [ ] `TabsManager` usa `webRequest.onHeadersReceived` con `"blocking"` anche in **MV3**: non è consentito per estensioni non installate via policy. Su MV3 serve `declarativeNetRequest` (come in `main/apps/chrome-v3/public/rules.json`), quindi il rewrite del content-type va dietro una **port** con implementazioni diverse.
+- [x] `TabsManager` usava `webRequest.onHeadersReceived` con `"blocking"` anche in **MV3**, che non lo consente: il background andava in errore all'avvio. Ora in MV3 il listener osserva soltanto e il rewrite del content-type lo fa la regola DNR. Resta da portare dietro una **port** `ContentTypeRewrite` vera (1.1).
+- [x] **Refactoring "class arrow methods" a metà**: questo branch è nato dopo il commit `301f009` di `main` ma prima del suo revert (`59fa367`). Alcuni metodi sono passati da `x: IO` a `x = (): IO => …` senza aggiornare i chiamanti, e TypeScript non lo segnala (`IO.tap(() => obj.start)` è un `IO<IO>` valido). Risultato: `RuntimeService.start/stop` non avviava né fermava mai provider e scheduler degli stream event, quindi **nessun oggetto OIPF veniva mai collegato**. Corretto; cercati gli altri casi con uno script, non ne risultano altri. Restano possibili negli stessi pattern: attenzione nei porting.
+- [x] `Keyset` non esponeva `value` né le costanti OIPF (`RED` … `OTHER`), e i tipi "della spec" avevano valori inventati (`KeysetMask`, `BACK = 8`). Corretto; mancano ancora `maximumValue`, `otherKeys`, `getKey()`, `getKeyIcon()`.
+- [ ] `oipfObjectFactory` non viene installato su `window` (`initializeOipfObjectFactory` non è mai chiamata) e i `create*Object` restituiscono `null` (TODO). Anche su `main`.
+- [ ] Build: dash.js 5.1 non esporta `Errors`, importato da `player/adapters/web/src/dash.ts` → a runtime è `undefined`.
+- [ ] `page-runtime.js` pesa ~1,6 MB (hls.js + dash.js) e viene caricato su ogni pagina http(s), anche se si avvia solo sui documenti HbbTV.
 - [ ] La regola DNR con condizione `responseHeaders` richiede un Chrome recente (da verificare: ~128+). Per Chrome < 128 il percorso realistico è MV2 → la matrice target va definita per *versione di engine*, non solo per "manifest".
 
 ---
@@ -125,7 +130,9 @@ Il progetto cresce in tre fasi:
 - [ ] **Background**: completare routing dei messaggi, propagazione dello stato a tutti i tab/UI, ciclo di vita tab (oggi solo `onTabAdded/Removed` con TODO).
 - [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3.
 - [ ] **Bridge** (ISOLATED world): inoltro MAIN ↔ background con contesto `tabId`.
-- [ ] **Content / page bootstrap**: avvio della page runtime, richiesta stato iniziale, sottoscrizione agli aggiornamenti.
+- [x] **Page runtime** (`@hbb-emu/page-runtime`): si avvia da sola solo nei documenti HbbTV, una volta per finestra. Su chrome-v3 è un content script `world: "MAIN"` a `document_start`, quindi **le API OIPF esistono prima del primo script dell'app**. Su `main` arrivavano solo dopo `DOMContentLoaded` e una richiesta asincrona al background.
+- [ ] **Bridge**: stato iniziale dal background e sottoscrizione agli aggiornamenti. Oggi la page runtime parte con lo stato di default; lo stato va applicato quando arriva, senza ritardare l'avvio.
+- [ ] Iniezione della page runtime su MV2/Chromium legacy e Firefox (niente `world: "MAIN"`: `<script>` inline iniettato dal content script a `document_start`).
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).
 
 ### 1.3 Porting della runtime OIPF (da `main`)
@@ -139,7 +146,7 @@ Il progetto cresce in tre fasi:
 - [ ] Il volume è della TV, non del singolo oggetto: con D5 lo `volumeState` va preso dalla TvSession (un `IORef` condiviso iniettato nell'env) invece di crearne uno per ogni `video/broadcast`.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
 - [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).
-- [ ] **Fix telecomando** (bug noto su `main`). *Probabile causa trovata e corretta*: l'attach `non-visual` non esponeva mai i metodi sugli `<object>` (ApplicationManager, Capabilities, Configuration), quindi `appMgr.getOwnerApplication(document).privateData.keyset.setValue(…)` falliva per le app che dichiarano gli oggetti nel markup. Da confermare con un'app reale. Altri punti da controllare: verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
+- [ ] **Fix telecomando** (bug noto su `main`). *Cause trovate e corrette, verificate dal test e2e con un'app di prova*: l'attach `non-visual` non esponeva i metodi sugli `<object>`; la runtime arrivava dopo gli script dell'app; il `Keyset` non aveva `value`/costanti; su questo branch inoltre la runtime non collegava proprio gli oggetti. Da confermare con un'app reale. Restano da fare: i tasti colore/VCR dalla tastiera (mappatura) e il filtro dei tasti in base al keyset. Altri punti da controllare: verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
 - [ ] Rimuovere `core/src/mixin.ts`.
 
 ### 1.4 Host
@@ -157,8 +164,9 @@ Il progetto cresce in tre fasi:
 - [ ] Audit delle dipendenze in pagina: fp-ts/io-ts/ts-pattern traspilati; React in pagina solo opzionale (overlay debug).
 
 ### 1.6 Test
-- [ ] Suite di app HbbTV di prova (pagine statiche) che esercitano le API: ApplicationManager/Keyset, VideoBroadcast (setChannel, stream events), AVControl, Capabilities/Configuration.
-- [ ] E2E automatizzati su host moderni (Playwright con estensione caricata: Chromium, Firefox).
+- [ ] Suite di app HbbTV di prova (pagine statiche in `e2e/fixtures`) che esercitano le API: ~~ApplicationManager/Keyset~~ (base ✅), VideoBroadcast (setChannel, stream events), AVControl, Capabilities/Configuration.
+- [x] E2E con Playwright su chrome-v3: estensione compilata caricata in Chromium, app servite con il content-type HbbTV vero (`bun run test:e2e`).
+- [ ] E2E su Firefox e sugli altri host.
 - [ ] Smoke test su engine legacy (script di lancio dei binari in `browsers/`).
 
 **Done quando:** la stessa app HbbTV di prova passa la suite su Chrome recente (MV3), Chromium 47 (MV2) e Firefox ESR, con lo stesso codice di page runtime.

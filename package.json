@@ -11,7 +11,8 @@
     "packages/oipf/*",
     "packages/player/*",
     "packages/player/adapters/*",
-    "packages/extension_old/*"
+    "packages/extension_old/*",
+    "e2e"
   ],
   "trustedDependencies": [
     "esbuild"
@@ -30,7 +31,8 @@
     "syncpack:list": "syncpack list",
     "test": "turbo run test",
     "test:watch": "vitest",
-    "test:coverage": "turbo run test:coverage"
+    "test:coverage": "turbo run test:coverage",
+    "test:e2e": "turbo run test:e2e"
   },
   "dependencies": {
     "logging-ts": "^0.3.4"

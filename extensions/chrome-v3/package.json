@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-runtime": "workspace:*"
+    "@hbb-emu/extension-runtime": "workspace:*",
+    "@hbb-emu/page-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "0.1.29",
@@ -16,11 +17,12 @@
   },
   "main": "./dist/index.js",
   "scripts": {
-    "extension:dev": "vite",
-    "extension:build": "bun run extension:build:background && bun run extension:build:assets",
+    "clean": "rm -rf dist",
+    "extension:build": "bun run extension:build:background && bun run extension:build:page && bun run extension:build:assets",
     "extension:build:assets": "cp -r public/* dist/",
     "extension:build:background": "vite build --config vite.background.config.ts",
-    "clean": "rm -rf dist",
+    "extension:build:page": "vite build --config vite.page.config.ts",
+    "extension:dev": "vite",
     "preview": "vite preview"
   },
   "type": "module"

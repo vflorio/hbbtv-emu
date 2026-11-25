@@ -1,0 +1,36 @@
+{
+  "name": "@hbb-emu/page-runtime",
+  "version": "1.0.0",
+  "description": "Host-agnostic bootstrap of the HbbTV runtime inside the application page",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/extension-common": "workspace:*",
+    "@hbb-emu/oipf-runtime": "workspace:*",
+    "@hbb-emu/player-adapter-web": "workspace:*",
+    "@hbb-emu/player-runtime": "workspace:*",
+    "fp-ts": "2.16.11"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

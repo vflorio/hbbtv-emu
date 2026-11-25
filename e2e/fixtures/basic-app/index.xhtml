@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//HbbTV//1.1.1//EN" "http://www.hbbtv.org/dtd/HbbTV-1.1.1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="application/vnd.hbbtv.xhtml+xml; charset=UTF-8" />
+  <title>e2e basic app</title>
+  <style type="text/css">
+    body { margin: 0; width: 1280px; height: 720px; }
+    #video { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
+  <!-- The usual HbbTV boilerplate: OIPF objects declared in the markup... -->
+  <object id="appmgr" type="application/oipfApplicationManager"></object>
+  <object id="oipfcfg" type="application/oipfConfiguration"></object>
+  <object id="video" type="video/broadcast"></object>
+
+  <!-- ...and used right away by an inline script, as most applications do. -->
+  <script type="text/javascript">
+  //<![CDATA[
+    var e2e = (window.__e2e = { initError: null, keysetValue: null, keys: [] });
+    try {
+      var app = document.getElementById("appmgr").getOwnerApplication(document);
+      // RED | GREEN | YELLOW | BLUE | NAVIGATION
+      app.privateData.keyset.setValue(0x1 | 0x2 | 0x4 | 0x8 | 0x10);
+      app.show();
+      e2e.keysetValue = app.privateData.keyset.value;
+    } catch (error) {
+      e2e.initError = String((error && error.message) || error);
+    }
+    document.addEventListener("keydown", function (event) {
+      e2e.keys.push(event.keyCode);
+    });
+  //]]>
+  </script>
+</body>
+</html>

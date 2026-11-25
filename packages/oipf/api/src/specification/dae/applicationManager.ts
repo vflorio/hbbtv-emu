@@ -90,11 +90,25 @@ export interface ApplicationPrivateData {
   getFreeMem(): number;
 }
 
-/** Keyset controls available remote-control keys. */
+/**
+ * Keyset: the remote-control keys the application wants to receive (OIPF DAE Keyset class).
+ * Still missing: maximumValue, otherKeys, maximumOtherKeys, supportsPointer, getKey(), getKeyIcon().
+ */
 export interface Keyset {
-  setValue(mask: number): void;
-  getValue(): number;
-  setKey?(keyCode: number, enabled: boolean): void;
+  readonly RED: 0x1;
+  readonly GREEN: 0x2;
+  readonly YELLOW: 0x4;
+  readonly BLUE: 0x8;
+  readonly NAVIGATION: 0x10;
+  readonly VCR: 0x20;
+  readonly SCROLL: 0x40;
+  readonly INFO: 0x80;
+  readonly NUMERIC: 0x100;
+  readonly ALPHA: 0x200;
+  readonly OTHER: 0x400;
+  /** The keyset currently requested by the application (bitmask of the constants above). */
+  readonly value: number;
+  setValue(value: number, otherKeys?: ReadonlyArray<number>): void;
 }
 
 export type ApplicationManagerEventType =
@@ -113,7 +127,7 @@ export enum KeyCodes {
   UP = 38,
   DOWN = 40,
   ENTER = 13,
-  BACK = 8,
+  BACK = 461,
 
   RED = 403,
   GREEN = 404,
@@ -127,12 +141,19 @@ export enum KeyCodes {
   REWIND = 412,
 }
 
-/** Enum for keyset masks (bitfields). */
+/** Keyset bits (same values as the Keyset constants). */
 export enum KeysetMask {
-  NAVIGATION = 0x01,
-  NAVIGATION_AND_COLOR = 0x02,
-  PLAYBACK = 0x04,
-  ALL = 0xff,
+  RED = 0x1,
+  GREEN = 0x2,
+  YELLOW = 0x4,
+  BLUE = 0x8,
+  NAVIGATION = 0x10,
+  VCR = 0x20,
+  SCROLL = 0x40,
+  INFO = 0x80,
+  NUMERIC = 0x100,
+  ALPHA = 0x200,
+  OTHER = 0x400,
 }
 
 export const MIME_TYPE = "application/oipfApplicationManager" as const;

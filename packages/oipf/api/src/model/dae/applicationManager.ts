@@ -13,16 +13,11 @@ import * as t from "io-ts";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Keyset mask values (bitfields).
+ * Keyset mask: any combination of the OIPF Keyset bits
+ * (RED 0x1, GREEN 0x2, YELLOW 0x4, BLUE 0x8, NAVIGATION 0x10, VCR 0x20,
+ * SCROLL 0x40, INFO 0x80, NUMERIC 0x100, ALPHA 0x200, OTHER 0x400).
  */
-export const KeysetMaskCodec = t.union([
-  t.literal(0x00), // NONE
-  t.literal(0x01), // NAVIGATION
-  t.literal(0x02), // NAVIGATION_AND_COLOR
-  t.literal(0x04), // PLAYBACK
-  t.literal(0xff), // ALL
-  t.number, // Custom mask combinations
-]);
+export const KeysetMaskCodec = t.number;
 
 export type KeysetMask = t.TypeOf<typeof KeysetMaskCodec>;
 

@@ -1,24 +1,31 @@
 import type { OIPF } from "@hbb-emu/oipf-api";
 
+/** OIPF DAE Keyset: the remote-control keys the application wants to receive. */
 export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
-  currentValue: number;
+  readonly RED = 0x1;
+  readonly GREEN = 0x2;
+  readonly YELLOW = 0x4;
+  readonly BLUE = 0x8;
+  readonly NAVIGATION = 0x10;
+  readonly VCR = 0x20;
+  readonly SCROLL = 0x40;
+  readonly INFO = 0x80;
+  readonly NUMERIC = 0x100;
+  readonly ALPHA = 0x200;
+  readonly OTHER = 0x400;
+
+  #value: number;
 
   constructor(initialValue = 0) {
-    this.currentValue = initialValue;
+    this.#value = initialValue;
   }
 
-  setValue = (mask: number): void => {
-    this.currentValue = mask;
-  };
+  get value(): number {
+    return this.#value;
+  }
 
-  getValue = (): number => this.currentValue;
-
-  setKey = (keyCode: number, enabled: boolean): void => {
-    if (enabled) {
-      this.currentValue |= keyCode;
-    } else {
-      this.currentValue &= ~keyCode;
-    }
+  setValue = (value: number, _otherKeys?: ReadonlyArray<number>): void => {
+    this.#value = value;
   };
 }
 
