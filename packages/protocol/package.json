@@ -1,0 +1,32 @@
+{
+  "name": "@hbb-emu/protocol",
+  "version": "1.0.0",
+  "description": "Messages between the page runtime and its host (bridge, background), and the DOM transport between page and bridge",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hbb-emu/extension-common": "workspace:*",
+    "fp-ts": "2.16.11"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

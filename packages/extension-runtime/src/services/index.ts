@@ -2,7 +2,7 @@ import { createLogger, type Logger } from "@hbb-emu/core";
 import { type AdapterConfig, type AdapterEnv, type BaseMessage, createAdapterEnv } from "..";
 
 export * from "./background";
-//export * from "./bridge";
+export * from "./bridge";
 //export * from "./content";
 //export * from "./ui";
 

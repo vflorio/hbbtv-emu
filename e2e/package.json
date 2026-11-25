@@ -11,6 +11,8 @@
     "@hbb-emu/extension-chrome-v3": "workspace:*"
   },
   "devDependencies": {
+    "@types/chrome": "0.1.32",
+    "@types/node": "^25.0.3",
     "playwright": "1.56.1",
     "typescript": "5.9.3"
   }

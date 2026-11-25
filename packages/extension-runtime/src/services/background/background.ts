@@ -5,22 +5,16 @@
  */
 
 import type { Logger } from "@hbb-emu/core";
+import { type HostMessage, isPageMessage, type PageMessage } from "@hbb-emu/protocol";
+import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
 import type { AdapterError, BaseMessage } from "../..";
-import type { ExtensionState } from "../../state";
+import { type ExtensionState, toPageConfig } from "../../state";
 import type { ServiceEnv } from "..";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
-
-//TODO
-export type ForwardableMessage =
-  | { readonly _tag: "Settings/Updated"; readonly settings: ExtensionState["common"] }
-  | { readonly _tag: "Tab/StateChanged"; readonly tabId: number; readonly enabled: boolean }
-  | { readonly _tag: "OIPF/RuntimeReady"; readonly tabId: number }
-  | { readonly _tag: "UI/Opened"; readonly tabId: number }
-  | { readonly _tag: "UI/Closed"; readonly tabId: number };
 
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
 
@@ -31,7 +25,7 @@ export class BackgroundService {
 
   private messagingUnsubscribe?: () => void;
 
-  constructor(protected readonly env: ServiceEnv<ExtensionState, ForwardableMessage>) {
+  constructor(protected readonly env: ServiceEnv<ExtensionState, HostMessage>) {
     this.stateManager = new StateManager({
       storage: this.env.adapter.storage,
     });
@@ -100,6 +94,27 @@ export class BackgroundService {
   private readonly onMessageReceived = (message: BaseMessage, tabId: number): IO.IO<void> =>
     pipe(
       this.logger.debug(`Message received from tab ${tabId}`, message),
-      // TODO: Route messages to appropriate handlers
+      IO.flatMap(() => (isPageMessage(message) ? this.onPageMessage(message, tabId) : IO.of(undefined))),
+    );
+
+  /**
+   * A page runtime started in a tab: send it the configuration.
+   * Object state is never pushed here (ROADMAP D5).
+   */
+  private readonly onPageMessage = (message: PageMessage, tabId: number): IO.IO<void> =>
+    pipe(
+      this.logger.info(`Page runtime ready in tab ${tabId}: ${message.url}`),
+      IO.flatMap(() => this.stateManager.getState()),
+      IO.flatMap(
+        E.match(
+          (error) => this.logger.error("Cannot configure the page runtime", error),
+          (state) => () => {
+            void pipe(
+              this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
+              TE.orElseFirstIOK((error) => this.logger.warn(`Could not send the configuration to tab ${tabId}`, error)),
+            )();
+          },
+        ),
+      ),
     );
 }

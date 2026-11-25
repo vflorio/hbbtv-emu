@@ -10,7 +10,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BrowserContext, chromium } from "playwright";
+import { type BrowserContext, chromium, type Worker } from "playwright";
 
 const CHROMIUM_CANDIDATES = ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium"];
 
@@ -24,6 +24,8 @@ const findChromium = (): string => {
 
 export type ExtensionBrowser = Readonly<{
   context: BrowserContext;
+  /** The extension's MV3 service worker (background). */
+  serviceWorker: Worker;
   close: () => Promise<void>;
 }>;
 
@@ -42,10 +44,11 @@ export const launchWithExtension = async (extensionDir: string): Promise<Extensi
 
   // The MV3 service worker starts asynchronously; wait for it so the
   // declarativeNetRequest rules are active before the first navigation.
-  if (context.serviceWorkers().length === 0) await context.waitForEvent("serviceworker");
+  const serviceWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
 
   return {
     context,
+    serviceWorker,
     close: async () => {
       await context.close();
       await rm(userDataDir, { recursive: true, force: true });

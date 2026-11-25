@@ -1,5 +1,7 @@
 import { DEFAULT_LOGGER_STATE, type LoggerState } from "@hbb-emu/core";
+import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
+import type { PageConfig } from "@hbb-emu/protocol";
 
 /**
  * Extension State Domain Types
@@ -17,8 +19,8 @@ export type ExtensionState = {
 export type OipfRuntimeState = {
   api: NonNullable<HbbTVState>;
   userAgent: string;
-  channels: any[];
-  currentChannel: any;
+  channels: ReadonlyArray<ChannelConfig>;
+  currentChannel: ChannelConfig | null;
 };
 
 export type CommonSettings = {
@@ -37,8 +39,14 @@ export const DEFAULT_STATE: ExtensionState = {
   logger: DEFAULT_LOGGER_STATE,
   runtime: {
     api: DEFAULT_HBBTV_STATE,
-    userAgent: "",
-    channels: [],
+    userAgent: DEFAULT_EXTENSION_STATE.userAgent,
+    channels: DEFAULT_EXTENSION_STATE.channels,
     currentChannel: null,
   },
 } as const;
+
+/** The part of the state the page runtime needs (ROADMAP D5: configuration, not object state). */
+export const toPageConfig = (state: ExtensionState): PageConfig => ({
+  userAgent: state.runtime.userAgent,
+  channels: state.runtime.channels,
+});

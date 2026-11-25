@@ -110,6 +110,8 @@
         "@hbb-emu/extension-chrome-v3": "workspace:*",
       },
       "devDependencies": {
+        "@types/chrome": "0.1.32",
+        "@types/node": "^25.0.3",
         "playwright": "1.56.1",
         "typescript": "5.9.3",
       },
@@ -138,6 +140,7 @@
         "@hbb-emu/core": "workspace:*",
         "@hbb-emu/extension-runtime": "workspace:*",
         "@hbb-emu/page-runtime": "workspace:*",
+        "@hbb-emu/protocol": "workspace:*",
       },
       "devDependencies": {
         "@types/chrome": "0.1.29",
@@ -182,6 +185,7 @@
         "@hbb-emu/core": "workspace:*",
         "@hbb-emu/extension-common": "workspace:*",
         "@hbb-emu/oipf-api": "workspace:*",
+        "@hbb-emu/protocol": "workspace:*",
         "io-ts": "2.2.21",
       },
       "devDependencies": {
@@ -267,6 +271,7 @@
         "@hbb-emu/oipf-runtime": "workspace:*",
         "@hbb-emu/player-adapter-web": "workspace:*",
         "@hbb-emu/player-runtime": "workspace:*",
+        "@hbb-emu/protocol": "workspace:*",
         "fp-ts": "2.16.11",
       },
       "devDependencies": {
@@ -345,6 +350,17 @@
       "peerDependencies": {
         "react": "19.2.0",
         "react-dom": "19.2.0",
+      },
+    },
+    "packages/protocol": {
+      "name": "@hbb-emu/protocol",
+      "version": "1.0.0",
+      "dependencies": {
+        "@hbb-emu/extension-common": "workspace:*",
+        "fp-ts": "2.16.11",
+      },
+      "devDependencies": {
+        "typescript": "5.9.3",
       },
     },
     "packages/settings-ui": {
@@ -594,6 +610,8 @@
     "@hbb-emu/player-runtime": ["@hbb-emu/player-runtime@workspace:packages/player/runtime"],
 
     "@hbb-emu/player-ui": ["@hbb-emu/player-ui@workspace:packages/player/ui"],
+
+    "@hbb-emu/protocol": ["@hbb-emu/protocol@workspace:packages/protocol"],
 
     "@hbb-emu/runtime-chrome": ["@hbb-emu/runtime-chrome@workspace:packages/extension_old/chrome"],
 
@@ -1452,6 +1470,8 @@
     "@hbb-emu/demo-ui/@types/react-dom": ["@types/react-dom@19.2.3", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=="],
 
     "@hbb-emu/demo-ui/vite": ["rolldown-vite@7.2.5", "", { "dependencies": { "@oxc-project/runtime": "0.97.0", "fdir": "^6.5.0", "lightningcss": "^1.30.2", "picomatch": "^4.0.3", "postcss": "^8.5.6", "rolldown": "1.0.0-beta.50", "tinyglobby": "^0.2.15" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^20.19.0 || >=22.12.0", "esbuild": "^0.25.0", "jiti": ">=1.21.0", "less": "^4.0.0", "sass": "^1.70.0", "sass-embedded": "^1.70.0", "stylus": ">=0.54.8", "sugarss": "^5.0.0", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "esbuild", "jiti", "less", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-u09tdk/huMiN8xwoiBbig197jKdCamQTtOruSalOzbqGje3jdHiV0njQlAW0YvzoahkirFePNQ4RYlfnRQpXZA=="],
+
+    "@hbb-emu/e2e/@types/chrome": ["@types/chrome@0.1.32", "", { "dependencies": { "@types/filesystem": "*", "@types/har-format": "*" } }, "sha512-n5Cqlh7zyAqRLQWLXkeV5K/1BgDZdVcO/dJSTa8x+7w+sx7m73UrDmduAptg4KorMtyTW2TNnPu8RGeaDMKNGg=="],
 
     "@hbb-emu/extension-chrome-v2/@types/node": ["@types/node@24.10.0", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A=="],
 

@@ -8,7 +8,16 @@ import { DEFAULT_LOGGER_STATE, Logger } from "@hbb-emu/core";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import * as TE from "fp-ts/TaskEither";
-import type { AdapterError, StorageAdapter, TabStatus, TabsAdapter, WebRequestAdapter } from "../adapter";
+import type {
+  AdapterError,
+  BaseMessage,
+  ExtensionChannel,
+  MessagingAdapter,
+  StorageAdapter,
+  TabStatus,
+  TabsAdapter,
+  WebRequestAdapter,
+} from "../adapter";
 
 const noop = () => IO.of(undefined);
 
@@ -93,3 +102,54 @@ export const createFakeWebRequest = () => {
 
 /** Lets pending promise callbacks run (for code that fires Tasks without awaiting them). */
 export const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** Background messaging: `receive` plays a content script, `sent` records what went to tabs. */
+export const createFakeMessaging = <T extends BaseMessage>() => {
+  const sent: Array<{ tabId: number; message: T }> = [];
+  let handler: ((message: BaseMessage, tabId: number) => IO.IO<void>) | undefined;
+  const messaging: MessagingAdapter<T> = {
+    sendToTab: (tabId, message) => {
+      sent.push({ tabId, message });
+      return TE.right(undefined);
+    },
+    broadcast: () => TE.right(undefined),
+    onMessage: (h) => {
+      handler = h;
+      return () => {
+        handler = undefined;
+      };
+    },
+  };
+  return { messaging, sent, receive: (message: object, tabId: number) => handler?.(message as BaseMessage, tabId)() };
+};
+
+/** Content-script side of extension messaging. */
+export const createFakeExtensionChannel = <T extends BaseMessage>() => {
+  const sent: T[] = [];
+  let handler: ((message: unknown) => IO.IO<void>) | undefined;
+  let failNext = false;
+  const channel: ExtensionChannel<T> = {
+    send: (message) => {
+      if (failNext) {
+        failNext = false;
+        return TE.left({ _tag: "MessageForwardError", tabId: 0, cause: "no receiver" });
+      }
+      sent.push(message);
+      return TE.right(undefined);
+    },
+    onMessage: (h) => {
+      handler = h;
+      return () => {
+        handler = undefined;
+      };
+    },
+  };
+  return {
+    channel,
+    sent,
+    receive: (message: unknown) => handler?.(message)(),
+    failNextSend: () => {
+      failNext = true;
+    },
+  };
+};

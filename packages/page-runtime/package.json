@@ -28,6 +28,7 @@
     "@hbb-emu/oipf-runtime": "workspace:*",
     "@hbb-emu/player-adapter-web": "workspace:*",
     "@hbb-emu/player-runtime": "workspace:*",
+    "@hbb-emu/protocol": "workspace:*",
     "fp-ts": "2.16.11"
   },
   "devDependencies": {
