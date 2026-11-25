@@ -135,7 +135,8 @@ Il progetto cresce in tre fasi:
 - [ ] **Background**: completare routing dei messaggi, propagazione dello stato a tutti i tab/UI, ciclo di vita tab (oggi solo `onTabAdded/Removed` con TODO).
 - [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3.
   - [x] **TvSession per tab**, modalità *App*: aperta dal primo `Page/Ready` di un tab, mantenuta tra le navigazioni e i reload, chiusa con il tab (`tabs.onRemoved`; prima "unloaded" contava come chiusura, e ogni "loading" loggava "Tab added"). Persistita in `chrome.storage.session` su MV3, in memoria su MV2 (background persistente); al riavvio si scartano le sessioni dei tab chiusi e quelle non valide. Oggi contiene il canale sintonizzato; la pagina la riceve con `Host/Session`, dopo `Host/Config`. Verificata in e2e su Chromium e Firefox.
-  - [ ] Il canale della sessione arriva in modo asincrono: una pagina parte sul primo canale della lineup e si risintonizza quando arriva `Host/Session` (solo se il tab era su un altro canale). Il bootstrap sincrono è condiviso da tutti i tab; per la modalità *TV* il background potrà pubblicarlo prima di navigare.
+  - [x] **Canale iniziale dall'AIT**: la pagina parte sul canale la cui AIT segnala la sua app (URL esatto, altrimenti stessa origine = application boundary di default), il primo della lineup se nessuno la segnala. Con il bootstrap sincrono il primo script dell'app lo legge già giusto (`privateData.currentChannel`, verificato in e2e su Chromium e Firefox); il background apre la sessione del tab con la stessa regola, quindi `Host/Session` non la risintonizza.
+  - [ ] Restano risintonizzati in modo asincrono: il reload di un tab che la UI ha spostato su un altro canale, e lo stesso URL segnalato da più canali (vince il primo della lineup). Per la modalità *TV* serve un'indicazione del canale nel bootstrap prima di navigare, che non dipenda dall'URL; il bootstrap è condiviso da tutti i tab.
   - [ ] Modalità *TV* (avvio da "Accendi la TV", lineup completa, cambio canale come navigazione).
   - [ ] Keyset, volume, app attiva nella sessione.
 - [ ] **Bridge** (ISOLATED world): inoltro MAIN ↔ background con contesto `tabId`.
@@ -190,6 +191,7 @@ Il progetto cresce in tre fasi:
 - [ ] Bundle della page runtime per target con Babel preset-env + core-js, riusando la pipeline di `origin/webkit-r152340` (`ie >= 9` come proxy ES5).
 - [ ] Verifica automatica della sintassi in output (es. `es-check es5`) per i target legacy.
 - [ ] Audit delle dipendenze in pagina: fp-ts/io-ts/ts-pattern traspilati; React in pagina solo opzionale (overlay debug).
+- [ ] API web usate dalla page runtime da verificare sui motori legacy: `URL` (confronto con l'AIT) va coperto da polyfill dove manca.
 
 ### 1.6 Test
 - [ ] Suite di app HbbTV di prova (pagine statiche in `e2e/fixtures`) che esercitano le API: ~~ApplicationManager/Keyset~~ (base ✅), VideoBroadcast (setChannel, stream events), AVControl, Capabilities/Configuration.
@@ -209,7 +211,8 @@ Il progetto cresce in tre fasi:
 
 ### 2.2 Lineup canali e AIT
 - [ ] Lineup multi-canale (triplet ONID/TSID/SID, LCN, nome, stream associato) — base già presente in `channelRegistry`.
-- [ ] AIT virtuale per canale: applicazioni, control code (AUTOSTART / PRESENT / KILL), URL, priorità, broadcast-related vs broadcast-independent.
+- [x] AIT virtuale per canale (`ait` del canale, codec in `@hbb-emu/oipf-api`, editor nella settings UI): applicazioni con `orgId`/`appId`, control code (AUTOSTART / PRESENT / KILL / DISABLED, TS 102 796 Tabella 7), URL, nome, priorità. `autostartApplication` (AUTOSTART con priorità più alta) e `channelSignalling` (il canale a cui una pagina è broadcast-related).
+  - [ ] Ancora da modellare: `service_bound_flag`, visibilità, `simple_application_boundary_descriptor` (origini in più), versione dell'AIT, app broadcast-independent.
 - [ ] Import di AIT reali (XML AIT; poi da MPEG-TS).
 - [ ] Ciclo di vita delle app conforme alla spec al cambio canale: chiusura/avvio app secondo l'AIT, `createApplication`/`destroyApplication`, app che sopravvivono al cambio canale.
 - [ ] Cambio canale tramite navigazione del tab (D5), con ritardo configurabile di "acquisizione AIT". Caso di test di riferimento: app *linear* che naviga da DMAX (52) a HGTV (56).

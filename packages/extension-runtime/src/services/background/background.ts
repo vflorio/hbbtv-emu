@@ -148,7 +148,7 @@ export class BackgroundService {
           (state) => () => {
             void pipe(
               this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
-              TE.flatMap(() => TE.fromTask(this.sessions.open(tabId, newSession(state)))),
+              TE.flatMap(() => TE.fromTask(this.sessions.open(tabId, newSession(state, message.url)))),
               TE.flatMap((session) =>
                 this.env.adapter.messaging.sendToTab(tabId, {
                   _tag: "Host/Session",

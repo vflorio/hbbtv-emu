@@ -16,6 +16,7 @@ type BasicAppState = {
   events: unknown[];
   userAgentAtFirstScript: string;
   configAtFirstScript: boolean;
+  channelAtFirstScript: string | null;
 };
 
 type Channel = { id: string; sid: number };
@@ -255,6 +256,35 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       await tv.reload();
       await expect.poll(() => tv.evaluate(channelSeen), { timeout: 5000 }).toEqual(on(second.id));
       expect(await other.evaluate(channelSeen)).toEqual(on(first.id));
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
+  it("an application starts on the channel whose AIT signals it, already at its first script", async () => {
+    const { request } = await openUi();
+    type UiState = { channels: Channel[]; currentChannel: Channel | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Channel];
+    const path = `basic-app/index.xhtml?ait=${Date.now()}`;
+    const signalling = {
+      ...first,
+      id: "e2e-signalling",
+      name: "e2e signalling",
+      sid: first.sid + 2000,
+      ait: { applications: [{ orgId: 1, appId: 1, controlCode: "AUTOSTART", url: server.url(path) }] },
+    };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, signalling] } });
+      const { page, errors } = await openPage(path);
+      await page.bringToFront();
+
+      expect(errors).toEqual([]);
+      expect((await appState(page)).channelAtFirstScript).toBe(signalling.id);
+      await expect.poll(async () => (await getState()).currentChannel?.id, { timeout: 5000 }).toBe(signalling.id);
+      expect(await page.evaluate(channelSeen)).toEqual({ application: signalling.id, videoBroadcast: signalling.id });
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

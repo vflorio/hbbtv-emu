@@ -5,7 +5,7 @@ import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Stack
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
-import { ChannelBasicInfo, ChannelTimeline, ChannelTriplet } from "../components/channel";
+import { ChannelAit, ChannelBasicInfo, ChannelTimeline, ChannelTriplet } from "../components/channel";
 import Panel from "../components/Panel";
 import { StreamEventsList } from "../components/streamEvent";
 import { useAppState, useChannelActions } from "../hooks";
@@ -137,6 +137,7 @@ function ChannelItem({
             onChange={handleTripletChange}
             onSave={upsert}
           />
+          <ChannelAit channel={localChannel} onSave={upsert} />
         </Stack>
       </AccordionDetails>
     </Accordion>

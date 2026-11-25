@@ -1,5 +1,5 @@
 import { randomUUID, textToHex } from "@hbb-emu/core";
-import { DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "@hbb-emu/oipf-api";
+import { AitCodec, DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "@hbb-emu/oipf-api";
 import * as t from "io-ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +52,8 @@ export const ChannelConfigCodec = t.intersection([
   t.partial({
     streamEvents: t.array(StreamEventConfigCodec),
     enableStreamEvents: t.boolean,
+    /** The applications the channel signals; none: the TV shows the broadcast alone. */
+    ait: AitCodec,
   }),
 ]);
 

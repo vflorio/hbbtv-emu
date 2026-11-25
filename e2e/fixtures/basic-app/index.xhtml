@@ -25,6 +25,9 @@
     e2e.configAtFirstScript = Boolean(window[Symbol.for("hbb-emu.config")]);
     try {
       var app = document.getElementById("appmgr").getOwnerApplication(document);
+      // The service the application is broadcast-related to, as it reads it at start.
+      var channel = app.privateData.currentChannel;
+      e2e.channelAtFirstScript = channel ? channel.ccid : null;
       // RED | GREEN | YELLOW | BLUE | NAVIGATION
       app.privateData.keyset.setValue(0x1 | 0x2 | 0x4 | 0x8 | 0x10);
       app.show();

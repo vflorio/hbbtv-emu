@@ -1,6 +1,6 @@
 import { DEFAULT_LOGGER_STATE, type LoggerState } from "@hbb-emu/core";
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
-import { DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
+import { channelSignalling, DEFAULT_HBBTV_STATE, type HbbTVState } from "@hbb-emu/oipf-api";
 import type { PageConfig, PageSession, UiState } from "@hbb-emu/protocol";
 
 /**
@@ -67,12 +67,17 @@ export type TvSession = Readonly<{
 /** Every open TV, by tab id. */
 export type TvSessions = Readonly<Record<string, TvSession>>;
 
-/** Until device profiles and AIT exist, a TV starts on the first channel of the lineup. */
+/** Until device profiles exist, a TV is on the first channel of the lineup when nothing else says. */
 export const defaultChannel = (state: ExtensionState): ChannelConfig | null => state.runtime.channels[0] ?? null;
 
-export const newSession = (state: ExtensionState): TvSession => ({
+/**
+ * The TV of a tab opened on an application (`url`): tuned to the channel that
+ * signals it in its AIT, the first of the lineup if none does.
+ * The page works it out by itself in the same way (`channelSignalling`), so the two agree.
+ */
+export const newSession = (state: ExtensionState, url: string): TvSession => ({
   mode: "app",
-  channelId: defaultChannel(state)?.id ?? null,
+  channelId: (channelSignalling(state.runtime.channels, url) ?? defaultChannel(state))?.id ?? null,
 });
 
 export const findChannel = (state: ExtensionState, channelId: string): ChannelConfig | null =>

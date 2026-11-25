@@ -231,8 +231,12 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
       .filter((s) => s.tabId === tabId && s.message._tag === "Host/Session")
       .map((s) => (s.message as Extract<HostMessage, { _tag: "Host/Session" }>).session.channel?.id ?? null);
 
-  const pageReady = async (messaging: { receive: (m: object, tabId: number) => void }, tabId: number) => {
-    messaging.receive({ _tag: "Page/Ready", url: "http://app/index.xhtml" }, tabId);
+  const pageReady = async (
+    messaging: { receive: (m: object, tabId: number) => void },
+    tabId: number,
+    url = "http://app/index.xhtml",
+  ) => {
+    messaging.receive({ _tag: "Page/Ready", url }, tabId);
     await flushPromises();
   };
 
@@ -242,6 +246,53 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     await pageReady(messaging, 1);
 
     expect(tunedTo(messaging.sent, 1)).toEqual(["dmax"]);
+  });
+
+  it("…or on the channel whose AIT signals the application, if one does", async () => {
+    const signalling = (url: string) => ({
+      applications: [{ orgId: 10, appId: 1, controlCode: "AUTOSTART" as const, url }],
+    });
+    const withAit = {
+      ...lineup,
+      runtime: {
+        ...lineup.runtime,
+        channels: [
+          { ...dmax, ait: signalling("http://dmax.example/app/index.html") },
+          { ...hgtv, ait: signalling("http://hgtv.example/app/index.html") },
+        ],
+      },
+    };
+    const { messaging } = await setup(withAit);
+
+    await pageReady(messaging, 1, "http://hgtv.example/app/index.html");
+    await pageReady(messaging, 2, "http://elsewhere.example/");
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["hgtv"]);
+    expect(tunedTo(messaging.sent, 2)).toEqual(["dmax"]);
+  });
+
+  it("once open, the session keeps its channel whatever page the tab loads next", async () => {
+    const withAit = {
+      ...lineup,
+      runtime: {
+        ...lineup.runtime,
+        channels: [
+          dmax,
+          {
+            ...hgtv,
+            ait: {
+              applications: [{ orgId: 10, appId: 1, controlCode: "AUTOSTART" as const, url: "http://hgtv.example/" }],
+            },
+          },
+        ],
+      },
+    };
+    const { messaging } = await setup(withAit);
+
+    await pageReady(messaging, 1);
+    await pageReady(messaging, 1, "http://hgtv.example/");
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "dmax"]);
   });
 
   it("the UI tunes the TV in the active tab, which the page follows", async () => {
