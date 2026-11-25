@@ -15,6 +15,11 @@ export interface TabsAdapter {
   onTabsUpdated: (handler: (tabId: number, status: TabStatus) => void) => UnsubscribeFn;
   /** A tab was closed (or its window was). */
   onTabRemoved: (handler: (tabId: number) => void) => UnsubscribeFn;
+  /**
+   * The active tab of the last focused window may be another one: a tab was
+   * activated, or another window got the focus.
+   */
+  onActiveTabChanged: (handler: () => void) => UnsubscribeFn;
   /** Tabs matching the query (all tabs for `{}`); never fails, returns [] instead. */
   query: (query: TabQuery) => T.Task<ReadonlyArray<TabInfo>>;
   /** Opens a new tab on `url`, in front. Returns its id. */
@@ -96,6 +101,17 @@ export const createTabsAdapter = ({ manifest }: AdapterConfig): TabsAdapter => {
       const listener = (tabId: number) => handler(tabId);
       chrome.tabs.onRemoved.addListener(listener);
       return () => chrome.tabs.onRemoved.removeListener(listener);
+    },
+
+    onActiveTabChanged: (handler) => {
+      const listener = () => handler();
+      chrome.tabs.onActivated.addListener(listener);
+      // Not every host has windows (e.g. Firefox for Android).
+      chrome.windows?.onFocusChanged.addListener(listener);
+      return () => {
+        chrome.tabs.onActivated.removeListener(listener);
+        chrome.windows?.onFocusChanged.removeListener(listener);
+      };
     },
   };
 };

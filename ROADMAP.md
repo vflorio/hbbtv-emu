@@ -170,7 +170,7 @@ Il progetto cresce in tre fasi:
 - [x] **Settings UI nella side panel** di chrome-v3 (`settings-ui` condivisa, collegata tramite `createUiClient`). Il background trasforma ogni salvataggio in: configurazione → tutti i tab aperti; patch minima dello stato degli oggetti (`Host/ApplyState`, calcolata con `diffPatch`) → solo il tab attivo. Telecomando e "play channel" → tab attivo. Le pagine dell'estensione si riconoscono dall'origine del mittente, anche se aperte in un tab.
 - [ ] La UI mostra lo stato degli oggetti salvato nel background, non quello reale della pagina (es. il keyset impostato dall'app). Serve un messaggio pagina → host con lo stato corrente del tab attivo.
 - [x] Il canale corrente della UI è quello della sessione del tab attivo (`null` se il tab non è una TV); "play" sintonizza solo quel tab e non è più salvato nello stato condiviso (`runtime.currentChannel` rimosso, scartato dagli stati salvati).
-  - [ ] La UI non si aggiorna quando cambia il tab attivo.
+  - [x] La UI segue il tab attivo: il background le manda lo stato quando cambia il tab attivo o la finestra con il focus (`onActiveTabChanged`: `tabs.onActivated` + `windows.onFocusChanged`) e quando una pagina apre o aggiorna la sessione del suo tab. Verificato in e2e su Chromium (passando da un tab TV all'altro la UI riceve il canale di ciascuno).
 - [x] Iniezione della page runtime su Firefox MV2: il content script `injector.js` contiene il bundle della page runtime e lo esegue inline. Il bundle è lo stesso di chrome-v3.
 - [ ] Lo stesso su Chromium legacy (chrome-v2).
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).

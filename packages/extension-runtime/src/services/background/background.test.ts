@@ -342,7 +342,36 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     expect(await ui.request({ _tag: "UI/PlayChannel", channel: hgtv })).toEqual({ _tag: "UI/Done" });
 
     expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv"]);
-    expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: toUiState(lineup, hgtv) }]);
+    // The UI showed the tab's TV as soon as its page opened the session, then followed it.
+    expect(ui.notified).toEqual([
+      { _tag: "UI/StateChanged", state: toUiState(lineup, dmax) },
+      { _tag: "UI/StateChanged", state: toUiState(lineup, hgtv) },
+    ]);
+  });
+
+  it("the UI follows the active tab: switching to another TV shows its channel, to a plain tab none", async () => {
+    const { messaging, ui, tabs } = await setup(lineup, [
+      { id: 1, url: "http://app/index.xhtml" },
+      { id: 2, url: "http://app/other.xhtml" },
+      { id: 3, url: "http://example.com/" },
+    ]);
+    await pageReady(messaging, 1);
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+    await pageReady(messaging, 2, "http://app/other.xhtml");
+    ui.notified.splice(0);
+
+    tabs.activate(2);
+    await flushPromises();
+    tabs.activate(3);
+    await flushPromises();
+    tabs.activate(1);
+    await flushPromises();
+
+    expect(ui.notified).toEqual([
+      { _tag: "UI/StateChanged", state: toUiState(lineup, dmax) },
+      { _tag: "UI/StateChanged", state: toUiState(lineup, null) },
+      { _tag: "UI/StateChanged", state: toUiState(lineup, hgtv) },
+    ]);
   });
 
   it("the session outlives the pages of its tab, and is not shared with other tabs", async () => {

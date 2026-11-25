@@ -12,7 +12,7 @@ const setup = async () => {
     logger: silentLogger(),
     tabs: tabs.tabs,
     webRequest: webRequest.webRequest,
-    handlers: { onTabRemoved },
+    handlers: { onTabRemoved, onActiveTabChanged: IO.of(undefined) },
   });
 
   return { tabs, webRequest, onTabRemoved };

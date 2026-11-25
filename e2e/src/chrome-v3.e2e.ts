@@ -295,6 +295,21 @@ describe("chrome-v3: settings UI", () => {
       await tv.reload();
       await expect.poll(() => tv.evaluate(channelSeen), { timeout: 5000 }).toEqual(on(second.id));
       expect(await other.evaluate(channelSeen)).toEqual(on(first.id));
+
+      // The UI follows the active tab without asking: switching tabs pushes that TV's channel.
+      await ui.evaluate(() => {
+        const shown: Array<string | null> = [];
+        Object.assign(window, { __uiShown: shown });
+        chrome.runtime.onMessage.addListener((message: { _tag?: string; state?: UiState }) => {
+          if (message._tag === "UI/StateChanged") shown.push(message.state?.currentChannel?.id ?? null);
+        });
+      });
+      const lastShown = () =>
+        ui.evaluate(() => (window as unknown as { __uiShown: Array<string | null> }).__uiShown.at(-1));
+      await other.bringToFront();
+      await expect.poll(lastShown, { timeout: 5000 }).toBe(first.id);
+      await tv.bringToFront();
+      await expect.poll(lastShown, { timeout: 5000 }).toBe(second.id);
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

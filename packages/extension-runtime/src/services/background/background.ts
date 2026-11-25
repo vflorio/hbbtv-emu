@@ -92,6 +92,7 @@ export class BackgroundService {
           webRequest: this.env.adapter.webRequest,
           handlers: {
             onTabRemoved: this.onTabRemoved,
+            onActiveTabChanged: this.onActiveTabChanged,
           },
         });
 
@@ -144,6 +145,22 @@ export class BackgroundService {
       ),
     );
 
+  /** Every open UI shows the active tab's TV, whichever tab that is now. */
+  private readonly showActiveTab = (): T.Task<void> =>
+    pipe(
+      T.fromIO(this.stateManager.getState()),
+      T.flatMap(
+        E.match(
+          () => T.of(undefined),
+          (state) => notifyUis(state)(this.uiEnv),
+        ),
+      ),
+    );
+
+  private readonly onActiveTabChanged: IO.IO<void> = () => {
+    void this.showActiveTab()();
+  };
+
   /** The TV in that tab is gone, and so is its tuning. */
   private readonly onTabRemoved =
     (tabId: number): IO.IO<void> =>
@@ -195,6 +212,8 @@ export class BackgroundService {
               // A reload of this page will find its channel at document_start. And if this
               // page got its data late, the bootstrap may have become possible since.
               TE.tap(() => TE.fromTask(this.republish())),
+              // The tab may now be a TV, or show another channel: the UIs follow.
+              TE.tap(() => TE.fromTask(this.showActiveTab())),
             )();
           },
         ),

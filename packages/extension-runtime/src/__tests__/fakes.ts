@@ -83,6 +83,7 @@ export const createFakeTabs = (initial: ReadonlyArray<TabInfo> = []) => {
   const navigations: Array<{ tabId: number; url: string }> = [];
   const handlers = new Set<(tabId: number, status: TabStatus) => void>();
   const removedHandlers = new Set<(tabId: number) => void>();
+  const activeHandlers = new Set<() => void>();
   const tabs: TabsAdapter = {
     query: (query: TabQuery) => () => Promise.resolve(query.active ? open.slice(0, 1) : open),
     create: (url) => () => {
@@ -103,6 +104,10 @@ export const createFakeTabs = (initial: ReadonlyArray<TabInfo> = []) => {
       removedHandlers.add(handler);
       return () => removedHandlers.delete(handler);
     },
+    onActiveTabChanged: (handler) => {
+      activeHandlers.add(handler);
+      return () => activeHandlers.delete(handler);
+    },
   };
   return {
     tabs,
@@ -113,6 +118,11 @@ export const createFakeTabs = (initial: ReadonlyArray<TabInfo> = []) => {
     close: (tabId: number) => {
       open = open.filter((tab) => tab.id !== tabId);
       for (const handler of removedHandlers) handler(tabId);
+    },
+    /** The user switches to that tab: it becomes the active one. */
+    activate: (tabId: number) => {
+      open = [...open.filter((tab) => tab.id === tabId), ...open.filter((tab) => tab.id !== tabId)];
+      for (const handler of activeHandlers) handler();
     },
   };
 };

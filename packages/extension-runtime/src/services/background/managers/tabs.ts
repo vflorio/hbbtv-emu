@@ -12,6 +12,8 @@ export type TabsManangerEnv = {
   handlers: {
     /** The tab was closed. */
     onTabRemoved: (tabId: number) => IO.IO<void>;
+    /** Another tab may be the active one. */
+    onActiveTabChanged: IO.IO<void>;
   };
 };
 
@@ -22,6 +24,7 @@ export class TabsManager {
     this.logger = env.logger.create("TabsManager");
 
     this.env.tabs.onTabRemoved(this.onTabRemoved);
+    this.env.tabs.onActiveTabChanged(() => this.env.handlers.onActiveTabChanged());
     this.env.webRequest.onHeadersReceived(this.onHeadersReceived);
   }
 
