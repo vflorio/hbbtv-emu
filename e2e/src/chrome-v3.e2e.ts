@@ -2,6 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runAvControlScenario } from "./support/avControl";
 import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
@@ -104,6 +105,18 @@ describe("chrome-v3: HbbTV application", () => {
     });
 
     expect(video).toEqual({ width: 1280, height: 720, insideObject: true, rect: { width: 1280, height: 720 } });
+  });
+
+  it("plays VOD with an A/V Control object: play, seek, pause, stop, and to the end", async () => {
+    const { page, errors } = await openPage("av-app/index.xhtml");
+
+    try {
+      await runAvControlScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+    } finally {
+      // A page that played media slows the next tab switches down (seen on Firefox).
+      await page.close();
+    }
   });
 });
 

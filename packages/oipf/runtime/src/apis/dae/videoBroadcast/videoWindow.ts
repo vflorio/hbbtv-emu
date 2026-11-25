@@ -18,7 +18,8 @@ export const parsePixels = (value: string): number => {
   return value.trim().endsWith("px") && Number.isFinite(pixels) ? Math.trunc(pixels) : 0;
 };
 
-const readSize =
+/** The object's size, from its computed style. */
+export const readObjectSize =
   (object: HTMLObjectElement): IO.IO<Size> =>
   () => {
     const style = (object.ownerDocument.defaultView ?? window).getComputedStyle(object);
@@ -26,7 +27,7 @@ const readSize =
   };
 
 export const createObjectVideoWindow = (object: HTMLObjectElement, video: HTMLVideoElement): VideoWindow => ({
-  getSize: readSize(object),
+  getSize: readObjectSize(object),
   setWidth: (width) => () => {
     object.style.width = `${width}px`;
   },

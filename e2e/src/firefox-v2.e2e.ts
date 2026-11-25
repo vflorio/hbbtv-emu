@@ -2,6 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runAvControlScenario } from "./support/avControl";
 import { type FirefoxWithExtension, launchFirefoxWithExtension } from "./support/firefox";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
@@ -167,6 +168,18 @@ describe("firefox-v2: HbbTV application", () => {
     await page.waitForFunction(() =>
       (window as unknown as { __e2eToPage: Array<{ _tag: string }> }).__e2eToPage.some((m) => m._tag === "Host/Config"),
     );
+  });
+
+  it("plays VOD with an A/V Control object: play, seek, pause, stop, and to the end", async () => {
+    const { page, errors } = await openPage("av-app/index.xhtml");
+
+    try {
+      await runAvControlScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+    } finally {
+      // A page that played media slows the next tab switches down (seen on Firefox).
+      await page.close();
+    }
   });
 });
 

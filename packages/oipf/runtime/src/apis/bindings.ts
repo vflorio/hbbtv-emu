@@ -24,9 +24,12 @@ import {
   type OipfConfigurationState,
   type VideoBroadcastState,
 } from "@hbb-emu/oipf-api";
+import type * as IO from "fp-ts/IO";
 import type { BindingsEnv } from "../runtime";
 import type { AnyOipfBinding, OipfBinding } from "../subsystems/provider";
-import { AVControlVideo, type AVControlVideoEventHandlers } from "./av/controlVideo";
+import { type AVControlVideo, type AVControlVideoEventHandlers, createAVControlVideo } from "./av/control";
+import { createAvStream } from "./av/control/stream";
+import { createContainerVideoWindow } from "./av/control/videoWindow";
 import { OipfApplicationManager } from "./dae/applicationManager";
 import { createKeyset } from "./dae/applicationManager/keyset";
 import { OipfCapabilities } from "./dae/capabilities";
@@ -161,14 +164,39 @@ export const createAvControlsBinding = (
     predicate: (element): element is HTMLObjectElement =>
       isValidAvControlVideoMp4(element) || isValidAvControlDash(element) || isValidAvControlHls(element),
     attachStrategy: "visual",
+    // OIPF `data` (playback starts with `play()`) replaces the native attribute
+    // reflection, which would have the browser load the media itself; OIPF `focus()`
+    // focuses the object even where the browser would not.
+    nativeOverrides: ["data", "focus"],
   },
-  factory: (element) =>
-    new AVControlVideo({
+  factory: (element) => {
+    const stream = createAvStream(env.playerRuntimeFactory);
+    return createAVControlVideo({
+      mimeType: () => element.type,
+      stream,
+      videoWindow: createContainerVideoWindow(element, stream.videoElement),
+      focusObject: focusElement(element),
       defaults: env.defaultAvControlVideo,
       eventHandlers: extractAvControlEventHandlers(element),
-      playerRuntimeFactory: env.playerRuntimeFactory,
-    }),
+    });
+  },
 });
+
+/**
+ * Gives the `<object>` the input focus. An `<object>` the browser does not render is
+ * not focusable: it becomes so (`tabIndex = -1`, out of the tab order), as on a TV
+ * where the A/V Control object can always take the focus.
+ */
+const focusElement =
+  (element: HTMLObjectElement): IO.IO<void> =>
+  () => {
+    // The element's own `focus` is the OIPF one, which calls this.
+    const focus = () => HTMLElement.prototype.focus.call(element);
+    focus();
+    if (element.ownerDocument.activeElement === element) return;
+    element.tabIndex = -1;
+    focus();
+  };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event Handler Extraction Helpers
@@ -193,14 +221,8 @@ const extractAvControlEventHandlers = (element: HTMLObjectElement): AVControlVid
     onPlaySpeedChanged: (speed) => {
       oipfElement.onPlaySpeedChanged?.(speed);
     },
-    onFullScreenChange: (fullscreen) => {
-      oipfElement.onFullScreenChange?.(fullscreen);
-    },
-    onfocus: () => {
-      oipfElement.onfocus?.();
-    },
-    onblur: () => {
-      oipfElement.onblur?.();
+    onFullScreenChange: (fullScreen) => {
+      oipfElement.onFullScreenChange?.(fullScreen);
     },
   };
 };

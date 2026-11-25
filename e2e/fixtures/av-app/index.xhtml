@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//HbbTV//1.1.1//EN" "http://www.hbbtv.org/dtd/HbbTV-1.1.1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="application/vnd.hbbtv.xhtml+xml; charset=UTF-8" />
+  <title>e2e A/V Control app</title>
+  <style type="text/css">
+    body { margin: 0; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
+  <object id="appmgr" type="application/oipfApplicationManager"></object>
+  <!-- A VOD player as most applications write it: the media is set from script. -->
+  <object id="player" type="video/mp4" style="position: absolute; left: 0; top: 0; width: 640px; height: 360px;"></object>
+
+  <script type="text/javascript">
+  //<![CDATA[
+    var e2e = (window.__e2e = { initError: null, playStates: [], speeds: [], positions: [] });
+    try {
+      document.getElementById("appmgr").getOwnerApplication(document).show();
+      var player = document.getElementById("player");
+      player.onPlayStateChange = function (state) {
+        e2e.playStates.push(state);
+      };
+      player.onPlaySpeedChanged = function (speed) {
+        e2e.speeds.push(speed);
+      };
+      player.onPlayPositionChanged = function (position) {
+        e2e.positions.push(position);
+      };
+      player.data = "clip.mp4";
+      e2e.dataAtFirstScript = player.data;
+      e2e.playStateAtFirstScript = player.playState;
+    } catch (error) {
+      e2e.initError = String((error && error.message) || error);
+    }
+  //]]>
+  </script>
+</body>
+</html>

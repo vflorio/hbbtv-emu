@@ -46,7 +46,9 @@ export const applyAttachStrategy = (
 ): IO.IO<void> =>
   match(connector.attachStrategy)
     .with("visual-embedded", () => attachEmbedded(detected, instance, connector.nativeOverrides ?? []))
-    .with("visual", () => attachVisual(detected, instance as AnyStateful & VisualOipfObject))
+    .with("visual", () =>
+      attachVisual(detected, instance as AnyStateful & VisualOipfObject, connector.nativeOverrides ?? []),
+    )
     .with("non-visual", () => attachNonVisual(detected, instance, connector.nativeOverrides ?? []))
     .exhaustive();
 
@@ -84,7 +86,11 @@ const attachEmbedded = (
 // ─────────────────────────────────────────────────────────────────────────────
 
 const attachVisual =
-  (detected: DetectedElement, instance: AnyStateful & VisualOipfObject): IO.IO<void> =>
+  (
+    detected: DetectedElement,
+    instance: AnyStateful & VisualOipfObject,
+    nativeOverrides: ReadonlyArray<string>,
+  ): IO.IO<void> =>
   () => {
     logger.debug("Attaching visual element")();
 
@@ -116,7 +122,7 @@ const attachVisual =
     pipe(
       insertAfter(container)(detected.element),
       IO.flatMap(() => styleMirror.start),
-      IO.flatMap(() => proxyProperties(detected.element, instance)),
+      IO.flatMap(() => proxyProperties(detected.element, instance, nativeOverrides)),
       IO.flatMap(() => syncInitialProperties(detected.element, instance)),
     )();
   };

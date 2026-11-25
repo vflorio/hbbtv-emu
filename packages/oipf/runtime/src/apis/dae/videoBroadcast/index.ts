@@ -10,11 +10,12 @@
  * same modules, so its edits follow the same rules as the application's.
  */
 
-import { createStatefulMethods, type PropertyDescriptor, type Stateful } from "@hbb-emu/core";
+import { createStatefulMethods, type Stateful } from "@hbb-emu/core";
 import type { OIPF, VideoBroadcastState } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type { ChannelChangeRequest, ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
+import { combine, readOnly, stateSchema } from "../../compose";
 import {
   applyChannelState,
   type ChannelApi,
@@ -104,34 +105,6 @@ export type VideoBroadcast = VideoBroadcastApi &
     tuneTo: (channel: OIPF.DAE.Broadcast.Channel) => void;
   }>;
 
-type Intersection<T extends ReadonlyArray<object>> = T extends readonly [
-  infer Head,
-  ...infer Rest extends ReadonlyArray<object>,
-]
-  ? Head & Intersection<Rest>
-  : unknown;
-
-/** One object with the members of all `parts`, accessors included (a spread would read getters once). */
-const combine = <T extends ReadonlyArray<object>>(...parts: T): Intersection<T> =>
-  Object.defineProperties(
-    {},
-    Object.assign({}, ...parts.map((part) => Object.getOwnPropertyDescriptors(part))),
-  ) as Intersection<T>;
-
-type Field = Readonly<{ read: IO.IO<unknown>; apply: (value: never) => IO.IO<void> }>;
-
-/** How each key of the settings UI's state is read from, and applied to, the object's parts. */
-const stateSchema = <T extends object>(
-  fields: Readonly<Record<keyof VideoBroadcastState, Field>>,
-): ReadonlyArray<PropertyDescriptor<VideoBroadcastState, T>> =>
-  (Object.keys(fields) as Array<keyof VideoBroadcastState>).map((stateKey) => ({
-    stateKey,
-    // Not an instance property: the parts' environments hold the state.
-    instanceKey: stateKey as unknown as keyof T,
-    apply: (_instance, value) => fields[stateKey].apply(value as never)(),
-    read: () => fields[stateKey].read(),
-  }));
-
 export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): VideoBroadcast => {
   const { videoStream, eventHandlers, defaults } = dependencies;
 
@@ -179,7 +152,7 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
   type Channel = OIPF.DAE.Broadcast.Channel;
   type Programmes = ReadonlyArray<OIPF.DAE.Broadcast.Programme>;
   const stateful = createStatefulMethods<VideoBroadcastState, ObjectApi>(
-    stateSchema<ObjectApi>({
+    stateSchema<VideoBroadcastState, ObjectApi>({
       playState: {
         read: () => readChannelState(channel)().playState,
         apply: (playState: OIPF.DAE.Broadcast.PlayState) => applyChannelState({ playState })(channel),
@@ -221,10 +194,7 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
         apply: (selectedComponents: Record<string, unknown>) => applyComponentState({ selectedComponents })(component),
       },
       // The application's subscriptions: the settings UI only reads them.
-      streamEventListeners: {
-        read: () => [...readStreamEventListeners(streamEvent)()],
-        apply: () => IO.of(undefined),
-      },
+      streamEventListeners: readOnly(() => [...readStreamEventListeners(streamEvent)()]),
     }),
     object,
   );

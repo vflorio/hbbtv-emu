@@ -127,4 +127,27 @@ describe("visual attach (legacy)", () => {
     detachAttachedElement(element)();
     expect(element.nextElementSibling).toBeNull();
   });
+
+  it("replaces only the native properties listed in nativeOverrides", () => {
+    const element = createObject("video/mp4");
+    let data = "";
+    const instance = Object.defineProperties(createVisualInstance(), {
+      data: {
+        get: () => data,
+        set: (value: string) => {
+          data = value;
+        },
+        enumerable: true,
+      },
+      type: { get: () => "replaced", enumerable: true },
+    });
+
+    applyAttachStrategy({ attachStrategy: "visual", nativeOverrides: ["data"] }, detected(element), instance)();
+
+    (element as HTMLObjectElement & { data: string }).data = "http://vod/movie.mp4";
+    expect(data).toBe("http://vod/movie.mp4");
+    // The browser never sees it: it does not load the media itself.
+    expect(element.hasAttribute("data")).toBe(false);
+    expect(element.type).toBe("video/mp4");
+  });
 });

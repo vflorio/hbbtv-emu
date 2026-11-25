@@ -1,0 +1,97 @@
+/**
+ * The A/V Control scenario both hosts run on `av-app/index.xhtml`: a VOD player that
+ * plays, seeks, pauses, stops and plays to the end of a 3 s clip, as an
+ * application drives it.
+ */
+
+import { expect } from "vitest";
+
+export type AvAppState = {
+  initError: string | null;
+  dataAtFirstScript: string;
+  playStateAtFirstScript: number;
+  playStates: number[];
+  speeds: number[];
+  positions: number[];
+};
+
+type AvPlayer = HTMLObjectElement & {
+  play: (speed?: number) => boolean;
+  stop: () => boolean;
+  seek: (position: number) => boolean;
+  readonly playState: number;
+  readonly playPosition: number | undefined;
+  readonly playTime: number | undefined;
+  readonly speed: number;
+};
+
+/** Runs a function in the page (Playwright and Puppeteer agree on this much). */
+export type Evaluate = <T>(fn: () => T) => Promise<T>;
+
+const PLAYING = 1;
+const PAUSED = 2;
+const CONNECTING = 3;
+const FINISHED = 5;
+
+const until = async (evaluate: Evaluate, fn: () => boolean, what: string, timeout = 10_000) => {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await evaluate(fn)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`timed out waiting for ${what}`);
+};
+
+const app = (evaluate: Evaluate) => evaluate(() => (window as unknown as { __e2e: AvAppState }).__e2e);
+
+export const runAvControlScenario = async (evaluate: Evaluate) => {
+  const start = await app(evaluate);
+  expect(start).toMatchObject({ initError: null, dataAtFirstScript: "clip.mp4", playStateAtFirstScript: 0 });
+
+  // play(1): connecting, then playing; the video fills the object's box.
+  expect(await evaluate(() => (document.getElementById("player") as AvPlayer).play(1))).toBe(true);
+  await until(evaluate, () => (document.getElementById("player") as AvPlayer).playState === 1, "playing");
+  const playing = await evaluate(() => {
+    const player = document.getElementById("player") as AvPlayer;
+    const rect = document.querySelector("video")?.getBoundingClientRect();
+    return { playTime: player.playTime, speed: player.speed, rect: rect && { width: rect.width, height: rect.height } };
+  });
+  expect(playing).toEqual({ playTime: 3000, speed: 1, rect: { width: 640, height: 360 } });
+  const afterPlay = await app(evaluate);
+  expect(afterPlay.playStates[0]).toBe(CONNECTING);
+  expect(afterPlay.playStates[afterPlay.playStates.length - 1]).toBe(PLAYING);
+  expect(afterPlay.speeds).toEqual([1]);
+
+  // seek(): the position is the target as soon as it returns.
+  const seeked = await evaluate(() => {
+    const player = document.getElementById("player") as AvPlayer;
+    return { result: player.seek(1000), position: player.playPosition };
+  });
+  expect(seeked).toEqual({ result: true, position: 1000 });
+  expect((await app(evaluate)).positions).toEqual([1000]);
+
+  // play(0) pauses; stop() is stopped, back at 0.
+  const paused = await evaluate(() => {
+    const player = document.getElementById("player") as AvPlayer;
+    player.play(0);
+    return { playState: player.playState, speed: player.speed };
+  });
+  expect(paused).toEqual({ playState: PAUSED, speed: 0 });
+  const stopped = await evaluate(() => {
+    const player = document.getElementById("player") as AvPlayer;
+    player.stop();
+    return { playState: player.playState, position: player.playPosition };
+  });
+  expect(stopped).toEqual({ playState: 0, position: 0 });
+
+  // Played to the end: finished, at speed 0, with no pause on the way.
+  const before = (await app(evaluate)).playStates.length;
+  await evaluate(() => (document.getElementById("player") as AvPlayer).play(1));
+  await until(evaluate, () => (document.getElementById("player") as AvPlayer).playState === 5, "finished");
+  const end = await app(evaluate);
+  const lastRun = end.playStates.slice(before);
+  expect(lastRun[0]).toBe(CONNECTING);
+  expect(lastRun).not.toContain(PAUSED);
+  expect(lastRun[lastRun.length - 1]).toBe(FINISHED);
+  expect(end.speeds).toEqual([1, 0, 1, 0]);
+};

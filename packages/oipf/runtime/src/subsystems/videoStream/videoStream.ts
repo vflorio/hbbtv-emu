@@ -468,7 +468,7 @@ export class VideoStreamService implements VideoStreamApi {
             this.emit(VideoStreamEvent.error(createErrorFromRuntimeState(errorState)))();
           })
           .otherwise(() => {});
-      });
+      })();
     };
 
   /**
@@ -495,7 +495,7 @@ export class VideoStreamService implements VideoStreamApi {
           .otherwise(() => {
             // Ignore other adapter-specific events
           });
-      });
+      })();
     };
 
   /**

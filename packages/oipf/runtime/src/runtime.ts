@@ -30,7 +30,7 @@ export type PlayerRuntimeFactory = Readonly<{
 
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/controlVideo";
+import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/control";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
 import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
 import {
