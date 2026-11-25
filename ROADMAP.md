@@ -128,7 +128,9 @@ Il progetto cresce in tre fasi:
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).
 
 ### 1.3 Porting della runtime OIPF (da `main`)
-- [ ] Riscrivere `VideoBroadcast` e `AVControlVideo` secondo D1 (oggi `compose(BaseVideoBroadcast, WithChannel, WithComponent, …)`), una parte alla volta sul modello di `volume.ts`: `channel`, `component`, `display`, `streamEvent`, `misc`, `controller`.
+- [ ] Riscrivere `VideoBroadcast` e `AVControlVideo` secondo D1 (oggi `compose(BaseVideoBroadcast, WithChannel, WithComponent, …)`), una parte alla volta sul modello di `volume.ts`: ~~`volume`~~ ✅, ~~`display`~~ ✅, `channel`, `component`, `streamEvent`, `misc`, `controller`.
+- [ ] **Finestra video fedele alla spec** (nuova implementazione della port `VideoWindow` di `display.ts`): `width`/`height` devono corrispondere allo `style` dell'`<object>` (oggi si ridimensiona solo il `<video>` dentro un container grande quanto l'oggetto, e le dimensioni iniziali sono quelle di default invece di quelle dell'elemento), e il full-screen deve coprire il piano grafico senza cambiare lo z-index (oggi porta il video al 100% del container, cioè resta grande quanto l'oggetto). Tocca l'attach visuale (container + `ObjectStyleMirror`).
+- [ ] **Eventi OIPF**: oggi sono solo callback sincrone verso le proprietà `onXxx` dell'elemento. Da verificare e allineare alla spec: dispatch asincrono e DOM events (`addEventListener("FullScreenChange", …)`, richiesti da HbbTV 2.0).
 - [ ] Il volume è della TV, non del singolo oggetto: con D5 lo `volumeState` va preso dalla TvSession (un `IORef` condiviso iniettato nell'env) invece di crearne uno per ogni `video/broadcast`.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
 - [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).

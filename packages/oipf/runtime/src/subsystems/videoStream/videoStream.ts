@@ -305,17 +305,15 @@ export class VideoStreamService implements VideoStreamApi {
   // Display Control
   // ============================================================================
 
-  setFullscreen = (fullscreen: boolean): IO.IO<void> =>
-    pipe(
-      O.some(fullscreen),
-      O.match(
-        () => IO.of(this.video.removeAttribute("style")),
-        () => IO.of(this.video.setAttribute("style", "width: 100%; height: 100%;")),
-      ),
-    );
+  setFullscreen =
+    (fullscreen: boolean): IO.IO<void> =>
+    () =>
+      fullscreen ? this.video.setAttribute("style", "width: 100%; height: 100%;") : this.video.removeAttribute("style");
 
-  setSize = (width: number, height: number): IO.IO<void> =>
-    IO.of(this.video.setAttribute("style", `width: ${width}px; height: ${height}px;`));
+  setSize =
+    (width: number, height: number): IO.IO<void> =>
+    () =>
+      this.video.setAttribute("style", `width: ${width}px; height: ${height}px;`);
 
   // ============================================================================
   // Event Handling
