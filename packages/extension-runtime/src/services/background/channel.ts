@@ -44,8 +44,11 @@ export const republish =
     pageBootstrap.publish(toBootstrapData(state, sessions.all()));
 
 /**
- * The TV in `tabId` changes to `channel`. Delivering the new session to the page is
- * best effort (e.g. the TV page has no bridge); loading another page is not.
+ * The TV in `tabId` changes to `channel`. The page gets the new session even when the
+ * channel shows another page, before that page loads: a TV tunes first, and only then
+ * does the new service's AIT end the application, so its `setChannel()` succeeds.
+ * Delivering the session is best effort (e.g. the TV page has no bridge); loading
+ * another page is not.
  */
 export const changeTabChannel =
   (
@@ -60,12 +63,13 @@ export const changeTabChannel =
       TE.fromTask(env.sessions.update(tabId, () => change.session)),
       TE.tap(() => TE.fromTask(republish(state)(env))),
       TE.flatMap(() =>
-        change.navigateTo === null
-          ? pipe(
-              env.messaging.sendToTab(tabId, { _tag: "Host/Session", session: toPageSession(state, change.session) }),
-              TE.orElse(() => TE.right<AdapterError, void>(undefined)),
-            )
-          : env.tabs.navigate(tabId, change.navigateTo),
+        pipe(
+          env.messaging.sendToTab(tabId, { _tag: "Host/Session", session: toPageSession(state, change.session) }),
+          TE.orElse(() => TE.right<AdapterError, void>(undefined)),
+        ),
+      ),
+      TE.flatMap(() =>
+        change.navigateTo === null ? TE.right(undefined) : env.tabs.navigate(tabId, change.navigateTo),
       ),
     );
   };

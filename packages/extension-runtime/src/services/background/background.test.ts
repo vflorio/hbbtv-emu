@@ -502,7 +502,7 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["hgtv"]);
   });
 
-  it("on any other channel, the tab loads its autostart application, or the TV page", async () => {
+  it("on any other channel, the tab loads its autostart application, or the TV page, after the page got the session", async () => {
     const { ui, tabs, messaging, bootstrap } = await turnOn("dmax");
 
     await ui.request({ _tag: "UI/PlayChannel", channel: news });
@@ -515,7 +515,8 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
       "ext://hbb-emu/tv.html?channel=radio",
       "http://linear.example/hgtv.html",
     ]);
-    expect(sessionsSent(messaging.sent, TV_TAB)).toEqual([]);
+    // As a TV tunes before the new service's AIT ends the application.
+    expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["news", "radio", "hgtv"]);
   });
 
   const errorsSent = (sent: ReadonlyArray<Sent>, tabId: number) =>
@@ -543,8 +544,20 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
 
   it("…and the tab loads what any other channel shows, that channel already in the bootstrap", async () => {
     const { messaging, tabs, bootstrap } = await turnOn("dmax");
+    // What the page had received when the tab started loading the new one.
+    const sessionsAtNavigation: Array<ReadonlyArray<string | null>> = [];
+    const navigate = tabs.tabs.navigate;
+    Object.assign(tabs.tabs, {
+      navigate: (tabId: number, url: string) => {
+        sessionsAtNavigation.push(sessionsSent(messaging.sent, tabId));
+        return navigate(tabId, url);
+      },
+    });
 
     await setChannel(messaging, TV_TAB, "news");
+
+    // The application's setChannel() succeeds before its page goes.
+    expect(sessionsAtNavigation).toEqual([["news"]]);
 
     expect(tabs.navigations[2]).toEqual({ tabId: TV_TAB, url: "http://news.example/" });
     expect(bootstrap.published[bootstrap.published.length - 1]).toContain('"channelId":"news"');
