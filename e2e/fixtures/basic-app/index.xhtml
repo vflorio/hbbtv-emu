@@ -18,7 +18,7 @@
   <!-- ...and used right away by an inline script, as most applications do. -->
   <script type="text/javascript">
   //<![CDATA[
-    var e2e = (window.__e2e = { initError: null, keysetValue: null, keys: [] });
+    var e2e = (window.__e2e = { initError: null, keysetValue: null, keys: [], events: [] });
     try {
       var app = document.getElementById("appmgr").getOwnerApplication(document);
       // RED | GREEN | YELLOW | BLUE | NAVIGATION
@@ -30,6 +30,20 @@
     }
     document.addEventListener("keydown", function (event) {
       e2e.keys.push(event.keyCode);
+    });
+    // What a third-party script (e.g. a consent banner) does with every key: it
+    // expects the target to be an element.
+    ["keydown", "keypress", "keyup"].forEach(function (type) {
+      document.addEventListener(type, function (event) {
+        e2e.events.push({
+          type: event.type,
+          target: event.target.tagName.toLowerCase() + (event.target.getAttribute("id") || ""),
+          key: event.key,
+          keyCode: event.keyCode,
+          which: event.which,
+          charCode: event.charCode,
+        });
+      });
     });
   //]]>
   </script>

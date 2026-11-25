@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_DIR = join(root, "../extensions/chrome-v3/dist");
 const BOOT_MARKER = "hbb-emu.page-runtime";
 
-type BasicAppState = { initError: string | null; keysetValue: number | null; keys: number[] };
+type BasicAppState = { initError: string | null; keysetValue: number | null; keys: number[]; events: unknown[] };
 
 let server: FixtureServer;
 let browser: ExtensionBrowser;
@@ -164,6 +164,28 @@ describe("chrome-v3: page runtime ↔ background", () => {
     await page.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length > 0);
     const keys = await page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys);
     expect(keys).toEqual([403]);
+  });
+
+  it("a remote OK key is indistinguishable from a real Enter", async () => {
+    await recordBackgroundMessages();
+    const path = uniquePath();
+    const { page, errors } = await openPage(path);
+    const tabId = await waitForPageReady(server.url(path));
+    const events = () => page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e.events);
+
+    await page.keyboard.press("Enter");
+    const real = await events();
+    await page.evaluate(() => {
+      (window as unknown as { __e2e: BasicAppState }).__e2e.events = [];
+    });
+    await browser.serviceWorker.evaluate(
+      (id) => chrome.tabs.sendMessage(id, { _tag: "Host/DispatchKey", keyCode: 13 }),
+      tabId,
+    );
+    await page.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.events.length >= 3);
+
+    expect(errors).toEqual([]);
+    expect(await events()).toEqual(real);
   });
 });
 

@@ -62,24 +62,90 @@ export type RemoteControlEnv = EventDispatcher;
 
 // Default implementation
 
-export const defaultEventDispatcher: EventDispatcher = {
-  dispatchKeyEvent: (keyCode) => () => {
-    // Dispatch keydown event
-    const keydownEvent = new KeyboardEvent("keydown", {
-      keyCode,
-      bubbles: true,
-      cancelable: true,
-    });
-    document.dispatchEvent(keydownEvent);
+/** `KeyboardEvent.key` values (UI Events, plus the colour keys of CEA-2014 / HbbTV). */
+const KEY_NAMES: Readonly<Record<number, string>> = {
+  38: "ArrowUp",
+  40: "ArrowDown",
+  37: "ArrowLeft",
+  39: "ArrowRight",
+  13: "Enter",
+  461: "GoBack",
+  403: "ColorF0Red",
+  404: "ColorF1Green",
+  405: "ColorF2Yellow",
+  406: "ColorF3Blue",
+  415: "MediaPlay",
+  19: "MediaPause",
+  413: "MediaStop",
+  417: "MediaFastForward",
+  412: "MediaRewind",
+  447: "AudioVolumeUp",
+  448: "AudioVolumeDown",
+  427: "ChannelUp",
+  428: "ChannelDown",
+};
 
-    // Dispatch keyup event
-    const keyupEvent = new KeyboardEvent("keyup", {
-      keyCode,
-      bubbles: true,
-      cancelable: true,
-    });
-    document.dispatchEvent(keyupEvent);
+export const keyName = (keyCode: number): string =>
+  KEY_NAMES[keyCode] ?? (keyCode >= 48 && keyCode <= 57 ? String(keyCode - 48) : "Unidentified");
+
+/** Keys that also produce a character, hence a `keypress` (as a browser does for a real keyboard). */
+const producesCharacter = (keyCode: number): boolean => keyCode === 13 || (keyCode >= 48 && keyCode <= 57);
+
+/**
+ * Where the browser delivers a real key (Blink's rule, checked against Chromium):
+ * the focused element; with nothing focused, the body of an HTML document, or the
+ * root element of an XHTML one (most HbbTV applications). Never the document itself:
+ * applications and their third-party scripts expect `event.target` to be an Element.
+ *
+ * `activeElement` reports the body when nothing is focused, so the body counts as
+ * "nothing focused" (a body made focusable and focused is the only case this misses).
+ */
+export const keyTarget = (document: Document): Element | null => {
+  const active = document.activeElement;
+  if (active && active !== document.body && active !== document.documentElement) return active;
+  if (document.contentType === "text/html" && document.body) return document.body;
+  return document.documentElement;
+};
+
+/**
+ * `keyCode`, `charCode` and `which` are legacy: some engines ignore them in the init
+ * dictionary (older Chromium, which matters here), so they are forced on the instance.
+ */
+const keyboardEvent = (type: "keydown" | "keypress" | "keyup", keyCode: number, charCode = 0): KeyboardEvent => {
+  const event = new KeyboardEvent(type, {
+    key: keyName(keyCode),
+    keyCode,
+    charCode,
+    which: charCode || keyCode,
+    bubbles: true,
+    cancelable: true,
+  } as KeyboardEventInit);
+  const legacy = { keyCode: type === "keypress" ? charCode : keyCode, charCode, which: charCode || keyCode };
+  for (const [name, value] of Object.entries(legacy)) {
+    if ((event as unknown as Record<string, number>)[name] !== value) {
+      Object.defineProperty(event, name, { get: () => value });
+    }
+  }
+  return event;
+};
+
+/** keydown, keypress (only for character keys, and only if keydown was not cancelled), keyup. */
+export const createEventDispatcher = (document: Document): EventDispatcher => ({
+  dispatchKeyEvent: (keyCode) => () => {
+    const target = keyTarget(document);
+    if (!target) return;
+
+    const proceed = target.dispatchEvent(keyboardEvent("keydown", keyCode));
+    if (proceed && producesCharacter(keyCode)) {
+      target.dispatchEvent(keyboardEvent("keypress", keyCode, keyCode));
+    }
+    // keyup goes wherever the focus is now (a keydown handler may have moved it).
+    (keyTarget(document) ?? target).dispatchEvent(keyboardEvent("keyup", keyCode));
   },
+});
+
+export const defaultEventDispatcher: EventDispatcher = {
+  dispatchKeyEvent: (keyCode) => createEventDispatcher(document).dispatchKeyEvent(keyCode),
 };
 
 // Operations
