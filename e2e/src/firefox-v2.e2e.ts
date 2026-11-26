@@ -384,6 +384,13 @@ describe("firefox-v2: settings UI (sidebar)", () => {
         });
       expect(await tv.evaluate(() => "__stayed" in window)).toBe(true);
 
+      // The remote's P+ zaps as the TV does: to HGTV, which signals the application too.
+      expect(await request({ _tag: "UI/DispatchKey", keyCode: 427 })).toEqual(done);
+      await expect
+        .poll(() => tv.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({ application: hgtv.id, videoBroadcast: hgtv.id });
+      expect(await tv.evaluate(() => "__stayed" in window)).toBe(true);
+
       // The first channel signals no application: the TV shows the channel alone.
       expect(await request({ _tag: "UI/PlayChannel", channel: first })).toEqual(done);
       // Puppeteer does not follow a tab onto a privileged page: the extension tells where it is.
@@ -395,6 +402,9 @@ describe("firefox-v2: settings UI (sidebar)", () => {
           return (await tabs.query({})).map((tab) => tab.url);
         });
       await expect.poll(tabUrls, { timeout: 5000 }).toContain(firefox.extensionUrl(`tv.html?channel=${first.id}`));
+      // From the TV page too: P+ goes on to DMAX, whose application the tab loads.
+      expect(await request({ _tag: "UI/DispatchKey", keyCode: 427 })).toEqual(done);
+      await expect.poll(tabUrls, { timeout: 5000 }).toContain(appUrl);
       await tv.close();
     } finally {
       await request({ _tag: "UI/SaveState", state: original });

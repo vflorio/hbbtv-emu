@@ -349,6 +349,25 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     ]);
   });
 
+  it("P+/P- on the UI's remote retune an application opened on its own, as Play does", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+
+    await ui.request({ _tag: "UI/DispatchKey", keyCode: 428 });
+    await ui.request({ _tag: "UI/DispatchKey", keyCode: 428 });
+
+    expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv", "dmax"]);
+  });
+
+  it("P+ is refused for a tab that is not a TV", async () => {
+    const { ui } = await setup(lineup);
+
+    expect(await ui.request({ _tag: "UI/DispatchKey", keyCode: 427 })).toEqual({
+      _tag: "UI/Failed",
+      reason: "The active tab does not run the emulator (tab 1)",
+    });
+  });
+
   it("the UI follows the active tab: switching to another TV shows its channel, to a plain tab none", async () => {
     const { messaging, ui, tabs } = await setup(lineup, [
       { id: 1, url: "http://app/index.xhtml" },
@@ -546,6 +565,23 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     ]);
     // As a TV tunes before the new service's AIT ends the application.
     expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["news", "radio", "hgtv"]);
+  });
+
+  it("P+/P- on the UI's remote zap through the lineup as the TV does, cycling at both ends", async () => {
+    const { ui, tabs, messaging } = await turnOn("news");
+
+    for (const keyCode of [427, 427, 427, 428]) {
+      expect(await ui.request({ _tag: "UI/DispatchKey", keyCode })).toEqual({ _tag: "UI/Done" });
+    }
+
+    // news → radio → dmax (cycling) → hgtv, which signals DMAX's application: it stays → dmax.
+    expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["radio", "dmax", "hgtv", "dmax"]);
+    expect(tabs.navigations.slice(2).map((n) => n.url)).toEqual([
+      "ext://hbb-emu/tv.html?channel=radio",
+      "http://linear.example/dmax.html",
+    ]);
+    // The keys are the TV's: the application never gets them.
+    expect(messaging.sent.filter((s) => s.message._tag === "Host/DispatchKey")).toEqual([]);
   });
 
   const errorsSent = (sent: ReadonlyArray<Sent>, tabId: number) =>

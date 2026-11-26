@@ -470,6 +470,21 @@ describe("chrome-v3: settings UI", () => {
       expect(await request({ _tag: "UI/PlayChannel", channel: hgtv })).toEqual(done);
       await loaded(tv, appUrl);
       expect((await appState(tv)).channelAtFirstScript).toBe(hgtv.id);
+
+      // The remote's P-/P+ zap through the lineup as the TV does: to DMAX, whose AIT
+      // keeps the application running…
+      await tv.evaluate(() => Object.assign(window, { __stayed: true }));
+      expect(await request({ _tag: "UI/DispatchKey", keyCode: 428 })).toEqual(done);
+      await expect
+        .poll(() => tv.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({ application: dmax.id, videoBroadcast: dmax.id });
+      expect(await tv.evaluate(() => "__stayed" in window)).toBe(true);
+      // …to the first channel, on the TV page, and from there back to DMAX's application.
+      expect(await request({ _tag: "UI/DispatchKey", keyCode: 428 })).toEqual(done);
+      await tv.waitForURL(`chrome-extension://${extensionId}/tv.html?channel=${first.id}`);
+      expect(await request({ _tag: "UI/DispatchKey", keyCode: 427 })).toEqual(done);
+      await loaded(tv, appUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBe(dmax.id);
       await tv.close();
     } finally {
       await request({ _tag: "UI/SaveState", state: original });

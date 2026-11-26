@@ -164,6 +164,19 @@ export const findChannel = (state: ExtensionState, channelId: string): ChannelCo
 export const sessionChannel = (state: ExtensionState, session: TvSession): ChannelConfig | null =>
   (session.channelId === null ? null : findChannel(state, session.channelId)) ?? defaultChannel(state);
 
+/**
+ * The channel P+ (`step` 1) or P- (`step` -1) zaps the TV to: the next or previous
+ * of the lineup, cycling at both ends; `null` with an empty lineup.
+ */
+export const zapChannel = (state: ExtensionState, session: TvSession, step: 1 | -1): ChannelConfig | null => {
+  const channels = state.runtime.channels;
+  if (channels.length === 0) return null;
+  const current = sessionChannel(state, session);
+  const index = channels.findIndex((channel) => channel.id === current?.id);
+  const from = index === -1 ? (step === 1 ? -1 : 0) : index;
+  return channels[(from + step + channels.length) % channels.length] ?? null;
+};
+
 export const toPageSession = (state: ExtensionState, session: TvSession): PageSession => ({
   channel: sessionChannel(state, session),
 });
