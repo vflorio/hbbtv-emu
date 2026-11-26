@@ -90,6 +90,23 @@ const dasEventPayload = (t: "1" | "2" | "3") =>
     du: "235000", // Duration: durata in millisecondi (235 secondi = ~3.9 minuti)
   });
 
+/**
+ * DMAX Italia's application: the "enhanced" container, the reference application of the
+ * emulator. It listens for the stream event `sevent` of this DSM-CC description.
+ */
+const DMAX_APP_URL = "http://it.container.enhanced.live/dmax";
+const DMAX_STREAM_EVENTS_URL = "http://it.container.enhanced.live/it/default.ste";
+
+/**
+ * A live DASH stream in place of the broadcast: the DASH-IF live simulator, whose position follows the wall
+ * clock, as a broadcast does (CORS open, since dash.js fetches it from the application's page).
+ */
+const BROADCAST_STAND_IN = "https://livesim2.dashif.org/livesim2/testpic_2s/Manifest.mpd";
+
+/**
+ * Off by default: they would reach the production ad substitution of the real application, with
+ * made-up break ids. Enabled from the UI when testing DAI.
+ */
 const streamEvent = (
   label: string,
   payload: string,
@@ -97,13 +114,13 @@ const streamEvent = (
   intervalSeconds = 30,
 ): StreamEventConfig => ({
   id: randomUUID(),
-  enabled: true,
+  enabled: false,
   label,
   scheduleMode: "interval",
   intervalSeconds,
   offsetSeconds,
   eventName: "sevent",
-  targetURL: "http://dev-container.enhanced.tools/it/default.ste",
+  targetURL: DMAX_STREAM_EVENTS_URL,
   text: payload,
   data: textToHex(payload),
   status: "trigger",
@@ -116,10 +133,21 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
     {
       id: "channel-1",
       name: "Channel 1",
-      mp4Source: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+      mp4Source: BROADCAST_STAND_IN,
       onid: 1,
       tsid: 1,
       sid: 1,
+    },
+    {
+      id: "dmax",
+      name: "DMAX",
+      mp4Source: BROADCAST_STAND_IN,
+      // DMAX Italia's service, as its application knows it (its linear configuration).
+      onid: 12289,
+      tsid: 516,
+      sid: 10,
+      // orgId/appId are the emulator's: the real ones are in the broadcast AIT, not yet captured.
+      ait: { applications: [{ orgId: 1, appId: 1, controlCode: "AUTOSTART", url: DMAX_APP_URL, name: "DMAX" }] },
       enableStreamEvents: true,
       streamEvents: [
         streamEvent("PREP", dasEventPayload("1"), 5, 90), // ogni 90s, offset 5s

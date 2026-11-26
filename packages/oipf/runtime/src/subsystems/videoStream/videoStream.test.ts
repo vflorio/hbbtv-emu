@@ -78,6 +78,26 @@ describe("VideoStreamService — following the player", () => {
     expect(states).toEqual(["Paused", "Playing"]);
   });
 
+  it("keeps its play state through the source's sub-states (a DASH start, a quality switch)", () => {
+    const { runtime, push } = fakeRuntime();
+    const stream = new VideoStreamService(document.createElement("video"), runtime);
+    const states: string[] = [];
+    stream.subscribe((event) => {
+      if (isStateChangeEvent(event)) states.push(event.state._tag);
+    })();
+    const representation = { id: "v1", bandwidth: 1e6, width: 640, height: 360, codecs: "avc1.4d401e" };
+
+    push(new PlayerState.Source.DASH.MPDLoading("http://tv/live.mpd"));
+    push(new PlayerState.Control.Paused(0, 3, []));
+    push(new PlayerState.Source.DASH.MPDParsed("http://tv/live.mpd", [], 3, true));
+    push(new PlayerState.Source.DASH.RepresentationSelected(representation as never, 1e6, { width: 640, height: 360 }));
+    push(new PlayerState.Control.Playing(0, 3, [], 1));
+    push(new PlayerState.Source.DASH.QualitySwitching(representation as never, representation as never, "abr"));
+    push(new PlayerState.Control.Playing(1, 3, [], 1));
+
+    expect(states).toEqual(["Buffering", "Paused", "Playing"]);
+  });
+
   it("stops following the runtime when released", () => {
     const { runtime, listeners } = fakeRuntime();
     const stream = new VideoStreamService(document.createElement("video"), runtime);

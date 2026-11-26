@@ -10,9 +10,17 @@ import { VideoStreamError } from "./errors";
 import { VideoStreamPlayState } from "./state";
 
 /**
- * Maps PlayerRuntime states to VideoStream play states using functional matchers
+ * Maps a PlayerRuntime state to the stream's play state, given the one it has now.
+ *
+ * The source's own sub-states (MPD parsed, representation or variant selected, quality
+ * switching) tell how the source is doing, not whether the media plays: they come while it
+ * is paused or playing, and the stream stays as it was. Read as idle, they took a DASH
+ * broadcast through UNREALIZED and back at every start and every quality switch.
  */
-export const mapRuntimeStateToPlayState = (state: PlayerState.Any): VideoStreamPlayState =>
+export const mapRuntimeStateToPlayState = (
+  state: PlayerState.Any,
+  current: VideoStreamPlayState,
+): VideoStreamPlayState =>
   pipe(
     match(state)
       .when(Runtime.isError, (errorState) => VideoStreamPlayState.error(createErrorFromRuntimeState(errorState)))
@@ -22,7 +30,7 @@ export const mapRuntimeStateToPlayState = (state: PlayerState.Any): VideoStreamP
       .when(Runtime.isBuffering, () => VideoStreamPlayState.buffering())
       .when(Runtime.isSeeking, () => VideoStreamPlayState.buffering())
       .when(Runtime.isEnded, () => VideoStreamPlayState.finished())
-      .when(Runtime.isIdle, () => VideoStreamPlayState.idle())
+      .when(Runtime.isSourceState, () => current)
       .otherwise(() => VideoStreamPlayState.idle()),
   );
 

@@ -424,8 +424,8 @@ export class VideoStreamService implements VideoStreamApi {
     (runtime: PlayerRuntime): IO.IO<void> =>
     () => {
       this.stateUnsubscribe = runtime.subscribeToState((state: PlayerState.Any) => {
-        const newPlayState = mapRuntimeStateToPlayState(state);
         const previousPlayState = this.currentState;
+        const newPlayState = mapRuntimeStateToPlayState(state, previousPlayState);
 
         // Emit state change if state differs
         pipe(

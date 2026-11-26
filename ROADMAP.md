@@ -76,6 +76,8 @@ Il progetto cresce in tre fasi:
   - Verificato in e2e su Chromium e Firefox: con `missing.mpd` e `missing.m3u8` l'app riceve CONNECTING → ERROR, `error` 1, e poi più niente. Il server delle fixture ora risponde ai 404 con un tipo: Firefox, davanti a una risposta XHR vuota e senza tipo, la legge come XML e segnala l'errore di parsing come errore della pagina.
   - [ ] Un manifest illeggibile (codici 10/31/32, `manifestParsingError`) dovrebbe probabilmente essere l'errore 4 (contenuto corrotto o non valido). Va aggiunta una variante a `VideoStreamError`, e va deciso se ritentare ha senso.
   - [ ] Nessun test unitario copre la registrazione dei listener di dash.js e hls.js (servirebbe un finto `MediaPlayer`/`Hls`): oggi la coprono solo gli e2e.
+- [x] **Un broadcast DASH passava per UNREALIZED all'avvio** (1 → 2 → 0 → 2 → 0 → 2), e sarebbe successo a ogni cambio di qualità: `mapRuntimeStateToPlayState` leggeva come "idle" i sotto-stati della sorgente (`Source/DASH/MPDParsed`, `RepresentationSelected`, `QualitySwitching`, gli equivalenti HLS). L'app riceveva `onPlayStateChange(0)` spuri e il volume dell'oggetto si azzerava (§10.2.12); con le regole di §8.2.1.1 avrebbe perso anche i listener degli stream event. Ora un sotto-stato della sorgente lascia lo stream com'è. Trovato con l'app reale di DMAX (sezione "App reale di riferimento").
+- [x] Lo stream del canale di default (`ForBiggerFun.mp4` di Google) risponde 403: `video/broadcast` andava in STOPPED con qualunque app. Ora la lineup di default usa uno stream live di DASH-IF (sezione 2.4).
 - [ ] `page-runtime.js` pesa ~1,6 MB (hls.js + dash.js) e viene caricato su ogni pagina http(s), anche se si avvia solo sui documenti HbbTV.
 - [ ] La regola DNR con condizione `responseHeaders` richiede un Chrome recente (da verificare: ~128+). Per Chrome < 128 il percorso realistico è MV2 → la matrice target va definita per *versione di engine*, non solo per "manifest".
 
@@ -135,7 +137,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 | Application / ApplicationManager (§7.2.1–7.2.2, §7.2.4) | M | 🟡 `getOwnerApplication`, `show`/`hide`, `privateData` (`keyset`, `currentChannel`) | `createApplication(uri)` e `destroyApplication()` (red button → app completa, ritorno al launcher) con le regole AIT che già esistono per il cambio canale. `activate`/`deactivate`/`destroy` sono vuoti | M | P0 |
 | video/broadcast, nucleo (§7.13.1, A.2.4.1–2) | M | ✅ bind, `setChannel`, `release`/`stop`, stati, eventi DOM, finestra, volume | `error` di `PlayStateChange`, canali `hidden` | S | P0 |
 | ChannelConfig / ChannelList / Channel (§7.13.9–11) | M | ✅ lineup, `getChannelByTriplet`, `next`/`prevChannel` | LCN, id type non-triplet | S–M | P1 |
-| Stream event DSM-CC (`addStreamEventListener`, TS §8.2.1, §9.3.1) | M | 🟡 iscrizioni dell'app e scheduler base (timestamps / intervallo / ritardo) con editor nella UI. Non verificato in e2e | e2e. Scheduler sul tempo del media / live simulato (2.4), payload predefiniti per DAI. Eventi dal TS reale (DSM-CC, 2.4) | M–L (TS reale: XL, P3) | P0 |
+| Stream event DSM-CC (`addStreamEventListener`, TS §8.2.1, §9.3.1) | M | 🟡 iscrizioni dell'app e scheduler base (timestamps / intervallo / ritardo) con editor nella UI. Non verificato in e2e | `targetURL` HTTP verso un XML (TS 102 809 §8.2, §9.3.1): scaricarlo, risolvere nome → `stream_event_id`, `status: "error"` nei casi di §8.2.1.2 (DMAX lo usa e ritenta sull'errore). Regole di §8.2.1.1 (listener solo in PRESENTING/STOPPED, cancellati in UNREALIZED e al cambio canale). e2e. Scheduler sul tempo del media / live simulato (2.4), payload DAS reali. Eventi dal TS reale (DSM-CC, 2.4) | M–L (TS reale: XL, P3) | P0 |
 | A/V Control (§7.14, A.2.5) | M | ✅ VOD, audio, `queue()`, eventi DOM | Regole di `error` (A.2.5.1), attributo `data` del markup, adapter dal `type`, `visual-embedded` | S + M | P0 |
 | `<video>` HTML5 con DASH (TS §9.4.2, A.2.12) | M | 🟡 MPD come `src` (proprietà o attributo, anche nel markup) o come `<source>`, presentato da dash.js sullo stesso elemento; `load()`, `error`, `canPlayType`, volume in serie; eventi dell'MPD e dei segmenti (`emsg`) come `TextTrack`/`DataCue` (§9.3.2.2); `audioTracks`/`videoTracks` con cambio lingua; `TextTrack` dei sottotitoli EBU-TT-D, con le cue | Rendering dei sottotitoli EBU-TT-D; `<track>` TTML out-of-band | M | P0 |
 | Capabilities (§7.15.3, A.2.30, TS §10.2.4) | M | 🟡 proprietà e `hasCapability()` | `xmlCapabilities`: l'XML che le app leggono per DRM, UHD, DASH | S–M | P1 |
@@ -157,6 +159,23 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 - **P0** chiede ~3 settimane: DASH nel `<video>` M (restano il rendering dei sottotitoli EBU-TT-D e i `<track>` TTML), `createApplication`/`destroyApplication` M, stream event M–L, regole di `error` di A/V Control S, attivazione del keyset S–M.
 - **P1** chiede ~3 settimane: componenti L, EIT p/f M, `xmlCapabilities` e Configuration S–M.
 - Il resto si apre solo su richiesta.
+- **Ordine rivisto sull'app reale** (sezione sotto): prima stream event e broadcast, che DMAX usa; il rendering EBU-TT-D e `createApplication` scendono, perché DMAX non li usa (il suo VOD ha un player suo su MSE, ed esce con `destroyApplication`).
+
+## App reale di riferimento: DMAX
+
+`http://it.container.enhanced.live/dmax` (DMAX Italia, il container "enhanced" di Warner Bros. Discovery) è l'app reale su cui si misura l'emulatore: linear con launcher, VOD, DAI (das.js) e banner pubblicitari (FreeWheel), cioè il tipo di app della visione. Smoke test opzionale: `HBB_EMU_REAL_APPS=1 bunx vitest run src/real-apps.e2e.ts` in `e2e/` (sezione 1.6).
+
+**Cosa usa.** Documento XHTML. `<object>` nel markup: ApplicationManager (`getOwnerApplication`, `show`, `activate`, `privateData.currentChannel`, keyset 1087, `destroyApplication` per uscire), Configuration, Capabilities, `video/broadcast` (`bindToCurrentChannel`, `setChannel(canale, false, null, 2)` per tornare al live, `stop`, `setFullScreen`, `getChannelConfig().channelList.getChannelByTriplet`). `addStreamEventListener(origin + "/it/default.ste", "sevent")`: un XML DSM-CC (component_tag 2, evento 1); su `status: "error"` ritenta 5 volte. Il triplet di DMAX (onid 12289, tsid 516, sid 10) è nella sua configurazione. I bundle (consenso, EPG, launcher Galaxy, linear, das.js, FreeWheel, player Hyoga) dipendono dal consenso e alcuni dallo UA (modelli di TV esclusi, Tizen 2–3, Chrome < 54).
+
+**Cosa funziona (2026-11-26, Chromium, chrome-v3).** Avvio senza errori dell'emulatore; banner del consenso (OK accetta, BLU lo richiama); il launcher si apre con SU (`recallButton: 38`): col banner del launcher visibile esegue la sua azione (es. start-over del programma), altrimenti apre il catalogo; OK su un elemento fa partire il VOD con il preroll FreeWheel e poi il contenuto. Il VOD usa una MSE sua (`blob:`, niente EME), non il DASH nativo del `<video>` dell'emulatore. L'unico errore JS è dell'app (Galaxy disegna il suo banner in un contenitore che il linear ha già tolto, se SU arriva presto).
+
+**Ordine di lavoro.**
+1. [x] Scenario e smoke test: DMAX nella lineup di default con il triplet vero, un'AIT AUTOSTART sull'URL dell'app (orgId/appId sono dell'emulatore) e uno stream che parte; e2e opzionale contro il sito reale. Ha fatto trovare il bug dei sotto-stati della sorgente (sopra).
+2. [ ] Stream event fedeli a §8.2.1 e §9.3.1 (riga della tabella sopra), poi payload DAS reali per testare das.js.
+   - Da verificare: l'app chiama `addStreamEventListener` subito dopo `bindToCurrentChannel()`, quando il nostro oggetto è ancora in CONNECTING (§8.2.1.1: nessun effetto). Su una TV il servizio è già presentato quando l'app parte: probabilmente il bind va in PRESENTING subito. Va chiarito prima di applicare la regola, o l'app non riceverà mai eventi.
+3. [ ] Layer broadcast e live simulato (2.4): il ritorno al live dopo un VOD, e il video sotto al launcher.
+4. [ ] Device profile (2.1): i bundle che un'app carica dipendono dallo UA.
+5. [ ] Uscita con BACK e `destroyApplication`, e il ritorno al live dopo il VOD, da verificare (richiedono il punto 3).
 
 ## Fase 0 — Consolidamento del branch
 
@@ -343,6 +362,8 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 - [ ] Suite di app HbbTV di prova (pagine statiche in `e2e/fixtures`: `basic-app`, `av-app`, `audio-app`, `plain-page`) che esercitano le API: ~~ApplicationManager/Keyset~~ ✅, ~~VideoBroadcast `setChannel`/`getChannelConfig`/eventi~~ ✅, ~~AVControl (VOD, audio, queue)~~ ✅, ~~volume~~ ✅. Mancano gli stream event, Capabilities/Configuration e `oipfObjectFactory` oltre al primo script.
 - [x] E2E con Playwright su chrome-v3: estensione compilata caricata in Chromium, app servite con il content-type HbbTV vero (`bun run test:e2e`).
 - [x] E2E su Firefox (`firefox-v2`): Puppeteer + WebDriver BiDi, che installa l'add-on non firmato come temporaneo; Playwright non supporta estensioni su Firefox.
+- [x] **App reali** (`e2e/src/real-apps.e2e.ts`, solo con `HBB_EMU_REAL_APPS=1`: dipendono dalla rete e da siti che cambiano). DMAX con la lineup di default: TV su DMAX e broadcast in PRESENTING senza passare per UNREALIZED, consenso, launcher, un video dell'app che suona. Il percorso dal launcher non è fisso (dipende dalla programmazione dei launcher di WBD), quindi il test preme SU / OK finché qualcosa suona. Fallisce solo per gli errori lanciati dal codice dell'emulatore (frame in cima allo stack in `chrome-extension://`), non per quelli dell'app.
+  - [ ] Lo stesso su Firefox.
 - [ ] E2E sugli altri host (chrome-v2 / Chromium legacy, WebKit).
 - [ ] Smoke test su engine legacy (script di lancio dei binari in `browsers/`).
 
@@ -357,6 +378,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 
 ### 2.2 Lineup canali e AIT
 - [ ] Lineup multi-canale (triplet ONID/TSID/SID, LCN, nome, stream associato) — base già presente in `channelRegistry`.
+  - [x] Lineup di default: "Channel 1" (senza app) e **DMAX** (triplet reale 12289/516/10, AIT AUTOSTART su `http://it.container.enhanced.live/dmax`, i tre stream event DAS su `default.ste` di produzione, spenti: raggiungerebbero la sostituzione pubblicitaria vera con id inventati). Chi ha uno stato salvato tiene la sua lineup.
 - [x] AIT virtuale per canale (`ait` del canale, codec in `@hbb-emu/oipf-api`, editor nella settings UI): applicazioni con `orgId`/`appId`, control code (AUTOSTART / PRESENT / KILL / DISABLED, TS 102 796 Tabella 7), URL, nome, priorità. `autostartApplication` (AUTOSTART con priorità più alta) e `channelSignalling` (il canale a cui una pagina è broadcast-related).
   - [ ] Ancora da modellare: `service_bound_flag`, visibilità, `simple_application_boundary_descriptor` (origini in più), versione dell'AIT, app broadcast-independent.
 - [ ] Import di AIT reali (XML AIT; poi da MPEG-TS).
@@ -375,6 +397,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 ### 2.4 Stream e Stream Events
 - [x] Stream reali per canale (HLS/DASH/MP4) come "broadcast" del VideoBroadcast: il campo `mp4Source` del canale (accetta anche `.mpd`/`.m3u8`), riprodotto da `video/broadcast` e da `tv.html`.
   - [ ] Il nome `mp4Source` è fuorviante; una sola sorgente per canale (niente fallback tra provider, vedi 2.6).
+  - [x] Stream di default: il simulatore live di DASH-IF (`livesim2.dashif.org/livesim2/testpic_2s`), che segue l'orologio come un broadcast e ha il CORS aperto (dash.js lo scarica dalla pagina dell'app). È un servizio esterno: se sparisce, il canale va in errore come prima.
 - [ ] **Layer broadcast** iniettato dietro la pagina dell'app (come su una TV: il video scorre sotto l'app anche senza oggetto `video/broadcast`, che ne controlla solo la finestra).
 - [ ] **Live simulato**: posizione del canale = f(tempo reale), es. `(now − epoch) mod durata`, così il video riprende dallo stesso punto dopo una navigazione e gli stream event schedulati restano coerenti.
 - [ ] Scheduler degli stream event configurabile: per tempo assoluto, per tempo media, ricorrenti, con payload predefiniti (base già presente in `streamEventScheduler`).
@@ -420,6 +443,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 
 - App *linear* (in modalità TV): DMAX e HGTV segnalano la **stessa** app (stessi orgId/appId) con URL diversi, o due app distinte? Determina se al cambio canale l'app sopravvive o viene ricaricata.
 - Fase 3: la vista multi-browser va su una sola macchina o anche remota (browser su un'altra macchina/container)?
+- DMAX: `orgId`/`appId` veri della sua AIT e i payload reali dei suoi stream event (protocollo DAS di das.js): servono una cattura del broadcast o qualcuno che li conosca.
 
 ### Risolte
 - ~~Fork WebKit con hook di preload~~ → non esiste; WebKit a bassa priorità (sezione 1.4b).

@@ -1,0 +1,127 @@
+/**
+ * Real HbbTV applications, on the Internet, in the emulator (chrome-v3).
+ *
+ * Opt-in: they depend on the network and on sites that change without notice, so they
+ * run only with `HBB_EMU_REAL_APPS=1` (after `bun run extension:build`). They use the
+ * extension's default lineup, which carries each application's channel and AIT.
+ */
+
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Frame, Page } from "playwright";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const EXTENSION_DIR = join(root, "../extensions/chrome-v3/dist");
+
+const enabled = process.env.HBB_EMU_REAL_APPS === "1";
+
+let browser: ExtensionBrowser;
+
+beforeAll(async () => {
+  if (!enabled) return;
+  browser = await launchWithExtension(EXTENSION_DIR);
+  await browser.allowUserScripts();
+});
+
+afterAll(async () => {
+  await browser?.close();
+});
+
+/** Records every `PlayStateChange` of the page's `video/broadcast` objects, from before the first script. */
+const recordBroadcastStates = () => {
+  const states: number[] = [];
+  Object.assign(window, { __broadcastStates: states });
+  // The event does not bubble: a capturing listener on the document still sees it.
+  document.addEventListener(
+    "PlayStateChange",
+    (event) => {
+      const target = event.target as Element | null;
+      if (target?.getAttribute("type") === "video/broadcast") states.push((event as Event & { state: number }).state);
+    },
+    true,
+  );
+};
+
+const broadcastStates = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __broadcastStates: number[] }).__broadcastStates);
+
+/** Whether a media element of the application (not the broadcast's) plays, in any frame. */
+const applicationMediaPlays = async (page: Page): Promise<boolean> => {
+  const inFrame = (frame: Frame) =>
+    frame
+      .evaluate(() =>
+        Array.from(document.querySelectorAll("video, audio")).some((element) => {
+          const media = element as HTMLMediaElement;
+          return !media.closest("object") && !media.paused && media.currentTime > 1;
+        }),
+      )
+      .catch(() => false);
+  return (await Promise.all(page.frames().map(inFrame))).some(Boolean);
+};
+
+describe.skipIf(!enabled)("real applications (HBB_EMU_REAL_APPS=1)", () => {
+  it("DMAX: broadcast on DMAX, consent, launcher, then an on-demand video", async () => {
+    const page = await browser.context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(`${error.message}\n${error.stack ?? ""}`));
+    // The application's own errors are its own (Galaxy, for one, races itself when UP comes early): only
+    // those thrown by the emulator's code (its frame on top of the stack) fail the test.
+    const emulatorErrors = () =>
+      errors.filter((error) =>
+        error
+          .split("\n")
+          .find((line) => line.trim().startsWith("at "))
+          ?.includes("chrome-extension://"),
+      );
+    await page.addInitScript(recordBroadcastStates);
+    await page.goto("http://it.container.enhanced.live/dmax");
+
+    // The AIT of DMAX signals the application: the TV is on DMAX, and the broadcast presents.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const object = document.getElementById("broadcastVideoObject") as unknown as {
+              playState: number;
+              currentChannel: { onid: number; tsid: number; sid: number } | null;
+            };
+            const channel = object.currentChannel;
+            return { playState: object.playState, triplet: channel && [channel.onid, channel.tsid, channel.sid] };
+          }),
+        { timeout: 15_000 },
+      )
+      .toEqual({ playState: 2, triplet: [12289, 516, 10] });
+
+    // The consent banner comes first; OK accepts it, and the other bundles load (the launcher among them).
+    await page.locator("#cmp").getByText("Accetto").waitFor({ timeout: 15_000 });
+    await page.keyboard.press("Enter");
+    await page.locator("#root-galaxy").waitFor({ state: "attached", timeout: 15_000 });
+
+    // The broadcast started once and kept presenting: the DASH source's own states are not play states.
+    expect(await broadcastStates(page)).toEqual([1, 2]);
+
+    // UP is the launcher's key. What it does depends on WBD's launcher schedule and on when it comes:
+    // with the launcher's banner up it runs the banner's action (e.g. start-over of the programme), with
+    // the banner gone it opens the catalogue, where OK plays the focused item. Either way the
+    // application's player ends up playing a video (pre-roll ads first). The launcher listens only once
+    // started, so the keys are pressed again until something plays.
+    await expect
+      .poll(
+        async () => {
+          if (await applicationMediaPlays(page)) return true;
+          const path = new URL(page.url()).pathname;
+          if (path === "/dmax") await page.keyboard.press("ArrowUp");
+          else if (path === "/hbbtv-dmax") await page.keyboard.press("Enter");
+          return false;
+        },
+        { timeout: 60_000, interval: 5_000 },
+      )
+      .toBe(true);
+
+    if (errors.length > emulatorErrors().length) console.info("DMAX's own errors:", errors);
+    expect(emulatorErrors()).toEqual([]);
+    await page.close();
+  }, 120_000);
+});
