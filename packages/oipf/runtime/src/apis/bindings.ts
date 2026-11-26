@@ -133,6 +133,8 @@ export const createVideoBroadcastBinding = (
       requestChannelChange: env.requestChannelChange,
       onCurrentChannelChange: env.setCurrentChannel,
       streamEventScheduler: env.streamEventScheduler,
+      fetchStreamEventDescription: env.fetchStreamEventDescription,
+      baseURI: () => element.baseURI,
       defaults: env.defaultVideoBroadcast,
       eventHandlers: extractVideoBroadcastEventHandlers(element),
     });

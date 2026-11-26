@@ -8,7 +8,8 @@
  * - commands (remote-control keys): host → page; the TV's own keys pressed on the
  *   keyboard: page → host.
  * - requests: the application asks the TV to change channel (`setChannel()`), and
- *   the host answers with the new session or an error, or loads another page.
+ *   the host answers with the new session or an error, or loads another page; the page
+ *   asks the host for a stream event description, which a TV fetches without CORS.
  *
  * Plus the TV session of the tab (the channel it is tuned to, …): owned by the host,
  * it outlives the page, which gets it again after every navigation.
@@ -42,7 +43,17 @@ export type PageMessage =
    * A key the TV keeps for itself (P+/P-, volume; TS 102 796 §10.2.2.1), pressed on
    * the keyboard in this page: the TV of this tab acts on it.
    */
-  | Readonly<{ _tag: "Page/TvKey"; keyCode: number }>;
+  | Readonly<{ _tag: "Page/TvKey"; keyCode: number }>
+  /**
+   * The application listens for stream events described by an XML file over HTTP(S)
+   * (TS 102 796 §8.2.1.1): the host fetches it, as a TV does, without CORS.
+   */
+  | Readonly<{ _tag: "Page/FetchStreamEventDescription"; url: string }>;
+
+/** A stream event description as the host fetched it, or why it could not. */
+export type StreamEventDescriptionResult =
+  | Readonly<{ ok: true; contentType: string | null; body: string }>
+  | Readonly<{ ok: false; reason: string }>;
 
 export type HostMessage =
   /** The bridge started: the page announces itself again (the two may start in any order). */
@@ -57,12 +68,20 @@ export type HostMessage =
    * The TV did not change to the channel the application asked for. `error` is the
    * OIPF channel change error code (e.g. 5, unknown channel).
    */
-  | Readonly<{ _tag: "Host/ChannelChangeError"; channelId: string; error: number }>;
+  | Readonly<{ _tag: "Host/ChannelChangeError"; channelId: string; error: number }>
+  /** The answer to `Page/FetchStreamEventDescription`. */
+  | Readonly<{ _tag: "Host/StreamEventDescription"; url: string; result: StreamEventDescriptionResult }>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 export const isPageConfig = (value: unknown): value is PageConfig =>
   isRecord(value) && typeof value.userAgent === "string" && Array.isArray(value.channels);
+
+const isStreamEventDescriptionResult = (value: unknown): value is StreamEventDescriptionResult =>
+  isRecord(value) &&
+  (value.ok === true
+    ? (value.contentType === null || typeof value.contentType === "string") && typeof value.body === "string"
+    : value.ok === false && typeof value.reason === "string");
 
 const isKeyCode = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value);
 
@@ -80,6 +99,8 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
       return typeof value.channelId === "string";
     case "Page/TvKey":
       return isKeyCode(value.keyCode);
+    case "Page/FetchStreamEventDescription":
+      return typeof value.url === "string";
     default:
       return false;
   }
@@ -100,6 +121,8 @@ export const isHostMessage = (value: unknown): value is HostMessage => {
       return isPageSession(value.session);
     case "Host/ChannelChangeError":
       return typeof value.channelId === "string" && typeof value.error === "number" && Number.isInteger(value.error);
+    case "Host/StreamEventDescription":
+      return typeof value.url === "string" && isStreamEventDescriptionResult(value.result);
     default:
       return false;
   }

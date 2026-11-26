@@ -6,6 +6,8 @@ import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from
 import {
   type ChannelChangeRequest,
   createRuntimeEnv,
+  type FetchStreamEventDescription,
+  fetchFromPage,
   ignoreTvKey,
   type PlayerRuntimeFactory,
   type RuntimeHandle,
@@ -20,6 +22,7 @@ import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import type { HostChannelChanges } from "./channelChange";
 import type { PageRuntimeControl } from "./host";
+import type { HostStreamEventDescriptions } from "./streamEventDescriptions";
 
 const createPlayerRuntime = (): PlayerRuntime =>
   new PlayerRuntime({
@@ -57,10 +60,19 @@ export type HostRequests = Readonly<{
   requestChannelChange: ChannelChangeRequest;
   /** A key the TV keeps for itself (P+/P-, volume), pressed on the keyboard. */
   pressTvKey: (keyCode: number) => IO.IO<void>;
+  /** The XML descriptions of stream events (TS 102 796 §8.2.1.1). */
+  fetchStreamEventDescription: FetchStreamEventDescription;
 }>;
 
-/** Without a host, the objects tune by themselves and the TV's keys do nothing. */
-export const WITHOUT_HOST: HostRequests = { requestChannelChange: tuneAlone, pressTvKey: ignoreTvKey };
+/**
+ * Without a host, the objects tune by themselves, the TV's keys do nothing, and the page
+ * fetches the stream event descriptions (subject to CORS, unlike a TV).
+ */
+export const WITHOUT_HOST: HostRequests = {
+  requestChannelChange: tuneAlone,
+  pressTvKey: ignoreTvKey,
+  fetchStreamEventDescription: fetchFromPage,
+};
 
 /**
  * Starts with the host configuration when the page already has it (bootstrap),
@@ -85,7 +97,11 @@ export const startRuntime =
     );
     return runtime({
       ...env,
-      bindings: { ...env.bindings, requestChannelChange: host.requestChannelChange },
+      bindings: {
+        ...env.bindings,
+        requestChannelChange: host.requestChannelChange,
+        fetchStreamEventDescription: host.fetchStreamEventDescription,
+      },
       keyboard: { ...env.keyboard, pressTvKey: host.pressTvKey },
     })();
   };
@@ -108,7 +124,11 @@ export const applyBootstrap =
  * live. A new session tunes the TV and sets its volume first, then settles the
  * application's requests for that channel (its objects are already there).
  */
-export const controlRuntime = (handle: RuntimeHandle, changes: HostChannelChanges): PageRuntimeControl => ({
+export const controlRuntime = (
+  handle: RuntimeHandle,
+  changes: HostChannelChanges,
+  descriptions: HostStreamEventDescriptions,
+): PageRuntimeControl => ({
   applyConfig: (config: PageConfig) => handle.updateExtensionState(toExtensionState(config)),
   dispatchKey: handle.dispatchKey,
   applyState: handle.updateState,
@@ -119,4 +139,5 @@ export const controlRuntime = (handle: RuntimeHandle, changes: HostChannelChange
       IO.flatMap(() => changes.settle(session)),
     ),
   channelChangeFailed: changes.fail,
+  streamEventDescriptionFetched: descriptions.settle,
 });

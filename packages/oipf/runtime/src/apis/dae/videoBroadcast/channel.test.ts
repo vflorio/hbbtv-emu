@@ -51,6 +51,7 @@ type Call =
   | { readonly destroy: true }
   | { readonly playState: number }
   | { readonly unrealized: true }
+  | { readonly left: true }
   | { readonly error: number }
   | { readonly succeeded: string | undefined }
   | { readonly presents: string | null };
@@ -100,6 +101,9 @@ const setup = ({
         },
         onUnrealized: () => {
           calls.push({ unrealized: true });
+        },
+        onLeaveChannel: () => {
+          calls.push({ left: true });
         },
         onChannelChangeSucceeded: (succeeded) => () => {
           calls.push({ succeeded: succeeded.ccid });
@@ -166,6 +170,24 @@ describe("tuneTo (the TV changed channel)", () => {
     expect(getCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
     expect(calls).toEqual([{ playState: PlayState.CONNECTING }, { presents: "hgtv" }, { load: hgtv.mp4Source }]);
     expect(asked).toEqual([]);
+  });
+
+  it("leaves the service it was bound to before connecting to another (TS 102 796 §8.2.1.1)", async () => {
+    const { env, calls } = await presenting(dmax);
+
+    await tuneTo(channel(hgtv))(env)();
+
+    expect(calls.slice(0, 2)).toEqual([{ left: true }, { playState: PlayState.CONNECTING }]);
+  });
+
+  it("presenting the same service again does not leave it", async () => {
+    const { env, calls } = await presenting(dmax);
+
+    await tuneTo(channel(dmax))(env)();
+    stop(env)();
+    bindToCurrentChannel(env)();
+
+    expect(calls).not.toContainEqual({ left: true });
   });
 
   it("reports a channel the lineup has no stream for", async () => {

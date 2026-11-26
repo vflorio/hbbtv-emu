@@ -12,12 +12,14 @@ import { bootPageRuntime } from "./boot";
 import { createHostChannelChanges } from "./channelChange";
 import { connectToHost } from "./host";
 import { applyBootstrap, controlRuntime, startRuntime } from "./runtime";
+import { createHostStreamEventDescriptions } from "./streamEventDescriptions";
 
 export const startPage = (window: Window, document: Document): IO.IO<void> => {
   const url = document.URL;
   const channel = createPageChannel(document);
   // Created before the runtime: the application may change channel in its first script.
   const changes = createHostChannelChanges(channel.send);
+  const descriptions = createHostStreamEventDescriptions(channel.send);
   const applyLate = new IORef<O.Option<(data: BootstrapData) => IO.IO<void>>>(O.none);
 
   // A bootstrap script injected after this one runs only once this whole startup is
@@ -38,6 +40,7 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
           startRuntime(url, {
             requestChannelChange: changes.request,
             pressTvKey: (keyCode) => channel.send({ _tag: "Page/TvKey", keyCode }),
+            fetchStreamEventDescription: descriptions.fetch,
           }),
         ),
       ),
@@ -48,7 +51,7 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
         (handle) =>
           pipe(
             applyLate.write(O.some(applyBootstrap(handle, url))),
-            IO.flatMap(() => connectToHost({ channel, control: controlRuntime(handle, changes), url })),
+            IO.flatMap(() => connectToHost({ channel, control: controlRuntime(handle, changes, descriptions), url })),
             IO.asUnit,
           ),
       ),

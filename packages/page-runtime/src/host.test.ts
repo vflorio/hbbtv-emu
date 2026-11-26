@@ -27,6 +27,7 @@ const setup = () => {
     | { patch: unknown }
     | { tunedTo: string | null }
     | { refused: string; error: number }
+    | { described: string; ok: boolean }
   > = [];
   const control: PageRuntimeControl = {
     applyConfig: (config) => () => void calls.push({ config }),
@@ -34,6 +35,7 @@ const setup = () => {
     applyState: (patch) => () => void calls.push({ patch }),
     applySession: (session) => () => void calls.push({ tunedTo: session.channel?.id ?? null }),
     channelChangeFailed: (channelId, error) => () => void calls.push({ refused: channelId, error }),
+    streamEventDescriptionFetched: (url, result) => () => void calls.push({ described: url, ok: result.ok }),
   };
   const disconnect = connectToHost({ channel: fake.channel, control, url: "http://app/index.xhtml" })();
   return { ...fake, calls, disconnect };
@@ -99,6 +101,14 @@ describe("connectToHost", () => {
     expect(calls).toEqual([{ refused: "hgtv", error: 5 }]);
   });
 
+  it("hands over the stream event description the host fetched", () => {
+    const { calls, deliver } = setup();
+
+    deliver({ _tag: "Host/StreamEventDescription", url: "http://tv/a.ste", result: { ok: false, reason: "HTTP 404" } });
+
+    expect(calls).toEqual([{ described: "http://tv/a.ste", ok: false }]);
+  });
+
   it("stops handling messages once disconnected", () => {
     const { calls, deliver, disconnect } = setup();
 
@@ -119,6 +129,7 @@ describe("connectToHost", () => {
         applyState: () => IO.of(undefined),
         applySession: () => IO.of(undefined),
         channelChangeFailed: () => IO.of(undefined),
+        streamEventDescriptionFetched: () => IO.of(undefined),
       },
       url: "x",
     });

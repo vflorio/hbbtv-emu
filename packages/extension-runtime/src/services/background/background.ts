@@ -5,7 +5,13 @@
  */
 
 import type { Logger } from "@hbb-emu/core";
-import { type HostMessage, isPageMessage, isUiRequest, type PageMessage } from "@hbb-emu/protocol";
+import {
+  type HostMessage,
+  isPageMessage,
+  isUiRequest,
+  type PageMessage,
+  type StreamEventDescriptionResult,
+} from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -32,6 +38,10 @@ import { createSessions, type Sessions } from "./sessions";
 import { handleUiRequest, notifyUis, pressTvKey, type UiEnv } from "./ui";
 
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
+
+/** Why the TV could not fetch a resource, for the page's log. */
+const describeFetchError = (error: AdapterError): string =>
+  error._tag === "BroadbandFetchError" && error.cause instanceof Error ? error.cause.message : error._tag;
 
 export class BackgroundService {
   private logger!: Logger;
@@ -185,8 +195,33 @@ export class BackgroundService {
         return this.onSetChannel(message.channelId, tabId);
       case "Page/TvKey":
         return this.onTvKey(message.keyCode, tabId);
+      case "Page/FetchStreamEventDescription":
+        return this.onFetchStreamEventDescription(message.url, tabId);
     }
   };
+
+  /**
+   * The application listens for stream events described over HTTP(S) (TS 102 796
+   * §8.2.1.1): the TV fetches the description, without CORS, and the page reads it.
+   */
+  private readonly onFetchStreamEventDescription =
+    (url: string, tabId: number): IO.IO<void> =>
+    () => {
+      void pipe(
+        this.env.adapter.broadband.fetchText(url),
+        TE.match(
+          (error): StreamEventDescriptionResult => ({ ok: false, reason: describeFetchError(error) }),
+          ({ contentType, body }): StreamEventDescriptionResult => ({ ok: true, contentType, body }),
+        ),
+        T.tapIO((result) =>
+          result.ok ? IO.of(undefined) : this.logger.warn(`Tab ${tabId} cannot have ${url}: ${result.reason}`),
+        ),
+        T.flatMap((result) =>
+          this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/StreamEventDescription", url, result }),
+        ),
+        TE.orElseFirstIOK((error) => this.logger.warn(`Could not answer tab ${tabId} about ${url}`, error)),
+      )();
+    };
 
   /** P+/P- or VOL+/VOL- pressed on the keyboard in the page: the TV in that tab acts on it. */
   private readonly onTvKey =

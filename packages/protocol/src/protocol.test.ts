@@ -30,6 +30,8 @@ describe("message guards", () => {
     [{ _tag: "Page/TvKey", keyCode: 427 }, true],
     [{ _tag: "Page/TvKey", keyCode: "427" }, false],
     [{ _tag: "Page/TvKey" }, false],
+    [{ _tag: "Page/FetchStreamEventDescription", url: "http://tv/a.ste" }, true],
+    [{ _tag: "Page/FetchStreamEventDescription" }, false],
     [{ _tag: "Host/Hello" }, false],
   ])("isPageMessage(%j) → %s", (value, expected) => {
     expect(isPageMessage(value)).toBe(expected);
@@ -109,6 +111,15 @@ describe("host edits and session", () => {
     [{ _tag: "Host/ChannelChangeError", channelId: "hgtv", error: 5 }, true],
     [{ _tag: "Host/ChannelChangeError", channelId: "hgtv", error: "5" }, false],
     [{ _tag: "Host/ChannelChangeError", error: 5 }, false],
+    [
+      { _tag: "Host/StreamEventDescription", url: "u", result: { ok: true, contentType: null, body: "<dsmcc/>" } },
+      true,
+    ],
+    [{ _tag: "Host/StreamEventDescription", url: "u", result: { ok: true, contentType: "text/xml", body: "" } }, true],
+    [{ _tag: "Host/StreamEventDescription", url: "u", result: { ok: false, reason: "HTTP 404" } }, true],
+    [{ _tag: "Host/StreamEventDescription", url: "u", result: { ok: true, body: "" } }, false],
+    [{ _tag: "Host/StreamEventDescription", url: "u", result: { ok: false } }, false],
+    [{ _tag: "Host/StreamEventDescription", result: { ok: false, reason: "x" } }, false],
   ])("isHostMessage(%j) → %s", (value, expected) => {
     expect(isHostMessage(value)).toBe(expected);
   });

@@ -7,7 +7,14 @@
  */
 
 import type { HbbTVState } from "@hbb-emu/oipf-api";
-import type { DomChannel, HostMessage, PageConfig, PageMessage, PageSession } from "@hbb-emu/protocol";
+import type {
+  DomChannel,
+  HostMessage,
+  PageConfig,
+  PageMessage,
+  PageSession,
+  StreamEventDescriptionResult,
+} from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
@@ -22,6 +29,8 @@ export type PageRuntimeControl = Readonly<{
   applySession: (session: PageSession) => IO.IO<void>;
   /** The TV did not change to the channel the application asked for. */
   channelChangeFailed: (channelId: string, error: number) => IO.IO<void>;
+  /** The host fetched (or could not fetch) a stream event description. */
+  streamEventDescriptionFetched: (url: string, result: StreamEventDescriptionResult) => IO.IO<void>;
 }>;
 
 export type HostEnv = Readonly<{
@@ -48,6 +57,8 @@ const handle =
         return env.control.applySession(message.session);
       case "Host/ChannelChangeError":
         return env.control.channelChangeFailed(message.channelId, message.error);
+      case "Host/StreamEventDescription":
+        return env.control.streamEventDescriptionFetched(message.url, message.result);
     }
   };
 

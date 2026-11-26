@@ -1,5 +1,6 @@
 import { type BootstrapData, configBootstrapScript, type HostMessage } from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
+import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it } from "vitest";
 import {
   createFakeMessaging,
@@ -12,6 +13,7 @@ import {
   flushPromises,
   silentLogger,
 } from "../../__tests__/fakes";
+import type { BroadbandAdapter } from "../../adapter";
 import { DEFAULT_STATE, type ExtensionState, type TvSessions, toPageConfig, toUiState } from "../../state";
 import { BackgroundService } from "./background";
 
@@ -26,6 +28,7 @@ const setup = async (
   openTabs = OPEN_TABS,
   bootstrapAvailable = true,
   storedSessions?: TvSessions,
+  broadband: BroadbandAdapter = { fetchText: (url) => TE.left({ _tag: "BroadbandFetchError", url, cause: null }) },
 ) => {
   const messaging = createFakeMessaging<HostMessage>();
   const tabs = createFakeTabs(openTabs);
@@ -45,6 +48,7 @@ const setup = async (
       ui: ui.ui,
       userAgent: userAgent.userAgent,
       pageBootstrap: bootstrap.pageBootstrap,
+      broadband,
     },
   });
   expect(E.isRight(await background.init()())).toBe(true);
@@ -92,6 +96,40 @@ describe("BackgroundService", () => {
     const { userAgent } = await setup(stored);
 
     expect(userAgent.applied).toEqual(["Custom TV/1.0"]);
+  });
+
+  it("fetches a stream event description for the page that asks, as a TV does (TS 102 796 §8.2.1.1)", async () => {
+    const files: Record<string, string> = { "http://tv/a.ste": "<dsmcc/>" };
+    const broadband: BroadbandAdapter = {
+      fetchText: (url) =>
+        files[url] === undefined
+          ? TE.left({ _tag: "BroadbandFetchError", url, cause: new Error("HTTP 404") })
+          : TE.right({ contentType: "application/vnd.dvb.streamevent+xml", body: files[url] }),
+    };
+    const { messaging } = await setup(undefined, OPEN_TABS, true, undefined, broadband);
+
+    messaging.receive({ _tag: "Page/FetchStreamEventDescription", url: "http://tv/a.ste" }, 7);
+    messaging.receive({ _tag: "Page/FetchStreamEventDescription", url: "http://tv/missing.ste" }, 2);
+    await flushPromises();
+
+    expect(messaging.sent).toEqual([
+      {
+        tabId: 7,
+        message: {
+          _tag: "Host/StreamEventDescription",
+          url: "http://tv/a.ste",
+          result: { ok: true, contentType: "application/vnd.dvb.streamevent+xml", body: "<dsmcc/>" },
+        },
+      },
+      {
+        tabId: 2,
+        message: {
+          _tag: "Host/StreamEventDescription",
+          url: "http://tv/missing.ste",
+          result: { ok: false, reason: "HTTP 404" },
+        },
+      },
+    ]);
   });
 
   it("ignores messages that are not from a page runtime", async () => {

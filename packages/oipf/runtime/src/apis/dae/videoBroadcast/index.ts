@@ -14,7 +14,12 @@ import { createStatefulMethods, type Stateful } from "@hbb-emu/core";
 import type { OIPF, VideoBroadcastState } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
-import type { ChannelChangeRequest, ChannelRegistryEnv, StreamEventSchedulerApi } from "../../../subsystems";
+import type {
+  ChannelChangeRequest,
+  ChannelRegistryEnv,
+  FetchStreamEventDescription,
+  StreamEventSchedulerApi,
+} from "../../../subsystems";
 import { combine, readOnly, stateSchema } from "../../compose";
 import {
   applyChannelState,
@@ -42,7 +47,13 @@ import {
   type VideoWindow,
 } from "./display";
 import { applyProgrammes, createMiscEnv, type MiscApi, miscApi, readProgrammes } from "./misc";
-import { createStreamEventEnv, readStreamEventListeners, type StreamEventApi, streamEventApi } from "./streamEvent";
+import {
+  createStreamEventEnv,
+  dropStreamEventListeners,
+  readStreamEventListeners,
+  type StreamEventApi,
+  streamEventApi,
+} from "./streamEvent";
 import {
   type AudioOutput,
   applyVolumeState,
@@ -91,6 +102,10 @@ export type VideoBroadcastDependencies = Readonly<{
   requestChannelChange: ChannelChangeRequest;
   onCurrentChannelChange: SetCurrentChannelCallback;
   streamEventScheduler: StreamEventSchedulerApi;
+  /** Fetches the XML descriptions of stream events (`targetURL` over HTTP(S)). */
+  fetchStreamEventDescription: FetchStreamEventDescription;
+  /** The document's base URL: what a relative `targetURL` is relative to. */
+  baseURI: () => string;
   defaults: VideoBroadcastDefaults;
   eventHandlers: VideoBroadcastEventHandlers;
 }>;
@@ -119,6 +134,11 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
   const { videoStream, eventHandlers, defaults } = dependencies;
 
   const volume = createVolumeEnv(dependencies.audioOutput)();
+  const streamEvent = createStreamEventEnv({
+    scheduler: dependencies.streamEventScheduler,
+    fetchDescription: dependencies.fetchStreamEventDescription,
+    baseURI: dependencies.baseURI,
+  })();
   const channel = createChannelEnv(
     {
       getChannels: dependencies.channelRegistry.getChannels,
@@ -127,7 +147,12 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
       requestChannelChange: dependencies.requestChannelChange,
       channelEvents: {
         onPlayStateChange: (playState) => () => eventHandlers.onPlayStateChange(playState),
-        onUnrealized: resetVolume(volume),
+        // TS 102 796 §10.2.12 (volume) and §8.2.1.1 (stream event listeners).
+        onUnrealized: pipe(
+          resetVolume(volume),
+          IO.flatMap(() => dropStreamEventListeners(streamEvent)),
+        ),
+        onLeaveChannel: dropStreamEventListeners(streamEvent),
         onChannelChangeSucceeded: (current) => () => eventHandlers.onChannelChangeSucceeded(current),
         onChannelChangeError: (target, error) => () => eventHandlers.onChannelChangeError(target, error),
         onCurrentChannelChange: (current) =>
@@ -146,7 +171,6 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
   )();
   const component = createComponentEnv();
   const misc = createMiscEnv();
-  const streamEvent = createStreamEventEnv(dependencies.streamEventScheduler)();
 
   const api = combine(
     channelApi(channel),

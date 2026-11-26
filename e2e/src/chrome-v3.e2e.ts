@@ -11,6 +11,7 @@ import {
 import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
 import { runHtml5DashScenario } from "./support/html5Dash";
 import { type FixtureServer, startFixtureServer } from "./support/server";
+import { runStreamEventScenario, streamEventChannel } from "./support/streamEvents";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_DIR = join(root, "../extensions/chrome-v3/dist");
@@ -903,6 +904,36 @@ describe("chrome-v3: settings UI", () => {
       await tv.close();
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
+  it("stream events described by XML over HTTP, from another origin without CORS (TS 102 796 §8.2.1)", async () => {
+    const { ui } = await openUi();
+    type UiState = { channels: Channel[] };
+    const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Channel];
+    // Another origin (another port), whose server sends no CORS headers.
+    const broadcaster = await startFixtureServer(join(root, "fixtures"));
+    const described = broadcaster.url("stream-events/default.ste");
+
+    try {
+      await request({
+        _tag: "UI/SaveState",
+        state: { ...original, channels: [streamEventChannel(first, described), first] },
+      });
+      const { page, errors } = await openPage(`basic-app/index.xhtml?events=${Date.now()}`);
+
+      await runStreamEventScenario((fn, arg) => page.evaluate(fn, arg), {
+        described,
+        missing: broadcaster.url("stream-events/missing.ste"),
+      });
+      expect(errors).toEqual([]);
+      await page.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+      await broadcaster.close();
     }
   });
 });

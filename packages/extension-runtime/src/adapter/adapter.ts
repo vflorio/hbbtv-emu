@@ -9,6 +9,7 @@ import {
   type WebRequestAdapter,
 } from "..";
 import type { TvSessions } from "../state";
+import { type BroadbandAdapter, createBroadbandAdapter } from "./broadband";
 import { createPageBootstrapAdapter, type PageBootstrapAdapter } from "./pageBootstrap";
 import { createSessionStorageAdapter, type StorageAdapter } from "./storage";
 import { createUiAdapter, type UiAdapter } from "./ui";
@@ -59,6 +60,7 @@ export type AdapterEnv<TState, TEvents extends BaseMessage> = {
   readonly ui: UiAdapter;
   readonly userAgent: UserAgentAdapter;
   readonly pageBootstrap: PageBootstrapAdapter;
+  readonly broadband: BroadbandAdapter;
 };
 
 export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
@@ -73,6 +75,7 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
   ui: env?.ui ?? createUiAdapter(config),
   userAgent: env?.userAgent ?? createUserAgentAdapter(config),
   pageBootstrap: env?.pageBootstrap ?? createPageBootstrapAdapter(config),
+  broadband: env?.broadband ?? createBroadbandAdapter(),
 });
 
 // Errors
@@ -84,4 +87,5 @@ export type AdapterError =
   | { readonly _tag: "UserAgentOverrideError"; readonly cause: unknown }
   | { readonly _tag: "PageBootstrapUnavailable"; readonly reason: string }
   | { readonly _tag: "PageBootstrapError"; readonly cause: unknown }
-  | { readonly _tag: "TabError"; readonly cause: unknown };
+  | { readonly _tag: "TabError"; readonly cause: unknown }
+  | { readonly _tag: "BroadbandFetchError"; readonly url: string; readonly cause: unknown };

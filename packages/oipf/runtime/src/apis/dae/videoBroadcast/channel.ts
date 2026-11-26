@@ -90,6 +90,12 @@ export type ChannelEvents = Readonly<{
    * the application changed on it stops having effect (the volume, TS 102 796 §10.2.12).
    */
   onUnrealized: IO.IO<void>;
+  /**
+   * The object connects to another service than the one it is bound to, before the
+   * application hears it is connecting: what it monitored on the old one ends (stream
+   * event listeners, TS 102 796 §8.2.1.1).
+   */
+  onLeaveChannel: IO.IO<void>;
   onChannelChangeSucceeded: (channel: Channel) => IO.IO<void>;
   /** `null` only when there was no channel to change from or to (`nextChannel()` with none). */
   onChannelChangeError: (channel: Channel | null, error: ChannelChangeErrorCode) => IO.IO<void>;
@@ -229,10 +235,22 @@ const writeAcquiring =
 
 const destroyPlayer: RIO.ReaderIO<ChannelEnv, void> = ({ player }) => player.destroy;
 
+/** Bound to another service than `channel`: the object leaves it (`onLeaveChannel`). */
+const leaveFor = (channel: Channel): RIO.ReaderIO<ChannelEnv, void> =>
+  pipe(
+    getCurrentChannel,
+    RIO.flatMap((current) =>
+      current !== null && !isSameService(current, channel)
+        ? (env: ChannelEnv) => env.channelEvents.onLeaveChannel
+        : noop,
+    ),
+  );
+
 /** Presents `channel`: connecting, then its stream. Fails if the lineup has no stream for it. */
 export const playChannel = (channel: Channel): RTE.ReaderTaskEither<ChannelEnv, ChannelChangeErrorCode, string> =>
   pipe(
-    RTE.rightReaderIO<ChannelEnv, ChannelChangeErrorCode, void>(setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING)),
+    RTE.rightReaderIO<ChannelEnv, ChannelChangeErrorCode, void>(leaveFor(channel)),
+    RTE.tapReaderIO(() => setPlayState(OIPF.DAE.Broadcast.PlayState.CONNECTING)),
     RTE.tapIO(() => logger.debug("playChannel", channel)),
     RTE.tapReaderIO(() => presentChannel(channel)),
     RTE.tapReaderIO(() => writeAcquiring(true)),

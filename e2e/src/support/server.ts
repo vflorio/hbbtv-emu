@@ -20,6 +20,8 @@ const CONTENT_TYPES: Record<string, string> = {
   ".m4a": "audio/mp4",
   ".mpd": "application/dash+xml",
   ".m4s": "video/iso.segment",
+  // TS 102 796 §9.3.1: stream event descriptions.
+  ".ste": "application/vnd.dvb.streamevent+xml",
 };
 
 export type RecordedRequest = Readonly<{ url: string; userAgent: string | undefined }>;

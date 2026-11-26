@@ -66,6 +66,8 @@ const setup = (objectStyle = "width: 1280px; height: 720px", playState: OIPF.DAE
     requestChannelChange: tuneAlone,
     onCurrentChannelChange: () => {},
     streamEventScheduler: noopStreamEventScheduler,
+    fetchStreamEventDescription: () => () => new Promise(() => {}),
+    baseURI: () => "http://tv/app/",
     defaults: { fullScreen: false, playState },
     eventHandlers,
   });

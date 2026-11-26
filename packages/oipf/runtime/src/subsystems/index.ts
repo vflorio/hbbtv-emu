@@ -7,6 +7,7 @@ export * from "./keyboard";
 export * from "./mediaElementDash";
 export * from "./mediaElementVolume";
 export * from "./remoteControl";
+export * from "./streamEventDescription";
 export * from "./streamEventScheduler";
 export * from "./tvVolume";
 export * from "./userAgent";

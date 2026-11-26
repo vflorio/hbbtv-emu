@@ -49,6 +49,8 @@ import {
   DEFAULT_KEY_MAP,
   dispatchRemoteKey,
   type EmulatorMedia,
+  type FetchStreamEventDescription,
+  fetchFromPage,
   ignoreTvKey,
   initializeUserAgent,
   initialTunedChannel,
@@ -94,6 +96,12 @@ export type BindingsEnv = Readonly<{
    * the host's TV session decides. Without a host the object just tunes.
    */
   requestChannelChange: ChannelChangeRequest;
+
+  /**
+   * Fetches the XML descriptions of stream events (TS 102 796 §8.2.1.1): the host does it
+   * where there is one, as a TV does (no CORS); without a host, the page does.
+   */
+  fetchStreamEventDescription: FetchStreamEventDescription;
 
   /**
    * Returns the shared PlayerRuntime instance for VideoBroadcast.
@@ -436,6 +444,7 @@ export const createRuntimeEnv = (
     getCurrentChannel: currentChannelEnv.getCurrentChannel,
     setCurrentChannel: currentChannelEnv.setCurrentChannel,
     requestChannelChange: tuneAlone,
+    fetchStreamEventDescription: fetchFromPage,
     // PlayerRuntime for VideoBroadcast (singleton)
     getSharedPlayerRuntime: () => sharedPlayerRuntime ?? null,
     // PlayerRuntime factory for AVControl (multiple instances)

@@ -1,4 +1,5 @@
 export * from "./adapter";
+export * from "./broadband";
 export * from "./extensionChannel";
 export * from "./messaging";
 export * from "./pageBootstrap";
