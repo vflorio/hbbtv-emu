@@ -11,6 +11,33 @@ import { match } from "ts-pattern";
 import type { DASHConfig } from ".";
 import { BaseVideoAdapter } from "./base";
 
+/**
+ * What a dash.js error code is about: a manifest that cannot be read, a download
+ * (manifest or segment) that failed after dash.js's own retries, or anything else.
+ * The codes come from `MediaPlayer.errors`: dash.js 5 declares an `Errors` class in
+ * its types, but its bundle does not export it, so `new dashjs.Errors()` threw on the
+ * first error and the error never reached the player.
+ */
+export type DashErrorKind = "manifest" | "network" | "other";
+
+export const dashErrorKind = (code: number): DashErrorKind => {
+  const errors = dashjs.MediaPlayer.errors;
+  switch (code) {
+    case errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE:
+    case errors.MANIFEST_ERROR_ID_PARSE_CODE:
+    case errors.MANIFEST_ERROR_ID_NOSTREAMS_CODE:
+      return "manifest";
+    case errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE:
+    case errors.DOWNLOAD_ERROR_ID_MANIFEST_CODE:
+    case errors.FRAGMENT_LOADER_LOADING_FAILURE_ERROR_CODE:
+    case errors.DOWNLOAD_ERROR_ID_CONTENT_CODE:
+    case errors.DOWNLOAD_ERROR_ID_INITIALIZATION_CODE:
+      return "network";
+    default:
+      return "other";
+  }
+};
+
 export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
   readonly type = "dash" as const;
 
@@ -75,11 +102,12 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
             return () => player.off(dashjs.MediaPlayer.events.ERROR, this.onDashError);
           },
         ]),
-        RA.traverse(IO.Applicative)((addListener) => addListener()),
+        // Each item adds its listener and returns the effect that removes it.
+        RA.traverse(IO.Applicative)((addListener) => addListener),
         IO.map((removeEventListeners) =>
           pipe(
             removeEventListeners,
-            RA.traverse(IO.Applicative)((remove) => IO.of(remove)),
+            RA.traverse(IO.Applicative)((remove) => remove),
             IO.asUnit,
           ),
         ),
@@ -370,10 +398,11 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
       );
     };
 
-    const handleDownloadError = (): IO.IO<void> =>
+    // dash.js has already retried (its `retryAttempts`): the stream cannot be reached.
+    const handleNetworkError = (): IO.IO<void> =>
       this.emit({
         _tag: "Engine/Error",
-        kind: "media",
+        kind: "network",
         message: errorMessage,
         url: this.url ?? undefined,
         cause: event,
@@ -388,32 +417,9 @@ export class DASHAdapter extends BaseVideoAdapter<DASHConfig> {
         cause: event,
       });
 
-    const {
-      MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
-      DOWNLOAD_ERROR_ID_MANIFEST_CODE,
-      MANIFEST_ERROR_ID_PARSE_CODE,
-      MANIFEST_ERROR_ID_NOSTREAMS_CODE,
-      FRAGMENT_LOADER_LOADING_FAILURE_ERROR_CODE,
-      DOWNLOAD_ERROR_ID_CONTENT_CODE,
-      DOWNLOAD_ERROR_ID_INITIALIZATION_CODE,
-    } = new dashjs.Errors();
-
-    return match(errorCode)
-      .when(
-        (code) =>
-          code === MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
-          code === DOWNLOAD_ERROR_ID_MANIFEST_CODE ||
-          code === MANIFEST_ERROR_ID_PARSE_CODE ||
-          code === MANIFEST_ERROR_ID_NOSTREAMS_CODE,
-        handleManifestError,
-      )
-      .when(
-        (code) =>
-          code === FRAGMENT_LOADER_LOADING_FAILURE_ERROR_CODE ||
-          code === DOWNLOAD_ERROR_ID_CONTENT_CODE ||
-          code === DOWNLOAD_ERROR_ID_INITIALIZATION_CODE,
-        handleDownloadError,
-      )
+    return match(dashErrorKind(errorCode))
+      .with("manifest", handleManifestError)
+      .with("network", handleNetworkError)
       .otherwise(handleGenericError)();
   };
 }

@@ -42,7 +42,9 @@ export const startFixtureServer = async (root: string): Promise<FixtureServer> =
       response.writeHead(200, { "Content-Type": CONTENT_TYPES[extname(path)] ?? "application/octet-stream" });
       response.end(body);
     } catch {
-      response.writeHead(404).end();
+      // With a type, as real servers answer: Firefox parses an untyped empty answer
+      // to an XHR as XML, and reports the parsing error as a page error.
+      response.writeHead(404, { "Content-Type": "text/plain; charset=UTF-8" }).end("Not found");
     }
   });
 

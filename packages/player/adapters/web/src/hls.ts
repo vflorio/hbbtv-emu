@@ -6,10 +6,22 @@ import * as IOO from "fp-ts/IOOption";
 import * as O from "fp-ts/Option";
 import * as RA from "fp-ts/ReadonlyArray";
 import * as TE from "fp-ts/TaskEither";
-import Hls, { type ErrorData, ErrorTypes, type Events, type HlsListeners, type Level } from "hls.js";
+import Hls, { type ErrorData, ErrorDetails, ErrorTypes, type Events, type HlsListeners, type Level } from "hls.js";
 import { match } from "ts-pattern";
 import type { HLSConfig } from ".";
 import { BaseVideoAdapter } from "./base";
+
+/**
+ * What a fatal hls.js error is about: a manifest that cannot be read, a download
+ * (manifest, playlist or segment) that hls.js gave up on, or anything else. hls.js
+ * reports a network error as fatal only once its own retries are over.
+ */
+export type HlsErrorKind = "manifest" | "network" | "other";
+
+export const hlsErrorKind = ({ type, details }: Pick<ErrorData, "type" | "details">): HlsErrorKind => {
+  if (details === ErrorDetails.MANIFEST_PARSING_ERROR) return "manifest";
+  return type === ErrorTypes.NETWORK_ERROR ? "network" : "other";
+};
 
 export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
   readonly type = "hls" as const;
@@ -65,11 +77,12 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
             return () => hls.off(Hls.Events.ERROR, this.onHlsError);
           },
         ]),
-        RA.traverse(IO.Applicative)((addListener) => addListener()),
+        // Each item adds its listener and returns the effect that removes it.
+        RA.traverse(IO.Applicative)((addListener) => addListener),
         IO.map((removeEventListeners) =>
           pipe(
             removeEventListeners,
-            RA.traverse(IO.Applicative)((remove) => IO.of(remove)),
+            RA.traverse(IO.Applicative)((remove) => remove),
             IO.asUnit,
           ),
         ),
@@ -254,60 +267,38 @@ export class HLSAdapter extends BaseVideoAdapter<HLSConfig> {
     const url = this.url ?? "unknown";
 
     pipe(
-      match({ type: data.type, details: data.details })
-        .when(
-          ({ type, details }) =>
-            type === ErrorTypes.NETWORK_ERROR && (details.includes("manifest") || details.includes("Manifest")),
-          () => {
-            const retryKey = `manifest:${url}`;
-            const currentRetry = this.retryCount.get(retryKey) || 0;
+      match(hlsErrorKind(data))
+        .with("manifest", () => {
+          const retryKey = `manifest:${url}`;
+          const currentRetry = this.retryCount.get(retryKey) || 0;
 
-            return pipe(
-              this.emit({
-                _tag: "Engine/HLS/ManifestParseError",
-                url,
-                retryCount: currentRetry,
-                message: `HLS manifest error: ${data.details}`,
-                cause: data,
-              }),
-              IO.tap(() => () => {
-                this.retryCount.set(retryKey, currentRetry + 1);
+          return pipe(
+            this.emit({
+              _tag: "Engine/HLS/ManifestParseError",
+              url,
+              retryCount: currentRetry,
+              message: `HLS manifest error: ${data.details}`,
+              cause: data,
+            }),
+            IO.tap(() => () => {
+              this.retryCount.set(retryKey, currentRetry + 1);
 
-                if (this.hls && currentRetry < 3) {
-                  this.hls.loadSource(url);
-                }
-              }),
-              IO.asUnit,
-            );
-          },
-        )
-        .when(
-          ({ type, details }) => type === ErrorTypes.NETWORK_ERROR && details.includes("frag"),
-          () => {
-            const fragSn = typeof data.frag?.sn === "number" ? data.frag.sn : 0;
-            const fragUrl = data.frag?.url || "unknown";
-            const retryKey = `frag:${fragUrl}`;
-            const currentRetry = this.retryCount.get(retryKey) || 0;
-
-            return pipe(
-              this.emit({
-                _tag: "Engine/HLS/SegmentLoadError",
-                segmentIndex: fragSn,
-                segmentUrl: fragUrl,
-                retryCount: currentRetry,
-                message: `HLS segment error: ${data.details}`,
-                cause: data,
-              }),
-              IO.tap(() => () => {
-                this.retryCount.set(retryKey, currentRetry + 1);
-
-                if (this.hls && currentRetry < 3) {
-                  this.hls.startLoad();
-                }
-              }),
-              IO.asUnit,
-            );
-          },
+              if (this.hls && currentRetry < 3) {
+                this.hls.loadSource(url);
+              }
+            }),
+            IO.asUnit,
+          );
+        })
+        // hls.js has already retried: the stream cannot be reached.
+        .with("network", () =>
+          this.emit({
+            _tag: "Engine/Error",
+            kind: "network",
+            message: `HLS network error: ${data.details}`,
+            url: data.frag?.url ?? this.url ?? undefined,
+            cause: data,
+          }),
         )
         .otherwise(() =>
           this.emit({

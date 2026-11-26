@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runAvControlScenario } from "./support/avControl";
+import { runAvControlScenario, runUnreachableStreamScenario } from "./support/avControl";
 import { type FirefoxWithExtension, launchFirefoxWithExtension } from "./support/firefox";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
@@ -167,6 +167,34 @@ describe("firefox-v2: HbbTV application", () => {
 
     expect(errors).toEqual([]);
     expect(await events()).toEqual(real);
+  });
+
+  it("tells the application when a DASH or HLS stream cannot be reached", async () => {
+    type Player = HTMLObjectElement & { data: string; play: (speed: number) => boolean };
+    for (const start of [
+      () => {
+        const player = document.getElementById("player") as Player;
+        player.data = "missing.mpd";
+        return player.play(1);
+      },
+      () => {
+        const player = document.getElementById("player") as Player;
+        player.data = "missing.m3u8";
+        return player.play(1);
+      },
+    ]) {
+      const { page, errors } = await openPage(`av-app/index.xhtml?unreachable=${Date.now()}`);
+      try {
+        await page.evaluate(() => {
+          // Only what happens from now on.
+          (window as unknown as { __e2e: { playStates: number[] } }).__e2e.playStates = [];
+        });
+        await runUnreachableStreamScenario((fn) => page.evaluate(fn), start);
+        expect(errors).toEqual([]);
+      } finally {
+        await page.close();
+      }
+    }
   });
 
   it("renders video/broadcast inside its object, sized by the application's CSS", async () => {

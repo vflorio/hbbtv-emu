@@ -95,3 +95,26 @@ export const runAvControlScenario = async (evaluate: Evaluate) => {
   expect(lastRun[lastRun.length - 1]).toBe(FINISHED);
   expect(end.speeds).toEqual([1, 0, 1, 0]);
 };
+
+const ERROR = 6;
+/** A/V Control `error` 1 (`ErrorCode.CONNECTION_ERROR`): cannot connect to server or connection lost. */
+const CONNECTION_ERROR = 1;
+
+/**
+ * A stream that cannot be reached (`start` sets a source that is not there, then
+ * plays it): once the player gives up, the application gets ERROR and why, and
+ * nothing more happens.
+ */
+export const runUnreachableStreamScenario = async (evaluate: Evaluate, start: () => boolean) => {
+  expect(await evaluate(start)).toBe(true);
+  await until(evaluate, () => (document.getElementById("player") as AvPlayer).playState === 6, "error", 20_000);
+
+  const failed = async () => ({
+    playStates: (await app(evaluate)).playStates,
+    error: await evaluate(() => (document.getElementById("player") as unknown as { error: number }).error),
+  });
+  expect(await failed()).toEqual({ playStates: [CONNECTING, ERROR], error: CONNECTION_ERROR });
+  // The player does not try again behind the application's back.
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  expect(await failed()).toEqual({ playStates: [CONNECTING, ERROR], error: CONNECTION_ERROR });
+};
