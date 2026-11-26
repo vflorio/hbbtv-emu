@@ -43,7 +43,14 @@ import {
 } from "./display";
 import { applyProgrammes, createMiscEnv, type MiscApi, miscApi, readProgrammes } from "./misc";
 import { createStreamEventEnv, readStreamEventListeners, type StreamEventApi, streamEventApi } from "./streamEvent";
-import { applyVolumeState, createVolumeEnv, readVolumeState, type VolumeApi, volumeApi } from "./volume";
+import {
+  type AudioOutput,
+  applyVolumeState,
+  createVolumeEnv,
+  readVolumeState,
+  type VolumeApi,
+  volumeApi,
+} from "./volume";
 
 /**
  * Callback to notify the global current channel provider of channel changes.
@@ -74,6 +81,8 @@ export type VideoBroadcastEventHandlers = Readonly<{
 export type VideoBroadcastDependencies = Readonly<{
   channelRegistry: ChannelRegistryEnv;
   videoStream: ChannelVideoStreamEnv;
+  /** Where the object's audio goes: in series with the TV's volume (`audioInSeries`). */
+  audioOutput: AudioOutput;
   videoWindow: VideoWindow;
   /** The channel the TV is tuned to: what a new object presents. */
   getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
@@ -132,7 +141,7 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
     { onFullScreenChange: (fullScreen) => () => eventHandlers.onFullScreenChange(fullScreen) },
     defaults.fullScreen,
   )();
-  const volume = createVolumeEnv({ setVolume: videoStream.setVolume, setMuted: videoStream.setMuted })();
+  const volume = createVolumeEnv(dependencies.audioOutput)();
   const component = createComponentEnv();
   const misc = createMiscEnv();
   const streamEvent = createStreamEventEnv(dependencies.streamEventScheduler)();

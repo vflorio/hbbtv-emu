@@ -16,7 +16,7 @@ import * as O from "fp-ts/Option";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { StorageAdapter } from "../../adapter";
-import type { TvSession, TvSessions } from "../../state";
+import { DEFAULT_TV_VOLUME, type TvSession, type TvSessions } from "../../state";
 
 export type Sessions = Readonly<{
   /** Loads the stored sessions, keeping only those of tabs still open. */
@@ -38,15 +38,16 @@ const isApplicationId = (value: unknown): value is AitApplicationId => {
   return typeof orgId === "number" && typeof appId === "number";
 };
 
-/** A stored session, as this version understands it; older ones had no `url` nor `app`. */
+/** A stored session, as this version understands it; older ones had no `url`, `app` nor `volume`. */
 const toTvSession = (value: unknown): O.Option<TvSession> => {
   if (typeof value !== "object" || value === null) return O.none;
-  const { mode, channelId, url = null, app = null } = value as Record<string, unknown>;
+  const { mode, channelId, url = null, app = null, volume = DEFAULT_TV_VOLUME } = value as Record<string, unknown>;
   return (mode === "app" || mode === "tv") &&
     isNullableString(channelId) &&
     isNullableString(url) &&
-    (app === null || isApplicationId(app))
-    ? O.some({ mode, channelId, url, app })
+    (app === null || isApplicationId(app)) &&
+    typeof volume === "number"
+    ? O.some({ mode, channelId, url, app, volume })
     : O.none;
 };
 

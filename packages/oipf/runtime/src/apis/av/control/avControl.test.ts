@@ -35,6 +35,7 @@ const setup = () => {
   const object = createAVControlVideo({
     mimeType: () => "video/mp4",
     stream,
+    audioOutput: stream,
     videoWindow: {
       getSize: () => ({ ...size }),
       setWidth: (width) => () => {

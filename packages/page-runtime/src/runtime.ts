@@ -89,8 +89,8 @@ export const applyBootstrap =
 
 /**
  * Configuration can be applied any time: the user agent and the channel lineup are
- * live. A new session tunes the TV first, then settles the application's requests
- * for that channel (its objects are already there).
+ * live. A new session tunes the TV and sets its volume first, then settles the
+ * application's requests for that channel (its objects are already there).
  */
 export const controlRuntime = (handle: RuntimeHandle, changes: HostChannelChanges): PageRuntimeControl => ({
   applyConfig: (config: PageConfig) => handle.updateExtensionState(toExtensionState(config)),
@@ -99,6 +99,7 @@ export const controlRuntime = (handle: RuntimeHandle, changes: HostChannelChange
   applySession: (session) =>
     pipe(
       handle.tune(session.channel),
+      IO.flatMap(() => handle.setTvVolume(session.volume)),
       IO.flatMap(() => changes.settle(session)),
     ),
   channelChangeFailed: changes.fail,

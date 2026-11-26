@@ -27,8 +27,8 @@ describe("channel changes asked of the host", () => {
     const { changes } = setup();
     const result = changes.request(hgtv)();
 
-    changes.settle({ channel: dmax })();
-    changes.settle({ channel: hgtv })();
+    changes.settle({ channel: dmax, volume: 100 })();
+    changes.settle({ channel: hgtv, volume: 100 })();
 
     expect(await result).toEqual(E.right(undefined));
   });
@@ -39,7 +39,7 @@ describe("channel changes asked of the host", () => {
     const toHgtv = changes.request(hgtv)();
 
     changes.fail("hgtv", 5)();
-    changes.settle({ channel: dmax })();
+    changes.settle({ channel: dmax, volume: 100 })();
 
     expect(await toHgtv).toEqual(E.left(5));
     expect(await toDmax).toEqual(E.right(undefined));
@@ -68,7 +68,7 @@ describe("channel changes the host does not answer", () => {
     vi.advanceTimersByTime(CHANNEL_CHANGE_TIMEOUT_MS);
     const answered = changes.request(hgtv)();
 
-    changes.settle({ channel: hgtv })();
+    changes.settle({ channel: hgtv, volume: 100 })();
 
     expect(await lost).toEqual(E.left(OIPF.DAE.Broadcast.ChannelChangeErrorCode.UNIDENTIFIED_ERROR));
     expect(await answered).toEqual(E.right(undefined));
@@ -82,7 +82,7 @@ describe("channel changes the host does not answer", () => {
       .request(hgtv)()
       .then((result) => results.push(result));
 
-    changes.settle({ channel: hgtv })();
+    changes.settle({ channel: hgtv, volume: 100 })();
     await vi.advanceTimersByTimeAsync(CHANNEL_CHANGE_TIMEOUT_MS);
 
     expect(results).toEqual([E.right(undefined)]);

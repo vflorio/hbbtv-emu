@@ -26,6 +26,11 @@ export type PageConfig = Readonly<{
 export type PageSession = Readonly<{
   /** The channel the TV is tuned to; `null` if the lineup is empty. */
   channel: ChannelConfig | null;
+  /**
+   * The TV's volume, 0–100: the user's (VOL+/VOL-). The application cannot see it;
+   * its objects' audio plays in series with it (TS 102 796 §10.2.12).
+   */
+  volume: number;
 }>;
 
 export type PageMessage =
@@ -56,7 +61,7 @@ export const isPageConfig = (value: unknown): value is PageConfig =>
 const isChannel = (value: unknown): value is ChannelConfig => isRecord(value) && typeof value.id === "string";
 
 export const isPageSession = (value: unknown): value is PageSession =>
-  isRecord(value) && (value.channel === null || isChannel(value.channel));
+  isRecord(value) && (value.channel === null || isChannel(value.channel)) && typeof value.volume === "number";
 
 export const isPageMessage = (value: unknown): value is PageMessage => {
   if (!isRecord(value)) return false;

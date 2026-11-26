@@ -28,8 +28,10 @@ import {
   findChannel,
   fromUiState,
   sessionChannel,
+  stepVolume,
   type TvSession,
   toPageConfig,
+  toPageSession,
   toUiState,
   turnedOnSession,
   zapChannel,
@@ -256,10 +258,50 @@ const CHANNEL_KEY_STEPS: Readonly<Record<number, 1 | -1>> = { 427: 1, 428: -1 };
 const zap = (step: 1 | -1): RT.ReaderTask<UiEnv, UiResponse> =>
   changeActiveTabChannel((state, session) => E.fromNullable("The lineup is empty")(zapChannel(state, session, step)));
 
-/** A key of the UI's remote: P+/P- zap the TV; the page decides about the others. */
+/** VOL+/VOL- belong to the TV too: they change the volume of the active tab's TV. */
+const VOLUME_KEY_STEPS: Readonly<Record<number, 1 | -1>> = { 447: 1, 448: -1 };
+
+/**
+ * The active tab's TV changes its volume, which its page follows. Delivering it is
+ * best effort (the TV page has no bridge): the session keeps it for the next page.
+ */
+const changeVolume =
+  (step: 1 | -1): RT.ReaderTask<UiEnv, UiResponse> =>
+  (env) =>
+    pipe(
+      T.Do,
+      T.bind("state", () => readState(env)),
+      T.bind("tabId", () => activeTabId(env)),
+      T.flatMap(({ state, tabId }) => {
+        if (O.isNone(state)) return T.of(failed("State not initialized"));
+        if (O.isNone(tabId)) return T.of(failed("No active tab"));
+        return pipe(
+          env.sessions.update(tabId.value, (session) => stepVolume(session, step)),
+          T.flatMap(
+            O.match(
+              () => T.of(notAnEmulatedTab(tabId.value)),
+              (session) =>
+                pipe(
+                  env.messaging.sendToTab(tabId.value, {
+                    _tag: "Host/Session",
+                    session: toPageSession(state.value, session),
+                  }),
+                  T.tapIO(() => env.logger.debug(`TV volume in tab ${tabId.value}: ${session.volume}`)),
+                  T.map(() => done),
+                ),
+            ),
+          ),
+        );
+      }),
+    );
+
+/** A key of the UI's remote: P+/P- and VOL+/VOL- are the TV's; the page decides about the others. */
 const pressKey = (keyCode: number): RT.ReaderTask<UiEnv, UiResponse> => {
-  const step = CHANNEL_KEY_STEPS[keyCode];
-  return step === undefined ? toActiveTab({ _tag: "Host/DispatchKey", keyCode }) : zap(step);
+  const channelStep = CHANNEL_KEY_STEPS[keyCode];
+  if (channelStep !== undefined) return zap(channelStep);
+  const volumeStep = VOLUME_KEY_STEPS[keyCode];
+  if (volumeStep !== undefined) return changeVolume(volumeStep);
+  return toActiveTab({ _tag: "Host/DispatchKey", keyCode });
 };
 
 /**

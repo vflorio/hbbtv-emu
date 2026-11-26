@@ -57,6 +57,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px") => {
   const videoBroadcast = createVideoBroadcast({
     channelRegistry: { getChannels: () => [] },
     videoStream: stream.videoStream,
+    audioOutput: { setVolume: stream.setVolume, setMuted: stream.setMuted },
     videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
     getTunedChannel: () => null,
     requestChannelChange: tuneAlone,

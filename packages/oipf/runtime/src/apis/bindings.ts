@@ -36,6 +36,7 @@ import { OipfConfiguration } from "./dae/configuration";
 import { createVideoBroadcast, type VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
 import { createChannelVideoStreamEnv } from "./dae/videoBroadcast/channel";
 import { createObjectVideoWindow } from "./dae/videoBroadcast/videoWindow";
+import { audioInSeries, broadcastGain, linearGain } from "./dae/videoBroadcast/volume";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binding Collection
@@ -113,6 +114,7 @@ export const createVideoBroadcastBinding = (
     return createVideoBroadcast({
       channelRegistry: env.channelRegistry,
       videoStream,
+      audioOutput: audioInSeries(env.tvVolume, broadcastGain, videoStream.videoElement, videoStream.setMuted)(),
       videoWindow: createObjectVideoWindow(element, videoStream.videoElement),
       getTunedChannel: env.getCurrentChannel,
       requestChannelChange: env.requestChannelChange,
@@ -173,6 +175,13 @@ export const createAvControlsBinding = (
     return createAVControlVideo({
       mimeType: () => element.type,
       stream,
+      audioOutput: audioInSeries(
+        env.tvVolume,
+        linearGain,
+        stream.videoElement,
+        stream.setMuted,
+        env.defaultAvControlVideo.volume.volume,
+      )(),
       videoWindow: createContainerVideoWindow(element, stream.videoElement),
       focusObject: focusElement(element),
       defaults: env.defaultAvControlVideo,

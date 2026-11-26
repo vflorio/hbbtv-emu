@@ -60,7 +60,10 @@ describe("BackgroundService", () => {
 
     expect(messaging.sent).toEqual([
       { tabId: 7, message: { _tag: "Host/Config", config: toPageConfig(DEFAULT_STATE) } },
-      { tabId: 7, message: { _tag: "Host/Session", session: { channel: DEFAULT_STATE.runtime.channels[0] } } },
+      {
+        tabId: 7,
+        message: { _tag: "Host/Session", session: { channel: DEFAULT_STATE.runtime.channels[0], volume: 100 } },
+      },
     ]);
   });
 
@@ -359,6 +362,34 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     expect(tunedTo(messaging.sent, 1)).toEqual(["dmax", "hgtv", "dmax"]);
   });
 
+  it("VOL+/VOL- on the UI's remote change the volume of the active tab's TV, within 0–100, never the application's keys", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+    const volumes = () =>
+      messaging.sent
+        .filter((s) => s.tabId === 1 && s.message._tag === "Host/Session")
+        .map((s) => (s.message as Extract<HostMessage, { _tag: "Host/Session" }>).session.volume);
+
+    for (const keyCode of [447, 448, 448]) {
+      expect(await ui.request({ _tag: "UI/DispatchKey", keyCode })).toEqual({ _tag: "UI/Done" });
+    }
+
+    // Starts at full volume: VOL+ cannot go above it.
+    expect(volumes()).toEqual([100, 100, 95, 90]);
+    expect(messaging.sent.filter((s) => s.message._tag === "Host/DispatchKey")).toEqual([]);
+  });
+
+  it("the TV's volume outlives the pages of its tab", async () => {
+    const { messaging, ui } = await setup(lineup);
+    await pageReady(messaging, 1);
+    await ui.request({ _tag: "UI/DispatchKey", keyCode: 448 });
+
+    await pageReady(messaging, 1, "http://app/next.xhtml");
+
+    const sessions = messaging.sent.filter((s) => s.tabId === 1 && s.message._tag === "Host/Session");
+    expect(sessions[sessions.length - 1]?.message).toMatchObject({ session: { volume: 95 } });
+  });
+
   it("P+ is refused for a tab that is not a TV", async () => {
     const { ui } = await setup(lineup);
 
@@ -419,8 +450,8 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
 
   it("a restarted background (MV3 service worker) finds the sessions of the tabs still open", async () => {
     const stored: TvSessions = {
-      "1": { mode: "app", channelId: "hgtv", url: null, app: null },
-      "99": { mode: "app", channelId: "hgtv", url: null, app: null },
+      "1": { mode: "app", channelId: "hgtv", url: null, app: null, volume: 100 },
+      "99": { mode: "app", channelId: "hgtv", url: null, app: null, volume: 100 },
     };
     const { messaging, sessionStorage } = await setup(lineup, OPEN_TABS, true, stored);
 
@@ -440,7 +471,7 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
   });
 
   it("a session whose channel left the lineup is back on the first channel", async () => {
-    const stored: TvSessions = { "1": { mode: "app", channelId: "gone", url: null, app: null } };
+    const stored: TvSessions = { "1": { mode: "app", channelId: "gone", url: null, app: null, volume: 100 } };
     const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
 
     await pageReady(messaging, 1);

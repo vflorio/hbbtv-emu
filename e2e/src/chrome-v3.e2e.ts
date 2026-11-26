@@ -277,6 +277,33 @@ describe("chrome-v3: settings UI", () => {
     expect(keys).toEqual([403, 38]);
   });
 
+  it("VOL-/VOL+ set the TV's volume, which video/broadcast's own volume only attenuates", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?volume=${Date.now()}`);
+    await app.bringToFront();
+    const audio = () =>
+      app.evaluate(() => {
+        const object = document.getElementById("video") as unknown as { getVolume: () => number };
+        const element = document.querySelector("#video video") as HTMLVideoElement;
+        return { object: object.getVolume(), element: Math.round(element.volume * 100) / 100 };
+      });
+
+    for (const name of ["VOL-", "VOL-"]) {
+      await ui.getByRole("button", { name, exact: true }).click();
+    }
+    await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });
+
+    // TS 102 796 §10.2.12: 86 is 14 dB less, a factor of 0.2, in series with the TV.
+    await app.evaluate(() =>
+      (document.getElementById("video") as unknown as { setVolume: (v: number) => boolean }).setVolume(86),
+    );
+    expect(await audio()).toEqual({ object: 86, element: 0.18 });
+
+    // The volume is the TV's: the tab's next page has it too.
+    await app.reload();
+    await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });
+  });
+
   it("the configured user agent is what the server receives and what the application reads", async () => {
     const { ui } = await openUi();
     type UiState = { userAgent: string };

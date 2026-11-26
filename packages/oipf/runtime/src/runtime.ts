@@ -42,6 +42,7 @@ import {
   createCurrentChannelEnv,
   createRemoteControlEnv,
   createStreamEventScheduler,
+  createTvVolume,
   createUserAgentEnv,
   dispatchRemoteKey,
   initializeUserAgent,
@@ -49,6 +50,7 @@ import {
   isSameService,
   type RemoteControlEnv,
   type StreamEventSchedulerApi,
+  type TvVolume,
   tuneAlone,
   type UserAgentEnv,
 } from "./subsystems";
@@ -98,6 +100,9 @@ export type BindingsEnv = Readonly<{
 
   /** The application's keyset: one per page, as there is one application per page */
   keyset: OIPF.DAE.ApplicationManager.Keyset;
+
+  /** The TV's volume (the user's), in series with every object's */
+  tvVolume: TvVolume;
 
   /** Default state for Capabilities object */
   defaultOipfCapabilities: OipfCapabilitiesState;
@@ -169,6 +174,12 @@ export type Runtime = Readonly<{
    * Tunes the TV to a channel (the host's TV session says so).
    */
   tune: (channel: ChannelConfig | null) => IO.IO<void>;
+
+  /**
+   * Sets the TV's volume (the host's TV session says so), in series with every
+   * object's.
+   */
+  setTvVolume: (volume: number) => IO.IO<void>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,6 +269,9 @@ export class RuntimeService implements Runtime {
    * A remote-control key: the application receives it only if its keyset asks for it.
    */
   dispatchKey = (keyCode: number): IO.IO<void> => dispatchRemoteKey(keyCode)(this.#env.remoteControl);
+
+  /** The TV's volume: every object's audio follows it, the applications cannot see it. */
+  setTvVolume = (volume: number): IO.IO<void> => this.#env.bindings.tvVolume.set(volume);
 
   /**
    * Tunes the TV: the current channel the applications read, and every
@@ -370,6 +384,7 @@ export const createRuntimeEnv = (
     // PlayerRuntime factory for AVControl (multiple instances)
     playerRuntimeFactory: playerRuntimeFactory ?? defaultFactory,
     keyset,
+    tvVolume: createTvVolume(),
     // Defaults
     defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
     defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
@@ -404,6 +419,8 @@ export type RuntimeHandle = Readonly<{
   dispatchKey: (keyCode: number) => IO.IO<void>;
   /** Tunes the TV to a channel (from the host's TV session) */
   tune: (channel: ChannelConfig | null) => IO.IO<void>;
+  /** Sets the TV's volume (from the host's TV session) */
+  setTvVolume: (volume: number) => IO.IO<void>;
   /** Stops DOM observation and tears down runtime services */
   stop: () => IO.IO<void>;
   /** Sets the PlayerRuntime instance (for player UI integration) */
@@ -426,6 +443,7 @@ export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
         collectState: service.collectState,
         dispatchKey: service.dispatchKey,
         tune: service.tune,
+        setTvVolume: service.setTvVolume,
         stop: service.stop,
         setPlayerRuntime: service.setPlayerRuntime,
         getPlayerRuntime: service.getPlayerRuntime,

@@ -78,7 +78,21 @@ export type TvSession = Readonly<{
   url: string | null;
   /** The application the TV started from the AIT (`tv` mode); `null` when it runs none. */
   app: AitApplicationId | null;
+  /** The TV's volume, 0–100: the user's (VOL+/VOL-), not the applications'. */
+  volume: number;
 }>;
+
+/** A TV starts at full volume: the browser's own, as before the TV had a volume. */
+export const DEFAULT_TV_VOLUME = 100;
+
+/** How much VOL+/VOL- change the TV's volume. */
+export const TV_VOLUME_STEP = 5;
+
+/** VOL+ (`step` 1) / VOL- (`step` -1), within 0–100. */
+export const stepVolume = (session: TvSession, step: 1 | -1): TvSession => ({
+  ...session,
+  volume: Math.max(0, Math.min(100, session.volume + step * TV_VOLUME_STEP)),
+});
 
 /** The page that shows a channel without application: the TV's own, `tv.html?channel=<id>`. */
 export type TvPageUrl = (channelId: string) => string;
@@ -102,6 +116,7 @@ const selectService = (channel: ChannelConfig, tvPage: TvPageUrl): Readonly<{ ur
 export const turnedOnSession = (channel: ChannelConfig, tvPage: TvPageUrl): TvSession & { url: string } => ({
   mode: "tv",
   channelId: channel.id,
+  volume: DEFAULT_TV_VOLUME,
   ...selectService(channel, tvPage),
 });
 
@@ -155,6 +170,7 @@ export const newSession = (state: ExtensionState, sessions: TvSessions, url: str
   channelId: initialChannel(toBootstrapData(state, sessions), url)?.id ?? null,
   url,
   app: null,
+  volume: DEFAULT_TV_VOLUME,
 });
 
 export const findChannel = (state: ExtensionState, channelId: string): ChannelConfig | null =>
@@ -179,6 +195,7 @@ export const zapChannel = (state: ExtensionState, session: TvSession, step: 1 | 
 
 export const toPageSession = (state: ExtensionState, session: TvSession): PageSession => ({
   channel: sessionChannel(state, session),
+  volume: session.volume,
 });
 
 /**

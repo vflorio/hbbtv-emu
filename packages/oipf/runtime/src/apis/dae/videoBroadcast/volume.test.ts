@@ -1,12 +1,16 @@
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import { describe, expect, it } from "vitest";
+import { createTvVolume, tvGain } from "../../../subsystems/tvVolume";
 import {
   type AudioOutput,
   applyVolumeState,
+  audioInSeries,
+  broadcastGain,
   createVolumeEnv,
   DEFAULT_VOLUME_STATE,
   getVolume,
+  linearGain,
   parseVolume,
   readVolumeState,
   setVolume,
@@ -153,5 +157,58 @@ describe("environment", () => {
     setVolume(25)(sameTv)();
 
     expect(getVolume(env)()).toBe(25);
+  });
+});
+
+describe("volume scales (TS 102 796 §10.2.12)", () => {
+  it("video/broadcast attenuates by 100 − volume dB, and mutes at 0", () => {
+    expect(broadcastGain(100)).toBe(1);
+    // The spec's example: 14 dB, a factor of 0.2, is 86.
+    expect(broadcastGain(86)).toBeCloseTo(0.2, 2);
+    expect(broadcastGain(80)).toBeCloseTo(0.1, 5);
+    expect(broadcastGain(0)).toBe(0);
+  });
+
+  it("A/V Control and the TV are linear in amplitude", () => {
+    expect([0, 50, 100].map(linearGain)).toEqual([0, 0.5, 1]);
+    expect([0, 50, 100].map(tvGain)).toEqual([0, 0.5, 1]);
+  });
+});
+
+describe("audioInSeries", () => {
+  const setupInSeries = (tv: number, initial?: number) => {
+    const tvVolume = createTvVolume(tv);
+    const element = document.createElement("video");
+    const output = audioInSeries(tvVolume, linearGain, element, () => IO.of(undefined), initial)();
+    return { tvVolume, element, output };
+  };
+
+  it("plays at the TV's volume from the start", () => {
+    const { element } = setupInSeries(40);
+
+    expect(element.volume).toBeCloseTo(0.4);
+  });
+
+  it("the object's volume only attenuates the TV's", () => {
+    const { element, output } = setupInSeries(40);
+
+    output.setVolume(50)();
+
+    expect(element.volume).toBeCloseTo(0.2);
+  });
+
+  it("follows the TV's volume, keeping the object's", () => {
+    const { tvVolume, element, output } = setupInSeries(40);
+    output.setVolume(50)();
+
+    tvVolume.set(100)();
+
+    expect(element.volume).toBeCloseTo(0.5);
+  });
+
+  it("starts from the object's initial volume", () => {
+    const { element } = setupInSeries(100, 30);
+
+    expect(element.volume).toBeCloseTo(0.3);
   });
 });

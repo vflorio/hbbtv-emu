@@ -85,7 +85,7 @@ describe("connectToHost", () => {
 
     deliver({
       _tag: "Host/Session",
-      session: { channel: { id: "dmax", name: "DMAX", onid: 1, tsid: 2, sid: 52 } as never },
+      session: { channel: { id: "dmax", name: "DMAX", onid: 1, tsid: 2, sid: 52 } as never, volume: 100 },
     });
 
     expect(calls).toEqual([{ tunedTo: "dmax" }]);

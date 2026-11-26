@@ -20,6 +20,7 @@ import { type IORef, newIORef } from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import type * as R from "fp-ts/Reader";
 import * as RIO from "fp-ts/ReaderIO";
+import { type TvVolume, tvGain } from "../../../subsystems/tvVolume";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment
@@ -38,6 +39,53 @@ export type AudioOutput = Readonly<{
   setVolume: (volume: number) => IO.IO<void>;
   setMuted: (muted: boolean) => IO.IO<void>;
 }>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Volume scales, in series with the TV's volume
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * video/broadcast (TS 102 796 §10.2.12): `volume` attenuates the object's audio by
+ * `100 − volume` dB, and mutes it at 0. 100 is no attenuation; 86 is a factor of 0.2.
+ */
+export const broadcastGain = (volume: number): number => (volume <= 0 ? 0 : 10 ** (-(100 - volume) / 20));
+
+/**
+ * A/V Control: CEA-2014's "linear increase of the volume as a percentage of the
+ * master volume", read as linear in amplitude. HbbTV only defines the scale more
+ * precisely for video/broadcast.
+ */
+export const linearGain = (volume: number): number => Math.max(0, volume) / 100;
+
+/**
+ * An object's audio output "in series" with the TV's volume (§10.2.12): the media
+ * element plays at the product of the TV's gain and the object's, applied at once
+ * and again whenever the TV's volume changes. Written to the element itself, which
+ * outlives the player's adapters (the player only sets a volume once it has one).
+ */
+export const audioInSeries =
+  (
+    tvVolume: TvVolume,
+    gain: (volume: number) => number,
+    element: HTMLMediaElement,
+    setMuted: AudioOutput["setMuted"],
+    initialVolume: number = DEFAULT_VOLUME,
+  ): IO.IO<AudioOutput> =>
+  () => {
+    let objectVolume = initialVolume;
+    const output = (tv: number) => {
+      element.volume = Math.min(1, tvGain(tv) * gain(objectVolume));
+    };
+    output(tvVolume.get());
+    tvVolume.subscribe((tv) => () => output(tv))();
+    return {
+      setVolume: (volume) => () => {
+        objectVolume = volume;
+        output(tvVolume.get());
+      },
+      setMuted,
+    };
+  };
 
 export type VolumeEnv = Readonly<{
   volumeState: IORef<VolumeState>;

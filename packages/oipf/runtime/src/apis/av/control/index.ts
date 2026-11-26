@@ -27,6 +27,7 @@ import {
   type VideoWindow,
 } from "../../dae/videoBroadcast/display";
 import {
+  type AudioOutput,
   applyVolumeState,
   createVolumeEnv,
   DEFAULT_VOLUME_STATE,
@@ -73,6 +74,8 @@ export type AVControlVideoDependencies = Readonly<{
   /** The object's `type`. */
   mimeType: IO.IO<string>;
   stream: AvStream;
+  /** Where the object's audio goes: in series with the TV's volume (`audioInSeries`). */
+  audioOutput: AudioOutput;
   videoWindow: VideoWindow;
   /** Gives the `<object>` the input focus. */
   focusObject: IO.IO<void>;
@@ -116,7 +119,7 @@ export const createAVControlVideo = (dependencies: AVControlVideoDependencies): 
     { onFullScreenChange: (fullScreen) => () => eventHandlers.onFullScreenChange(fullScreen) },
     defaults.fullScreen,
   )();
-  const volume = createVolumeEnv(stream, defaults.volume)();
+  const volume = createVolumeEnv(dependencies.audioOutput, defaults.volume)();
   const component = createComponentEnv();
 
   const object: AVControlVideoApi = {

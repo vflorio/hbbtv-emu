@@ -253,6 +253,37 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     expect((await appState(app)).keys).toEqual([403, 38]);
   });
 
+  it("VOL-/VOL+ set the TV's volume, which video/broadcast's own volume only attenuates", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?volume=${Date.now()}`);
+    await app.bringToFront();
+    const audio = () =>
+      app.evaluate(() => {
+        const object = document.getElementById("video") as unknown as { getVolume: () => number };
+        const element = document.querySelector("#video video") as HTMLVideoElement;
+        return { object: object.getVolume(), element: Math.round(element.volume * 100) / 100 };
+      });
+
+    await ui.locator("button ::-p-text(RED)").wait();
+    for (const name of ["VOL-", "VOL-"]) {
+      await ui.evaluate((label) => {
+        const buttons = Array.from(document.querySelectorAll("button"));
+        buttons.find((button) => button.textContent?.trim() === label)?.click();
+      }, name);
+    }
+    await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });
+
+    // TS 102 796 §10.2.12: 86 is 14 dB less, a factor of 0.2, in series with the TV.
+    await app.evaluate(() =>
+      (document.getElementById("video") as unknown as { setVolume: (v: number) => boolean }).setVolume(86),
+    );
+    expect(await audio()).toEqual({ object: 86, element: 0.18 });
+
+    // The volume is the TV's: the tab's next page has it too.
+    await app.reload();
+    await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });
+  });
+
   it("a user agent changed in the UI is what the next application sees at its first script", async () => {
     const { request } = await openUi();
     type UiState = { userAgent: string };
