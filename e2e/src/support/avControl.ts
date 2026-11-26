@@ -123,3 +123,36 @@ export const runUnreachableStreamScenario = async (evaluate: Evaluate, start: ()
   await new Promise((resolve) => setTimeout(resolve, 2000));
   expect(await failed()).toEqual({ playStates: [CONNECTING, ERROR], error: CONNECTION_ERROR });
 };
+
+type AudioAppState = {
+  initError: string | null;
+  bound: Record<string, boolean>;
+  playStates: { mp3: number[]; aac: number[] };
+};
+
+const audioApp = (evaluate: Evaluate) => evaluate(() => (window as unknown as { __e2e: AudioAppState }).__e2e);
+
+/**
+ * `audio-app/index.xhtml`: A/V Control objects of the audio types of TS 102 796
+ * Table 9 (`audio/mpeg`, `audio/mp4`) are bound, and play a 1 s clip to the end.
+ */
+export const runAudioScenario = async (evaluate: Evaluate) => {
+  expect(await audioApp(evaluate)).toMatchObject({ initError: null, bound: { mp3: true, aac: true } });
+
+  expect(await evaluate(() => ["mp3", "aac"].map((id) => (document.getElementById(id) as AvPlayer).play(1)))).toEqual([
+    true,
+    true,
+  ]);
+  await until(
+    evaluate,
+    () => ["mp3", "aac"].every((id) => (document.getElementById(id) as AvPlayer).playState === 5),
+    "both finished",
+  );
+
+  const { playStates } = await audioApp(evaluate);
+  for (const states of [playStates.mp3, playStates.aac]) {
+    expect(states[0]).toBe(CONNECTING);
+    expect(states).toContain(PLAYING);
+    expect(states[states.length - 1]).toBe(FINISHED);
+  }
+};

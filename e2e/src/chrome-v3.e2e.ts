@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runAvControlScenario, runUnreachableStreamScenario } from "./support/avControl";
+import { runAudioScenario, runAvControlScenario, runUnreachableStreamScenario } from "./support/avControl";
 import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
@@ -187,6 +187,17 @@ describe("chrome-v3: HbbTV application", () => {
     });
 
     expect(video).toEqual({ width: 1280, height: 720, insideObject: true, rect: { width: 1280, height: 720 } });
+  });
+
+  it("plays audio with A/V Control objects of type audio/mpeg and audio/mp4 (TS 102 796 Table 9)", async () => {
+    const { page, errors } = await openPage(`audio-app/index.xhtml?audio=${Date.now()}`);
+
+    try {
+      await runAudioScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
   });
 
   it("plays VOD with an A/V Control object: play, seek, pause, stop, and to the end", async () => {

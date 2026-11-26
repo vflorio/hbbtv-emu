@@ -10,7 +10,7 @@ const setup = () => {
   const playStateChange = intrinsicEvent(
     object,
     "PlayStateChange",
-    (state, error) => ({ state, error }),
+    (state: number, error?: number) => ({ state, error }),
     (state: number, error?: number) => object.onPlayStateChange?.(state, error),
   );
   return { object, seen, playStateChange };

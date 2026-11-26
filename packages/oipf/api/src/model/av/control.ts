@@ -95,6 +95,27 @@ export type AVControlState = t.TypeOf<typeof AVControlStateCodec>;
 export const AV_CONTROL_VIDEO_MP4_MIME_TYPE = "video/mp4";
 export const AV_CONTROL_DASH_MIME_TYPE = "application/dash+xml";
 export const AV_CONTROL_HLS_MIME_TYPE = "application/vnd.apple.mpegurl";
+/** MP3, or HE-AAC in a transport stream (TS 102 796 Table 9). */
+export const AV_CONTROL_AUDIO_MPEG_MIME_TYPE = "audio/mpeg";
+/** HE-AAC in MP4 (TS 102 796 Table 9), also the format of audio from memory (OIPF DAE §7.14.10). */
+export const AV_CONTROL_AUDIO_MP4_MIME_TYPE = "audio/mp4";
+
+/**
+ * The types an A/V Control object is bound for: those of TS 102 796 Table 9 and
+ * MPEG-DASH, as the browser can play them, plus HLS (the emulator's own). Not
+ * `video/mpeg`: no browser plays a transport stream (deprecated in HbbTV anyway).
+ */
+export const AV_CONTROL_MIME_TYPES: ReadonlyArray<string> = [
+  AV_CONTROL_VIDEO_MP4_MIME_TYPE,
+  AV_CONTROL_AUDIO_MPEG_MIME_TYPE,
+  AV_CONTROL_AUDIO_MP4_MIME_TYPE,
+  AV_CONTROL_DASH_MIME_TYPE,
+  AV_CONTROL_HLS_MIME_TYPE,
+];
+
+/** An `<object>` whose type makes it an A/V Control object. */
+export const isValidAvControl = (element: Element | null | undefined): element is HTMLObjectElement =>
+  element instanceof HTMLObjectElement && AV_CONTROL_MIME_TYPES.includes(element.type);
 
 export const isValidAvControlVideoMp4 = (element: Element | null | undefined): element is HTMLObjectElement =>
   element instanceof HTMLObjectElement && element.type === AV_CONTROL_VIDEO_MP4_MIME_TYPE;

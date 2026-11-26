@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//HbbTV//1.1.1//EN" "http://www.hbbtv.org/dtd/HbbTV-1.1.1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="application/vnd.hbbtv.xhtml+xml; charset=UTF-8" />
+  <title>e2e audio A/V Control app</title>
+  <style type="text/css">
+    body { margin: 0; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
+  <object id="appmgr" type="application/oipfApplicationManager"></object>
+  <!-- A radio (MP3) and a jingle (HE-AAC in MP4): A/V Control objects of the audio types of TS 102 796 Table 9. -->
+  <object id="mp3" type="audio/mpeg"></object>
+  <object id="aac" type="audio/mp4"></object>
+
+  <script type="text/javascript">
+  //<![CDATA[
+    var e2e = (window.__e2e = { initError: null, bound: {}, playStates: { mp3: [], aac: [] } });
+    try {
+      document.getElementById("appmgr").getOwnerApplication(document).show();
+      var players = { mp3: "tone.mp3", aac: "tone.m4a" };
+      for (var id in players) {
+        (function (id) {
+          var player = document.getElementById(id);
+          e2e.bound[id] = typeof player.play === "function";
+          player.onPlayStateChange = function (state) {
+            e2e.playStates[id].push(state);
+          };
+          player.data = players[id];
+        })(id);
+      }
+    } catch (error) {
+      e2e.initError = String((error && error.message) || error);
+    }
+  //]]>
+  </script>
+</body>
+</html>

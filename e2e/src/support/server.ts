@@ -16,6 +16,8 @@ const CONTENT_TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=UTF-8",
   ".css": "text/css; charset=UTF-8",
   ".mp4": "video/mp4",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
 };
 
 export type RecordedRequest = Readonly<{ url: string; userAgent: string | undefined }>;

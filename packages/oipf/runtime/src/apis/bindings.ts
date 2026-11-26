@@ -12,13 +12,9 @@
 
 import {
   type ApplicationManagerState,
-  AV_CONTROL_DASH_MIME_TYPE,
-  AV_CONTROL_HLS_MIME_TYPE,
-  AV_CONTROL_VIDEO_MP4_MIME_TYPE,
+  AV_CONTROL_MIME_TYPES,
   type AVControlState,
-  isValidAvControlDash,
-  isValidAvControlHls,
-  isValidAvControlVideoMp4,
+  isValidAvControl,
   OIPF,
   type OipfCapabilitiesState,
   type OipfConfigurationState,
@@ -174,13 +170,8 @@ export const createAvControlsBinding = (
 ): OipfBinding<AVControlVideo, AVControlState, "avControls"> => ({
   name: "avControls",
   connector: {
-    selector: [
-      `object[type="${AV_CONTROL_VIDEO_MP4_MIME_TYPE}"]`,
-      `object[type="${AV_CONTROL_DASH_MIME_TYPE}"]`,
-      `object[type="${AV_CONTROL_HLS_MIME_TYPE}"]`,
-    ].join(", "),
-    predicate: (element): element is HTMLObjectElement =>
-      isValidAvControlVideoMp4(element) || isValidAvControlDash(element) || isValidAvControlHls(element),
+    selector: AV_CONTROL_MIME_TYPES.map((type) => `object[type="${type}"]`).join(", "),
+    predicate: isValidAvControl,
     attachStrategy: "visual",
     // OIPF `data` (playback starts with `play()`) replaces the native attribute
     // reflection, which would have the browser load the media itself; OIPF `focus()`

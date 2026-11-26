@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runAvControlScenario, runUnreachableStreamScenario } from "./support/avControl";
+import { runAudioScenario, runAvControlScenario, runUnreachableStreamScenario } from "./support/avControl";
 import { type FirefoxWithExtension, launchFirefoxWithExtension } from "./support/firefox";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
@@ -253,6 +253,17 @@ describe("firefox-v2: HbbTV application", () => {
     await page.waitForFunction(() =>
       (window as unknown as { __e2eToPage: Array<{ _tag: string }> }).__e2eToPage.some((m) => m._tag === "Host/Config"),
     );
+  });
+
+  it("plays audio with A/V Control objects of type audio/mpeg and audio/mp4 (TS 102 796 Table 9)", async () => {
+    const { page, errors } = await openPage(`audio-app/index.xhtml?audio=${Date.now()}`);
+
+    try {
+      await runAudioScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
   });
 
   it("plays VOD with an A/V Control object: play, seek, pause, stop, and to the end", async () => {
