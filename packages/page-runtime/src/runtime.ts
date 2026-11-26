@@ -6,6 +6,7 @@ import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from
 import {
   type ChannelChangeRequest,
   createRuntimeEnv,
+  ignoreTvKey,
   type PlayerRuntimeFactory,
   type RuntimeHandle,
   runtime,
@@ -50,16 +51,27 @@ const DEFAULT_BOOTSTRAP: BootstrapData = {
   tunings: [],
 };
 
+/** What the runtime asks of the host. */
+export type HostRequests = Readonly<{
+  /** The application's channel changes (`setChannel()`). */
+  requestChannelChange: ChannelChangeRequest;
+  /** A key the TV keeps for itself (P+/P-, volume), pressed on the keyboard. */
+  pressTvKey: (keyCode: number) => IO.IO<void>;
+}>;
+
+/** Without a host, the objects tune by themselves and the TV's keys do nothing. */
+export const WITHOUT_HOST: HostRequests = { requestChannelChange: tuneAlone, pressTvKey: ignoreTvKey };
+
 /**
  * Starts with the host configuration when the page already has it (bootstrap),
  * with the defaults otherwise: the host's one is then applied when it arrives.
  * The channel is the one `initialChannel` says (the host opens the tab's session
  * with the same rule). One shared player for video/broadcast, a new one for every
- * A/V Control object. The application's channel changes go through
- * `requestChannelChange` (the host's, once connected).
+ * A/V Control object. The application's channel changes and the TV's keys go to
+ * `host` (the host's, once connected).
  */
 export const startRuntime =
-  (url: string, requestChannelChange: ChannelChangeRequest = tuneAlone) =>
+  (url: string, host: HostRequests = WITHOUT_HOST) =>
   (bootstrap: O.Option<BootstrapData> = O.none): IO.IO<RuntimeHandle> =>
   () => {
     const data = pipe(
@@ -71,7 +83,11 @@ export const startRuntime =
       createPlayerRuntime(),
       playerRuntimeFactory,
     );
-    return runtime({ ...env, bindings: { ...env.bindings, requestChannelChange } })();
+    return runtime({
+      ...env,
+      bindings: { ...env.bindings, requestChannelChange: host.requestChannelChange },
+      keyboard: { ...env.keyboard, pressTvKey: host.pressTvKey },
+    })();
   };
 
 /**

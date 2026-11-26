@@ -27,6 +27,9 @@ describe("message guards", () => {
     [{ _tag: "Page/Ready" }, false],
     [{ _tag: "Page/SetChannel", channelId: "hgtv" }, true],
     [{ _tag: "Page/SetChannel" }, false],
+    [{ _tag: "Page/TvKey", keyCode: 427 }, true],
+    [{ _tag: "Page/TvKey", keyCode: "427" }, false],
+    [{ _tag: "Page/TvKey" }, false],
     [{ _tag: "Host/Hello" }, false],
   ])("isPageMessage(%j) → %s", (value, expected) => {
     expect(isPageMessage(value)).toBe(expected);

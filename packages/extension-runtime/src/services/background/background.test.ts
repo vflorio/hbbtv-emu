@@ -390,6 +390,37 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
     expect(sessions[sessions.length - 1]?.message).toMatchObject({ session: { volume: 95 } });
   });
 
+  it("P+/P- and VOL+/VOL- pressed on a page's keyboard act on the TV of that page's tab, active or not", async () => {
+    const { messaging, tabs } = await setup(lineup, [
+      { id: 1, url: "http://app/index.xhtml" },
+      { id: 2, url: "http://app/other.xhtml" },
+    ]);
+    await pageReady(messaging, 1);
+    await pageReady(messaging, 2, "http://app/other.xhtml");
+    tabs.activate(1);
+    await flushPromises();
+    const sessionsOf = (tabId: number) =>
+      messaging.sent
+        .filter((s) => s.tabId === tabId && s.message._tag === "Host/Session")
+        .map((s) => (s.message as Extract<HostMessage, { _tag: "Host/Session" }>).session);
+
+    messaging.receive({ _tag: "Page/TvKey", keyCode: 427 }, 2);
+    await flushPromises();
+    messaging.receive({ _tag: "Page/TvKey", keyCode: 448 }, 2);
+    await flushPromises();
+    // Not a key of the TV: nothing happens.
+    messaging.receive({ _tag: "Page/TvKey", keyCode: 403 }, 2);
+    await flushPromises();
+
+    expect(sessionsOf(2).map((session) => [session.channel?.id, session.volume])).toEqual([
+      ["dmax", 100],
+      ["hgtv", 100],
+      ["hgtv", 95],
+    ]);
+    expect(sessionsOf(1)).toHaveLength(1);
+    expect(messaging.sent.filter((s) => s.message._tag === "Host/DispatchKey")).toEqual([]);
+  });
+
   it("P+ is refused for a tab that is not a TV", async () => {
     const { ui } = await setup(lineup);
 

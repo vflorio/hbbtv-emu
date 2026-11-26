@@ -29,7 +29,7 @@ import { applicationChangesChannel } from "./channel";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
 import { createSessions, type Sessions } from "./sessions";
-import { handleUiRequest, notifyUis, type UiEnv } from "./ui";
+import { handleUiRequest, notifyUis, pressTvKey, type UiEnv } from "./ui";
 
 export type BackgroundServiceError = AdapterError | { readonly _tag: "StateNotInitialized" };
 
@@ -183,8 +183,26 @@ export class BackgroundService {
         return this.onPageReady(message.url, tabId);
       case "Page/SetChannel":
         return this.onSetChannel(message.channelId, tabId);
+      case "Page/TvKey":
+        return this.onTvKey(message.keyCode, tabId);
     }
   };
+
+  /** P+/P- or VOL+/VOL- pressed on the keyboard in the page: the TV in that tab acts on it. */
+  private readonly onTvKey =
+    (keyCode: number, tabId: number): IO.IO<void> =>
+    () => {
+      void pipe(
+        pressTvKey(tabId, keyCode)(this.uiEnv),
+        T.flatMap((response) =>
+          T.fromIO(
+            response._tag === "UI/Failed"
+              ? this.logger.warn(`Key ${keyCode} in tab ${tabId}: ${response.reason}`)
+              : IO.of(undefined),
+          ),
+        ),
+      )();
+    };
 
   /**
    * A page runtime started in a tab: send it the configuration, then the tab's TV

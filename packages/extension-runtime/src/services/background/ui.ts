@@ -211,29 +211,40 @@ export const notifyUis =
       T.flatMap((ui) => env.ui.notify({ _tag: "UI/StateChanged", state: ui })),
     );
 
+/** Something done to the TV in the active tab. */
+const onActiveTab =
+  (act: (tabId: number) => RT.ReaderTask<UiEnv, UiResponse>): RT.ReaderTask<UiEnv, UiResponse> =>
+  (env) =>
+    pipe(
+      activeTabId(env),
+      T.flatMap(
+        O.match(
+          () => T.of(failed("No active tab")),
+          (tabId) => act(tabId)(env),
+        ),
+      ),
+    );
+
 /**
- * Changes the channel of the TV in the active tab (`changeTabChannel`) to the one
- * `choose` picks for it, or fails with the reason `choose` gives.
+ * Changes the channel of the TV in `tabId` (`changeTabChannel`) to the one `choose`
+ * picks for it, or fails with the reason `choose` gives.
  */
-const changeActiveTabChannel =
+const changeChannelOf =
   (
+    tabId: number,
     choose: (state: ExtensionState, session: TvSession) => E.Either<string, ChannelConfig>,
   ): RT.ReaderTask<UiEnv, UiResponse> =>
   (env) =>
     pipe(
-      T.Do,
-      T.bind("state", () => readState(env)),
-      T.bind("tabId", () => activeTabId(env)),
-      T.flatMap(({ state, tabId }) => {
+      readState(env),
+      T.flatMap((state) => {
         if (O.isNone(state)) return T.of(failed("State not initialized"));
-        if (O.isNone(tabId)) return T.of(failed("No active tab"));
-        const current = env.sessions.get(tabId.value)();
-        if (O.isNone(current)) return T.of(notAnEmulatedTab(tabId.value));
+        const current = env.sessions.get(tabId)();
+        if (O.isNone(current)) return T.of(notAnEmulatedTab(tabId));
         const chosen = choose(state.value, current.value);
         if (E.isLeft(chosen)) return T.of(failed(chosen.left));
-        const channel = chosen.right;
         return pipe(
-          changeTabChannel(tabId.value, state.value, current.value, channel)(env),
+          changeTabChannel(tabId, state.value, current.value, chosen.right)(env),
           TE.tap(() => TE.fromTask(notifyUis(state.value)(env))),
           TE.match(
             (error) => failed(`Could not change channel (${error._tag})`),
@@ -245,48 +256,39 @@ const changeActiveTabChannel =
 
 /** "Play" in the UI: the active tab's TV changes to that channel. */
 const playChannel = (request: Extract<UiRequest, { _tag: "UI/PlayChannel" }>): RT.ReaderTask<UiEnv, UiResponse> =>
-  changeActiveTabChannel((state) =>
-    E.fromNullable(`Unknown channel: ${request.channel.id}`)(findChannel(state, request.channel.id)),
+  onActiveTab((tabId) =>
+    changeChannelOf(tabId, (state) =>
+      E.fromNullable(`Unknown channel: ${request.channel.id}`)(findChannel(state, request.channel.id)),
+    ),
   );
 
-/**
- * P+/P- belong to the TV, not to the application (TS 102 796 §10.2.2.1, Table 12):
- * the active tab's TV zaps to the next or previous channel of the lineup.
- */
-const CHANNEL_KEY_STEPS: Readonly<Record<number, 1 | -1>> = { 427: 1, 428: -1 };
-
-const zap = (step: 1 | -1): RT.ReaderTask<UiEnv, UiResponse> =>
-  changeActiveTabChannel((state, session) => E.fromNullable("The lineup is empty")(zapChannel(state, session, step)));
-
-/** VOL+/VOL- belong to the TV too: they change the volume of the active tab's TV. */
-const VOLUME_KEY_STEPS: Readonly<Record<number, 1 | -1>> = { 447: 1, 448: -1 };
+/** P+/P-: the TV zaps to the next or previous channel of the lineup. */
+const zap = (tabId: number, step: 1 | -1): RT.ReaderTask<UiEnv, UiResponse> =>
+  changeChannelOf(tabId, (state, session) => E.fromNullable("The lineup is empty")(zapChannel(state, session, step)));
 
 /**
- * The active tab's TV changes its volume, which its page follows. Delivering it is
+ * VOL+/VOL-: the TV changes its volume, which its page follows. Delivering it is
  * best effort (the TV page has no bridge): the session keeps it for the next page.
  */
 const changeVolume =
-  (step: 1 | -1): RT.ReaderTask<UiEnv, UiResponse> =>
+  (tabId: number, step: 1 | -1): RT.ReaderTask<UiEnv, UiResponse> =>
   (env) =>
     pipe(
-      T.Do,
-      T.bind("state", () => readState(env)),
-      T.bind("tabId", () => activeTabId(env)),
-      T.flatMap(({ state, tabId }) => {
+      readState(env),
+      T.flatMap((state) => {
         if (O.isNone(state)) return T.of(failed("State not initialized"));
-        if (O.isNone(tabId)) return T.of(failed("No active tab"));
         return pipe(
-          env.sessions.update(tabId.value, (session) => stepVolume(session, step)),
+          env.sessions.update(tabId, (session) => stepVolume(session, step)),
           T.flatMap(
             O.match(
-              () => T.of(notAnEmulatedTab(tabId.value)),
+              () => T.of(notAnEmulatedTab(tabId)),
               (session) =>
                 pipe(
-                  env.messaging.sendToTab(tabId.value, {
+                  env.messaging.sendToTab(tabId, {
                     _tag: "Host/Session",
                     session: toPageSession(state.value, session),
                   }),
-                  T.tapIO(() => env.logger.debug(`TV volume in tab ${tabId.value}: ${session.volume}`)),
+                  T.tapIO(() => env.logger.debug(`TV volume in tab ${tabId}: ${session.volume}`)),
                   T.map(() => done),
                 ),
             ),
@@ -295,14 +297,26 @@ const changeVolume =
       }),
     );
 
-/** A key of the UI's remote: P+/P- and VOL+/VOL- are the TV's; the page decides about the others. */
-const pressKey = (keyCode: number): RT.ReaderTask<UiEnv, UiResponse> => {
-  const channelStep = CHANNEL_KEY_STEPS[keyCode];
-  if (channelStep !== undefined) return zap(channelStep);
-  const volumeStep = VOLUME_KEY_STEPS[keyCode];
-  if (volumeStep !== undefined) return changeVolume(volumeStep);
-  return toActiveTab({ _tag: "Host/DispatchKey", keyCode });
+/**
+ * The keys the TV keeps for itself, not available to applications (TS 102 796
+ * §10.2.2.1, Table 12): P+/P- and VOL+/VOL-.
+ */
+const TV_KEYS: Readonly<Record<number, (tabId: number) => RT.ReaderTask<UiEnv, UiResponse>>> = {
+  427: (tabId) => zap(tabId, 1),
+  428: (tabId) => zap(tabId, -1),
+  447: (tabId) => changeVolume(tabId, 1),
+  448: (tabId) => changeVolume(tabId, -1),
 };
+
+/** A key of the TV pressed in the TV of `tabId`, from the UI's remote or from the page's keyboard. */
+export const pressTvKey = (tabId: number, keyCode: number): RT.ReaderTask<UiEnv, UiResponse> =>
+  TV_KEYS[keyCode]?.(tabId) ?? (() => T.of(failed(`Key ${keyCode} does nothing on the TV`)));
+
+/** A key of the UI's remote, for the active tab's TV: the TV's own, or one the page decides about. */
+const pressKey = (keyCode: number): RT.ReaderTask<UiEnv, UiResponse> =>
+  keyCode in TV_KEYS
+    ? onActiveTab((tabId) => pressTvKey(tabId, keyCode))
+    : toActiveTab({ _tag: "Host/DispatchKey", keyCode });
 
 /**
  * Turns on a new TV on a channel: a new tab whose session (TV mode) is open, and

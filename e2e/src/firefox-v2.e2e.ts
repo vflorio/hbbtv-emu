@@ -36,6 +36,36 @@ const channelSeen = () => {
   };
 };
 
+/**
+ * Records the real key events, as the browser makes them, and keeps them from the
+ * emulator (which would turn them into the remote's, and cancel them): on the window,
+ * in the capture phase, installed before any of the page's scripts.
+ */
+const recordRealKeys = () => {
+  const real: unknown[] = [];
+  Object.assign(window, { __e2eReal: real });
+  for (const type of ["keydown", "keypress", "keyup"]) {
+    window.addEventListener(
+      type,
+      (event) => {
+        const key = event as KeyboardEvent;
+        if (!key.isTrusted) return;
+        key.stopImmediatePropagation();
+        const target = key.target as Element;
+        real.push({
+          type: key.type,
+          target: target.tagName.toLowerCase() + (target.getAttribute("id") || ""),
+          key: key.key,
+          keyCode: key.keyCode,
+          which: key.which,
+          charCode: key.charCode,
+        });
+      },
+      true,
+    );
+  }
+};
+
 let server: FixtureServer;
 let firefox: FirefoxWithExtension;
 
@@ -120,13 +150,16 @@ describe("firefox-v2: HbbTV application", () => {
   });
 
   it("a remote OK key is indistinguishable from a real Enter", async () => {
-    const { page, errors } = await openPage(`basic-app/index.xhtml?ok=${Date.now()}`);
+    const { page, errors } = await firefox.newPage();
+    await page.evaluateOnNewDocument(recordRealKeys);
+    await page.goto(server.url(`basic-app/index.xhtml?ok=${Date.now()}`));
     const events = async () => (await appState(page)).events;
 
     await page.keyboard.press("Enter");
-    const real = await events();
+    const real = await page.evaluate(() => (window as unknown as { __e2eReal: unknown[] }).__e2eReal);
+    expect(real).toHaveLength(3);
+
     await page.evaluate(() => {
-      (window as unknown as { __e2e: BasicAppState }).__e2e.events = [];
       // What the bridge does with a Host/DispatchKey from the background.
       const detail = JSON.stringify({ _tag: "Host/DispatchKey", keyCode: 13 });
       document.dispatchEvent(new CustomEvent("hbb-emu:to-page", { detail }));
@@ -282,6 +315,52 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     // The volume is the TV's: the tab's next page has it too.
     await app.reload();
     await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });
+  });
+
+  it("the keyboard is the remote: the keyset's keys go to the application, P+ and VOL- to the TV, text fields type", async () => {
+    const { request } = await openUi();
+    type UiState = { channels: Channel[]; currentChannel: Channel | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Channel];
+    const second = { ...first, id: "e2e-second", name: "e2e second", sid: first.sid + 1000 };
+    const keys = async () => (await appState(app)).keys;
+    const volume = () =>
+      app.evaluate(() => Math.round((document.querySelector("#video video") as HTMLVideoElement).volume * 100) / 100);
+
+    await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, second] } });
+    const { page: app, errors } = await openPage(`basic-app/index.xhtml?keyboard=${Date.now()}`);
+    try {
+      await app.bringToFront();
+      await expect.poll(async () => (await getState()).currentChannel?.id, { timeout: 5000 }).toBe(first.id);
+
+      // Colours and navigation are in the keyset; the digits are not, and "a" is no remote key.
+      for (const key of ["1", "a", "r", "ArrowUp"] as const) await app.keyboard.press(key);
+      expect(await keys()).toEqual([403, 38]);
+
+      await app.keyboard.press("PageUp");
+      await expect
+        .poll(() => app.evaluate(channelSeen), { timeout: 5000 })
+        .toEqual({ application: second.id, videoBroadcast: second.id });
+      await app.keyboard.press("-");
+      await expect.poll(volume, { timeout: 5000 }).toBe(0.95);
+      expect(await keys()).toEqual([403, 38]);
+
+      // TS 102 796 §10.2.2.1: a focused text field gets the keys whatever the keyset.
+      await app.evaluate(() => {
+        const input = document.createElement("input");
+        input.id = "text";
+        document.body.appendChild(input);
+        input.focus();
+      });
+      await app.keyboard.type("r1");
+      expect(await app.evaluate(() => (document.getElementById("text") as HTMLInputElement).value)).toBe("r1");
+      expect(await keys()).toEqual([403, 38, 82, 49]);
+      expect(errors).toEqual([]);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+      await app.close();
+    }
   });
 
   it("a user agent changed in the UI is what the next application sees at its first script", async () => {

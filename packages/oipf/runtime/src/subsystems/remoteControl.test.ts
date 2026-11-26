@@ -222,12 +222,25 @@ describe("keyName", () => {
     expect([38, 13, 461, 406, 48, 57, 999].map(keyName)).toEqual([
       "ArrowUp",
       "Enter",
-      "GoBack",
+      "BrowserBack",
       "ColorF3Blue",
       "0",
       "9",
       "Unidentified",
     ]);
+  });
+
+  it("gives the events the `code` of TS 102 796 Table 12", () => {
+    const codes: string[] = [];
+    const listener = (event: KeyboardEvent) => codes.push(event.code);
+    document.addEventListener("keydown", listener);
+    try {
+      for (const keyCode of [403, 461, 48, 57, 13, 415]) press(keyCode);
+    } finally {
+      document.removeEventListener("keydown", listener);
+    }
+
+    expect(codes).toEqual(["ColorF0Red", "BrowserBack", "Digit0", "Digit9", "Enter", "MediaPlay"]);
   });
 });
 

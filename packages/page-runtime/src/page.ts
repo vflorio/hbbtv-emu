@@ -32,7 +32,15 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
     bootPageRuntime({
       window,
       document,
-      startRuntime: pipe(receiveBootstrap(window, onLateBootstrap), IO.flatMap(startRuntime(url, changes.request))),
+      startRuntime: pipe(
+        receiveBootstrap(window, onLateBootstrap),
+        IO.flatMap(
+          startRuntime(url, {
+            requestChannelChange: changes.request,
+            pressTvKey: (keyCode) => channel.send({ _tag: "Page/TvKey", keyCode }),
+          }),
+        ),
+      ),
     }),
     IO.flatMap(
       O.match(

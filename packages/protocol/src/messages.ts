@@ -5,7 +5,8 @@
  * - configuration (channels, user agent, …): host → page, at start and on change;
  * - OIPF object state: owned by the page. The host never pushes a full snapshot,
  *   which would wipe what the application did (e.g. reset its keyset to 0);
- * - commands (remote-control keys): host → page.
+ * - commands (remote-control keys): host → page; the TV's own keys pressed on the
+ *   keyboard: page → host.
  * - requests: the application asks the TV to change channel (`setChannel()`), and
  *   the host answers with the new session or an error, or loads another page.
  *
@@ -36,7 +37,12 @@ export type PageSession = Readonly<{
 export type PageMessage =
   | Readonly<{ _tag: "Page/Ready"; url: string }>
   /** The application asks to change to another channel of the lineup (`setChannel()`). */
-  | Readonly<{ _tag: "Page/SetChannel"; channelId: string }>;
+  | Readonly<{ _tag: "Page/SetChannel"; channelId: string }>
+  /**
+   * A key the TV keeps for itself (P+/P-, volume; TS 102 796 §10.2.2.1), pressed on
+   * the keyboard in this page: the TV of this tab acts on it.
+   */
+  | Readonly<{ _tag: "Page/TvKey"; keyCode: number }>;
 
 export type HostMessage =
   /** The bridge started: the page announces itself again (the two may start in any order). */
@@ -58,6 +64,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 export const isPageConfig = (value: unknown): value is PageConfig =>
   isRecord(value) && typeof value.userAgent === "string" && Array.isArray(value.channels);
 
+const isKeyCode = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value);
+
 const isChannel = (value: unknown): value is ChannelConfig => isRecord(value) && typeof value.id === "string";
 
 export const isPageSession = (value: unknown): value is PageSession =>
@@ -70,6 +78,8 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
       return typeof value.url === "string";
     case "Page/SetChannel":
       return typeof value.channelId === "string";
+    case "Page/TvKey":
+      return isKeyCode(value.keyCode);
     default:
       return false;
   }
@@ -83,7 +93,7 @@ export const isHostMessage = (value: unknown): value is HostMessage => {
     case "Host/Config":
       return isPageConfig(value.config);
     case "Host/DispatchKey":
-      return typeof value.keyCode === "number" && Number.isInteger(value.keyCode);
+      return isKeyCode(value.keyCode);
     case "Host/ApplyState":
       return isRecord(value.patch);
     case "Host/Session":

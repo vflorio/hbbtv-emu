@@ -44,10 +44,14 @@ import {
   createStreamEventScheduler,
   createTvVolume,
   createUserAgentEnv,
+  DEFAULT_KEY_MAP,
   dispatchRemoteKey,
+  ignoreTvKey,
   initializeUserAgent,
   initialTunedChannel,
+  installKeyboard,
   isSameService,
+  type KeyMap,
   type RemoteControlEnv,
   type StreamEventSchedulerApi,
   type TvVolume,
@@ -123,6 +127,13 @@ export type BindingsEnv = Readonly<{
   defaultAvControlVideo: AVControlVideoDefaults;
 }>;
 
+/** The computer's keyboard, as the remote control (see `installKeyboard`). */
+export type KeyboardConfig = Readonly<{
+  keyMap: KeyMap;
+  /** A key the TV keeps for itself (P+/P-, volume): the host acts on it. */
+  pressTvKey: (keyCode: number) => IO.IO<void>;
+}>;
+
 /**
  * Complete runtime environment.
  * All dependencies needed to initialize and run the HbbTV runtime.
@@ -134,6 +145,8 @@ export type RuntimeEnv = Readonly<{
   userAgent: UserAgentEnv;
   /** Remote control key dispatching */
   remoteControl: RemoteControlEnv;
+  /** The computer's keyboard, as the remote */
+  keyboard: KeyboardConfig;
   /** Environment for creating bindings */
   bindings: BindingsEnv;
   /** Factory function that creates all OIPF bindings */
@@ -199,6 +212,7 @@ export class RuntimeService implements Runtime {
   readonly #streamEventScheduler: StreamEventSchedulerApi;
   readonly #objectFactory: ObjectFactoryEnv;
   #uninstallObjectFactory: IO.IO<void> = IO.of(undefined);
+  #uninstallKeyboard: IO.IO<void> = IO.of(undefined);
   #playerRuntime: PlayerRuntime | null = null;
 
   constructor(env: RuntimeEnv) {
@@ -236,6 +250,15 @@ export class RuntimeService implements Runtime {
       IO.tap(() => () => {
         this.#uninstallObjectFactory = installObjectFactory(window)(this.#objectFactory)();
       }),
+      // Before the application's first script, so its key listeners come after.
+      IO.tap(() => () => {
+        this.#uninstallKeyboard = installKeyboard({
+          ...this.#env.remoteControl,
+          ...this.#env.keyboard,
+          window,
+          fromKeyboard: (event) => event.isTrusted,
+        })();
+      }),
       IO.tap(() => logger.info("Started")),
     );
 
@@ -246,6 +269,7 @@ export class RuntimeService implements Runtime {
     pipe(
       logger.info("Stopping"),
       IO.tap(() => this.#uninstallObjectFactory),
+      IO.tap(() => this.#uninstallKeyboard),
       IO.tap(() => this.#provider.stop()),
       IO.tap(() => this.#streamEventScheduler.stop()),
       IO.tap(() => logger.info("Stopped")),
@@ -399,6 +423,7 @@ export const createRuntimeEnv = (
     channelRegistry,
     userAgent: createUserAgentEnv(extensionState),
     remoteControl: createRemoteControlEnv(() => keyset.value),
+    keyboard: { keyMap: DEFAULT_KEY_MAP, pressTvKey: ignoreTvKey },
     bindings: bindingsEnv,
     createBindings,
   };

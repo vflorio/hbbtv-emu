@@ -2,6 +2,7 @@ export * from "./broadcastChannel";
 export * from "./channelChange";
 export * from "./channelRegistry";
 export * from "./currentChannel";
+export * from "./keyboard";
 export * from "./remoteControl";
 export * from "./streamEventScheduler";
 export * from "./tvVolume";

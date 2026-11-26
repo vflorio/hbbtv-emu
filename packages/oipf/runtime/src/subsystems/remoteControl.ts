@@ -126,7 +126,7 @@ const KEY_NAMES: Readonly<Record<number, string>> = {
   37: "ArrowLeft",
   39: "ArrowRight",
   13: "Enter",
-  461: "GoBack",
+  461: "BrowserBack",
   403: "ColorF0Red",
   404: "ColorF1Green",
   405: "ColorF2Yellow",
@@ -144,6 +144,13 @@ const KEY_NAMES: Readonly<Record<number, string>> = {
 
 export const keyName = (keyCode: number): string =>
   KEY_NAMES[keyCode] ?? (keyCode >= 48 && keyCode <= 57 ? String(keyCode - 48) : "Unidentified");
+
+/**
+ * `KeyboardEvent.code` values, as TS 102 796 Table 12 gives them: the same as `key`,
+ * except for the digits ("Digit0" to "Digit9").
+ */
+export const keyCodeName = (keyCode: number): string =>
+  keyCode >= 48 && keyCode <= 57 ? `Digit${keyCode - 48}` : (KEY_NAMES[keyCode] ?? "");
 
 /** Keys that also produce a character, hence a `keypress` (as a browser does for a real keyboard). */
 const producesCharacter = (keyCode: number): boolean => keyCode === 13 || (keyCode >= 48 && keyCode <= 57);
@@ -186,6 +193,7 @@ export const keyTarget = (document: Document, rule: KeyTargetRule = "blink-webki
 const keyboardEvent = (type: "keydown" | "keypress" | "keyup", keyCode: number, charCode = 0): KeyboardEvent => {
   const event = new KeyboardEvent(type, {
     key: keyName(keyCode),
+    code: keyCodeName(keyCode),
     keyCode,
     charCode,
     which: charCode || keyCode,
