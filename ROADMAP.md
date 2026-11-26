@@ -37,20 +37,21 @@ Il progetto cresce in tre fasi:
 - Pattern a **mixin** (`core/src/mixin.ts` → `compose(...)`) su VideoBroadcast, AVControl e sugli script dell'estensione. **Da abbandonare.**
 - Bug noto: il telecomando non funziona.
 
-### `isomorphic-runtime` — struttura nuova, parziale
-- `extensions/{chrome-v3,chrome-v2,firefox-v2}`: entrypoint sottili che istanziano lo stesso `BackgroundService` con un `AdapterConfig` diverso. ✅ idea giusta.
-- `packages/extension-runtime`: adapter (messaging, storage, tabs, webRequest) parametrizzati per manifest; `BackgroundService` + `StateManager` + `TabsManager` (fp-ts). Servizi `bridge`, `content`, `ui` **ancora commentati**.
-- `packages/oipf/{api,runtime}`: copiati da `main`, **ancora a mixin** e ancora dipendenti da `@hbb-emu/extension-common`.
-- `packages/core/logger`: nuovo logger configurabile da stato.
-- `browsers/{chromium-47,webkitgtk-2}`: build Docker dei motori legacy.
-- Vecchia architettura parcheggiata in `apps/chrome-v3_old` e `packages/extension_old`.
+### `dev` (traccia `origin/isomorphic-runtime`) — funzionante su Chrome MV3 e Firefox MV2
+- `extensions/{chrome-v3,firefox-v2}`: entrypoint sottili sullo stesso `BackgroundService`, con un `AdapterConfig` diverso. Funzionano entrambi, con la settings UI (side panel / sidebar) e gli e2e (Playwright su Chromium, Puppeteer su Firefox). `extensions/chrome-v2` ha solo il manifest e un `background.ts`: niente iniezione né UI.
+- `packages/extension-runtime`: adapter (messaging, storage, tabs, webRequest, user agent) parametrizzati per manifest. I servizi `background` (TvSession per tab), `bridge`, `injector`, `ui` e `tv` (shell `tv.html`) sono attivi.
+- `packages/page-runtime` + `packages/protocol`: la runtime in pagina, che parte a `document_start`, e il protocollo pagina ↔ host.
+- `packages/oipf/{api,runtime}`: riscritti senza mixin (D1, `Reader` di fp-ts): video/broadcast, A/V Control, ApplicationManager/Keyset, Capabilities, Configuration, `oipfObjectFactory`. Dipendono ancora da `@hbb-emu/extension-common` per i tipi dello stato (Fase 0).
+- `packages/core/logger`: logger configurabile da stato.
+- `browsers/{chromium-47,webkitgtk-2}`: build Docker dei motori legacy, non ancora usate dai test.
+- Vecchia architettura ancora nel workspace: `apps/chrome-v3_old`, `packages/extension_old` (da cui viene `extension-common`), più `apps/demo-runtime` e `apps/demo-ui`.
 
 ### Altri branch
 - `origin/webkit-r152340`: `apps/runtime-standalone` con pipeline Babel/Vite per ES5 + polyfill (target Tizen 2.4). **Da riusare** per il build della page runtime legacy.
 - `origin/fork/functional-player`: evoluzione del player + integrazione FreeWheel. Progetto separato; valutare in seguito cosa far rientrare (vedi Fase 2, DAI).
 
 ### Problemi già individuati sul branch
-- [x] Build verde con Bun + turbo (13/13 package, 3 estensioni). Restano le dipendenze verso `packages/extension_old` in 8 package.
+- [x] Build verde con Bun + turbo (13/13 package, 3 estensioni). Le dipendenze rimaste verso `packages/extension_old` sono in Fase 0.
 - [x] L'attach `non-visual` costruiva l'IO del proxy senza eseguirlo: gli `<object>` non visuali dichiarati nel markup non avevano nessun metodo OIPF (bug presente anche su `main`). Trovato dai test, corretto.
 - [x] Il logger stampava anche i livelli disabilitati (`O.fromNullable(false)` è `Some`). Trovato dai test, corretto.
 - [x] `ExtensionState.enabledTabIds` (un `Set`, che lo storage JSON restituiva come `{}`: ogni aggiornamento dopo un riavvio del service worker lanciava `enabledTabIds is not iterable`) era scritto e mai letto: rimosso, e il caricamento dello stato salvato scarta la chiave lasciata dalle versioni precedenti. Lo stato per tab arriverà con la TvSession (D5), in `chrome.storage.session`.
@@ -62,7 +63,9 @@ Il progetto cresce in tre fasi:
   - [x] `ChannelConfig` aveva due metodi inventati (`getChannelWithTriplet`, `getChannelByNumber`), rimossi; `ChannelList.getChannel()`/`getChannelByTriplet()` restituiscono `null`, non `undefined`.
   - [x] I codec numerici dello stato (`model/`) sono generati dagli enum di `specification/` (`enumCodec`), quindi non possono più divergere. Erano sbagliati `ChannelIdTypeCodec` (`ID_DVB_T = 2` invece di 12) e `AVControlErrorCodeCodec` (nomi `MEDIA_ERR_*` di HTML5, mancavano 6 e 7).
   - [x] Verificati sul testo di OIPF DAE R2 v2.3 ([oipf.tv/web-spec/volume5.html](https://oipf.tv/web-spec/volume5.html)): `ChannelIdType`, `PlayState` di video/broadcast e A/V Control, errori di A/V Control (0–6), `ChannelChangeErrorCode`, `DRMRightsErrorState`, `ChannelList` (§7.13.10, `getChannelByTriplet(onid, tsid, sid, nid?)` con `tsid` nullo = qualsiasi), `data` (§7.13.1.2), `nextChannel()`/`prevChannel()` e `bindToCurrentChannel()` (§7.13.1.3). Corretto `bindToCurrentChannel()`: da CONNECTING/PRESENTING non ha effetto (prima riprendeva lo stream), da UNREALIZED senza canale presentato manda `onPlayStateChange(0)`.
-  - [ ] Ancora da verificare (sezioni non leggibili dalla pagina, 7.14.13.1 e 7.16.5): valori di `AllocationMethod` (oggi `DYNAMIC = 0`, `STATIC = 1`), gli enum `AudioType`/`SubtitleType` (forse in OIPF sono booleani, `audioDescription`/`hearingImpaired`). Il parametro `quiet` di `setChannel()` non è in OIPF DAE R2: da verificare in HbbTV TS 102 796; così come l'errore 7 di A/V Control (`PARENTAL_CONTROL_BLOCKED`).
+  - [x] Verificati sui PDF completi: `AllocationMethod` (§7.14.13.1) è `STATIC_ALLOCATION = 1`, `DYNAMIC_ALLOCATION = 2` (era `DYNAMIC = 0`, `STATIC = 1`; corretto, nessun codice lo usava ancora). Il parametro `quiet` di `setChannel()` (0/1/2) è di HbbTV, TS 102 796 A.2.4.3; l'errore 7 di A/V Control è di HbbTV, A.2.5.1.
+  - [ ] Ancora da verificare: gli enum `AudioType`/`SubtitleType` (§7.16.5, forse in OIPF sono booleani, `audioDescription`/`hearingImpaired`).
+  - [ ] `quiet` è nel tipo ma ignorato: con 1 la TV non mostra il banner del cambio canale, con 2 nemmeno il numero/nome (A.2.4.3). Diventa rilevante con l'OSD (2.3).
 - [x] `oipfObjectFactory` (OIPF DAE §7.1) non veniva installato su `window` e i `create*Object` restituivano `null` (anche su `main`; in più l'elemento creato non riceveva nemmeno il `type`, un altro `IO` dentro un `IO`). Ora è `window.oipfObjectFactory` dall'avvio della runtime, quindi c'è già al primo script dell'app (verificato in e2e su Chromium e Firefox). `isObjectSupported()` risponde secondo i predicati dei binding; `createVideoBroadcastObject()`, `createApplicationManagerObject()`, `createCapabilitiesObject()`, `createConfigurationObject()` restituiscono un `<object>` già collegato, che funziona anche senza essere inserito nel documento; `createChannelConfig()` dà la lineup. Gli altri `create…()` non esistono: chiamarli è un `TypeError`, come vuole la spec per un metodo non supportato.
   - [ ] `createVideoBroadcastObject(requiredCapabilities)` ignora le capability richieste, e `allocationMethod` non esiste.
   - [ ] Oggetti HbbTV 2.0 (`createMediaSynchroniser()`, `createCSManager()`), `createVideoMpegObject()`, `createStatusViewObject()`: da fare quando servono.
@@ -121,14 +124,14 @@ Il progetto cresce in tre fasi:
 
 - [x] Package manager: pnpm → **Bun** (workspaces nel `package.json` di root, `bun.lock`).
 - [x] Infrastruttura di test: config Vitest condivisa (`vitest.shared.ts`), script `test` per package, `bun run test` dalla root via turbo.
-- [ ] Ripristinare una build verde (`bun install && bun run build`) su `isomorphic-runtime`.
-- [ ] Eliminare la dipendenza da `@hbb-emu/extension-common`: spostare i tipi davvero condivisi (`ExtensionState`, messaggi) in un package nuovo e host-agnostic (es. `@hbb-emu/protocol`).
-- [ ] Rimuovere `apps/chrome-v3_old` e `packages/extension_old` dal workspace quando non servono più come riferimento (restano consultabili su `main`).
+- [x] Ripristinare una build verde (`bun install && bun run build`) su `isomorphic-runtime`.
+- [ ] Eliminare la dipendenza da `@hbb-emu/extension-common`: spostare i tipi davvero condivisi in un package host-agnostic. Il protocollo pagina ↔ host è già in `@hbb-emu/protocol`. Restano i tipi dello stato, `ExtensionState`, `ChannelConfig`, `StreamEventConfig`/`StreamEventScheduleMode` e `DEFAULT_EXTENSION_STATE`, importati da `oipf-runtime` (12 file), `settings-ui` (14), `extension-runtime` (7), `protocol` (5) e `page-runtime` (2). `player-runtime`, `player-adapter-hbbtv` ed `extension-chrome-v3` la dichiarano senza usarla.
+- [ ] Rimuovere `apps/chrome-v3_old`, `packages/extension_old` e i demo (`apps/demo-runtime`, `apps/demo-ui`, che dipendono da `extension-common`) dal workspace quando non servono più come riferimento (restano consultabili su `main`).
 - [x] Decidere D1 → `Reader` di fp-ts.
 - [x] Portare una parte piccola come modello: `volume` del VideoBroadcast in stile `Reader` (`ReaderIO` + `IORef` iniettato), con test unitari e d'integrazione. Collegato alla classe esistente tramite un ponte temporaneo (`WithVolume`), da rimuovere quando VideoBroadcast sarà portato del tutto.
 - [x] Definire D3 (matrice target).
-- [ ] CI minima: build + lint + test unitari.
-- [ ] Assorbire il vecchio file `TODO` in questa roadmap.
+- [ ] CI minima: build + lint + test unitari (+ typecheck dei test, che il build esclude). Non c'è ancora nessuna pipeline.
+- [x] Assorbire il vecchio file `TODO` in questa roadmap: il player (TagGroup `Playable`, source switching), il logger dalla UI e l'import di file locali sono in 2.6, MPEG-TS e DSM-CC in 2.4, Chrome V2 in 1.4, i target (Firefox 45 → ESR recente) in D3. Il nuovo stato abbozzato lì (`enabledTabIds`) è stato rimosso. File eliminato.
 
 ## Fase 1 — Runtime isomorfo + host multipli
 
@@ -144,8 +147,8 @@ Il progetto cresce in tre fasi:
   - [ ] Flag di lancio del browser (app standalone, fase 3).
 
 ### 1.2 Servizi
-- [ ] **Background**: completare routing dei messaggi, propagazione dello stato a tutti i tab/UI, ciclo di vita tab (oggi solo `onTabAdded/Removed` con TODO).
-- [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3.
+- [x] **Background**: routing dei messaggi pagina/UI ↔ host, propagazione dello stato ai tab e alla UI (configurazione a tutti, patch degli oggetti e comandi al tab attivo), ciclo di vita dei tab (la sessione si apre al primo `Page/Ready` e si chiude con `tabs.onRemoved`). I dettagli sono nelle voci qui sotto.
+- [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3. La TvSession c'è (sotto); lo stato condiviso è ancora l'`ExtensionState` di `extension-common` (Fase 0).
   - [x] **TvSession per tab**, modalità *App*: aperta dal primo `Page/Ready` di un tab, mantenuta tra le navigazioni e i reload, chiusa con il tab (`tabs.onRemoved`; prima "unloaded" contava come chiusura, e ogni "loading" loggava "Tab added"). Persistita in `chrome.storage.session` su MV3, in memoria su MV2 (background persistente); al riavvio si scartano le sessioni dei tab chiusi e quelle non valide. Oggi contiene il canale sintonizzato; la pagina la riceve con `Host/Session`, dopo `Host/Config`. Verificata in e2e su Chromium e Firefox.
   - [x] **Canale iniziale dall'AIT**: la pagina parte sul canale la cui AIT segnala la sua app (URL esatto, altrimenti stessa origine = application boundary di default), il primo della lineup se nessuno la segnala. Con il bootstrap sincrono il primo script dell'app lo legge già giusto (`privateData.currentChannel`, verificato in e2e su Chromium e Firefox); il background apre la sessione del tab con la stessa regola, quindi `Host/Session` non la risintonizza.
   - [x] **Canale per tab nel bootstrap**: il bootstrap è uno solo per tutti i tab (nessun host sa iniettare per tab), quindi porta anche le *tuning* `{ url, channelId }`, cioè la pagina che mostra ogni TV e il suo canale. Regola comune a pagina e background (`initialChannel` in `@hbb-emu/protocol`): TV che mostra quella pagina → canale che la segnala nell'AIT → primo della lineup. Ripubblicato (in serie, solo se cambia) quando una pagina parte, quando la UI cambia canale e quando un tab si chiude. Verificato in e2e su Chromium e Firefox: dopo il reload il primo script vede il canale scelto dalla UI. È anche il meccanismo con cui la modalità *TV* darà il canale prima di navigare (sessione aggiornata con l'URL di destinazione, poi navigazione).
@@ -161,7 +164,6 @@ Il progetto cresce in tre fasi:
       - [ ] Canali `hidden` da saltare in `nextChannel()`/`prevChannel()`, quando lo scenario potrà nasconderli.
     - [ ] La cronologia del tab contiene `about:blank` e le pagine dei canali precedenti (il "Back" del browser non è quello della TV).
   - [ ] Keyset e app attiva nella sessione. Il volume della TV c'è (sezione 1.3).
-- [ ] **Bridge** (ISOLATED world): inoltro MAIN ↔ background con contesto `tabId`.
 - [x] **Page runtime** (`@hbb-emu/page-runtime`): si avvia da sola solo nei documenti HbbTV, una volta per finestra. Su chrome-v3 è un content script `world: "MAIN"` a `document_start`, quindi **le API OIPF esistono prima del primo script dell'app**. Su `main` arrivavano solo dopo `DOMContentLoaded` e una richiesta asincrona al background.
 - [x] **Bridge** (chrome-v3): content script ISOLATED che collega la page runtime (canale DOM: `CustomEvent` con JSON, invisibile ai listener `message` dell'app) al background. Protocollo in `@hbb-emu/protocol`: `Page/Ready` → `Host/Config`; `Host/Hello` per l'ordine di avvio; `Host/DispatchKey`; `Page/SetChannel` → `Host/Session` oppure `Host/ChannelChangeError`; `Page/TvKey` (P±/VOL± dalla tastiera). La runtime non aspetta mai l'host.
 - [x] **L'host non spinge lo stato degli oggetti OIPF alla pagina**, solo configurazione e comandi. `main` applicava all'avvio tutto `DEFAULT_HBBTV_STATE`: keyset azzerato dopo il `setValue` dell'app, `video/broadcast` forzato a 1280×720, `playState` e volume reimpostati.
@@ -225,7 +227,7 @@ Il progetto cresce in tre fasi:
     - [ ] Restano fuori: un elemento fuori dal documento che parte da solo (`autoplay`) e gli iframe dell'app. Un cambio del volume della TV può dare all'app un `volumechange` anche se `volume` resta uguale; con la TV a 0, un cambio di `volume` dell'app non lo dà.
   - [ ] Nessun OSD del volume (2.3), e manca il tasto MUTE.
 - [ ] Rendere la runtime indipendente da `ExtensionState`: riceve uno stato tipizzato tramite port.
-- [ ] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection).
+- [x] Portare i sottosistemi così come sono dove già "puliti" (channelRegistry, streamEventScheduler, provider/detection): sono in `oipf-runtime/src/subsystems`, insieme ai nuovi (`currentChannel`, `channelChange`, `broadcastChannel`, `keyboard`, `remoteControl`, `tvVolume`, `mediaElementVolume`). Leggono ancora `ExtensionState` (voce sopra).
 - [x] **Tasti del telecomando come quelli veri, per engine**: destinatario come la tastiera reale dell'engine ospite. Con nulla a fuoco Blink e WebKit consegnano al `body` solo nei documenti HTML e a `<html>` negli XHTML, Gecko sempre al `body` (verificato in e2e su Chromium e Firefox). Gecko si riconosce da una feature (`mozInnerScreenX`), non dallo UA che sovrascriviamo.
 - [x] **Fix telecomando** (bug noto su `main`). *Causa principale*: nella settings UI `useRemoteControl().dispatchKey` restituiva un `Task` che i pulsanti non eseguivano, quindi il telecomando della UI non mandava mai niente. Ora l'e2e clicca `RED` nella UI e l'app nel tab attivo riceve 403. Il percorso host → pagina → `keydown` è verificato anche direttamente dal background. *Cause trovate e corrette, verificate dal test e2e con un'app di prova*: l'attach `non-visual` non esponeva i metodi sugli `<object>`; la runtime arrivava dopo gli script dell'app; il `Keyset` non aveva `value`/costanti; su questo branch inoltre la runtime non collegava proprio gli oggetti. Da confermare con un'app reale. I tasti colore/VCR dalla tastiera ci sono (sezione "La tastiera è il telecomando"). Altri punti da controllare: verificare `dispatchKeyEvent` (eventi sintetici con `keyCode` non impostato in molti engine → usare `Object.defineProperty` su `keyCode/which` o `initKeyboardEvent` legacy) e il percorso UI → background → pagina.
 - [x] **L'app riceve solo i tasti del suo keyset** (TS 102 796 §10.2.2.1). Un tasto del telecomando arriva alla pagina se ha un codice nella Tabella 12 (colori, frecce, OK, BACK, cifre, play/pause/stop, avanti/indietro veloce) e se il suo gruppo (OIPF DAE §7.2.5.1) è nel `value` del keyset; altrimenti il log della pagina dice perché non è arrivato. Senza `setValue()` un'app broadcast-related non riceve nulla (§7.2.5). P+/P- e volume restano alla TV e non arrivano mai all'app. Un campo di testo con il focus riceve i tasti qualunque sia il keyset. `setValue()` scarta i gruppi non disponibili (SCROLL, INFO, ALPHA, OTHER) e restituisce il resto, che è anche `value`. Il keyset è uno per pagina: prima ogni `<object>` ApplicationManager (e ogni oggetto del factory) ne aveva uno suo, e un `setValue()` fatto su uno non valeva per gli altri. Verificato in e2e su Chromium e Firefox: dalla UI, "1" e CH+ non arrivano, RED e UP sì.
@@ -248,7 +250,7 @@ Il progetto cresce in tre fasi:
 
 ### 1.4 Host
 - [ ] `chrome-v3` — parità funzionale con `main`.
-- [ ] `chrome-v2` — target Chromium 47 → (Chrome < 128 se confermato).
+- [ ] `chrome-v2` — target Chromium 47 → (Chrome < 128 se confermato). Oggi solo il manifest MV2 e un `background.ts`: mancano iniezione della page runtime e bridge (probabilmente come su Firefox, `injector.js` inline), UI, e2e. Dipende anche dal build ES5 (1.5) per Chromium 47.
 - [x] `firefox-v2` — riscrittura del content-type, runtime, bridge, background, UA HTTP, config sincrona. Verificato su Firefox 158.
   - [x] Settings UI nella sidebar (`sidebar_action`, aperta dal pulsante in toolbar), con lo stesso client UI di chrome-v3. Verificata in e2e: stato caricato, telecomando verso il tab attivo, UA cambiato dalla UI visto dal primo script della pagina successiva.
   - [ ] Verificare sull'ESR effettivo (oggi solo Firefox 158) e fissare `strict_min_version`.
@@ -265,7 +267,7 @@ Il progetto cresce in tre fasi:
 - [ ] API web usate dalla page runtime da verificare sui motori legacy: `URL` (confronto con l'AIT) va coperto da polyfill dove manca.
 
 ### 1.6 Test
-- [ ] Suite di app HbbTV di prova (pagine statiche in `e2e/fixtures`) che esercitano le API: ~~ApplicationManager/Keyset~~ (base ✅), VideoBroadcast (setChannel, stream events), AVControl, Capabilities/Configuration.
+- [ ] Suite di app HbbTV di prova (pagine statiche in `e2e/fixtures`: `basic-app`, `av-app`, `audio-app`, `plain-page`) che esercitano le API: ~~ApplicationManager/Keyset~~ ✅, ~~VideoBroadcast `setChannel`/`getChannelConfig`/eventi~~ ✅, ~~AVControl (VOD, audio, queue)~~ ✅, ~~volume~~ ✅. Mancano gli stream event, Capabilities/Configuration e `oipfObjectFactory` oltre al primo script.
 - [x] E2E con Playwright su chrome-v3: estensione compilata caricata in Chromium, app servite con il content-type HbbTV vero (`bun run test:e2e`).
 - [x] E2E su Firefox (`firefox-v2`): Puppeteer + WebDriver BiDi, che installa l'add-on non firmato come temporaneo; Playwright non supporta estensioni su Firefox.
 - [ ] E2E sugli altri host (chrome-v2 / Chromium legacy, WebKit).
@@ -286,8 +288,8 @@ Il progetto cresce in tre fasi:
   - [ ] Ancora da modellare: `service_bound_flag`, visibilità, `simple_application_boundary_descriptor` (origini in più), versione dell'AIT, app broadcast-independent.
 - [ ] Import di AIT reali (XML AIT; poi da MPEG-TS).
 - [ ] Ciclo di vita delle app conforme alla spec al cambio canale: chiusura/avvio app secondo l'AIT, `createApplication`/`destroyApplication`, app che sopravvivono al cambio canale.
-- [ ] Cambio canale tramite navigazione del tab (D5), con ritardo configurabile di "acquisizione AIT". Caso di test di riferimento: app *linear* che naviga da DMAX (52) a HGTV (56).
-  - [x] Dalla settings UI e da `setChannel()` dell'app, in modalità *TV* (sezione 1.2). Manca il ritardo di acquisizione.
+- [x] Cambio canale tramite navigazione del tab (D5), dalla settings UI, da P±, e da `setChannel()`/`nextChannel()`/`prevChannel()` dell'app, in modalità *TV* (sezione 1.2). Caso di test di riferimento, coperto in e2e: app *linear* da DMAX a HGTV.
+  - [ ] Ritardo configurabile di "acquisizione AIT".
 
 ### 2.3 Shell TV
 - [ ] `tv.html` (pagina dell'estensione): la "TV senza app", cioè canale senza AIT, menu e lista canali, punto d'ingresso "Accendi la TV".
@@ -298,7 +300,8 @@ Il progetto cresce in tre fasi:
 - [ ] Gestione focus tra shell TV e app (tasti riservati alla TV).
 
 ### 2.4 Stream e Stream Events
-- [ ] Stream reali per canale (HLS/DASH/MP4) come "broadcast" del VideoBroadcast.
+- [x] Stream reali per canale (HLS/DASH/MP4) come "broadcast" del VideoBroadcast: il campo `mp4Source` del canale (accetta anche `.mpd`/`.m3u8`), riprodotto da `video/broadcast` e da `tv.html`.
+  - [ ] Il nome `mp4Source` è fuorviante; una sola sorgente per canale (niente fallback tra provider, vedi 2.6).
 - [ ] **Layer broadcast** iniettato dietro la pagina dell'app (come su una TV: il video scorre sotto l'app anche senza oggetto `video/broadcast`, che ne controlla solo la finestra).
 - [ ] **Live simulato**: posizione del canale = f(tempo reale), es. `(now − epoch) mod durata`, così il video riprende dallo stesso punto dopo una navigazione e gli stream event schedulati restano coerenti.
 - [ ] Scheduler degli stream event configurabile: per tempo assoluto, per tempo media, ricorrenti, con payload predefiniti (base già presente in `streamEventScheduler`).
@@ -333,8 +336,8 @@ Il progetto cresce in tre fasi:
 | Area | Azione |
 |------|--------|
 | `packages/oipf/api` (spec, model, validate) | Già portato. Mantenere. |
-| `runtime/subsystems/*` | Portare quasi invariato, togliere dipendenze dall'estensione. |
-| `runtime/apis/*` (VideoBroadcast, AVControl) | **Riscrivere** senza mixin (D1). |
+| `runtime/subsystems/*` | Portati ✅. Resta da togliere la dipendenza dall'estensione (`ExtensionState`). |
+| `runtime/apis/*` (VideoBroadcast, AVControl) | Riscritti senza mixin (D1) ✅. |
 | `player/*` | Mantenere; allineare con `fork/functional-player` più avanti. |
 | `settings-ui` | Mantenere; collegare tramite port di messaging invece di `extension-common`. |
 | `apps/chrome-v3/*` (bridge/content/ui con mixin) | Usare come riferimento di comportamento, non come codice. |

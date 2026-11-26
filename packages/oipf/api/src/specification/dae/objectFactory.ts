@@ -40,20 +40,20 @@ export type ObjectFactoryMimeType = MimeType | HbbTVMimeType;
 // ============================================================================
 
 /**
- * Resource allocation method for visual objects.
+ * Resource allocation method for visual objects (OIPF DAE §7.14.13.1).
  */
 export enum AllocationMethod {
-  /**
-   * Dynamic allocation - resources claimed when needed.
-   * Used when `requiredCapabilities` is omitted.
-   */
-  DYNAMIC_ALLOCATION = 0,
-
   /**
    * Static allocation - resources claimed at instantiation.
    * Used when `requiredCapabilities` is provided.
    */
   STATIC_ALLOCATION = 1,
+
+  /**
+   * Dynamic allocation - resources claimed when needed.
+   * Used when `requiredCapabilities` is omitted.
+   */
+  DYNAMIC_ALLOCATION = 2,
 }
 
 // ============================================================================
