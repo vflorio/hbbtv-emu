@@ -36,7 +36,7 @@ import { OipfConfiguration } from "./dae/configuration";
 import { createVideoBroadcast, type VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
 import { createChannelVideoStreamEnv } from "./dae/videoBroadcast/channel";
 import { createObjectVideoWindow } from "./dae/videoBroadcast/videoWindow";
-import { audioInSeries, broadcastGain, linearGain } from "./dae/videoBroadcast/volume";
+import { type AudioOutput, audioInSeries, broadcastGain, linearGain } from "./dae/videoBroadcast/volume";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binding Collection
@@ -97,6 +97,22 @@ export const createConfigurationBinding = (
  *
  * @param env - Environment with channel registry and video stream factory
  */
+/**
+ * An object's video, its volume in series with the TV's on the object's scale. The
+ * page's `volume` accessor, which puts the application's own media in series with
+ * the TV (`installMediaElementVolume`), leaves it alone: it would count the TV twice.
+ */
+const inSeries = (
+  env: BindingsEnv,
+  gain: (volume: number) => number,
+  element: HTMLMediaElement,
+  setMuted: AudioOutput["setMuted"],
+  initialVolume?: number,
+): AudioOutput => {
+  env.emulatorMedia.add(element)();
+  return audioInSeries(env.tvVolume, gain, element, setMuted, initialVolume)();
+};
+
 export const createVideoBroadcastBinding = (
   env: BindingsEnv,
 ): OipfBinding<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> => ({
@@ -114,7 +130,7 @@ export const createVideoBroadcastBinding = (
     return createVideoBroadcast({
       channelRegistry: env.channelRegistry,
       videoStream,
-      audioOutput: audioInSeries(env.tvVolume, broadcastGain, videoStream.videoElement, videoStream.setMuted)(),
+      audioOutput: inSeries(env, broadcastGain, videoStream.videoElement, videoStream.setMuted),
       videoWindow: createObjectVideoWindow(element, videoStream.videoElement),
       getTunedChannel: env.getCurrentChannel,
       requestChannelChange: env.requestChannelChange,
@@ -175,13 +191,13 @@ export const createAvControlsBinding = (
     return createAVControlVideo({
       mimeType: () => element.type,
       stream,
-      audioOutput: audioInSeries(
-        env.tvVolume,
+      audioOutput: inSeries(
+        env,
         linearGain,
         stream.videoElement,
         stream.setMuted,
         env.defaultAvControlVideo.volume.volume,
-      )(),
+      ),
       videoWindow: createContainerVideoWindow(element, stream.videoElement),
       focusObject: focusElement(element),
       defaults: env.defaultAvControlVideo,

@@ -40,16 +40,19 @@ import {
   type ChannelRegistryEnv,
   createChannelRegistryEnv,
   createCurrentChannelEnv,
+  createEmulatorMedia,
   createRemoteControlEnv,
   createStreamEventScheduler,
   createTvVolume,
   createUserAgentEnv,
   DEFAULT_KEY_MAP,
   dispatchRemoteKey,
+  type EmulatorMedia,
   ignoreTvKey,
   initializeUserAgent,
   initialTunedChannel,
   installKeyboard,
+  installMediaElementVolume,
   isSameService,
   type KeyMap,
   type RemoteControlEnv,
@@ -107,6 +110,9 @@ export type BindingsEnv = Readonly<{
 
   /** The TV's volume (the user's), in series with every object's */
   tvVolume: TvVolume;
+
+  /** The OIPF objects' videos: their volume is the objects', not the page's `volume` accessor's */
+  emulatorMedia: EmulatorMedia;
 
   /** Default state for Capabilities object */
   defaultOipfCapabilities: OipfCapabilitiesState;
@@ -213,6 +219,7 @@ export class RuntimeService implements Runtime {
   readonly #objectFactory: ObjectFactoryEnv;
   #uninstallObjectFactory: IO.IO<void> = IO.of(undefined);
   #uninstallKeyboard: IO.IO<void> = IO.of(undefined);
+  #uninstallMediaElementVolume: IO.IO<void> = IO.of(undefined);
   #playerRuntime: PlayerRuntime | null = null;
 
   constructor(env: RuntimeEnv) {
@@ -259,6 +266,14 @@ export class RuntimeService implements Runtime {
           fromKeyboard: (event) => event.isTrusted,
         })();
       }),
+      // Before the application's first script too: its media plays in series with the TV.
+      IO.tap(() => () => {
+        this.#uninstallMediaElementVolume = installMediaElementVolume({
+          window,
+          tvVolume: this.#env.bindings.tvVolume,
+          emulatorMedia: this.#env.bindings.emulatorMedia,
+        })();
+      }),
       IO.tap(() => logger.info("Started")),
     );
 
@@ -270,6 +285,7 @@ export class RuntimeService implements Runtime {
       logger.info("Stopping"),
       IO.tap(() => this.#uninstallObjectFactory),
       IO.tap(() => this.#uninstallKeyboard),
+      IO.tap(() => this.#uninstallMediaElementVolume),
       IO.tap(() => this.#provider.stop()),
       IO.tap(() => this.#streamEventScheduler.stop()),
       IO.tap(() => logger.info("Stopped")),
@@ -409,6 +425,7 @@ export const createRuntimeEnv = (
     playerRuntimeFactory: playerRuntimeFactory ?? defaultFactory,
     keyset,
     tvVolume: createTvVolume(),
+    emulatorMedia: createEmulatorMedia(),
     // Defaults
     defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
     defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,

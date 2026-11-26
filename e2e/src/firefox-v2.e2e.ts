@@ -361,6 +361,52 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });
   });
 
+  it("the application's own <video> plays in series with the TV's volume, which it does not see", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?media=${Date.now()}`);
+    await app.bringToFront();
+    const media = () =>
+      app.evaluate(() => {
+        const video = document.getElementById("e2e-media") as HTMLVideoElement;
+        // An empty iframe gets no runtime: its accessor is the browser's, which reads what the element plays at.
+        let frame = document.getElementById("e2e-pristine") as HTMLIFrameElement | null;
+        if (frame === null) {
+          frame = document.createElement("iframe");
+          frame.id = "e2e-pristine";
+          document.body.appendChild(frame);
+        }
+        const pristine = frame.contentWindow as Window & typeof globalThis;
+        const volume = Object.getOwnPropertyDescriptor(pristine.HTMLMediaElement.prototype, "volume")?.get;
+        return {
+          application: video.volume,
+          playing: !video.paused,
+          element: Math.round((volume?.call(video) as number) * 100) / 100,
+        };
+      });
+
+    // TS 102 796 §10.2.12: the application's own <video> too, in series with the TV, linear in amplitude.
+    await app.evaluate(async (src) => {
+      const video = document.createElement("video");
+      video.id = "e2e-media";
+      video.muted = true;
+      video.loop = true;
+      video.src = src;
+      document.body.appendChild(video);
+      await video.play();
+      video.volume = 0.5;
+    }, server.url("av-app/clip.mp4"));
+    expect(await media()).toEqual({ application: 0.5, playing: true, element: 0.5 });
+
+    await ui.locator("button ::-p-text(RED)").wait();
+    for (const name of ["VOL-", "VOL-"]) {
+      await ui.evaluate((label) => {
+        const buttons = Array.from(document.querySelectorAll("button"));
+        buttons.find((button) => button.textContent?.trim() === label)?.click();
+      }, name);
+    }
+    await expect.poll(media, { timeout: 5000 }).toEqual({ application: 0.5, playing: true, element: 0.45 });
+  });
+
   it("the keyboard is the remote: the keyset's keys go to the application, P+ and VOL- to the TV, text fields type", async () => {
     const { request } = await openUi();
     type UiState = { channels: Channel[]; currentChannel: Channel | null };
