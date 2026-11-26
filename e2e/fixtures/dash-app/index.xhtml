@@ -32,6 +32,8 @@
     <source src="clip.mpd" type="application/dash+xml" />
     <source src="../audio-app/tone.m4a" type="audio/mp4" />
   </video>
+  <!-- An MPD with event streams (events.mpd): the application follows them as TextTracks. -->
+  <video id="events" muted="muted" style="width: 160px; height: 90px;"></video>
 
   <script type="text/javascript">
   //<![CDATA[
@@ -48,6 +50,37 @@
         e2e.errors.push(video.error && video.error.code);
       });
       e2e.canPlayDash = video.canPlayType("application/dash+xml");
+
+      // TS 102 796 §9.3.2.2: every track of an event stream, and every cue the first time it is active.
+      e2e.tracks = [];
+      e2e.cues = [];
+      var eventsVideo = document.getElementById("events");
+      eventsVideo.textTracks.addEventListener("addtrack", function (event) {
+        var track = event.track;
+        e2e.tracks.push({
+          kind: track.kind,
+          label: track.label,
+          language: track.language,
+          id: track.id,
+          mode: track.mode,
+          dispatchType: track.inBandMetadataTrackDispatchType
+        });
+        var seen = {};
+        track.addEventListener("cuechange", function () {
+          for (var i = 0; i < track.activeCues.length; i++) {
+            var cue = track.activeCues[i];
+            if (seen[cue.id]) continue;
+            seen[cue.id] = true;
+            e2e.cues.push({
+              id: cue.id,
+              startTime: cue.startTime,
+              endTime: cue.endTime,
+              isDataCue: cue instanceof window.DataCue,
+              data: new TextDecoder().decode(cue.data)
+            });
+          }
+        });
+      });
     } catch (error) {
       e2e.initError = String((error && error.message) || error);
     }

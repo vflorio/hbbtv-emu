@@ -35,6 +35,9 @@
  *   browser reports a source of its own (`dashMediaErrorCode`).
  * - `canPlayType("application/dash+xml")` is "maybe", or "probably" when the browser
  *   plays every codec of the `codecs` parameter (HTML: "probably" only with codecs).
+ * - The MPD's events are the element's TextTracks of kind "metadata", with a DataCue
+ *   per event (§9.3.2.2, `./dashEvents`), from every MPD dash.js loads; a new source
+ *   or the end of the presentation empties them.
  *
  * The videos of the OIPF objects are left alone (`EmulatorMedia`): their player
  * chooses an adapter itself.
@@ -51,6 +54,7 @@ import { createLogger } from "@hbb-emu/core";
 import type { MediaElementDash, MediaElementDashEngine } from "@hbb-emu/player-adapter-web";
 import type * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
+import { createEventTracks, type EventTracks, installDataCue, mpdEventStreams } from "./dashEvents";
 import type { EmulatorMedia } from "./mediaElementVolume";
 
 const logger = createLogger("MediaElementDash");
@@ -138,6 +142,28 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
 
   const presentations = new WeakMap<HTMLMediaElement, Presentation>();
 
+  // The MPD's events, as TextTracks of the element that outlive its presentations.
+  const dataCue = installDataCue(window);
+  if (!dataCue) logger.warn("No VTTCue to make a DataCue from: the MPD's events do not reach the application")();
+  const eventTracks = new WeakMap<HTMLMediaElement, EventTracks>();
+  const serializer = new window.XMLSerializer();
+  const showEvents = (element: HTMLMediaElement, text: string) => {
+    if (!dataCue) return;
+    try {
+      const document = new window.DOMParser().parseFromString(text, "application/xml");
+      const streams = mpdEventStreams(document, (node) => serializer.serializeToString(node));
+      let tracks = eventTracks.get(element);
+      if (!tracks && streams.length === 0) return;
+      if (!tracks) {
+        tracks = createEventTracks(element, dataCue.DataCue);
+        eventTracks.set(element, tracks);
+      }
+      tracks.update(streams);
+    } catch (cause) {
+      logger.warn("The MPD's events could not be read", cause)();
+    }
+  };
+
   // dash.js's own writes to an element's source go to the browser (`internally`).
   let internal = 0;
   const internally = (write: () => void) => {
@@ -191,6 +217,7 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
   const end = (element: HTMLMediaElement, presentation: Presentation) => {
     presentations.delete(element);
     presentation.dash.reset();
+    eventTracks.get(element)?.clear();
   };
 
   const present = (element: HTMLMediaElement, url: string, origin: Origin) => {
@@ -205,6 +232,7 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
       current.url = url;
       current.origin = origin;
       current.error = null;
+      eventTracks.get(element)?.clear();
       current.dash.attachSource(url);
       return;
     }
@@ -217,6 +245,9 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
         logger.warn(`DASH presentation of ${presentation.url} failed (MediaError ${code}): ${message}`)();
         presentation.error = mediaError(code, message);
         element.dispatchEvent(new Event("error"));
+      },
+      onManifest: (text) => {
+        if (presentations.get(element) === presentation) showEvents(element, text);
       },
     });
     const presentation: Presentation = { url, origin, dash, attached: false, written: null, error: null };
@@ -370,6 +401,7 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
 
   return () => {
     observer.disconnect();
+    dataCue?.uninstall();
     Object.defineProperty(prototype, "src", src);
     Object.defineProperty(prototype, "currentSrc", currentSrc);
     Object.defineProperty(prototype, "error", error);

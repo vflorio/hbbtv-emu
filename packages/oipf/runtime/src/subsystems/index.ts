@@ -2,6 +2,7 @@ export * from "./broadcastChannel";
 export * from "./channelChange";
 export * from "./channelRegistry";
 export * from "./currentChannel";
+export * from "./dashEvents";
 export * from "./keyboard";
 export * from "./mediaElementDash";
 export * from "./mediaElementVolume";

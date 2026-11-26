@@ -19,6 +19,37 @@ const nativeCanPlayType = (type: string): CanPlayTypeResult => (type.startsWith(
 /** The observer's delivery of mutations. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** jsdom has no text tracks nor `VTTCue`: as a browser's, as far as the events need. */
+class FakeVTTCue {
+  id = "";
+  pauseOnExit = false;
+  constructor(
+    readonly startTime: number,
+    readonly endTime: number,
+    readonly text: string,
+  ) {}
+}
+type FakeTrack = { kind: string; mode: TextTrackMode; cues: FakeVTTCue[]; inBandMetadataTrackDispatchType?: string };
+const textTracks = new WeakMap<HTMLMediaElement, FakeTrack[]>();
+const tracksOf = (element: HTMLMediaElement) => textTracks.get(element) ?? [];
+function addTextTrack(this: HTMLMediaElement, kind: string): FakeTrack {
+  const cues: FakeVTTCue[] = [];
+  const track = {
+    kind,
+    mode: "disabled" as TextTrackMode,
+    cues,
+    addCue: (cue: FakeVTTCue) => cues.push(cue),
+    removeCue: (cue: FakeVTTCue) => cues.splice(cues.indexOf(cue), 1),
+  };
+  textTracks.set(this, [...tracksOf(this), track]);
+  return track;
+}
+
+const MPD_WITH_EVENTS = `<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"><Period start="PT0S">
+  <EventStream schemeIdUri="urn:example:ad" value="1" timescale="1000"><Event id="1" presentationTime="1000" duration="500">break</Event></EventStream>
+</Period></MPD>`;
+
 /** What the browser holds as the element's source: its own attribute. */
 const browserSource = (element: HTMLMediaElement) => element.getAttribute("src");
 
@@ -75,6 +106,8 @@ beforeEach(() => {
   Object.defineProperty(prototype, "canPlayType", { ...browserCanPlayType, value: nativeCanPlayType });
   Object.defineProperty(prototype, "error", { configurable: true, get: () => null });
   Object.defineProperty(window, "MediaError", { configurable: true, value: FakeMediaError });
+  Object.defineProperty(window, "VTTCue", { configurable: true, value: FakeVTTCue });
+  Object.defineProperty(prototype, "addTextTrack", { configurable: true, value: addTextTrack });
   emulatorMedia = createEmulatorMedia();
   uninstall = installMediaElementDash({ window, emulatorMedia, engine })();
 });
@@ -86,6 +119,8 @@ afterEach(() => {
   document.body.innerHTML = "";
   delete (prototype as { error?: unknown }).error;
   delete (window as { MediaError?: unknown }).MediaError;
+  delete (window as { VTTCue?: unknown }).VTTCue;
+  delete (prototype as { addTextTrack?: unknown }).addTextTrack;
 });
 
 describe("DASH in the application's media (TS 102 796 §9.4.2)", () => {
@@ -370,6 +405,61 @@ describe("an MPD in a <source> (HTML's resource selection)", () => {
     expect(dashes).toHaveLength(2);
     expect(dashes[1]?.sources).toEqual(["http://localhost:3000/b.mpd"]);
     expect(video.currentSrc).toBe("http://localhost:3000/b.mpd");
+  });
+});
+
+describe("the MPD's events (TS 102 796 §9.3.2.2)", () => {
+  it("each MPD dash.js loads brings the element's metadata tracks in line, with DataCues", () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+
+    dashes[0]?.hooks.onManifest(MPD_WITH_EVENTS);
+
+    const [track, ...others] = tracksOf(video);
+    expect(others).toEqual([]);
+    expect(track).toMatchObject({
+      kind: "metadata",
+      mode: "hidden",
+      inBandMetadataTrackDispatchType: "urn:example:ad 1",
+    });
+    expect(track?.cues).toHaveLength(1);
+    expect(track?.cues[0]).toBeInstanceOf((window as unknown as { DataCue: typeof FakeVTTCue }).DataCue);
+    expect(track?.cues[0]).toMatchObject({ id: "1", startTime: 1, endTime: 1.5 });
+    expect(new TextDecoder().decode((track?.cues[0] as unknown as { data: ArrayBuffer }).data)).toBe("break");
+  });
+
+  it("an MPD with no events makes no track", () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+
+    dashes[0]?.hooks.onManifest('<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period/></MPD>');
+
+    expect(tracksOf(video)).toEqual([]);
+  });
+
+  it("a new source, or the end of the presentation, empties the tracks", () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+    dashes[0]?.hooks.onManifest(MPD_WITH_EVENTS);
+
+    video.src = "other.mpd";
+    expect(tracksOf(video)[0]).toMatchObject({ mode: "disabled", cues: [] });
+
+    dashes[0]?.hooks.onManifest(MPD_WITH_EVENTS);
+    expect(tracksOf(video)[0]).toMatchObject({ mode: "hidden", cues: [expect.objectContaining({ id: "1" })] });
+
+    video.src = "clip.mp4";
+    expect(tracksOf(video)[0]).toMatchObject({ mode: "disabled", cues: [] });
+  });
+
+  it("an MPD of a presentation that ended is not the element's", () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+    video.src = "clip.mp4";
+
+    dashes[0]?.hooks.onManifest(MPD_WITH_EVENTS);
+
+    expect(tracksOf(video)).toEqual([]);
   });
 });
 

@@ -8,6 +8,10 @@
  * `removeAttribute("src")` + `load()` when it lets it go). The page's accessors must
  * hand those writes to the browser, not take them for the application's: dash.js
  * makes them in `VideoModel.setSource`, which the engine runs through `internally`.
+ *
+ * Every MPD dash.js loads (the first, and each update of a dynamic one) is handed over
+ * as it came (`onManifest`), for what dash.js does not expose to the application: the
+ * MPD's events (TS 102 796 §9.3.2.2).
  */
 
 import { dashjs } from "./dashjs";
@@ -17,6 +21,8 @@ export type MediaElementDashHooks = Readonly<{
   internally: (write: () => void) => void;
   /** A fatal error of the presentation, as the `MediaError` code the browser would give. */
   onError: (code: number, message: string) => void;
+  /** The text of an MPD dash.js loaded, before it reads it. */
+  onManifest: (text: string) => void;
 }>;
 
 export type MediaElementDash = Readonly<{
@@ -63,6 +69,18 @@ export const dashMediaErrorCode = (code: number): number | null => {
 
 type VideoModel = { setSource: (source: string | null) => void };
 
+/** What dash.js puts in its requests' `customData`: the request, with what it is for. */
+type DashRequest = { request?: { type?: string } };
+
+/** dash.js's `HTTPRequest.MPD_TYPE`. */
+const MPD_TYPE = "MPD";
+
+const text = (data: unknown): string | null => {
+  if (typeof data === "string") return data;
+  if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
+  return null;
+};
+
 /** dash.js's `MediaPlayer`, which takes the player's context although its types do not say so. */
 const mediaPlayer = dashjs.MediaPlayer as unknown as (context: object) => dashjs.MediaPlayerFactory;
 
@@ -81,6 +99,13 @@ const create = (element: HTMLMediaElement, hooks: MediaElementDashHooks): MediaE
   };
   const player = mediaPlayer(context).create();
   player.updateSettings({ debug: { logLevel: dashjs.Debug.LOG_LEVEL_WARNING } });
+  player.addResponseInterceptor((response) => {
+    const ok = response.status === undefined || (response.status >= 200 && response.status < 300);
+    const manifest = (response.request.customData as DashRequest | undefined)?.request?.type === MPD_TYPE;
+    const body = manifest && ok ? text(response.data) : null;
+    if (body !== null) hooks.onManifest(body);
+    return Promise.resolve(response);
+  });
   player.on(dashjs.MediaPlayer.events.ERROR, (event: dashjs.MediaPlayerErrorEvent) => {
     const code = dashMediaErrorCode(event.error.code);
     if (code !== null) hooks.onError(code, event.error.message ?? "");
