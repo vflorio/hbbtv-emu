@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { audioKind, videoKind } from "./kinds";
+import { audioKind, type TextKindContext, textKind, videoKind } from "./kinds";
 
 describe("the kind of a DASH AudioTrack (TS 102 796 A.2.12.3)", () => {
   it.each<[string[], string[], string]>([
@@ -34,5 +34,24 @@ describe("the kind of a DASH VideoTrack (TS 102 796 A.2.12.3)", () => {
     [[], ""],
   ])("roles %j → %j", (roles, kind) => {
     expect(videoKind(roles)).toBe(kind);
+  });
+});
+
+describe("the kind of a DASH TextTrack (TS 102 796 A.2.12.3)", () => {
+  const plain: TextKindContext = { audioPurposes: [], accessibility: false, mainAudioInLanguage: false };
+  const hardOfHearing: TextKindContext = { audioPurposes: ["2"], accessibility: true, mainAudioInLanguage: true };
+  it.each<[string[], TextKindContext, string]>([
+    [["main"], hardOfHearing, "captions"],
+    [["main"], { ...hardOfHearing, mainAudioInLanguage: false }, "metadata"],
+    [["commentary"], plain, "captions"],
+    [["caption"], plain, "captions"],
+    [["alternate"], hardOfHearing, "subtitles"],
+    [["main"], plain, "subtitles"],
+    [["main"], { ...plain, accessibility: true }, "metadata"],
+    [["subtitle"], plain, "subtitles"],
+    [["supplementary"], plain, "metadata"],
+    [[], plain, "metadata"],
+  ])("roles %j, %j → %j", (roles, context, kind) => {
+    expect(textKind(roles, context)).toBe(kind);
   });
 });

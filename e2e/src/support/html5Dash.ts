@@ -15,6 +15,8 @@ type DashAppState = {
   canPlayDash: string;
   tracks: unknown[];
   audioTrackEvents: string[];
+  subtitleTracks: { kind: string; label: string; language: string; id: string; mode: string }[];
+  subtitleCues: { track: string; startTime: number; endTime: number }[];
   cues: { id: string; startTime: number; endTime: number; isDataCue: boolean; data: string }[];
   events: string[];
   errors: (number | null)[];
@@ -204,6 +206,43 @@ export const runHtml5DashScenario = async (
       Array.from((document.getElementById("languages") as unknown as Lists).audioTracks).map((track) => track.enabled),
     ),
   ).toEqual(other === 0 ? [true, false] : [false, true]);
+
+  // The subtitle tracks (TS 102 796 A.2.12.1, A.2.12.3): one per EBU-TT-D AdaptationSet,
+  // in the MPD's order, with its @lang and @id and the kind of its Roles; disabled. dash.js
+  // fetches the one the application shows, and no other, and its cues come as it plays.
+  await evaluate(() => {
+    const video = document.getElementById("subtitles") as HTMLVideoElement;
+    // As the application finds them (after the fixture's own listener): it shows the captions.
+    video.textTracks.addEventListener("addtrack", (event) => {
+      const track = (event as TrackEvent).track;
+      if (track?.id === "3") track.mode = "showing";
+    });
+    video.src = "subtitles.mpd";
+    void video.play();
+  });
+  await until(evaluate, () => (document.getElementById("subtitles") as HTMLVideoElement).ended, "subtitles.mpd ended");
+  expect((await app(evaluate)).subtitleTracks).toEqual([
+    { kind: "subtitles", label: "", language: "ger", id: "2", mode: "disabled" },
+    { kind: "captions", label: "", language: "eng", id: "3", mode: "disabled" },
+  ]);
+  expect(
+    await evaluate(() => (document.getElementById("subtitles") as HTMLVideoElement).textTracks.getTrackById("3")?.kind),
+  ).toBe("captions");
+  const round = (time: number) => Math.round(time * 1000) / 1000;
+  expect(
+    (await app(evaluate)).subtitleCues.map((cue) => ({
+      ...cue,
+      startTime: round(cue.startTime),
+      endTime: round(cue.endTime),
+    })),
+  ).toEqual([
+    { track: "3", startTime: 0.1, endTime: 0.9 },
+    { track: "3", startTime: 1.1, endTime: 1.9 },
+    { track: "3", startTime: 2.1, endTime: 2.9 },
+  ]);
+  const subtitleRequests = requested().filter((path) => path.includes("subs-"));
+  expect(subtitleRequests.some((path) => path.includes("subs-en-3.m4s"))).toBe(true);
+  expect(subtitleRequests.filter((path) => path.includes("-de"))).toEqual([]);
 
   // Unloaded the HTML way: the element has no source any more.
   const unloaded = await evaluate(() => {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The clip with English audio and two EBU-TT-D subtitle tracks (stpp, one cue a second): German subtitles, and English for the hard of hearing. -->
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT3.0S" maxSegmentDuration="PT1.0S" minBufferTime="PT2.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video" startWithSAP="1" segmentAlignment="true" maxWidth="160" maxHeight="90">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="30000" width="160" height="90" sar="1:1">
+				<SegmentTemplate timescale="1000000" duration="1000000" initialization="init.mp4" media="seg-$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng" startWithSAP="1" segmentAlignment="true">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+			<Representation id="a0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="32000" audioSamplingRate="44100">
+				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1" />
+				<SegmentTemplate timescale="1000000" duration="1000000" initialization="audio-init-$RepresentationID$.mp4" media="audio-$RepresentationID$-$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="text" mimeType="application/mp4" lang="ger" segmentAlignment="true">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle" />
+			<Representation id="de" codecs="stpp" bandwidth="1000">
+				<SegmentTemplate timescale="1000" duration="1000" initialization="subs-init-$RepresentationID$.mp4" media="subs-$RepresentationID$-$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="text" mimeType="application/mp4" lang="eng" segmentAlignment="true">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+			<Accessibility schemeIdUri="urn:tva:metadata:cs:AudioPurposeCS:2007" value="2" />
+			<Representation id="en" codecs="stpp" bandwidth="1000">
+				<SegmentTemplate timescale="1000" duration="1000" initialization="subs-init-$RepresentationID$.mp4" media="subs-$RepresentationID$-$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>

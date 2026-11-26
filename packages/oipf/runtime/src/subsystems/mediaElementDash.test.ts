@@ -29,14 +29,31 @@ class FakeVTTCue {
     readonly text: string,
   ) {}
 }
-type FakeTrack = { kind: string; mode: TextTrackMode; cues: FakeVTTCue[]; inBandMetadataTrackDispatchType?: string };
+type FakeTrack = {
+  kind: string;
+  label: string;
+  language: string;
+  mode: TextTrackMode;
+  cues: FakeVTTCue[];
+  id?: string;
+  inBandMetadataTrackDispatchType?: string;
+};
 const textTracks = new WeakMap<HTMLMediaElement, FakeTrack[]>();
 const tracksOf = (element: HTMLMediaElement) => textTracks.get(element) ?? [];
-function addTextTrack(this: HTMLMediaElement, kind: string): FakeTrack {
+/** The element's TextTrackList, as far as its `change` event goes. */
+const textTrackLists = new WeakMap<HTMLMediaElement, EventTarget>();
+function textTrackList(this: HTMLMediaElement): EventTarget {
+  const list = textTrackLists.get(this) ?? new EventTarget();
+  textTrackLists.set(this, list);
+  return list;
+}
+function addTextTrack(this: HTMLMediaElement, kind: string, label = "", language = ""): FakeTrack {
   const cues: FakeVTTCue[] = [];
   const track = {
     kind,
-    mode: "disabled" as TextTrackMode,
+    label,
+    language,
+    mode: "hidden" as TextTrackMode,
     cues,
     addCue: (cue: FakeVTTCue) => cues.push(cue),
     removeCue: (cue: FakeVTTCue) => cues.splice(cues.indexOf(cue), 1),
@@ -61,6 +78,8 @@ type FakeDash = {
   resets: number;
   followed: string[];
   selected: string[];
+  /** The subtitle tracks it was asked to fetch, in turn. */
+  texts: (string | null)[];
   attach: () => void;
 };
 
@@ -77,6 +96,7 @@ const engine: MediaElementDashEngine = {
       resets: 0,
       followed: [],
       selected: [],
+      texts: [],
       attach: () =>
         hooks.internally(() => {
           element.src = `blob:http://localhost/${dash.sources.length}`;
@@ -100,6 +120,9 @@ const engine: MediaElementDashEngine = {
         dash.selected.push(`${type} ${ref}`);
         return true;
       },
+      selectText: (ref) => {
+        dash.texts.push(ref);
+      },
     };
   },
   isTypeSupported: (type) => type.includes("avc1") || type.includes("mp4a"),
@@ -119,6 +142,7 @@ beforeEach(() => {
   Object.defineProperty(window, "MediaError", { configurable: true, value: FakeMediaError });
   Object.defineProperty(window, "VTTCue", { configurable: true, value: FakeVTTCue });
   Object.defineProperty(prototype, "addTextTrack", { configurable: true, value: addTextTrack });
+  Object.defineProperty(prototype, "textTracks", { configurable: true, get: textTrackList });
   emulatorMedia = createEmulatorMedia();
   uninstall = installMediaElementDash({ window, emulatorMedia, engine })();
 });
@@ -132,6 +156,7 @@ afterEach(() => {
   delete (window as { MediaError?: unknown }).MediaError;
   delete (window as { VTTCue?: unknown }).VTTCue;
   delete (prototype as { addTextTrack?: unknown }).addTextTrack;
+  delete (prototype as { textTracks?: unknown }).textTracks;
 });
 
 describe("DASH in the application's media (TS 102 796 §9.4.2)", () => {
@@ -505,10 +530,10 @@ describe("audioTracks and videoTracks of DASH (TS 102 796 A.2.12.1, A.2.12.3)", 
     period: 0,
     // In dash.js's order, with its normalized languages.
     audio: [
-      { ref: "adaptation:2", id: "en", lang: "en", roles: ["main"], audioPurposes: [] },
-      { ref: "adaptation:1", id: "de", lang: "de", roles: ["dub", "main"], audioPurposes: [] },
+      { ref: "adaptation:2", id: "en", lang: "en", roles: ["main"], audioPurposes: [], accessibility: false },
+      { ref: "adaptation:1", id: "de", lang: "de", roles: ["dub", "main"], audioPurposes: [], accessibility: false },
     ],
-    video: [{ ref: "adaptation:0", id: "v", lang: "", roles: ["main"], audioPurposes: [] }],
+    video: [{ ref: "adaptation:0", id: "v", lang: "", roles: ["main"], audioPurposes: [], accessibility: false }],
     current: { audio: "adaptation:2", video: "adaptation:0" },
   };
   type Track = { id: string; kind: string; language: string; enabled?: boolean; selected?: boolean };
@@ -553,6 +578,87 @@ describe("audioTracks and videoTracks of DASH (TS 102 796 A.2.12.1, A.2.12.3)", 
 
     expect([lists(video).audioTracks, lists(video).videoTracks]).toEqual(before);
     expect((lists(video).audioTracks as unknown as { length: number }).length).toBe(0);
+  });
+});
+
+describe("the TextTracks of DASH subtitles (TS 102 796 A.2.12.1, A.2.12.3)", () => {
+  const MPD_WITH_SUBTITLES = `<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period>
+    <AdaptationSet id="1" lang="eng" contentType="audio"/>
+    <AdaptationSet id="2" lang="ger" contentType="text"/>
+    <AdaptationSet id="3" lang="eng" contentType="text"/>
+  </Period></MPD>`;
+  const audio = [
+    { ref: "adaptation:0", id: "1", lang: "en", roles: ["main"], audioPurposes: [], accessibility: false },
+  ];
+  // As dash.js offers them, with its normalized languages.
+  const german = {
+    ref: "adaptation:1",
+    id: "2",
+    lang: "de",
+    roles: ["subtitle"],
+    audioPurposes: [],
+    accessibility: false,
+    period: 0,
+    ttml: true,
+    audio,
+  };
+  const english = {
+    ...german,
+    ref: "adaptation:2",
+    id: "3",
+    lang: "en",
+    roles: ["main"],
+    audioPurposes: ["2"],
+    accessibility: true,
+  };
+  const presenting = () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+    dashes[0]?.hooks.onManifest(MPD_WITH_SUBTITLES);
+    return video;
+  };
+
+  it("one per subtitle AdaptationSet, with the kind of A.2.12.3, the MPD's language and the @id; disabled", () => {
+    const video = presenting();
+
+    dashes[0]?.hooks.onTextTrack(german);
+    dashes[0]?.hooks.onTextTrack(english);
+
+    expect(tracksOf(video)).toMatchObject([
+      { kind: "subtitles", label: "", language: "ger", id: "2", mode: "disabled" },
+      { kind: "captions", label: "", language: "eng", id: "3", mode: "disabled" },
+    ]);
+  });
+
+  it("the track the application shows is the one dash.js fetches", () => {
+    const video = presenting();
+    const track = dashes[0]?.hooks.onTextTrack(english) as TextTrack;
+
+    track.mode = "showing";
+    video.textTracks.dispatchEvent(new Event("change"));
+
+    expect(dashes[0]?.texts).toEqual(["adaptation:2"]);
+  });
+
+  it("a new source empties and disables them, and dash.js fetches none", () => {
+    const video = presenting();
+    const track = dashes[0]?.hooks.onTextTrack(german) as TextTrack;
+    track.mode = "showing";
+    video.textTracks.dispatchEvent(new Event("change"));
+
+    video.src = "other.mpd";
+
+    expect(track.mode).toBe("disabled");
+    expect(dashes[0]?.texts).toEqual(["adaptation:1", null]);
+  });
+
+  it("a track of a presentation that ended is dash.js's own", () => {
+    const video = presenting();
+    const first = dashes[0];
+    video.src = "clip.mp4";
+
+    expect(first?.hooks.onTextTrack(german)).toBeNull();
+    expect(tracksOf(video)).toEqual([]);
   });
 });
 

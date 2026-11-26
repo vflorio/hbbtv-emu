@@ -36,6 +36,8 @@
   <video id="events" muted="muted" style="width: 160px; height: 90px;"></video>
   <!-- An MPD with two audio languages (languages.mpd): the application lists and switches them. -->
   <video id="languages" muted="muted" style="width: 160px; height: 90px;"></video>
+  <!-- An MPD with two EBU-TT-D subtitle tracks (subtitles.mpd): the application shows one. -->
+  <video id="subtitles" muted="muted" style="width: 160px; height: 90px;"></video>
 
   <script type="text/javascript">
   //<![CDATA[
@@ -65,6 +67,23 @@
       languages.audioTracks.onchange = function () {
         e2e.audioTrackEvents.push("change");
       };
+
+      // TS 102 796 A.2.12.1: the subtitle tracks, and every cue of theirs the first time it is active.
+      e2e.subtitleTracks = [];
+      e2e.subtitleCues = [];
+      document.getElementById("subtitles").textTracks.addEventListener("addtrack", function (event) {
+        var track = event.track;
+        e2e.subtitleTracks.push({ kind: track.kind, label: track.label, language: track.language, id: track.id, mode: track.mode });
+        var seen = [];
+        track.addEventListener("cuechange", function () {
+          for (var i = 0; i < track.activeCues.length; i++) {
+            var cue = track.activeCues[i];
+            if (seen.indexOf(cue) >= 0) continue;
+            seen.push(cue);
+            e2e.subtitleCues.push({ track: track.id, startTime: cue.startTime, endTime: cue.endTime });
+          }
+        });
+      });
 
       var eventsVideo = document.getElementById("events");
       eventsVideo.textTracks.addEventListener("addtrack", function (event) {

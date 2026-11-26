@@ -1,6 +1,6 @@
 import type * as dashjs from "dashjs";
 import { describe, expect, it } from "vitest";
-import { dashTrackOf, inbandEventOf } from "./mediaElementDash";
+import { dashTrackOf, inbandEventOf, textTrackStandIn } from "./mediaElementDash";
 
 const payload = (event: Record<string, unknown>) => ({
   event: {
@@ -49,7 +49,7 @@ describe("inbandEventOf: an emsg event as dash.js gives it to a listener", () =>
 });
 
 describe("dashTrackOf: a track as dash.js offers it", () => {
-  it("its ref, id, language, Roles and audio purposes of their schemes", () => {
+  it("its ref, id, language, Roles and audio purposes of their schemes, and whether it has Accessibility", () => {
     const track = {
       id: "de",
       index: 2,
@@ -69,6 +69,7 @@ describe("dashTrackOf: a track as dash.js offers it", () => {
       lang: "de",
       roles: ["dub", "main"],
       audioPurposes: ["1"],
+      accessibility: true,
     });
     expect(
       dashTrackOf({ ...track, isPreselection: true, id: "p", roles: null, accessibility: null } as never),
@@ -76,6 +77,34 @@ describe("dashTrackOf: a track as dash.js offers it", () => {
       ref: "preselection:p",
       roles: [],
       audioPurposes: [],
+      accessibility: false,
     });
+  });
+});
+
+describe("textTrackStandIn: what dash.js gets for a TextTrack of the page runtime", () => {
+  it("adds its cues to the track, reads its mode and leaves it to the application", () => {
+    const cues: unknown[] = [];
+    const track = {
+      mode: "hidden",
+      cues,
+      activeCues: [],
+      addCue: (cue: unknown) => cues.push(cue),
+      removeCue: (cue: unknown) => cues.splice(cues.indexOf(cue), 1),
+    } as unknown as TextTrack;
+    const standIn = textTrackStandIn(track) as Record<string, unknown> & Pick<TextTrack, "addCue" | "removeCue">;
+    const cue = {} as TextTrackCue;
+
+    standIn.addCue(cue);
+    standIn.mode = "showing";
+    standIn.renderingType = "default";
+
+    expect(cues).toEqual([cue]);
+    expect(standIn.cues).toBe(cues);
+    expect(standIn.mode).toBe("hidden");
+    expect(track.mode).toBe("hidden");
+    expect((track as unknown as Record<string, unknown>).renderingType).toBeUndefined();
+    standIn.removeCue(cue);
+    expect(cues).toEqual([]);
   });
 });

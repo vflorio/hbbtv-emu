@@ -45,6 +45,11 @@
  *   ""; enabling an AudioTrack or selecting a VideoTrack switches dash.js to it. The
  *   browser has none of its own (only behind a flag), so the page gets them for every
  *   element, empty where dash.js presents nothing.
+ * - The subtitle AdaptationSets dash.js offers are TextTracks (A.2.12.1), with the kind
+ *   A.2.12.3 derives, label "", the MPD's language and the `@id` as `id`
+ *   (`./mediaTracks`, `getTrackById()` finds them by it); disabled at first, their
+ *   `mode` chooses which one dash.js fetches the cues of. A new source or the end of the
+ *   presentation empties and disables them.
  *
  * The videos of the OIPF objects are left alone (`EmulatorMedia`): their player
  * chooses an adapter itself.
@@ -58,7 +63,13 @@
  */
 
 import { createLogger } from "@hbb-emu/core";
-import type { DashTracks, DashTrackType, MediaElementDash, MediaElementDashEngine } from "@hbb-emu/player-adapter-web";
+import type {
+  DashTextTrack,
+  DashTracks,
+  DashTrackType,
+  MediaElementDash,
+  MediaElementDashEngine,
+} from "@hbb-emu/player-adapter-web";
 import type * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
 import {
@@ -70,7 +81,17 @@ import {
   type ReceivedInbandEvent,
 } from "./dashEvents";
 import type { EmulatorMedia } from "./mediaElementVolume";
-import { audioKind, createTrackList, mpdTracks, type TrackInit, type TrackListControl, videoKind } from "./mediaTracks";
+import {
+  audioKind,
+  createSubtitleTracks,
+  createTrackList,
+  mpdTracks,
+  type SubtitleTracks,
+  type TrackInit,
+  type TrackListControl,
+  textKind,
+  videoKind,
+} from "./mediaTracks";
 
 const logger = createLogger("MediaElementDash");
 
@@ -109,6 +130,12 @@ export const canPlayDash = (type: string, isTypeSupported: (type: string) => boo
   const plays = (codec: string) =>
     isTypeSupported(`video/mp4; codecs="${codec}"`) || isTypeSupported(`audio/mp4; codecs="${codec}"`);
   return list.length > 0 && list.every(plays) ? "probably" : "";
+};
+
+/** Whether two languages of dash.js (normalized BCP 47) are the same language: their primary subtags. */
+const sameLanguage = (a: string, b: string): boolean => {
+  const primary = (tag: string) => tag.split("-")[0]?.toLowerCase() ?? "";
+  return primary(a) !== "" && primary(a) === primary(b);
 };
 
 /** Where the application gave the MPD: the element's `src` (property or attribute), or a `<source>`. */
@@ -237,6 +264,33 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     const lists = trackLists.get(element);
     lists?.audio.clear();
     lists?.video.clear();
+    subtitles.get(element)?.clear();
+  };
+
+  // The subtitle tracks (A.2.12.1), TextTracks that outlive the presentations.
+  const subtitles = new WeakMap<HTMLMediaElement, SubtitleTracks>();
+  const subtitlesOf = (element: HTMLMediaElement): SubtitleTracks => {
+    const existing = subtitles.get(element);
+    if (existing) return existing;
+    const created = createSubtitleTracks(element, (ref) => presentations.get(element)?.dash.selectText(ref));
+    subtitles.set(element, created);
+    return created;
+  };
+  const textTrackFor = (element: HTMLMediaElement, presentation: Presentation, track: DashTextTrack): TextTrack => {
+    const fromMpd = presentation.mpd ? mpdTracks(presentation.mpd, track.period) : [];
+    const kind = textKind(track.roles, {
+      audioPurposes: track.audioPurposes,
+      accessibility: track.accessibility,
+      mainAudioInLanguage: track.audio.some(
+        (audio) => audio.roles.includes("main") && sameLanguage(audio.lang, track.lang),
+      ),
+    });
+    return subtitlesOf(element).track({
+      ref: track.ref,
+      id: track.id,
+      kind,
+      language: fromMpd.find((candidate) => candidate.ref === track.ref)?.lang ?? track.lang,
+    });
   };
 
   // dash.js's own writes to an element's source go to the browser (`internally`).
@@ -339,6 +393,8 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
       onInbandEvent: (event) => {
         if (presentations.get(element) === presentation) showInbandEvent(element, event);
       },
+      onTextTrack: (track) =>
+        presentations.get(element) === presentation ? textTrackFor(element, presentation, track) : null,
     });
     const presentation: Presentation = {
       url,
@@ -462,6 +518,21 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     });
   }
 
+  // The `id` of a subtitle track is its own property: the browser's lookup does not see it.
+  const textTrackList = window.TextTrackList?.prototype;
+  const getTrackById = textTrackList ? Object.getOwnPropertyDescriptor(textTrackList, "getTrackById") : undefined;
+  if (textTrackList && typeof getTrackById?.value === "function")
+    Object.defineProperty(textTrackList, "getTrackById", {
+      ...getTrackById,
+      value(this: TextTrackList, id: unknown) {
+        for (let index = 0; index < this.length; index++) {
+          const track = this[index];
+          if (track && track.id === String(id)) return track;
+        }
+        return null;
+      },
+    });
+
   Object.defineProperty(prototype, "error", {
     configurable: true,
     enumerable: error.enumerable,
@@ -529,5 +600,6 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     }
     Object.defineProperty(prototype, "load", load);
     Object.defineProperty(prototype, "canPlayType", canPlayType);
+    if (textTrackList && getTrackById) Object.defineProperty(textTrackList, "getTrackById", getTrackById);
   };
 };
