@@ -85,6 +85,11 @@ export type BroadcastPlayer = Readonly<{
 
 export type ChannelEvents = Readonly<{
   onPlayStateChange: (playState: PlayState) => IO.IO<void>;
+  /**
+   * The object enters the unrealized state, before the application hears it: what
+   * the application changed on it stops having effect (the volume, TS 102 796 §10.2.12).
+   */
+  onUnrealized: IO.IO<void>;
   onChannelChangeSucceeded: (channel: Channel) => IO.IO<void>;
   /** `null` only when there was no channel to change from or to (`nextChannel()` with none). */
   onChannelChangeError: (channel: Channel | null, error: ChannelChangeErrorCode) => IO.IO<void>;
@@ -135,7 +140,11 @@ const writePlayState =
   ({ channelState }) =>
     channelState.modify((state) => ({ ...state, playState }));
 
-/** Changes `playState`, notifying the application only if it actually changed. */
+/**
+ * Changes `playState`, notifying the application only if it actually changed. An
+ * object that enters the unrealized state drops what the application changed on it
+ * first (`onUnrealized`), so a handler of the change already sees it gone.
+ */
 export const setPlayState = (playState: PlayState): RIO.ReaderIO<ChannelEnv, void> =>
   pipe(
     getPlayState,
@@ -145,6 +154,11 @@ export const setPlayState = (playState: PlayState): RIO.ReaderIO<ChannelEnv, voi
         : pipe(
             writePlayState(playState),
             RIO.tapIO(() => logger.debug("PlayState changed:", current, "->", playState)),
+            RIO.flatMap(() =>
+              playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED
+                ? (env: ChannelEnv) => env.channelEvents.onUnrealized
+                : noop,
+            ),
             RIO.flatMap(() => (env: ChannelEnv) => env.channelEvents.onPlayStateChange(playState)),
           ),
     ),

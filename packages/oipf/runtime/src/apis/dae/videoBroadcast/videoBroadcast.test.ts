@@ -1,4 +1,5 @@
 import { proxyProperties } from "@hbb-emu/core";
+import { OIPF } from "@hbb-emu/oipf-api";
 import * as IO from "fp-ts/IO";
 import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -46,7 +47,9 @@ const noopStreamEventScheduler: StreamEventSchedulerApi = {
   addListener: () => IO.of({ unsubscribe: IO.of(undefined) }),
 } as unknown as StreamEventSchedulerApi;
 
-const setup = (objectStyle = "width: 1280px; height: 720px") => {
+const { PlayState } = OIPF.DAE.Broadcast;
+
+const setup = (objectStyle = "width: 1280px; height: 720px", playState: OIPF.DAE.Broadcast.PlayState = 0) => {
   const stream = createFakeVideoStream();
   const eventHandlers = createEventHandlers();
   const object = document.createElement("object");
@@ -63,7 +66,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px") => {
     requestChannelChange: tuneAlone,
     onCurrentChannelChange: () => {},
     streamEventScheduler: noopStreamEventScheduler,
-    defaults: { fullScreen: false, playState: 0 },
+    defaults: { fullScreen: false, playState },
     eventHandlers,
   });
   return { videoBroadcast, eventHandlers, object, video: stream.videoStream.videoElement, ...stream };
@@ -95,6 +98,34 @@ describe("VideoBroadcast — volume", () => {
     expect(videoBroadcast.getVolume()).toBe(10);
     expect(setVolume).toHaveBeenCalledWith(10);
     expect(setMuted).toHaveBeenCalledWith(true);
+  });
+
+  it("release(): the application's volume ceases to have effect, the settings UI's mute stays (TS 102 796 §10.2.12)", () => {
+    const { videoBroadcast, setVolume, setMuted, eventHandlers } = setup(undefined, PlayState.PRESENTING);
+    videoBroadcast.setVolume(86);
+    videoBroadcast.applyState({ muted: true })();
+    let heard: number | undefined;
+    eventHandlers.onPlayStateChange.mockImplementation(() => {
+      heard = videoBroadcast.getVolume();
+    });
+
+    videoBroadcast.release();
+
+    expect(videoBroadcast.getVolume()).toBe(100);
+    expect(heard).toBe(100);
+    expect(setVolume).toHaveBeenLastCalledWith(100);
+    expect(videoBroadcast.getState()).toMatchObject({ volume: 100, muted: true });
+    expect(setMuted).toHaveBeenCalledTimes(1);
+  });
+
+  it("set while unrealized, the volume holds until the object enters the unrealized state again", () => {
+    const { videoBroadcast } = setup();
+    videoBroadcast.setVolume(50);
+
+    // The TV presents nothing: the object stays unrealized, it does not enter it.
+    videoBroadcast.bindToCurrentChannel();
+
+    expect(videoBroadcast.getVolume()).toBe(50);
   });
 
   it("rejects an out-of-range volume", () => {

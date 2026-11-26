@@ -201,6 +201,14 @@ export const applyVolumeState = (patch: Partial<VolumeState>): RIO.ReaderIO<Volu
     RIO.asUnit,
   );
 
+/**
+ * The object entered the unrealized state: the application's volume "shall cease to
+ * have any effect" (TS 102 796 §10.2.12), so the object plays at full volume again,
+ * in series with the TV's, and `getVolume()` says so. A later bind starts from there.
+ * Mute is the settings UI's, not the application's: it stays.
+ */
+export const resetVolume: RIO.ReaderIO<VolumeEnv, void> = applyVolumeState({ volume: DEFAULT_VOLUME });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // OIPF surface
 // ─────────────────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import {
   linearGain,
   parseVolume,
   readVolumeState,
+  resetVolume,
   setVolume,
   type VolumeState,
   volumeApi,
@@ -157,6 +158,25 @@ describe("environment", () => {
     setVolume(25)(sameTv)();
 
     expect(getVolume(env)()).toBe(25);
+  });
+});
+
+describe("resetVolume (the object entered the unrealized state)", () => {
+  it("brings the volume back to 100, keeping mute", () => {
+    const { env, output } = setup({ volume: 86, muted: true });
+
+    resetVolume(env)();
+
+    expect(readVolumeState(env)()).toEqual({ volume: 100, muted: true });
+    expect(output).toEqual([{ volume: 100 }]);
+  });
+
+  it("at 100 already, leaves the output alone", () => {
+    const { env, output } = setup();
+
+    resetVolume(env)();
+
+    expect(output).toEqual([]);
   });
 });
 

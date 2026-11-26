@@ -48,6 +48,7 @@ import {
   applyVolumeState,
   createVolumeEnv,
   readVolumeState,
+  resetVolume,
   type VolumeApi,
   volumeApi,
 } from "./volume";
@@ -117,6 +118,7 @@ export type VideoBroadcast = VideoBroadcastApi &
 export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): VideoBroadcast => {
   const { videoStream, eventHandlers, defaults } = dependencies;
 
+  const volume = createVolumeEnv(dependencies.audioOutput)();
   const channel = createChannelEnv(
     {
       getChannels: dependencies.channelRegistry.getChannels,
@@ -125,6 +127,7 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
       requestChannelChange: dependencies.requestChannelChange,
       channelEvents: {
         onPlayStateChange: (playState) => () => eventHandlers.onPlayStateChange(playState),
+        onUnrealized: resetVolume(volume),
         onChannelChangeSucceeded: (current) => () => eventHandlers.onChannelChangeSucceeded(current),
         onChannelChangeError: (target, error) => () => eventHandlers.onChannelChangeError(target, error),
         onCurrentChannelChange: (current) =>
@@ -141,7 +144,6 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
     { onFullScreenChange: (fullScreen) => () => eventHandlers.onFullScreenChange(fullScreen) },
     defaults.fullScreen,
   )();
-  const volume = createVolumeEnv(dependencies.audioOutput)();
   const component = createComponentEnv();
   const misc = createMiscEnv();
   const streamEvent = createStreamEventEnv(dependencies.streamEventScheduler)();

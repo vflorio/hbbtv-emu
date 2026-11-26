@@ -340,6 +340,22 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     );
     expect(await audio()).toEqual({ object: 86, element: 0.18 });
 
+    // §10.2.12: once released, the object's volume ceases to have effect; bound again, only the TV's is left.
+    type Bindable = { playState: number; release: () => void; bindToCurrentChannel: () => unknown };
+    const unrealized = await app.evaluate(() => {
+      const object = document.getElementById("video") as unknown as Bindable;
+      object.release();
+      return object.playState;
+    });
+    expect(unrealized).toBe(0);
+    expect(await audio()).toEqual({ object: 100, element: 0.9 });
+    const playState = () => app.evaluate(() => (document.getElementById("video") as unknown as Bindable).playState);
+    await app.evaluate(() => {
+      (document.getElementById("video") as unknown as Bindable).bindToCurrentChannel();
+    });
+    await expect.poll(playState, { timeout: 5000 }).not.toBe(0);
+    expect(await audio()).toEqual({ object: 100, element: 0.9 });
+
     // The volume is the TV's: the tab's next page has it too.
     await app.reload();
     await expect.poll(audio, { timeout: 5000 }).toEqual({ object: 100, element: 0.9 });

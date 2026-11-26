@@ -50,6 +50,7 @@ type Call =
   | { readonly stop: true }
   | { readonly destroy: true }
   | { readonly playState: number }
+  | { readonly unrealized: true }
   | { readonly error: number }
   | { readonly succeeded: string | undefined }
   | { readonly presents: string | null };
@@ -97,6 +98,9 @@ const setup = ({
         onPlayStateChange: (state) => () => {
           calls.push({ playState: state });
         },
+        onUnrealized: () => {
+          calls.push({ unrealized: true });
+        },
         onChannelChangeSucceeded: (succeeded) => () => {
           calls.push({ succeeded: succeeded.ccid });
         },
@@ -136,6 +140,20 @@ describe("setPlayState", () => {
 
     expect(getPlayState(env)()).toBe(PlayState.CONNECTING);
     expect(calls).toEqual([{ playState: PlayState.CONNECTING }]);
+  });
+
+  it("entering the unrealized state drops the application's changes before the application hears it", () => {
+    const { env, calls } = setup({ playState: PlayState.PRESENTING });
+
+    setPlayState(PlayState.STOPPED)(env)();
+    setPlayState(PlayState.UNREALIZED)(env)();
+    setPlayState(PlayState.UNREALIZED)(env)();
+
+    expect(calls).toEqual([
+      { playState: PlayState.STOPPED },
+      { unrealized: true },
+      { playState: PlayState.UNREALIZED },
+    ]);
   });
 });
 
@@ -221,7 +239,7 @@ describe("changeChannel (the application's setChannel)", () => {
     await changeChannel(null)(env)();
 
     expect(getPlayState(env)()).toBe(PlayState.UNREALIZED);
-    expect(calls).toEqual([{ playState: PlayState.UNREALIZED }, { destroy: true }]);
+    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { destroy: true }]);
   });
 });
 
@@ -252,7 +270,7 @@ describe("stop / release", () => {
     release(env)();
     release(env)();
 
-    expect(calls).toEqual([{ playState: PlayState.UNREALIZED }, { destroy: true }]);
+    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { destroy: true }]);
     expect(getCurrentChannel(env)()).toMatchObject({ ccid: "dmax" });
   });
 });
@@ -292,6 +310,7 @@ describe("bindToCurrentChannel", () => {
   });
 
   it("unrealized on a TV presenting nothing, binds nothing and tells the application it stays unrealized", () => {
+    // It does not enter the unrealized state again: what the application changed meanwhile stays.
     const { env, calls } = setup({ tuned: null });
 
     expect(bindToCurrentChannel(env)()).toBeNull();
