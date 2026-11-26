@@ -11,7 +11,9 @@
  *
  * Every MPD dash.js loads (the first, and each update of a dynamic one) is handed over
  * as it came (`onManifest`), for what dash.js does not expose to the application: the
- * MPD's events (TS 102 796 §9.3.2.2).
+ * MPD's events (TS 102 796 §9.3.2.2). The events of the segments (`emsg` boxes of an
+ * `InbandEventStream`) are handed over as dash.js receives them, for the schemes the
+ * page runtime follows (`followInband`): dash.js gives them only to a listener.
  */
 
 import { dashjs } from "./dashjs";
@@ -23,6 +25,21 @@ export type MediaElementDashHooks = Readonly<{
   onError: (code: number, message: string) => void;
   /** The text of an MPD dash.js loaded, before it reads it. */
   onManifest: (text: string) => void;
+  /** An event of the segments, of a scheme the page runtime follows, as dash.js receives it. */
+  onInbandEvent: (event: InbandEvent) => void;
+}>;
+
+/** An `emsg` event (ISO/IEC 23009-1 §5.10.3.3), on the element's timeline. */
+export type InbandEvent = Readonly<{
+  schemeIdUri: string;
+  value: string;
+  id: string;
+  /** In seconds: from `presentation_time_delta` (version 0) or `presentation_time` (version 1). */
+  startTime: number;
+  /** In seconds; `null` for an indeterminate `event_duration` (0xFFFF, or 0xFFFFFFFF). */
+  duration: number | null;
+  /** `message_data`. */
+  data: ArrayBuffer;
 }>;
 
 export type MediaElementDash = Readonly<{
@@ -30,6 +47,8 @@ export type MediaElementDash = Readonly<{
   attachSource: (url: string) => void;
   /** Lets the element go, with no source; the engine is not used again. */
   reset: () => void;
+  /** Hands over the inband events of a scheme from now on (`onInbandEvent`); again, nothing more. */
+  followInband: (schemeIdUri: string) => void;
 }>;
 
 export type MediaElementDashEngine = Readonly<{
@@ -75,6 +94,47 @@ type DashRequest = { request?: { type?: string } };
 /** dash.js's `HTTPRequest.MPD_TYPE`. */
 const MPD_TYPE = "MPD";
 
+/** What dash.js gives a listener of a scheme (its `Event`, in `{ event }`). */
+type DashEventPayload = {
+  event?: {
+    id?: number | string;
+    duration?: number;
+    calculatedPresentationTime?: number;
+    /** A number only for an inband event: NaN for an event of the MPD. */
+    presentationTimeDelta?: number;
+    messageData?: Uint8Array | string;
+    eventStream?: { schemeIdUri?: string; value?: string; timescale?: number };
+  };
+};
+
+/** `event_duration` values that mean "unknown" (TS 102 796 §9.3.2.2 writes 0xFFFF; emsg's field is 32 bits). */
+const INDETERMINATE_DURATIONS = new Set([0xffff, 0xffffffff]);
+
+const bytesOf = (data: Uint8Array | string | undefined): ArrayBuffer => {
+  if (data === undefined) return new ArrayBuffer(0);
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  // A copy: dash.js can delete or reuse its own.
+  return bytes.slice().buffer as ArrayBuffer;
+};
+
+/** The inband event of a payload; `null` for an event of the MPD, or one that is not whole. */
+export const inbandEventOf = (payload: DashEventPayload): InbandEvent | null => {
+  const event = payload.event;
+  const stream = event?.eventStream;
+  if (!event || !stream?.schemeIdUri || typeof event.presentationTimeDelta !== "number") return null;
+  if (Number.isNaN(event.presentationTimeDelta) || typeof event.calculatedPresentationTime !== "number") return null;
+  const timescale = stream.timescale || 1;
+  const duration = typeof event.duration === "number" && Number.isFinite(event.duration) ? event.duration : null;
+  return {
+    schemeIdUri: stream.schemeIdUri,
+    value: stream.value ?? "",
+    id: event.id === undefined || (typeof event.id === "number" && Number.isNaN(event.id)) ? "" : String(event.id),
+    startTime: event.calculatedPresentationTime,
+    duration: duration === null || INDETERMINATE_DURATIONS.has(Math.round(duration * timescale)) ? null : duration,
+    data: bytesOf(event.messageData),
+  };
+};
+
 const text = (data: unknown): string | null => {
   if (typeof data === "string") return data;
   if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
@@ -113,9 +173,22 @@ const create = (element: HTMLMediaElement, hooks: MediaElementDashHooks): MediaE
   // No autoplay of its own: the element plays as the application asks, `autoplay` included.
   hooks.internally(() => player.initialize(element as HTMLVideoElement, undefined, false));
 
+  const followed = new Set<string>();
+  const onEvent = (payload: DashEventPayload) => {
+    const event = inbandEventOf(payload);
+    if (event) hooks.onInbandEvent(event);
+  };
+
   return {
     attachSource: (url) => player.attachSource(url),
     reset: () => hooks.internally(() => player.reset()),
+    followInband: (schemeIdUri) => {
+      if (followed.has(schemeIdUri)) return;
+      followed.add(schemeIdUri);
+      player.on(schemeIdUri, onEvent as (event: unknown) => void, undefined, {
+        mode: dashjs.MediaPlayer.events.EVENT_MODE_ON_RECEIVE,
+      });
+    },
   };
 };
 

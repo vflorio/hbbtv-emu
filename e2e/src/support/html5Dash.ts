@@ -84,7 +84,8 @@ export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) =
   expect(ended).toEqual({ src: mpdUrl, currentSrc: mpdUrl, duration: 3, size: [160, 90], error: null });
   expect((await app(evaluate)).events).toEqual(["loadedmetadata", "playing", "ended"]);
 
-  // The MPD's events, as the application follows them (TS 102 796 §9.3.2.2): a hidden
+  // The MPD's events and its segments' (emsg), as the application follows them (TS 102
+  // 796 §9.3.2.2): a hidden
   // metadata track per event stream, a DataCue per event, entered as it plays.
   await evaluate(() => {
     const video = document.getElementById("events") as HTMLVideoElement;
@@ -103,10 +104,21 @@ export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) =
       mode: "hidden",
       dispatchType: "urn:scte:scte35:2014:xml+bin ",
     },
+    // The segments' stream (emsg), as the MPD declares it.
+    {
+      kind: "metadata",
+      label: "",
+      language: "",
+      id: "",
+      mode: "hidden",
+      dispatchType: "urn:hbbtv-emu:e2e:inband 1",
+    },
   ]);
   expect(followed.cues.map(({ data, ...cue }) => cue)).toEqual([
     { id: "1", startTime: 0.5, endTime: 1.5, isDataCue: true },
     { id: "10", startTime: 1, endTime: Number.MAX_VALUE, isDataCue: true },
+    // An emsg of the second segment (from 1 s): 500 ms in, 300 ms long.
+    { id: "7", startTime: 1.5, endTime: 1.8, isDataCue: true },
     // 100 ms long: 250 ms, so that it is not missed.
     { id: "2", startTime: 2, endTime: 2.25, isDataCue: true },
   ]);
@@ -115,6 +127,7 @@ export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) =
     expect.stringMatching(
       /^<Event [^>]*id="10"[^>]*><scte35:Signal xmlns:scte35="urn:scte:scte35:2013:xml"><scte35:Binary>\/DAvAAA=<\/scte35:Binary><\/scte35:Signal><\/Event>$/,
     ),
+    "inband",
     "world",
   ]);
 

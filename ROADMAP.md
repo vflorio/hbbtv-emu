@@ -137,7 +137,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 | ChannelConfig / ChannelList / Channel (§7.13.9–11) | M | ✅ lineup, `getChannelByTriplet`, `next`/`prevChannel` | LCN, id type non-triplet | S–M | P1 |
 | Stream event DSM-CC (`addStreamEventListener`, TS §8.2.1, §9.3.1) | M | 🟡 iscrizioni dell'app e scheduler base (timestamps / intervallo / ritardo) con editor nella UI. Non verificato in e2e | e2e. Scheduler sul tempo del media / live simulato (2.4), payload predefiniti per DAI. Eventi dal TS reale (DSM-CC, 2.4) | M–L (TS reale: XL, P3) | P0 |
 | A/V Control (§7.14, A.2.5) | M | ✅ VOD, audio, `queue()`, eventi DOM | Regole di `error` (A.2.5.1), attributo `data` del markup, adapter dal `type`, `visual-embedded` | S + M | P0 |
-| `<video>` HTML5 con DASH (TS §9.4.2, A.2.12) | M | 🟡 MPD come `src` (proprietà o attributo, anche nel markup) o come `<source>`, presentato da dash.js sullo stesso elemento; `load()`, `error`, `canPlayType`, volume in serie; eventi dell'MPD come `TextTrack`/`DataCue` (§9.3.2.2) | `audioTracks`/`textTracks`; eventi inband (`emsg`) | M | P0 |
+| `<video>` HTML5 con DASH (TS §9.4.2, A.2.12) | M | 🟡 MPD come `src` (proprietà o attributo, anche nel markup) o come `<source>`, presentato da dash.js sullo stesso elemento; `load()`, `error`, `canPlayType`, volume in serie; eventi dell'MPD e dei segmenti (`emsg`) come `TextTrack`/`DataCue` (§9.3.2.2) | `audioTracks`/`textTracks` | M | P0 |
 | Capabilities (§7.15.3, A.2.30, TS §10.2.4) | M | 🟡 proprietà e `hasCapability()` | `xmlCapabilities`: l'XML che le app leggono per DRM, UHD, DASH | S–M | P1 |
 | Configuration (§7.3.2, A.2.20) | M | 🟡 lingua, paese, lingue preferite | `subtitlesEnabled`, `audioDescriptionEnabled`, `deviceId`, `dtt_network_ids` | S | P1 |
 | Componenti audio/sottotitoli (§7.13.4, §7.14.4, §7.16.5, A.2.17, A.2.23) | M | ❌ stub: `getComponents()` restituisce `undefined` | Tracce di dash.js, hls.js e del player nativo come `AVComponent`; `selectComponent()`; `ComponentChanged` | L | P1 |
@@ -154,7 +154,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 | LocalSystem, Tuner, Widget, `getVolume()`, `queue()` di OIPF, … | NI | — | Niente: HbbTV le esclude | — | — |
 
 **In sintesi:**
-- **P0** chiede ~3 settimane: DASH nel `<video>` M (restano le tracce audio/sottotitoli e gli eventi inband), `createApplication`/`destroyApplication` M, stream event M–L, regole di `error` di A/V Control S, attivazione del keyset S–M.
+- **P0** chiede ~3 settimane: DASH nel `<video>` M (restano le tracce audio e sottotitoli), `createApplication`/`destroyApplication` M, stream event M–L, regole di `error` di A/V Control S, attivazione del keyset S–M.
 - **P1** chiede ~3 settimane: componenti L, EIT p/f M, `xmlCapabilities` e Configuration S–M.
 - Il resto si apre solo su richiesta.
 
@@ -279,7 +279,8 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
     - [ ] Il `DataCue` dell'emulatore è anche un `VTTCue`; sui motori legacy (ES5) la sottoclasse di `VTTCue` va verificata.
     - [ ] Gli eventi che TS 103 285 §10.1.4 riserva al terminale non sono ancora esclusi.
     - [ ] `@messageData` (DASH 4ª edizione) è ignorato: conta solo il contenuto dell'Event.
-  - [ ] Eventi inband (`emsg`, `InbandEventStream`): `startTime` da `presentation_time_delta`, `data` = `message_data`, `endTime` `Number.MAX_VALUE` per `event_duration` 0xFFFF.
+  - [x] **Eventi dei segmenti** (`emsg` di un `InbandEventStream`, §9.3.2.2): ogni `InbandEventStream` dell'MPD (di AdaptationSet o Representation, una volta per scheme e value) ha la sua traccia da subito, e la page runtime si iscrive al suo scheme in dash.js (`followInband`: dash.js dà gli eventi inband solo a un listener, in modalità `ON_RECEIVE`). Ogni `emsg` ricevuto diventa un `DataCue`: `id` = id dell'emsg, `startTime` = il `calculatedPresentationTime` di dash.js (inizio del segmento + `presentation_time_delta` per la versione 0, `presentation_time` per la 1), `endTime` con durata minima di 250 ms, `Number.MAX_VALUE` per un `event_duration` indeterminato (0xFFFF come scrive §9.3.2.2, o 0xFFFFFFFF del campo a 32 bit), `data` = `message_data` (copiato: dash.js lo cancella dopo). Un evento dell'MPD e uno dei segmenti con lo stesso scheme e value finiscono nella stessa traccia; si distinguono da `presentationTimeDelta`, che è `NaN` per quelli dell'MPD. Verificato in e2e su Chromium e Firefox con un `emsg` v0 nel secondo segmento: cue da 1,5 a 1,8 s, `data` "inband", nell'ordine giusto tra gli eventi dell'MPD.
+    - Scelte dell'emulatore: le tracce sono quelle degli `InbandEventStream` di tutte le Representation, non solo di quelle selezionate; i cue passati restano 30 s dopo la loro fine (§9.3.2.2 chiede almeno quelli attivi e quelli appena finiti), così un live lungo non fa crescere la lista all'infinito.
   - [ ] `audioTracks`/`textTracks` dalle tracce di dash.js; `getStartDate()` per gli MPD dinamici.
   - [ ] `getAttribute("src")` legge l'object URL di dash.js una volta agganciato.
   - [ ] L'MPD e i segmenti li scarica dash.js dalla pagina, quindi servono gli header CORS (una TV non li chiede al media element).

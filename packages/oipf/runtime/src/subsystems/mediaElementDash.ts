@@ -35,8 +35,9 @@
  *   browser reports a source of its own (`dashMediaErrorCode`).
  * - `canPlayType("application/dash+xml")` is "maybe", or "probably" when the browser
  *   plays every codec of the `codecs` parameter (HTML: "probably" only with codecs).
- * - The MPD's events are the element's TextTracks of kind "metadata", with a DataCue
- *   per event (§9.3.2.2, `./dashEvents`), from every MPD dash.js loads; a new source
+ * - The MPD's events, and its segments' (`emsg`), are the element's TextTracks of kind
+ *   "metadata", with a DataCue per event (§9.3.2.2, `./dashEvents`): the streams of
+ *   every MPD dash.js loads, the segments' events as dash.js receives them; a new source
  *   or the end of the presentation empties them.
  *
  * The videos of the OIPF objects are left alone (`EmulatorMedia`): their player
@@ -54,7 +55,14 @@ import { createLogger } from "@hbb-emu/core";
 import type { MediaElementDash, MediaElementDashEngine } from "@hbb-emu/player-adapter-web";
 import type * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
-import { createEventTracks, type EventTracks, installDataCue, mpdEventStreams } from "./dashEvents";
+import {
+  createEventTracks,
+  type EventTracks,
+  inbandEventStreams,
+  installDataCue,
+  mpdEventStreams,
+  type ReceivedInbandEvent,
+} from "./dashEvents";
 import type { EmulatorMedia } from "./mediaElementVolume";
 
 const logger = createLogger("MediaElementDash");
@@ -147,21 +155,29 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
   if (!dataCue) logger.warn("No VTTCue to make a DataCue from: the MPD's events do not reach the application")();
   const eventTracks = new WeakMap<HTMLMediaElement, EventTracks>();
   const serializer = new window.XMLSerializer();
-  const showEvents = (element: HTMLMediaElement, text: string) => {
+  const tracksOf = (element: HTMLMediaElement, DataCue: NonNullable<typeof dataCue>["DataCue"]): EventTracks => {
+    const existing = eventTracks.get(element);
+    if (existing) return existing;
+    const created = createEventTracks(element, DataCue);
+    eventTracks.set(element, created);
+    return created;
+  };
+  const showEvents = (element: HTMLMediaElement, dash: MediaElementDash, text: string) => {
     if (!dataCue) return;
     try {
       const document = new window.DOMParser().parseFromString(text, "application/xml");
       const streams = mpdEventStreams(document, (node) => serializer.serializeToString(node));
-      let tracks = eventTracks.get(element);
-      if (!tracks && streams.length === 0) return;
-      if (!tracks) {
-        tracks = createEventTracks(element, dataCue.DataCue);
-        eventTracks.set(element, tracks);
-      }
-      tracks.update(streams);
+      const inband = inbandEventStreams(document);
+      for (const stream of inband) dash.followInband(stream.schemeIdUri);
+      if (!eventTracks.has(element) && streams.length === 0 && inband.length === 0) return;
+      tracksOf(element, dataCue.DataCue).update(streams, inband);
     } catch (cause) {
       logger.warn("The MPD's events could not be read", cause)();
     }
+  };
+  const showInbandEvent = (element: HTMLMediaElement, event: ReceivedInbandEvent) => {
+    if (!dataCue) return;
+    tracksOf(element, dataCue.DataCue).addInband(event, element.currentTime);
   };
 
   // dash.js's own writes to an element's source go to the browser (`internally`).
@@ -247,7 +263,10 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
         element.dispatchEvent(new Event("error"));
       },
       onManifest: (text) => {
-        if (presentations.get(element) === presentation) showEvents(element, text);
+        if (presentations.get(element) === presentation) showEvents(element, dash, text);
+      },
+      onInbandEvent: (event) => {
+        if (presentations.get(element) === presentation) showInbandEvent(element, event);
       },
     });
     const presentation: Presentation = { url, origin, dash, attached: false, written: null, error: null };

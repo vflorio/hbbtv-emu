@@ -59,6 +59,7 @@ type FakeDash = {
   hooks: MediaElementDashHooks;
   sources: string[];
   resets: number;
+  followed: string[];
   attach: () => void;
 };
 
@@ -73,6 +74,7 @@ const engine: MediaElementDashEngine = {
       hooks,
       sources: [],
       resets: 0,
+      followed: [],
       attach: () =>
         hooks.internally(() => {
           element.src = `blob:http://localhost/${dash.sources.length}`;
@@ -89,6 +91,9 @@ const engine: MediaElementDashEngine = {
           element.removeAttribute("src");
           element.load();
         }),
+      followInband: (schemeIdUri) => {
+        dash.followed.push(schemeIdUri);
+      },
     };
   },
   isTypeSupported: (type) => type.includes("avc1") || type.includes("mp4a"),
@@ -450,6 +455,27 @@ describe("the MPD's events (TS 102 796 §9.3.2.2)", () => {
 
     video.src = "clip.mp4";
     expect(tracksOf(video)[0]).toMatchObject({ mode: "disabled", cues: [] });
+  });
+
+  it("follows the segments' event streams the MPD declares, and each event received is a cue", () => {
+    const video = document.createElement("video");
+    video.src = "live.mpd";
+
+    dashes[0]?.hooks.onManifest(`<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period><AdaptationSet>
+      <InbandEventStream schemeIdUri="urn:scte:scte35:2013:bin"/><Representation id="1"/>
+    </AdaptationSet></Period></MPD>`);
+    expect(dashes[0]?.followed).toEqual(["urn:scte:scte35:2013:bin"]);
+    expect(tracksOf(video)).toMatchObject([{ inBandMetadataTrackDispatchType: "urn:scte:scte35:2013:bin ", cues: [] }]);
+
+    dashes[0]?.hooks.onInbandEvent({
+      schemeIdUri: "urn:scte:scte35:2013:bin",
+      value: "",
+      id: "5",
+      startTime: 4,
+      duration: 2,
+      data: new ArrayBuffer(3),
+    });
+    expect(tracksOf(video)[0]?.cues).toEqual([expect.objectContaining({ id: "5", startTime: 4, endTime: 6 })]);
   });
 
   it("an MPD of a presentation that ended is not the element's", () => {

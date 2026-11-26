@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dispatchType, MINIMUM_CUE_DURATION, mpdEventStreams, parseDuration } from "./mpdEvents";
+import { dispatchType, inbandEventStreams, MINIMUM_CUE_DURATION, mpdEventStreams, parseDuration } from "./mpdEvents";
 
 const parse = (mpd: string) =>
   mpdEventStreams(new DOMParser().parseFromString(mpd, "application/xml"), (node) =>
@@ -116,6 +116,25 @@ describe("the events of an MPD (TS 102 796 §9.3.2.2)", () => {
   it("not an MPD: no events", () => {
     expect(parse("<html/>")).toEqual([]);
     expect(parse("not xml")).toEqual([]);
+  });
+});
+
+describe("the InbandEventStreams of an MPD", () => {
+  it("of the AdaptationSets and Representations, once each, DASH's own left to dash.js", () => {
+    const document = new DOMParser().parseFromString(
+      MPD(`
+        <Period>
+          <AdaptationSet>
+            <InbandEventStream schemeIdUri="urn:scte:scte35:2013:bin"/>
+            <InbandEventStream schemeIdUri="urn:mpeg:dash:event:2012" value="1"/>
+            <Representation id="a"><InbandEventStream schemeIdUri="urn:example:id3" value="2"/></Representation>
+            <Representation id="b"><InbandEventStream schemeIdUri="urn:example:id3" value="2"/></Representation>
+          </AdaptationSet>
+        </Period>`),
+      "application/xml",
+    );
+
+    expect(inbandEventStreams(document).map(dispatchType)).toEqual(["urn:scte:scte35:2013:bin ", "urn:example:id3 2"]);
   });
 });
 

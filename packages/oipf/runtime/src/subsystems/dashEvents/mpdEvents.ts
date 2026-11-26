@@ -21,6 +21,9 @@
  * Times are on the element's timeline as dash.js presents it: the Period starts as the
  * MPD gives them (`@start`, or the previous Period's start plus its `@duration`).
  * A Period whose start cannot be known that way contributes no events.
+ *
+ * The events of the segments (`emsg`, §5.10.3) are dash.js's to read: the MPD only
+ * says which streams they belong to (`InbandEventStream`, `inbandEventStreams`).
  */
 
 export type DashEvent = Readonly<{
@@ -92,6 +95,27 @@ const eventData = (event: Element, serialize: (node: Node) => string): ArrayBuff
 
 const children = (parent: Element, name: string): Element[] =>
   Array.from(parent.children).filter((child) => child.localName === name);
+
+/** An event stream of the segments, as an MPD declares it. */
+export type InbandEventStream = Pick<DashEventStream, "schemeIdUri" | "value">;
+
+/**
+ * The `InbandEventStream`s of an MPD's AdaptationSets and Representations, once each,
+ * for the application (DASH's own schemes are dash.js's). The emulator's choice: the
+ * streams of every Representation, not only of the selected ones (TS 102 796 §9.3.2.2).
+ */
+export const inbandEventStreams = (mpd: Document): InbandEventStream[] => {
+  const root = mpd.documentElement;
+  if (!root || root.localName !== "MPD") return [];
+  const streams = new Map<string, InbandEventStream>();
+  for (const declared of Array.from(root.getElementsByTagNameNS("*", "InbandEventStream"))) {
+    const schemeIdUri = declared.getAttribute("schemeIdUri") ?? "";
+    if (schemeIdUri === "" || isDashOwnScheme(schemeIdUri)) continue;
+    const stream = { schemeIdUri, value: declared.getAttribute("value") ?? "" };
+    streams.set(dispatchType(stream), stream);
+  }
+  return [...streams.values()];
+};
 
 /** The event streams of an MPD for the application; none if the document is not an MPD. */
 export const mpdEventStreams = (mpd: Document, serialize: (node: Node) => string): DashEventStream[] => {

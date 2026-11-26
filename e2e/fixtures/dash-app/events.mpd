@@ -21,8 +21,9 @@
 			<Event id="10" presentationTime="1"><scte35:Signal xmlns:scte35="urn:scte:scte35:2013:xml"><scte35:Binary>/DAvAAA=</scte35:Binary></scte35:Signal></Event>
 		</EventStream>
 		<AdaptationSet id="0" contentType="video" startWithSAP="1" segmentAlignment="true" bitstreamSwitching="true" frameRate="10/1" maxWidth="160" maxHeight="90" par="16:9" lang="und">
+			<InbandEventStream schemeIdUri="urn:hbbtv-emu:e2e:inband" value="1" />
 			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="30000" width="160" height="90" sar="1:1">
-				<SegmentTemplate timescale="1000000" duration="1000000" initialization="init.mp4" media="seg-$Number$.m4s" startNumber="1">
+				<SegmentTemplate timescale="1000000" duration="1000000" initialization="init.mp4" media="seg-emsg-$Number$.m4s" startNumber="1">
 				</SegmentTemplate>
 			</Representation>
 		</AdaptationSet>
