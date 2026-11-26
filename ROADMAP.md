@@ -120,6 +120,44 @@ Il progetto cresce in tre fasi:
 
 ---
 
+## Priorità delle API OIPF/HbbTV
+
+Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 102 796 (Tabella A.1 e A.2): M obbligatoria, M-P/M-D/M-M solo con PVR/download/DRM, NI esclusa. La **stima** è il lavoro che resta, in giorni di lavoro concentrato, ±50%: S ≤ 1 g, M 2–4 g, L 1–2 settimane, XL oltre. La **priorità** è pensata per le app di un broadcaster (linear con red button, VOD, DAI con stream event, integrazioni tra partner) ed è stata rivista sulle app usate davvero: il VOD usa il `<video>` HTML5 con DASH di HbbTV 2.0 (P0), `debug()` non serve (P2).
+
+- **P0**: la usa quasi ogni app di questo tipo. Si finisce prima di tutto il resto.
+- **P1**: frequente, o serve per test realistici.
+- **P2**: solo quando un'app di lavoro la usa.
+- **P3**: fuori scope finché non serve.
+
+| API (spec) | HbbTV | Stato | Resta da fare | Stima | Priorità |
+|---|---|---|---|---|---|
+| Keyset e tasti (§7.2.5, TS §10.2.2) | M | ✅ | Attivazione delle app (Tabella 12: cifre e VCR solo dopo il primo tasto) | S–M | P0 |
+| Application / ApplicationManager (§7.2.1–7.2.2, §7.2.4) | M | 🟡 `getOwnerApplication`, `show`/`hide`, `privateData` (`keyset`, `currentChannel`) | `createApplication(uri)` e `destroyApplication()` (red button → app completa, ritorno al launcher) con le regole AIT che già esistono per il cambio canale. `activate`/`deactivate`/`destroy` sono vuoti | M | P0 |
+| video/broadcast, nucleo (§7.13.1, A.2.4.1–2) | M | ✅ bind, `setChannel`, `release`/`stop`, stati, eventi DOM, finestra, volume | `error` di `PlayStateChange`, canali `hidden` | S | P0 |
+| ChannelConfig / ChannelList / Channel (§7.13.9–11) | M | ✅ lineup, `getChannelByTriplet`, `next`/`prevChannel` | LCN, id type non-triplet | S–M | P1 |
+| Stream event DSM-CC (`addStreamEventListener`, TS §8.2.1, §9.3.1) | M | 🟡 iscrizioni dell'app e scheduler base (timestamps / intervallo / ritardo) con editor nella UI. Non verificato in e2e | e2e. Scheduler sul tempo del media / live simulato (2.4), payload predefiniti per DAI. Eventi dal TS reale (DSM-CC, 2.4) | M–L (TS reale: XL, P3) | P0 |
+| A/V Control (§7.14, A.2.5) | M | ✅ VOD, audio, `queue()`, eventi DOM | Regole di `error` (A.2.5.1), attributo `data` del markup, adapter dal `type`, `visual-embedded` | S + M | P0 |
+| `<video>` HTML5 con DASH (TS §9.4.2, A.2.12) | M | ❌ un `<video src="….mpd">` non parte (il browser non ha DASH nativo); c'è solo il volume in serie | Aggancio di dash.js ai `<video>` dell'app con `src` DASH; `audioTracks`/`textTracks` | L | P0 |
+| Capabilities (§7.15.3, A.2.30, TS §10.2.4) | M | 🟡 proprietà e `hasCapability()` | `xmlCapabilities`: l'XML che le app leggono per DRM, UHD, DASH | S–M | P1 |
+| Configuration (§7.3.2, A.2.20) | M | 🟡 lingua, paese, lingue preferite | `subtitlesEnabled`, `audioDescriptionEnabled`, `deviceId`, `dtt_network_ids` | S | P1 |
+| Componenti audio/sottotitoli (§7.13.4, §7.14.4, §7.16.5, A.2.17, A.2.23) | M | ❌ stub: `getComponents()` restituisce `undefined` | Tracce di dash.js, hls.js e del player nativo come `AVComponent`; `selectComponent()`; `ComponentChanged` | L | P1 |
+| Programmi EIT p/f (§7.13.3, §7.16.2–3) | M | 🟡 `programmes` dalla UI, senza aggiornamenti | Programma corrente e successivo per canale nello scenario, `onProgrammesChanged` | M | P1 |
+| oipfObjectFactory (§7.1, A.2.7) | M | ✅ | `requiredCapabilities` / `allocationMethod` | S | P2 |
+| `debug()` (§7.15.5) | M | ❌ | `window.debug(msg)` verso il log della pagina | S (ore) | P2 |
+| `quiet` di `setChannel()` (A.2.4.3) | M | 🟡 nel tipo, ignorato | Dipende dall'OSD del cambio canale (2.3) | S | P2 |
+| Parental rating (§7.9, §7.13.5, §7.14.5, A.2.28) | M | ❌ | Rating dei programmi, blocco con errore 7 / `onParentalRatingChange` | M | P2 |
+| Sottotitoli TTML / EBU-TT-D (A.2.5.3) | M | ❌ | Rendering dei sottotitoli out-of-band e in DASH | L | P2 |
+| EIT schedule, MetadataSearch (§7.12, A.2.9) | M | ❌ | Ricerca nella guida programmi dello scenario | L | P2 |
+| DRM: oipfDrmAgent, Content Service Protection (§7.6, §7.13.6, §7.14.6, A.2.27) | M-M | ❌ | EME tramite dash.js (sul desktop di fatto solo Widevine), errori DRM, `sendDRMMessage` | L–XL | P2 (P0 se il VOD è protetto) |
+| MediaSynchroniser, CSManager, app2app (TS §13–14, HbbTV 2.0) | M (2.0) | ❌ | Sincronizzazione multi-stream, companion screen | XL | P3 |
+| Time-shift, recording, download, `setSource()` (A.2.4.7–8, §7.10, §7.4) | M-P / M-D | ❌ | Solo su TV con PVR o download | XL | P3 |
+| LocalSystem, Tuner, Widget, `getVolume()`, `queue()` di OIPF, … | NI | — | Niente: HbbTV le esclude | — | — |
+
+**In sintesi:**
+- **P0** chiede ~3–4 settimane: DASH nel `<video>` L, `createApplication`/`destroyApplication` M, stream event M–L, regole di `error` di A/V Control S, attivazione del keyset S–M.
+- **P1** chiede ~3 settimane: componenti L, EIT p/f M, `xmlCapabilities` e Configuration S–M.
+- Il resto si apre solo su richiesta.
+
 ## Fase 0 — Consolidamento del branch
 
 - [x] Package manager: pnpm → **Bun** (workspaces nel `package.json` di root, `bun.lock`).
@@ -184,6 +222,8 @@ Il progetto cresce in tre fasi:
 - [ ] **UI**: settings-ui collegata via port di messaging, montabile come side panel (MV3 ≥ 114), popup/pagina opzioni (MV2), pagina web esterna (WebKit/standalone).
 
 ### 1.3 Porting della runtime OIPF (da `main`)
+> L'ordine di lavoro sulle API è quello della tabella "Priorità delle API OIPF/HbbTV" (sopra): le voci P2/P3 di questa sezione restano aperte finché un'app non le richiede.
+
 - [x] Riscrivere `VideoBroadcast` secondo D1, una parte alla volta sul modello di `volume.ts`: ~~`volume`~~, ~~`display`~~, ~~`channel`~~, ~~`component`~~, ~~`streamEvent`~~, ~~`misc`~~, ~~`controller`~~ (assorbito da `channel`: `followStream`, `startChannel`). ✅ `createVideoBroadcast` compone le API `Reader` delle parti in un solo oggetto (accessor compresi), senza ereditarietà né `compose`; lo schema di stato della UI legge e scrive tramite gli stessi moduli, non più tramite proprietà `_xxx`. I ponti temporanei (`WithVolume`, `WithDisplay`, `WithChannel`) sono rimossi.
   - Lo stato `streamEventListeners` è ora di sola lettura per la UI: sono le iscrizioni dell'app (prima la UI poteva sovrascrivere la lista senza effetto reale).
   - Sull'`<object>` non finiscono più i dettagli interni della vecchia classe (`env`, `stateful`, `_playState`, …).
