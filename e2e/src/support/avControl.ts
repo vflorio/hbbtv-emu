@@ -13,6 +13,8 @@ export type AvAppState = {
   playStates: number[];
   speeds: number[];
   positions: number[];
+  /** What the application's DOM listeners on the object received. */
+  dom: { playStates: number; speeds: number[]; positions: number[] };
 };
 
 type AvPlayer = HTMLObjectElement & {
@@ -94,6 +96,9 @@ export const runAvControlScenario = async (evaluate: Evaluate) => {
   expect(lastRun).not.toContain(PAUSED);
   expect(lastRun[lastRun.length - 1]).toBe(FINISHED);
   expect(end.speeds).toEqual([1, 0, 1, 0]);
+
+  // OIPF DAE §7.14.9, §7.14.3.2: each intrinsic event is a DOM event of the object too.
+  expect(end.dom).toEqual({ playStates: end.playStates.length, speeds: end.speeds, positions: end.positions });
 };
 
 const ERROR = 6;

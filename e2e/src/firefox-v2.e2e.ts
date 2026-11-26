@@ -111,6 +111,30 @@ describe("firefox-v2: HbbTV application", () => {
     expect(await page.evaluate(() => document.contentType)).toBe("application/xhtml+xml");
   });
 
+  it("video/broadcast's intrinsic events are DOM events of the object too (OIPF DAE §7.13.1.4)", async () => {
+    const { page, errors } = await openPage(`basic-app/index.xhtml?events=${Date.now()}`);
+
+    const seen = await page.evaluate(() => {
+      type VideoBroadcastObject = HTMLObjectElement & {
+        onPlayStateChange: ((state: number, error?: number) => void) | null;
+        release: () => void;
+      };
+      const object = document.getElementById("video") as VideoBroadcastObject;
+      const seen: unknown[] = [];
+      object.onPlayStateChange = (state) => seen.push({ property: state });
+      object.addEventListener("PlayStateChange", (event) => {
+        const { state, error } = event as Event & { state: number; error?: number };
+        seen.push({ type: event.type, bubbles: event.bubbles, state, error: "error" in event ? error : "missing" });
+      });
+      document.addEventListener("PlayStateChange", () => seen.push("bubbled"));
+      object.release();
+      return seen;
+    });
+
+    expect(seen).toEqual([{ property: 0 }, { type: "PlayStateChange", bubbles: false, state: 0, error: undefined }]);
+    expect(errors).toEqual([]);
+  });
+
   it("has the OIPF APIs before the first application script runs", async () => {
     const { page, errors } = await openPage("basic-app/index.xhtml");
 

@@ -37,6 +37,7 @@ import { createVideoBroadcast, type VideoBroadcast, type VideoBroadcastEventHand
 import { createChannelVideoStreamEnv } from "./dae/videoBroadcast/channel";
 import { createObjectVideoWindow } from "./dae/videoBroadcast/videoWindow";
 import { type AudioOutput, audioInSeries, broadcastGain, linearGain } from "./dae/videoBroadcast/volume";
+import { intrinsicEvent, noContext } from "./intrinsicEvents";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binding Collection
@@ -235,19 +236,26 @@ const extractAvControlEventHandlers = (element: HTMLObjectElement): AVControlVid
   // Type assertion to access OIPF properties not in standard HTMLObjectElement
   const oipfElement = element as HTMLObjectElement & Partial<AVControlVideoEventHandlers>;
 
+  // OIPF DAE §7.14.9 and §7.14.3.2: the DOM events of the intrinsic ones.
   return {
-    onPlayStateChange: (state) => {
-      oipfElement.onPlayStateChange?.(state);
-    },
-    onPlayPositionChanged: (position) => {
-      oipfElement.onPlayPositionChanged?.(position);
-    },
-    onPlaySpeedChanged: (speed) => {
-      oipfElement.onPlaySpeedChanged?.(speed);
-    },
-    onFullScreenChange: (fullScreen) => {
-      oipfElement.onFullScreenChange?.(fullScreen);
-    },
+    onPlayStateChange: intrinsicEvent(element, "PlayStateChange", noContext, (state: OIPF.AV.Control.PlayState) =>
+      oipfElement.onPlayStateChange?.(state),
+    ),
+    onPlayPositionChanged: intrinsicEvent(
+      element,
+      "PlayPositionChanged",
+      (position) => ({ position }),
+      (position: number | undefined) => oipfElement.onPlayPositionChanged?.(position),
+    ),
+    onPlaySpeedChanged: intrinsicEvent(
+      element,
+      "PlaySpeedChanged",
+      (speed) => ({ speed }),
+      (speed: number) => oipfElement.onPlaySpeedChanged?.(speed),
+    ),
+    onFullScreenChange: intrinsicEvent(element, "FullScreenChange", noContext, (fullScreen: boolean) =>
+      oipfElement.onFullScreenChange?.(fullScreen),
+    ),
   };
 };
 
@@ -260,24 +268,37 @@ const extractVideoBroadcastEventHandlers = (element: HTMLObjectElement): VideoBr
   // Type assertion to access OIPF properties not in standard HTMLObjectElement
   const oipfElement = element as HTMLObjectElement & Partial<VideoBroadcastEventHandlers>;
 
+  type Channel = OIPF.DAE.Broadcast.Channel;
+  // OIPF DAE §7.13.1.4: the DOM events of the intrinsic ones. `error` is undefined: no
+  // state change of the emulator's is due to an error yet (§7.13.1.2).
   return {
-    onPlayStateChange: (state) => {
-      oipfElement.onPlayStateChange?.(state);
-    },
-    onFullScreenChange: (fullscreen) => {
-      oipfElement.onFullScreenChange?.(fullscreen);
-    },
+    onPlayStateChange: intrinsicEvent(
+      element,
+      "PlayStateChange",
+      (state) => ({ state, error: undefined }),
+      (state: OIPF.DAE.Broadcast.PlayState) => oipfElement.onPlayStateChange?.(state),
+    ),
+    onFullScreenChange: intrinsicEvent(element, "FullScreenChange", noContext, (fullScreen: boolean) =>
+      oipfElement.onFullScreenChange?.(fullScreen),
+    ),
+    onChannelChangeSucceeded: intrinsicEvent(
+      element,
+      "ChannelChangeSucceeded",
+      (channel) => ({ channel }),
+      (channel: Channel) => oipfElement.onChannelChangeSucceeded?.(channel),
+    ),
+    onChannelChangeError: intrinsicEvent(
+      element,
+      "ChannelChangeError",
+      (channel, errorState) => ({ channel, errorState }),
+      (channel: Channel | null, errorState: number) => oipfElement.onChannelChangeError?.(channel, errorState),
+    ),
+    // focus and blur are the browser's own events of the element.
     onfocus: () => {
       oipfElement.onfocus?.();
     },
     onblur: () => {
       oipfElement.onblur?.();
-    },
-    onChannelChangeSucceeded: (channel) => {
-      oipfElement.onChannelChangeSucceeded?.(channel);
-    },
-    onChannelChangeError: (channel, error) => {
-      oipfElement.onChannelChangeError?.(channel, error);
     },
     onProgrammesChanged: () => {
       oipfElement.onProgrammesChanged?.();

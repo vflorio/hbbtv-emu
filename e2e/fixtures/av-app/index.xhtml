@@ -15,7 +15,13 @@
 
   <script type="text/javascript">
   //<![CDATA[
-    var e2e = (window.__e2e = { initError: null, playStates: [], speeds: [], positions: [] });
+    var e2e = (window.__e2e = {
+      initError: null,
+      playStates: [],
+      speeds: [],
+      positions: [],
+      dom: { playStates: 0, speeds: [], positions: [] }
+    });
     try {
       document.getElementById("appmgr").getOwnerApplication(document).show();
       var player = document.getElementById("player");
@@ -28,6 +34,16 @@
       player.onPlayPositionChanged = function (position) {
         e2e.positions.push(position);
       };
+      // OIPF DAE §7.14.9, §7.14.3.2: the same events, as DOM events of the object.
+      player.addEventListener("PlayStateChange", function () {
+        e2e.dom.playStates++;
+      });
+      player.addEventListener("PlaySpeedChanged", function (event) {
+        e2e.dom.speeds.push(event.speed);
+      });
+      player.addEventListener("PlayPositionChanged", function (event) {
+        e2e.dom.positions.push(event.position);
+      });
       player.data = "clip.mp4";
       e2e.dataAtFirstScript = player.data;
       e2e.playStateAtFirstScript = player.playState;
