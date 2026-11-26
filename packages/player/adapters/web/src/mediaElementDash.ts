@@ -14,6 +14,11 @@
  * MPD's events (TS 102 796 §9.3.2.2). The events of the segments (`emsg` boxes of an
  * `InbandEventStream`) are handed over as dash.js receives them, for the schemes the
  * page runtime follows (`followInband`): dash.js gives them only to a listener.
+ *
+ * The audio and video tracks dash.js offers in the Period it presents, and which of
+ * them it presents, are handed over whenever they may have changed (`onTracks`), for
+ * the element's `audioTracks` and `videoTracks` (TS 102 796 A.2.12.1); `selectTrack`
+ * switches to another one.
  */
 
 import { dashjs } from "./dashjs";
@@ -27,6 +32,33 @@ export type MediaElementDashHooks = Readonly<{
   onManifest: (text: string) => void;
   /** An event of the segments, of a scheme the page runtime follows, as dash.js receives it. */
   onInbandEvent: (event: InbandEvent) => void;
+  /** The tracks of the Period dash.js presents: when it starts one, and when it switches tracks. */
+  onTracks: (tracks: DashTracks) => void;
+}>;
+
+export type DashTrackType = "audio" | "video";
+
+/** An audio or video track dash.js offers: an AdaptationSet, or a Preselection (audio). */
+export type DashTrack = Readonly<{
+  /** What `selectTrack` takes: `adaptation:<index in the Period>` or `preselection:<id>`. */
+  ref: string;
+  /** `@id`, "" if absent. */
+  id: string;
+  /** As dash.js read it, normalized (BCP 47). */
+  lang: string;
+  /** The values of the `urn:mpeg:dash:role:2011` Roles. */
+  roles: ReadonlyArray<string>;
+  /** The values of the `urn:tva:metadata:cs:AudioPurposeCS:2007` Accessibility descriptors. */
+  audioPurposes: ReadonlyArray<string>;
+}>;
+
+export type DashTracks = Readonly<{
+  /** The Period's position in the MPD. */
+  period: number;
+  audio: ReadonlyArray<DashTrack>;
+  video: ReadonlyArray<DashTrack>;
+  /** The `ref` of the track dash.js presents, of each type. */
+  current: Readonly<Record<DashTrackType, string | null>>;
 }>;
 
 /** An `emsg` event (ISO/IEC 23009-1 §5.10.3.3), on the element's timeline. */
@@ -49,6 +81,8 @@ export type MediaElementDash = Readonly<{
   reset: () => void;
   /** Hands over the inband events of a scheme from now on (`onInbandEvent`); again, nothing more. */
   followInband: (schemeIdUri: string) => void;
+  /** Presents another track of the Period (a `ref` of `onTracks`); `false` if dash.js has none such. */
+  selectTrack: (type: DashTrackType, ref: string) => boolean;
 }>;
 
 export type MediaElementDashEngine = Readonly<{
@@ -135,6 +169,24 @@ export const inbandEventOf = (payload: DashEventPayload): InbandEvent | null => 
   };
 };
 
+const ROLE_SCHEME = "urn:mpeg:dash:role:2011";
+const AUDIO_PURPOSE_SCHEME = "urn:tva:metadata:cs:AudioPurposeCS:2007";
+
+const values = (descriptors: dashjs.MediaInfo["roles"], scheme: string): string[] =>
+  (descriptors ?? []).filter((descriptor) => descriptor.schemeIdUri === scheme).map((descriptor) => descriptor.value);
+
+const refOf = (track: dashjs.MediaInfo): string =>
+  track.isPreselection ? `preselection:${track.id ?? ""}` : `adaptation:${track.index ?? ""}`;
+
+/** A track as the page runtime needs it, from what dash.js knows of it. */
+export const dashTrackOf = (track: dashjs.MediaInfo): DashTrack => ({
+  ref: refOf(track),
+  id: track.id ?? "",
+  lang: track.lang ?? "",
+  roles: values(track.roles, ROLE_SCHEME),
+  audioPurposes: values(track.accessibility, AUDIO_PURPOSE_SCHEME),
+});
+
 const text = (data: unknown): string | null => {
   if (typeof data === "string") return data;
   if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
@@ -173,6 +225,34 @@ const create = (element: HTMLMediaElement, hooks: MediaElementDashHooks): MediaE
   // No autoplay of its own: the element plays as the application asks, `autoplay` included.
   hooks.internally(() => player.initialize(element as HTMLVideoElement, undefined, false));
 
+  const tracksOf = (type: DashTrackType): dashjs.MediaInfo[] => {
+    try {
+      return player.getTracksFor(type) ?? [];
+    } catch {
+      return [];
+    }
+  };
+  const showTracks = () => {
+    const period = player.getActiveStream()?.getStreamInfo()?.index;
+    if (period === undefined || period === null) return;
+    const current = (type: DashTrackType) => {
+      const track = player.getCurrentTrackFor(type);
+      return track ? refOf(track) : null;
+    };
+    hooks.onTracks({
+      period,
+      audio: tracksOf("audio").map(dashTrackOf),
+      video: tracksOf("video").map(dashTrackOf),
+      current: { audio: current("audio"), video: current("video") },
+    });
+  };
+  for (const event of [
+    dashjs.MediaPlayer.events.STREAM_INITIALIZED,
+    dashjs.MediaPlayer.events.PERIOD_SWITCH_COMPLETED,
+    dashjs.MediaPlayer.events.TRACK_CHANGE_RENDERED,
+  ])
+    player.on(event, showTracks);
+
   const followed = new Set<string>();
   const onEvent = (payload: DashEventPayload) => {
     const event = inbandEventOf(payload);
@@ -188,6 +268,12 @@ const create = (element: HTMLMediaElement, hooks: MediaElementDashHooks): MediaE
       player.on(schemeIdUri, onEvent as (event: unknown) => void, undefined, {
         mode: dashjs.MediaPlayer.events.EVENT_MODE_ON_RECEIVE,
       });
+    },
+    selectTrack: (type, ref) => {
+      const track = tracksOf(type).find((candidate) => refOf(candidate) === ref);
+      if (!track) return false;
+      player.setCurrentTrack(track);
+      return true;
     },
   };
 };

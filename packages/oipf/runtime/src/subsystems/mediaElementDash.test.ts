@@ -60,6 +60,7 @@ type FakeDash = {
   sources: string[];
   resets: number;
   followed: string[];
+  selected: string[];
   attach: () => void;
 };
 
@@ -75,6 +76,7 @@ const engine: MediaElementDashEngine = {
       sources: [],
       resets: 0,
       followed: [],
+      selected: [],
       attach: () =>
         hooks.internally(() => {
           element.src = `blob:http://localhost/${dash.sources.length}`;
@@ -93,6 +95,10 @@ const engine: MediaElementDashEngine = {
         }),
       followInband: (schemeIdUri) => {
         dash.followed.push(schemeIdUri);
+      },
+      selectTrack: (type, ref) => {
+        dash.selected.push(`${type} ${ref}`);
+        return true;
       },
     };
   },
@@ -486,6 +492,67 @@ describe("the MPD's events (TS 102 796 §9.3.2.2)", () => {
     dashes[0]?.hooks.onManifest(MPD_WITH_EVENTS);
 
     expect(tracksOf(video)).toEqual([]);
+  });
+});
+
+describe("audioTracks and videoTracks of DASH (TS 102 796 A.2.12.1, A.2.12.3)", () => {
+  const MPD_WITH_LANGUAGES = `<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period>
+    <AdaptationSet id="v" contentType="video"/>
+    <AdaptationSet id="de" lang="ger" contentType="audio"/>
+    <AdaptationSet id="en" lang="eng" contentType="audio"/>
+  </Period></MPD>`;
+  const tracks = {
+    period: 0,
+    // In dash.js's order, with its normalized languages.
+    audio: [
+      { ref: "adaptation:2", id: "en", lang: "en", roles: ["main"], audioPurposes: [] },
+      { ref: "adaptation:1", id: "de", lang: "de", roles: ["dub", "main"], audioPurposes: [] },
+    ],
+    video: [{ ref: "adaptation:0", id: "v", lang: "", roles: ["main"], audioPurposes: [] }],
+    current: { audio: "adaptation:2", video: "adaptation:0" },
+  };
+  type Track = { id: string; kind: string; language: string; enabled?: boolean; selected?: boolean };
+  /** TypeScript's DOM has neither (browsers have them behind a flag). */
+  const lists = (video: HTMLVideoElement) => video as unknown as { audioTracks: unknown; videoTracks: unknown };
+  const listOf = (list: unknown) =>
+    Array.from({ length: (list as { length: number }).length }, (_, index) => (list as Track[])[index]);
+
+  it("the Period's AdaptationSets, in the MPD's order, its @lang, and kind from the Roles", () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+
+    dashes[0]?.hooks.onManifest(MPD_WITH_LANGUAGES);
+    dashes[0]?.hooks.onTracks(tracks);
+
+    expect(listOf(lists(video).audioTracks)).toMatchObject([
+      { id: "de", kind: "translation", language: "ger", label: "", enabled: false },
+      { id: "en", kind: "main", language: "eng", label: "", enabled: true },
+    ]);
+    expect(listOf(lists(video).videoTracks)).toMatchObject([{ id: "v", kind: "main", selected: true }]);
+  });
+
+  it("enabling an AudioTrack switches dash.js to it", () => {
+    const video = document.createElement("video");
+    video.src = "movie.mpd";
+    dashes[0]?.hooks.onManifest(MPD_WITH_LANGUAGES);
+    dashes[0]?.hooks.onTracks(tracks);
+
+    (listOf(lists(video).audioTracks)[0] as Track).enabled = true;
+
+    expect(dashes[0]?.selected).toEqual(["audio adaptation:1"]);
+  });
+
+  it("the same lists for the element's life; a new source empties them", () => {
+    const video = document.createElement("video");
+    const before = [lists(video).audioTracks, lists(video).videoTracks];
+    expect(before.map((list) => (list as unknown as { length: number }).length)).toEqual([0, 0]);
+    video.src = "movie.mpd";
+    dashes[0]?.hooks.onTracks(tracks);
+
+    video.src = "clip.mp4";
+
+    expect([lists(video).audioTracks, lists(video).videoTracks]).toEqual(before);
+    expect((lists(video).audioTracks as unknown as { length: number }).length).toBe(0);
   });
 });
 

@@ -14,6 +14,7 @@ type DashAppState = {
   initError: string | null;
   canPlayDash: string;
   tracks: unknown[];
+  audioTrackEvents: string[];
   cues: { id: string; startTime: number; endTime: number; isDataCue: boolean; data: string }[];
   events: string[];
   errors: (number | null)[];
@@ -37,7 +38,14 @@ const HAVE_NOTHING = 0;
 
 type Played = { src: string; currentSrc: string; duration: number; size: number[]; error: MediaError | null };
 
-export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) => {
+/**
+ * `requested`: the paths the fixture server was asked for so far.
+ */
+export const runHtml5DashScenario = async (
+  evaluate: Evaluate,
+  mpdUrl: string,
+  requested: () => ReadonlyArray<string>,
+) => {
   expect(await app(evaluate)).toMatchObject({ initError: null, canPlayDash: "maybe" });
 
   // From the markup, by themselves (autoplay): the src attribute, and the first <source>
@@ -130,6 +138,72 @@ export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) =
     "inband",
     "world",
   ]);
+
+  // The audio and video tracks (TS 102 796 A.2.12.1, A.2.12.3): the MPD's AdaptationSets,
+  // in its order, with its @lang and the kind of their Roles; one audio track enabled,
+  // and enabling the other switches dash.js to it.
+  await evaluate(() => {
+    const video = document.getElementById("languages") as HTMLVideoElement;
+    video.src = "languages.mpd";
+    void video.play();
+  });
+  type Track = { id: string; kind: string; label: string; language: string; enabled?: boolean; selected?: boolean };
+  type Lists = { audioTracks: ArrayLike<Track>; videoTracks: ArrayLike<Track> };
+  await until(
+    evaluate,
+    () => {
+      const video = document.getElementById("languages") as HTMLVideoElement;
+      return (video as unknown as Lists).audioTracks.length === 2 && video.readyState >= 1;
+    },
+    "the audio tracks",
+  );
+  const listed = await evaluate(() => {
+    const lists = document.getElementById("languages") as unknown as Lists;
+    const copy = ({ id, kind, label, language, enabled, selected }: Track) => ({
+      id,
+      kind,
+      label,
+      language,
+      enabled,
+      selected,
+    });
+    return { audio: Array.from(lists.audioTracks).map(copy), video: Array.from(lists.videoTracks).map(copy) };
+  });
+  expect(listed.audio.map(({ enabled, ...track }) => track)).toEqual([
+    { id: "de", kind: "translation", label: "", language: "ger", selected: undefined },
+    { id: "en", kind: "main", label: "", language: "eng", selected: undefined },
+  ]);
+  expect(listed.audio.filter((track) => track.enabled)).toHaveLength(1);
+  expect(listed.video).toEqual([
+    { id: "v", kind: "main", label: "", language: "", enabled: undefined, selected: true },
+  ]);
+
+  const other = listed.audio.findIndex((track) => !track.enabled);
+  const otherRepresentation = other === 0 ? "a1" : "a0";
+  expect(requested().some((path) => path.includes(`audio-init-${otherRepresentation}`))).toBe(false);
+  await evaluate(() => {
+    const lists = document.getElementById("languages") as unknown as Lists;
+    const disabled = Array.from(lists.audioTracks).find((track) => !track.enabled) as Track;
+    disabled.enabled = true;
+  });
+  // To the end of the media. Not `ended` on Chromium: the switch came after dash.js had
+  // the whole MPD and ended its MediaSource, which replacing the audio opens again, and
+  // dash.js does not end it twice (a limit, of a switch at the very end).
+  await until(
+    evaluate,
+    () => {
+      const video = document.getElementById("languages") as HTMLVideoElement;
+      return video.ended || video.currentTime >= video.duration - 0.05;
+    },
+    "languages.mpd played to its end",
+  );
+  expect(requested().some((path) => path.includes(`audio-init-${otherRepresentation}`))).toBe(true);
+  expect((await app(evaluate)).audioTrackEvents).toEqual(["addtrack de", "addtrack en", "change"]);
+  expect(
+    await evaluate(() =>
+      Array.from((document.getElementById("languages") as unknown as Lists).audioTracks).map((track) => track.enabled),
+    ),
+  ).toEqual(other === 0 ? [true, false] : [false, true]);
 
   // Unloaded the HTML way: the element has no source any more.
   const unloaded = await evaluate(() => {

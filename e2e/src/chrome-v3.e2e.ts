@@ -210,7 +210,11 @@ describe("chrome-v3: HbbTV application", () => {
     const { page, errors } = await openPage(`dash-app/index.xhtml?dash=${Date.now()}`);
 
     try {
-      await runHtml5DashScenario((fn) => page.evaluate(fn), server.url("dash-app/clip.mpd"));
+      await runHtml5DashScenario(
+        (fn) => page.evaluate(fn),
+        server.url("dash-app/clip.mpd"),
+        () => server.requests.map((request) => request.url),
+      );
       expect(errors).toEqual([]);
     } finally {
       await page.close();

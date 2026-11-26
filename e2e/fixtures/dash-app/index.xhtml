@@ -34,6 +34,8 @@
   </video>
   <!-- An MPD with event streams (events.mpd): the application follows them as TextTracks. -->
   <video id="events" muted="muted" style="width: 160px; height: 90px;"></video>
+  <!-- An MPD with two audio languages (languages.mpd): the application lists and switches them. -->
+  <video id="languages" muted="muted" style="width: 160px; height: 90px;"></video>
 
   <script type="text/javascript">
   //<![CDATA[
@@ -54,6 +56,16 @@
       // TS 102 796 §9.3.2.2: every track of an event stream, and every cue the first time it is active.
       e2e.tracks = [];
       e2e.cues = [];
+      // TS 102 796 A.2.12.1: the audio tracks' events.
+      e2e.audioTrackEvents = [];
+      var languages = document.getElementById("languages");
+      languages.audioTracks.addEventListener("addtrack", function (event) {
+        e2e.audioTrackEvents.push("addtrack " + event.track.id);
+      });
+      languages.audioTracks.onchange = function () {
+        e2e.audioTrackEvents.push("change");
+      };
+
       var eventsVideo = document.getElementById("events");
       eventsVideo.textTracks.addEventListener("addtrack", function (event) {
         var track = event.track;

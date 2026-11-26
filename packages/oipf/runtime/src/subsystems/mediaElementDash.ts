@@ -39,6 +39,12 @@
  *   "metadata", with a DataCue per event (§9.3.2.2, `./dashEvents`): the streams of
  *   every MPD dash.js loads, the segments' events as dash.js receives them; a new source
  *   or the end of the presentation empties them.
+ * - `audioTracks` and `videoTracks` are the AdaptationSets (and Preselections) of the
+ *   Period dash.js presents, as A.2.12.1 and A.2.12.3 map them (`./mediaTracks`):
+ *   `id` the `@id`, `kind` from the Roles, `language` the `@lang` of the MPD, `label`
+ *   ""; enabling an AudioTrack or selecting a VideoTrack switches dash.js to it. The
+ *   browser has none of its own (only behind a flag), so the page gets them for every
+ *   element, empty where dash.js presents nothing.
  *
  * The videos of the OIPF objects are left alone (`EmulatorMedia`): their player
  * chooses an adapter itself.
@@ -52,7 +58,7 @@
  */
 
 import { createLogger } from "@hbb-emu/core";
-import type { MediaElementDash, MediaElementDashEngine } from "@hbb-emu/player-adapter-web";
+import type { DashTracks, DashTrackType, MediaElementDash, MediaElementDashEngine } from "@hbb-emu/player-adapter-web";
 import type * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
 import {
@@ -64,6 +70,7 @@ import {
   type ReceivedInbandEvent,
 } from "./dashEvents";
 import type { EmulatorMedia } from "./mediaElementVolume";
+import { audioKind, createTrackList, mpdTracks, type TrackInit, type TrackListControl, videoKind } from "./mediaTracks";
 
 const logger = createLogger("MediaElementDash");
 
@@ -117,6 +124,10 @@ type Presentation = {
   /** The `src` attribute dash.js wrote last (its object URL): not the application's. */
   written: string | null;
   error: MediaError | null;
+  /** The last MPD dash.js loaded, as it came. */
+  mpd: Document | null;
+  /** The tracks of the Period dash.js presents, as it last said. */
+  tracks: DashTracks | null;
 };
 
 /**
@@ -162,10 +173,9 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     eventTracks.set(element, created);
     return created;
   };
-  const showEvents = (element: HTMLMediaElement, dash: MediaElementDash, text: string) => {
+  const showEvents = (element: HTMLMediaElement, dash: MediaElementDash, document: Document) => {
     if (!dataCue) return;
     try {
-      const document = new window.DOMParser().parseFromString(text, "application/xml");
       const streams = mpdEventStreams(document, (node) => serializer.serializeToString(node));
       const inband = inbandEventStreams(document);
       for (const stream of inband) dash.followInband(stream.schemeIdUri);
@@ -178,6 +188,55 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
   const showInbandEvent = (element: HTMLMediaElement, event: ReceivedInbandEvent) => {
     if (!dataCue) return;
     tracksOf(element, dataCue.DataCue).addInband(event, element.currentTime);
+  };
+
+  // The audio and video tracks (A.2.12.1): one list of each per element, as in HTML.
+  const nativeAudioTracks = Object.getOwnPropertyDescriptor(prototype, "audioTracks");
+  const nativeVideoTracks = Object.getOwnPropertyDescriptor(prototype, "videoTracks");
+  const trackLists = new WeakMap<HTMLMediaElement, Record<DashTrackType, TrackListControl>>();
+  const selectTrack = (element: HTMLMediaElement, type: DashTrackType, key: string) => {
+    const presentation = presentations.get(element);
+    const ref = key.slice(key.indexOf(" ") + 1);
+    if (presentation && !presentation.dash.selectTrack(type, ref))
+      logger.warn(`dash.js cannot present the ${type} track ${ref}`)();
+  };
+  const trackListsOf = (element: HTMLMediaElement): Record<DashTrackType, TrackListControl> => {
+    const existing = trackLists.get(element);
+    if (existing) return existing;
+    const created = {
+      audio: createTrackList("audio", { window, select: (key) => selectTrack(element, "audio", key) }),
+      video: createTrackList("video", { window, select: (key) => selectTrack(element, "video", key) }),
+    };
+    trackLists.set(element, created);
+    return created;
+  };
+  const showTracks = (element: HTMLMediaElement, presentation: Presentation) => {
+    const tracks = presentation.tracks;
+    if (!tracks) return;
+    const fromMpd = presentation.mpd ? mpdTracks(presentation.mpd, tracks.period) : [];
+    const position = new Map(fromMpd.map((track, index) => [track.ref, index]));
+    const lang = new Map(fromMpd.map((track) => [track.ref, track.lang]));
+    const inits = (type: DashTrackType): TrackInit[] =>
+      [...tracks[type]]
+        .sort(
+          (a, b) => (position.get(a.ref) ?? Number.MAX_SAFE_INTEGER) - (position.get(b.ref) ?? Number.MAX_SAFE_INTEGER),
+        )
+        .map((track) => ({
+          key: `${tracks.period} ${track.ref}`,
+          id: track.id,
+          kind: type === "audio" ? audioKind(track.roles, track.audioPurposes) : videoKind(track.roles),
+          label: "",
+          language: lang.get(track.ref) ?? track.lang,
+          on: tracks.current[type] === track.ref,
+        }));
+    const lists = trackListsOf(element);
+    lists.audio.set(inits("audio"));
+    lists.video.set(inits("video"));
+  };
+  const forgetTracks = (element: HTMLMediaElement) => {
+    const lists = trackLists.get(element);
+    lists?.audio.clear();
+    lists?.video.clear();
   };
 
   // dash.js's own writes to an element's source go to the browser (`internally`).
@@ -234,6 +293,7 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     presentations.delete(element);
     presentation.dash.reset();
     eventTracks.get(element)?.clear();
+    forgetTracks(element);
   };
 
   const present = (element: HTMLMediaElement, url: string, origin: Origin) => {
@@ -248,7 +308,10 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
       current.url = url;
       current.origin = origin;
       current.error = null;
+      current.mpd = null;
+      current.tracks = null;
       eventTracks.get(element)?.clear();
+      forgetTracks(element);
       current.dash.attachSource(url);
       return;
     }
@@ -263,13 +326,30 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
         element.dispatchEvent(new Event("error"));
       },
       onManifest: (text) => {
-        if (presentations.get(element) === presentation) showEvents(element, dash, text);
+        if (presentations.get(element) !== presentation) return;
+        presentation.mpd = new window.DOMParser().parseFromString(text, "application/xml");
+        showEvents(element, dash, presentation.mpd);
+        showTracks(element, presentation);
+      },
+      onTracks: (tracks) => {
+        if (presentations.get(element) !== presentation) return;
+        presentation.tracks = tracks;
+        showTracks(element, presentation);
       },
       onInbandEvent: (event) => {
         if (presentations.get(element) === presentation) showInbandEvent(element, event);
       },
     });
-    const presentation: Presentation = { url, origin, dash, attached: false, written: null, error: null };
+    const presentation: Presentation = {
+      url,
+      origin,
+      dash,
+      attached: false,
+      written: null,
+      error: null,
+      mpd: null,
+      tracks: null,
+    };
     presentations.set(element, presentation);
     dash.attachSource(url);
     logger.info(`Presenting ${url} with dash.js`)();
@@ -366,6 +446,22 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     },
   });
 
+  for (const [name, native] of [
+    ["audioTracks", nativeAudioTracks],
+    ["videoTracks", nativeVideoTracks],
+  ] as const) {
+    const type: DashTrackType = name === "audioTracks" ? "audio" : "video";
+    Object.defineProperty(prototype, name, {
+      configurable: true,
+      enumerable: true,
+      get(this: HTMLMediaElement) {
+        // The browser's own, where it has them, for what dash.js does not present.
+        if (native?.get && !presentations.has(this)) return native.get.call(this);
+        return trackListsOf(this)[type].list;
+      },
+    });
+  }
+
   Object.defineProperty(prototype, "error", {
     configurable: true,
     enumerable: error.enumerable,
@@ -424,6 +520,13 @@ export const installMediaElementDash: RIO.ReaderIO<MediaElementDashEnv, IO.IO<vo
     Object.defineProperty(prototype, "src", src);
     Object.defineProperty(prototype, "currentSrc", currentSrc);
     Object.defineProperty(prototype, "error", error);
+    for (const [name, native] of [
+      ["audioTracks", nativeAudioTracks],
+      ["videoTracks", nativeVideoTracks],
+    ] as const) {
+      if (native) Object.defineProperty(prototype, name, native);
+      else delete (prototype as unknown as Record<string, unknown>)[name];
+    }
     Object.defineProperty(prototype, "load", load);
     Object.defineProperty(prototype, "canPlayType", canPlayType);
   };

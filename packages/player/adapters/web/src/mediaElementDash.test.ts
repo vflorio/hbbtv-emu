@@ -1,5 +1,6 @@
+import type * as dashjs from "dashjs";
 import { describe, expect, it } from "vitest";
-import { inbandEventOf } from "./mediaElementDash";
+import { dashTrackOf, inbandEventOf } from "./mediaElementDash";
 
 const payload = (event: Record<string, unknown>) => ({
   event: {
@@ -44,5 +45,37 @@ describe("inbandEventOf: an emsg event as dash.js gives it to a listener", () =>
   it("message_data as a string is its UTF-8; none is empty", () => {
     expect(new TextDecoder().decode(inbandEventOf(payload({ messageData: "hi" }))?.data)).toBe("hi");
     expect(inbandEventOf(payload({ messageData: undefined }))?.data.byteLength).toBe(0);
+  });
+});
+
+describe("dashTrackOf: a track as dash.js offers it", () => {
+  it("its ref, id, language, Roles and audio purposes of their schemes", () => {
+    const track = {
+      id: "de",
+      index: 2,
+      isPreselection: false,
+      lang: "de",
+      roles: [
+        { schemeIdUri: "urn:mpeg:dash:role:2011", value: "dub" },
+        { schemeIdUri: "urn:mpeg:dash:role:2011", value: "main" },
+        { schemeIdUri: "urn:example:role", value: "other" },
+      ],
+      accessibility: [{ schemeIdUri: "urn:tva:metadata:cs:AudioPurposeCS:2007", value: "1" }],
+    } as unknown as dashjs.MediaInfo;
+
+    expect(dashTrackOf(track)).toEqual({
+      ref: "adaptation:2",
+      id: "de",
+      lang: "de",
+      roles: ["dub", "main"],
+      audioPurposes: ["1"],
+    });
+    expect(
+      dashTrackOf({ ...track, isPreselection: true, id: "p", roles: null, accessibility: null } as never),
+    ).toMatchObject({
+      ref: "preselection:p",
+      roles: [],
+      audioPurposes: [],
+    });
   });
 });
