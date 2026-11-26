@@ -18,6 +18,8 @@ const CONTENT_TYPES: Record<string, string> = {
   ".mp4": "video/mp4",
   ".mp3": "audio/mpeg",
   ".m4a": "audio/mp4",
+  ".mpd": "application/dash+xml",
+  ".m4s": "video/iso.segment",
 };
 
 export type RecordedRequest = Readonly<{ url: string; userAgent: string | undefined }>;

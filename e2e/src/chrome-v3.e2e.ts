@@ -9,6 +9,7 @@ import {
   runUnreachableStreamScenario,
 } from "./support/avControl";
 import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
+import { runHtml5DashScenario } from "./support/html5Dash";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -199,6 +200,17 @@ describe("chrome-v3: HbbTV application", () => {
 
     try {
       await runAudioScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
+  it("plays an MPD set as the source of the application's own <video> (TS 102 796 §9.4.2)", async () => {
+    const { page, errors } = await openPage(`dash-app/index.xhtml?dash=${Date.now()}`);
+
+    try {
+      await runHtml5DashScenario((fn) => page.evaluate(fn), server.url("dash-app/clip.mpd"));
       expect(errors).toEqual([]);
     } finally {
       await page.close();

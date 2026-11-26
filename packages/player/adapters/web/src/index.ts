@@ -3,6 +3,7 @@ import type Hls from "hls.js";
 
 export * from "./dash";
 export * from "./hls";
+export * from "./mediaElementDash";
 export * from "./native";
 
 export type VideoEventListener = (event: PlayerEngineEvent) => void;

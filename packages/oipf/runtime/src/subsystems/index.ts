@@ -3,6 +3,7 @@ export * from "./channelChange";
 export * from "./channelRegistry";
 export * from "./currentChannel";
 export * from "./keyboard";
+export * from "./mediaElementDash";
 export * from "./mediaElementVolume";
 export * from "./remoteControl";
 export * from "./streamEventScheduler";

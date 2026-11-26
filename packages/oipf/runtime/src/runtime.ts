@@ -11,6 +11,7 @@ import {
   type OipfCapabilitiesState,
   type OipfConfigurationState,
 } from "@hbb-emu/oipf-api";
+import { mediaElementDashEngine } from "@hbb-emu/player-adapter-web";
 import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ import {
   initializeUserAgent,
   initialTunedChannel,
   installKeyboard,
+  installMediaElementDash,
   installMediaElementVolume,
   isSameService,
   type KeyMap,
@@ -220,6 +222,7 @@ export class RuntimeService implements Runtime {
   #uninstallObjectFactory: IO.IO<void> = IO.of(undefined);
   #uninstallKeyboard: IO.IO<void> = IO.of(undefined);
   #uninstallMediaElementVolume: IO.IO<void> = IO.of(undefined);
+  #uninstallMediaElementDash: IO.IO<void> = IO.of(undefined);
   #playerRuntime: PlayerRuntime | null = null;
 
   constructor(env: RuntimeEnv) {
@@ -274,6 +277,19 @@ export class RuntimeService implements Runtime {
           emulatorMedia: this.#env.bindings.emulatorMedia,
         })();
       }),
+      // And DASH in its media, where the browser has Media Source Extensions.
+      IO.tap(() => () => {
+        const engine = mediaElementDashEngine(window);
+        if (!engine) {
+          logger.warn("No Media Source Extensions: the application's media cannot present DASH")();
+          return;
+        }
+        this.#uninstallMediaElementDash = installMediaElementDash({
+          window,
+          emulatorMedia: this.#env.bindings.emulatorMedia,
+          engine,
+        })();
+      }),
       IO.tap(() => logger.info("Started")),
     );
 
@@ -286,6 +302,7 @@ export class RuntimeService implements Runtime {
       IO.tap(() => this.#uninstallObjectFactory),
       IO.tap(() => this.#uninstallKeyboard),
       IO.tap(() => this.#uninstallMediaElementVolume),
+      IO.tap(() => this.#uninstallMediaElementDash),
       IO.tap(() => this.#provider.stop()),
       IO.tap(() => this.#streamEventScheduler.stop()),
       IO.tap(() => logger.info("Stopped")),

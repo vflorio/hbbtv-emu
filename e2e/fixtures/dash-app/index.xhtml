@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//HbbTV//1.1.1//EN" "http://www.hbbtv.org/dtd/HbbTV-1.1.1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="application/vnd.hbbtv.xhtml+xml; charset=UTF-8" />
+  <title>e2e HTML5 DASH app</title>
+  <style type="text/css">
+    body { margin: 0; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
+  <object id="appmgr" type="application/oipfApplicationManager"></object>
+  <!-- An HbbTV 2 VOD player: the MPD is the source of an HTML5 video, set from script. -->
+  <video id="video" style="position: absolute; left: 0; top: 0; width: 640px; height: 360px;"></video>
+
+  <script type="text/javascript">
+  //<![CDATA[
+    var e2e = (window.__e2e = { initError: null, events: [], errors: [] });
+    try {
+      document.getElementById("appmgr").getOwnerApplication(document).show();
+      var video = document.getElementById("video");
+      ["loadedmetadata", "playing", "ended"].forEach(function (type) {
+        video.addEventListener(type, function () {
+          e2e.events.push(type);
+        });
+      });
+      video.addEventListener("error", function () {
+        e2e.errors.push(video.error && video.error.code);
+      });
+      e2e.canPlayDash = video.canPlayType("application/dash+xml");
+    } catch (error) {
+      e2e.initError = String((error && error.message) || error);
+    }
+  //]]>
+  </script>
+</body>
+</html>

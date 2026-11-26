@@ -1,0 +1,81 @@
+/**
+ * The HTML5 DASH scenario both hosts run on `dash-app/index.xhtml` (TS 102 796
+ * §9.4.2): the application sets an MPD as the source of its own `<video>` and plays
+ * it to the end, as an HbbTV 2 VOD player does; a missing MPD is an error of the
+ * element; `removeAttribute("src")` and `load()` unload it.
+ */
+
+import { expect } from "vitest";
+import type { Evaluate } from "./avControl";
+
+type DashAppState = {
+  initError: string | null;
+  canPlayDash: string;
+  events: string[];
+  errors: (number | null)[];
+};
+
+const app = (evaluate: Evaluate) => evaluate(() => (window as unknown as { __e2e: DashAppState }).__e2e);
+
+const until = async (evaluate: Evaluate, fn: () => boolean, what: string, timeout = 10_000) => {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await evaluate(fn)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`timed out waiting for ${what}`);
+};
+
+/** HTML `MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED`: what the browser reports for a `src` it cannot fetch. */
+const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+/** `HTMLMediaElement.HAVE_NOTHING`: no media. */
+const HAVE_NOTHING = 0;
+
+export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) => {
+  expect(await app(evaluate)).toMatchObject({ initError: null, canPlayDash: "maybe" });
+
+  // Played to the end, as from the MPD: its duration and size; the application reads its own URL back.
+  await evaluate(() => {
+    const video = document.getElementById("video") as HTMLVideoElement;
+    video.src = "clip.mpd";
+    void video.play();
+  });
+  await until(evaluate, () => (document.getElementById("video") as HTMLVideoElement).ended, "ended");
+  const ended = await evaluate(() => {
+    const video = document.getElementById("video") as HTMLVideoElement;
+    return {
+      src: video.src,
+      currentSrc: video.currentSrc,
+      duration: video.duration,
+      size: [video.videoWidth, video.videoHeight],
+      error: video.error,
+    };
+  });
+  expect(ended).toEqual({ src: mpdUrl, currentSrc: mpdUrl, duration: 3, size: [160, 90], error: null });
+  expect((await app(evaluate)).events).toEqual(["loadedmetadata", "playing", "ended"]);
+
+  // Unloaded the HTML way: the element has no source any more.
+  const unloaded = await evaluate(() => {
+    const video = document.getElementById("video") as HTMLVideoElement;
+    video.removeAttribute("src");
+    video.load();
+    return { src: video.src, readyState: video.readyState };
+  });
+  expect(unloaded).toEqual({ src: "", readyState: HAVE_NOTHING });
+
+  // A missing MPD fails as a missing source of the browser's own would.
+  await evaluate(() => {
+    const video = document.getElementById("video") as HTMLVideoElement;
+    video.src = "missing.mpd";
+    void video.play().catch(() => {});
+  });
+  await until(
+    evaluate,
+    () => (window as unknown as { __e2e: DashAppState }).__e2e.errors.length > 0,
+    "the error event",
+    20_000,
+  );
+  // Once, as the browser reports a source it cannot play, although dash.js reports more.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  expect((await app(evaluate)).errors).toEqual([MEDIA_ERR_SRC_NOT_SUPPORTED]);
+};
