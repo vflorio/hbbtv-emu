@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createEventDispatcher, detectKeyTargetRule, keyName } from "./remoteControl";
+import {
+  createEventDispatcher,
+  detectKeyTargetRule,
+  dispatchRemoteKey,
+  isDelivered,
+  isTextEntry,
+  keyGroup,
+  keyName,
+  type RemoteControlEnv,
+} from "./remoteControl";
 
 type Seen = { type: string; target: string; key: string; keyCode: number; which: number; charCode: number };
 
@@ -116,6 +125,95 @@ describe("remote control key events", () => {
     press(13);
 
     expect(recorder.seen.map((s) => s.type)).toEqual(["keydown", "keyup"]);
+  });
+});
+
+describe("keyGroup", () => {
+  it("is the Keyset constant of each key (OIPF DAE §7.2.5.1)", () => {
+    expect([403, 404, 405, 406].map(keyGroup)).toEqual([0x1, 0x2, 0x4, 0x8]);
+    expect([37, 38, 39, 40, 13, 461].map(keyGroup)).toEqual(Array(6).fill(0x10));
+    expect([415, 19, 413, 417, 412].map(keyGroup)).toEqual(Array(5).fill(0x20));
+    expect([48, 53, 57].map(keyGroup)).toEqual([0x100, 0x100, 0x100]);
+  });
+
+  it("is null for the keys the TV keeps: P+/P-, volume, anything else", () => {
+    expect([427, 428, 447, 448, 999].map(keyGroup)).toEqual([null, null, null, null, null]);
+  });
+});
+
+describe("isDelivered", () => {
+  const NAVIGATION = 0x10;
+
+  it("a key in the application's keyset", () => {
+    expect(isDelivered(38, NAVIGATION, false)).toBe(true);
+    expect(isDelivered(403, NAVIGATION, false)).toBe(false);
+    expect(isDelivered(403, 0, false)).toBe(false);
+  });
+
+  it("any available key to a focused text field, whatever the keyset", () => {
+    expect(isDelivered(49, 0, true)).toBe(true);
+    expect(isDelivered(447, 0, true)).toBe(false);
+  });
+});
+
+describe("isTextEntry", () => {
+  it("textareas and inputs that accept text, not other controls", () => {
+    document.body.innerHTML =
+      '<textarea></textarea><input><input type="search"><input type="checkbox"><button></button>';
+    const [textarea, input, search, checkbox, button] = Array.from(document.body.children);
+
+    expect([textarea, input, search, checkbox, button, null].map((e) => isTextEntry(e ?? null))).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
+  });
+});
+
+describe("dispatchRemoteKey", () => {
+  const env = (keysetValue: number, textEntryFocused = false) => {
+    const dispatched: number[] = [];
+    const remote: RemoteControlEnv = {
+      dispatchKeyEvent: (keyCode) => () => void dispatched.push(keyCode),
+      textEntryFocused: () => textEntryFocused,
+      keysetValue: () => keysetValue,
+    };
+    return { remote, dispatched };
+  };
+
+  it("dispatches only the keys the application receives", () => {
+    const { remote, dispatched } = env(0x1 | 0x10);
+
+    for (const key of [403, 404, 38, 49, 427]) dispatchRemoteKey(key)(remote)();
+
+    expect(dispatched).toEqual([403, 38]);
+  });
+
+  it("reads the keyset at every key: a setValue() applies to the next one", () => {
+    let value = 0;
+    const dispatched: number[] = [];
+    const remote: RemoteControlEnv = {
+      dispatchKeyEvent: (keyCode) => () => void dispatched.push(keyCode),
+      textEntryFocused: () => false,
+      keysetValue: () => value,
+    };
+
+    dispatchRemoteKey(403)(remote)();
+    value = 0x1;
+    dispatchRemoteKey(403)(remote)();
+
+    expect(dispatched).toEqual([403]);
+  });
+
+  it("a focused text field receives the digits even outside the keyset", () => {
+    const { remote, dispatched } = env(0, true);
+
+    dispatchRemoteKey(49)(remote)();
+
+    expect(dispatched).toEqual([49]);
   });
 });
 

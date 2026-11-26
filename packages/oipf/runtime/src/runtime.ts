@@ -32,6 +32,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/control";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
+import { createKeyset } from "./apis/dae/applicationManager/keyset";
 import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
 import {
   type ChannelChangeRequest,
@@ -95,8 +96,8 @@ export type BindingsEnv = Readonly<{
    */
   playerRuntimeFactory: PlayerRuntimeFactory;
 
-  /** Default keyset bitmask for newly created applications */
-  defaultKeysetValue: number;
+  /** The application's keyset: one per page, as there is one application per page */
+  keyset: OIPF.DAE.ApplicationManager.Keyset;
 
   /** Default state for Capabilities object */
   defaultOipfCapabilities: OipfCapabilitiesState;
@@ -254,7 +255,7 @@ export class RuntimeService implements Runtime {
   collectState = (): IO.IO<GlobalState> => () => this.#provider.collectState()();
 
   /**
-   * Dispatches a remote control key event.
+   * A remote-control key: the application receives it only if its keyset asks for it.
    */
   dispatchKey = (keyCode: number): IO.IO<void> => dispatchRemoteKey(keyCode)(this.#env.remoteControl);
 
@@ -343,6 +344,8 @@ export const createRuntimeEnv = (
     initialTunedChannel(extensionState.currentChannel, extensionState.channels),
   );
   const streamEventScheduler = createStreamEventScheduler(extensionState.channels);
+  // OIPF DAE §7.2.5: a broadcast-related application receives no keys by default.
+  const keyset = createKeyset(DEFAULT_KEYSET_VALUE);
 
   // Create no-op factory if not provided
   const defaultFactory: PlayerRuntimeFactory = {
@@ -366,8 +369,8 @@ export const createRuntimeEnv = (
     getSharedPlayerRuntime: () => sharedPlayerRuntime ?? null,
     // PlayerRuntime factory for AVControl (multiple instances)
     playerRuntimeFactory: playerRuntimeFactory ?? defaultFactory,
+    keyset,
     // Defaults
-    defaultKeysetValue: DEFAULT_KEYSET_VALUE,
     defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
     defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
     defaultVideoBroadcast: {
@@ -380,7 +383,7 @@ export const createRuntimeEnv = (
   return {
     channelRegistry,
     userAgent: createUserAgentEnv(extensionState),
-    remoteControl: createRemoteControlEnv(),
+    remoteControl: createRemoteControlEnv(() => keyset.value),
     bindings: bindingsEnv,
     createBindings,
   };

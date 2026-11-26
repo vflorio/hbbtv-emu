@@ -91,8 +91,9 @@ export interface ApplicationPrivateData {
 }
 
 /**
- * Keyset: the remote-control keys the application wants to receive (OIPF DAE Keyset class).
- * Still missing: maximumValue, otherKeys, maximumOtherKeys, supportsPointer, getKeyIcon(), getKeyLabel().
+ * Keyset: the remote-control keys the application wants to receive (OIPF DAE §7.2.5),
+ * as HbbTV profiles it (TS 102 796 Annex A): without `otherKeys`/`maximumOtherKeys`
+ * on a terminal that does not offer VK_RECORD, and without `getKeyLabel()`.
  */
 export interface Keyset {
   readonly RED: 0x1;
@@ -106,10 +107,16 @@ export interface Keyset {
   readonly NUMERIC: 0x100;
   readonly ALPHA: 0x200;
   readonly OTHER: 0x400;
-  /** The keyset currently requested by the application (bitmask of the constants above). */
+  /** The keys this application will receive (bitmask of the constants above). */
   readonly value: number;
-  /** Returns the keys that will actually be delivered to the application (a mask of the constants above). */
+  /** A bit at 0: those key events are never available to the browser. */
+  readonly maximumValue: number;
+  /** Set by the application if it supports a pointer based interaction model. */
+  supportsPointer: boolean;
+  /** Requests keys; returns those that will actually be delivered (a mask of the constants above). */
   setValue(value: number, otherKeys?: ReadonlyArray<number>): number;
+  /** URI of the icon of the physical key generating `code` (a VK_ constant); `null` if none. */
+  getKeyIcon(code: number): string | null;
 }
 
 export type ApplicationManagerEventType =

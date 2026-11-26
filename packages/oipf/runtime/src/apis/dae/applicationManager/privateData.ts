@@ -11,8 +11,8 @@ export type ApplicationPrivateDataEnv = Readonly<{
   /** Returns the current channel from the active VideoBroadcast */
   getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
 
-  /** Creates a Keyset instance (allows injecting defaults) */
-  createKeyset: () => OIPF.DAE.ApplicationManager.Keyset;
+  /** The application's keyset: the one whose keys the page receives. */
+  keyset: OIPF.DAE.ApplicationManager.Keyset;
 }>;
 
 /**
@@ -23,11 +23,9 @@ export type ApplicationPrivateDataEnv = Readonly<{
  */
 export class ApplicationPrivateData implements OIPF.DAE.ApplicationManager.ApplicationPrivateData {
   readonly #env: ApplicationPrivateDataEnv;
-  readonly #keyset: OIPF.DAE.ApplicationManager.Keyset;
 
   constructor(env: ApplicationPrivateDataEnv) {
     this.#env = env;
-    this.#keyset = env.createKeyset();
   }
 
   /**
@@ -35,7 +33,7 @@ export class ApplicationPrivateData implements OIPF.DAE.ApplicationManager.Appli
    * sent to the HbbTV application.
    */
   get keyset(): OIPF.DAE.ApplicationManager.Keyset {
-    return this.#keyset;
+    return this.#env.keyset;
   }
 
   /**

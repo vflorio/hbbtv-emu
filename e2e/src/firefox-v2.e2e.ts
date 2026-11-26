@@ -234,6 +234,25 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     expect((await appState(app)).keys).toEqual([403]);
   });
 
+  it("the application receives only the keys of its keyset, never those the TV keeps", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?keyset=${Date.now()}`);
+    await app.bringToFront();
+
+    // The application asked for colours and navigation: not the digits; CH+ is the TV's.
+    await ui.locator("button ::-p-text(RED)").wait();
+    for (const name of ["1", "CH+", "RED", "UP"]) {
+      // By exact label: text selectors match substrings.
+      await ui.evaluate((label) => {
+        const buttons = Array.from(document.querySelectorAll("button"));
+        buttons.find((button) => button.textContent?.trim() === label)?.click();
+      }, name);
+    }
+
+    await app.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length >= 2);
+    expect((await appState(app)).keys).toEqual([403, 38]);
+  });
+
   it("a user agent changed in the UI is what the next application sees at its first script", async () => {
     const { request } = await openUi();
     type UiState = { userAgent: string };

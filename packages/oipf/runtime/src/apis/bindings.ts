@@ -31,7 +31,6 @@ import { type AVControlVideo, type AVControlVideoEventHandlers, createAVControlV
 import { createAvStream } from "./av/control/stream";
 import { createContainerVideoWindow } from "./av/control/videoWindow";
 import { OipfApplicationManager } from "./dae/applicationManager";
-import { createKeyset } from "./dae/applicationManager/keyset";
 import { OipfCapabilities } from "./dae/capabilities";
 import { OipfConfiguration } from "./dae/configuration";
 import { createVideoBroadcast, type VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
@@ -143,7 +142,7 @@ export const createApplicationManagerBinding = (
   factory: (_element) =>
     new OipfApplicationManager({
       getCurrentChannel: env.getCurrentChannel,
-      createKeyset: () => createKeyset(env.defaultKeysetValue),
+      keyset: env.keyset,
     }),
 });
 

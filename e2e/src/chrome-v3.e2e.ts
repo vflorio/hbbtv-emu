@@ -262,6 +262,21 @@ describe("chrome-v3: settings UI", () => {
     expect(keys).toEqual([403]);
   });
 
+  it("the application receives only the keys of its keyset, never those the TV keeps", async () => {
+    const { ui } = await openUi();
+    const { page: app } = await openPage(`basic-app/index.xhtml?keyset=${Date.now()}`);
+    await app.bringToFront();
+
+    // The application asked for colours and navigation: not the digits; CH+ is the TV's.
+    for (const name of ["1", "CH+", "RED", "UP"]) {
+      await ui.getByRole("button", { name, exact: true }).click();
+    }
+
+    await app.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length >= 2);
+    const keys = await app.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys);
+    expect(keys).toEqual([403, 38]);
+  });
+
   it("the configured user agent is what the server receives and what the application reads", async () => {
     const { ui } = await openUi();
     type UiState = { userAgent: string };

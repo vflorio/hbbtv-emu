@@ -21,8 +21,11 @@ export type ApplicationManagerEnv = Readonly<{
   /** Returns the current channel from the active VideoBroadcast */
   getCurrentChannel: () => OIPF.DAE.Broadcast.Channel | null;
 
-  /** Creates a Keyset instance for new ApplicationPrivateData */
-  createKeyset: () => OIPF.DAE.ApplicationManager.Keyset;
+  /**
+   * The application's keyset. One per page: every application manager object (in
+   * the markup, from `oipfObjectFactory`) gives the same, whose keys the page receives.
+   */
+  keyset: OIPF.DAE.ApplicationManager.Keyset;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -71,7 +74,7 @@ export class OipfApplicationManager
     this.#env = env;
     this.#getOrCreateApplication = createGetOrCreateApplication(this.#applicationCache, {
       getCurrentChannel: this.#env.getCurrentChannel,
-      createKeyset: this.#env.createKeyset,
+      keyset: this.#env.keyset,
     });
   }
 

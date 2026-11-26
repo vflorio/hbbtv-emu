@@ -54,6 +54,41 @@ describe("runtime", () => {
     expect(keyset.value).toBe(0x1f);
   });
 
+  it("gives one keyset per page, whichever application manager the application asks", async () => {
+    startRuntime();
+    type AppMgr = { getOwnerApplication: (doc: Document) => { privateData: { keyset: unknown } } };
+
+    const first = addObject("application/oipfApplicationManager") as unknown as AppMgr;
+    const second = addObject("application/oipfApplicationManager") as unknown as AppMgr;
+    await flushMutations();
+
+    expect(first.getOwnerApplication(document).privateData.keyset).toBe(
+      second.getOwnerApplication(document).privateData.keyset,
+    );
+  });
+
+  it("delivers a remote-control key only once the application's keyset asks for it", async () => {
+    const handle = startRuntime();
+    const appMgr = addObject("application/oipfApplicationManager") as unknown as {
+      getOwnerApplication: (doc: Document) => { privateData: { keyset: { setValue: (v: number) => number } } };
+    };
+    await flushMutations();
+    const keys: number[] = [];
+    const listener = (event: KeyboardEvent) => keys.push(event.keyCode);
+    document.addEventListener("keydown", listener);
+
+    try {
+      handle.dispatchKey(403)();
+      appMgr.getOwnerApplication(document).privateData.keyset.setValue(0x1);
+      handle.dispatchKey(403)();
+      handle.dispatchKey(38)();
+
+      expect(keys).toEqual([403]);
+    } finally {
+      document.removeEventListener("keydown", listener);
+    }
+  });
+
   it("stops binding objects once stopped", async () => {
     startRuntime().stop()();
 

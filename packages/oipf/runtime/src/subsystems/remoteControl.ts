@@ -1,4 +1,5 @@
 import { createLogger } from "@hbb-emu/core";
+import { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
@@ -51,14 +52,70 @@ export const HbbTVKeyCodes = {
 
 export type HbbTVKeyCode = (typeof HbbTVKeyCodes)[keyof typeof HbbTVKeyCodes];
 
+// Which keys the application receives
+
+const { RED, GREEN, YELLOW, BLUE, NAVIGATION, VCR, NUMERIC } = OIPF.DAE.ApplicationManager.KeysetMask;
+
+const KEY_GROUPS: Readonly<Record<number, number>> = {
+  [HbbTVKeyCodes.VK_RED]: RED,
+  [HbbTVKeyCodes.VK_GREEN]: GREEN,
+  [HbbTVKeyCodes.VK_YELLOW]: YELLOW,
+  [HbbTVKeyCodes.VK_BLUE]: BLUE,
+  [HbbTVKeyCodes.VK_UP]: NAVIGATION,
+  [HbbTVKeyCodes.VK_DOWN]: NAVIGATION,
+  [HbbTVKeyCodes.VK_LEFT]: NAVIGATION,
+  [HbbTVKeyCodes.VK_RIGHT]: NAVIGATION,
+  [HbbTVKeyCodes.VK_ENTER]: NAVIGATION,
+  [HbbTVKeyCodes.VK_BACK]: NAVIGATION,
+  [HbbTVKeyCodes.VK_PLAY]: VCR,
+  [HbbTVKeyCodes.VK_PAUSE]: VCR,
+  [HbbTVKeyCodes.VK_STOP]: VCR,
+  [HbbTVKeyCodes.VK_FAST_FWD]: VCR,
+  [HbbTVKeyCodes.VK_REWIND]: VCR,
+};
+
+/**
+ * The Keyset constant a key belongs to (OIPF DAE §7.2.5.1); `null` for the keys the
+ * terminal keeps for itself, because they have no key code in HbbTV TS 102 796
+ * Table 12 (P+/P-, volume).
+ */
+export const keyGroup = (keyCode: number): number | null =>
+  KEY_GROUPS[keyCode] ?? (keyCode >= HbbTVKeyCodes.VK_0 && keyCode <= HbbTVKeyCodes.VK_9 ? NUMERIC : null);
+
+/**
+ * Whether the application receives a key (TS 102 796 §10.2.2.1): only a key
+ * available to applications, and only if its keyset asks for it, except when a text
+ * field has the focus, which receives the keys whatever the keyset.
+ */
+export const isDelivered = (keyCode: number, keysetValue: number, textEntryFocused: boolean): boolean => {
+  const group = keyGroup(keyCode);
+  return group !== null && (textEntryFocused || (keysetValue & group) !== 0);
+};
+
+/** `<input>` types that accept text input (other types, e.g. checkbox, do not). */
+const TEXT_INPUT_TYPES: ReadonlySet<string> = new Set(["text", "search", "url", "tel", "email", "password", "number"]);
+
+/** A text field: a `<textarea>`, or an `<input>` that accepts text (TS 102 796 §10.2.2.1). */
+export const isTextEntry = (element: Element | null): boolean => {
+  if (element === null) return false;
+  if (element.localName === "textarea") return true;
+  return element.localName === "input" && TEXT_INPUT_TYPES.has((element as HTMLInputElement).type);
+};
+
 // Dependencies
 
 /** Provides DOM event dispatching capabilities */
 type EventDispatcher = Readonly<{
   dispatchKeyEvent: (keyCode: number) => IO.IO<void>;
+  /** Whether a text field has the focus. */
+  textEntryFocused: IO.IO<boolean>;
 }>;
 
-export type RemoteControlEnv = EventDispatcher;
+export type RemoteControlEnv = EventDispatcher &
+  Readonly<{
+    /** The keys the application asked for: the value of its keyset. */
+    keysetValue: IO.IO<number>;
+  }>;
 
 // Default implementation
 
@@ -160,23 +217,44 @@ export const createEventDispatcher = (
     // keyup goes wherever the focus is now (a keydown handler may have moved it).
     (keyTarget(document, rule) ?? target).dispatchEvent(keyboardEvent("keyup", keyCode));
   },
+  textEntryFocused: () => isTextEntry(document.activeElement),
 });
 
 export const defaultEventDispatcher: EventDispatcher = {
   dispatchKeyEvent: (keyCode) => createEventDispatcher(document).dispatchKeyEvent(keyCode),
+  textEntryFocused: () => createEventDispatcher(document).textEntryFocused(),
 };
 
 // Operations
 
+/** Why the application does not receive a key: said in the log, where developers look. */
+const notDelivered = (keyCode: number, keysetValue: number): IO.IO<void> =>
+  keyGroup(keyCode) === null
+    ? logger.info(`Key ${keyCode} not delivered: the TV keeps it, applications never receive it`)
+    : logger.info(
+        `Key ${keyCode} not delivered: not in the application's keyset (0x${keysetValue.toString(16)}, see Keyset.setValue())`,
+      );
+
+/** A remote-control key: dispatched to the page if the application receives it. */
 export const dispatchRemoteKey =
   (keyCode: number): RIO.ReaderIO<RemoteControlEnv, void> =>
   (env) =>
     pipe(
-      logger.debug("Dispatching remote key:", keyCode),
-      IO.tap(() => env.dispatchKeyEvent(keyCode)),
-      IO.tap(() => logger.debug("Remote key dispatched")),
+      IO.Do,
+      IO.bind("keysetValue", () => env.keysetValue),
+      IO.bind("textEntryFocused", () => env.textEntryFocused),
+      IO.flatMap(({ keysetValue, textEntryFocused }) =>
+        isDelivered(keyCode, keysetValue, textEntryFocused)
+          ? pipe(
+              logger.debug("Dispatching remote key:", keyCode),
+              IO.flatMap(() => env.dispatchKeyEvent(keyCode)),
+            )
+          : notDelivered(keyCode, keysetValue),
+      ),
     );
 
-export const createRemoteControlEnv = (): RemoteControlEnv => ({
+/** The page's remote control, delivering the keys asked for by `keysetValue`. */
+export const createRemoteControlEnv = (keysetValue: IO.IO<number>): RemoteControlEnv => ({
   ...defaultEventDispatcher,
+  keysetValue,
 });
