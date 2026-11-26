@@ -2,7 +2,8 @@
  * A/V Control object, video (OIPF DAE §7.14)
  *
  * Composed from Reader parts (ROADMAP D1), as video/broadcast:
- * - `playback` (§7.14.1, §7.14.3.1): `data`, play states, `play()`, `stop()`, `seek()`…;
+ * - `playback` (§7.14.1, §7.14.3.1): `data`, play states, `play()`, `stop()`, `seek()`…,
+ *   and HbbTV's `queue()` (TS 102 796 A.2.5.1);
  * - `volume`: `setVolume()`, with the same rules as video/broadcast's;
  * - `display`: `fullScreen`, `setFullScreen()`, `onFullScreenChange`. `width` and
  *   `height` stay the `<object>`'s own (the legacy `visual` attach does not take them
@@ -41,6 +42,7 @@ import {
   getPlayPosition,
   getPlayTime,
   play,
+  queue,
   readPlaybackState,
   seek,
   setData,
@@ -148,10 +150,7 @@ export const createAVControlVideo = (dependencies: AVControlVideoDependencies): 
     stop: () => stop(playback)(),
     seek: (position) => seek(position)(playback)(),
     setVolume: (level) => setVolume(level)(volume)(),
-    queue: (url) => {
-      logger.debug("queue: not implemented", url)();
-      return false;
-    },
+    queue: (url) => queue(url)(playback)(),
     setSource: (id) => {
       logger.debug("setSource: not implemented", id)();
       return false;

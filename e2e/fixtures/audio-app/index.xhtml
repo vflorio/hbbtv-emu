@@ -10,13 +10,19 @@
 </head>
 <body>
   <object id="appmgr" type="application/oipfApplicationManager"></object>
-  <!-- A radio (MP3) and a jingle (HE-AAC in MP4): A/V Control objects of the audio types of TS 102 796 Table 9. -->
+  <!-- A radio (MP3) and a jingle (HE-AAC in MP4): A/V Control objects of the audio types of TS 102 796 Table 9.
+       chime.mp3 is the item the queue scenario queues after the radio clip. -->
   <object id="mp3" type="audio/mpeg"></object>
   <object id="aac" type="audio/mp4"></object>
 
   <script type="text/javascript">
   //<![CDATA[
-    var e2e = (window.__e2e = { initError: null, bound: {}, playStates: { mp3: [], aac: [] } });
+    var e2e = (window.__e2e = {
+      initError: null,
+      bound: {},
+      playStates: { mp3: [], aac: [] },
+      speeds: { mp3: [], aac: [] }
+    });
     try {
       document.getElementById("appmgr").getOwnerApplication(document).show();
       var players = { mp3: "tone.mp3", aac: "tone.m4a" };
@@ -26,6 +32,9 @@
           e2e.bound[id] = typeof player.play === "function";
           player.onPlayStateChange = function (state) {
             e2e.playStates[id].push(state);
+          };
+          player.onPlaySpeedChanged = function (speed) {
+            e2e.speeds[id].push(speed);
           };
           player.data = players[id];
         })(id);

@@ -9,6 +9,7 @@ import {
   getPlayTime,
   type PlaybackEnv,
   play,
+  queue,
   readPlaybackState,
   seek,
   setData,
@@ -387,6 +388,107 @@ describe("A/V Control playback", () => {
       t.run(setData("http://vod/movie.mp4"));
       expect(t.calls).toEqual([]);
       expect(t.events).toEqual([]);
+    });
+  });
+
+  describe("queue() (TS 102 796 A.2.5.1)", () => {
+    const end = (t: ReturnType<typeof setup>) => {
+      t.media.position = t.media.duration;
+      t.stream(Stream.paused());
+      t.stream(Stream.finished());
+    };
+
+    it("at the end of the media: finished, then data is the queued URL and it plays, at the same speed", () => {
+      const t = playing(60_000);
+
+      expect(t.run(queue("http://vod/next.mp4"))).toBe(true);
+      expect(t.calls).toEqual([]);
+      expect(t.state()).toMatchObject({ data: "http://vod/movie.mp4", playState: PlayState.PLAYING });
+
+      end(t);
+      expect(t.events).toEqual([{ playState: PlayState.FINISHED }, { playState: PlayState.CONNECTING }]);
+      expect(t.calls).toEqual(["load http://vod/next.mp4"]);
+      expect(t.state()).toMatchObject({ data: "http://vod/next.mp4", speed: 1, queued: null });
+
+      t.loaded();
+      t.stream(Stream.playing());
+      expect(t.calls).toEqual(["load http://vod/next.mp4", "play"]);
+      expect(t.state().playState).toBe(PlayState.PLAYING);
+      expect(t.events).not.toContainEqual({ speed: 0 });
+    });
+
+    it("holds one item: queueing another is false and keeps the first", () => {
+      const t = playing();
+      expect(t.run(queue("http://vod/a.mp4"))).toBe(true);
+      expect(t.run(queue("http://vod/b.mp4"))).toBe(false);
+      expect(t.state().queued).toBe("http://vod/a.mp4");
+    });
+
+    it("null removes the queued item and is true; the media then just finishes", () => {
+      const t = playing(60_000);
+      t.run(queue("http://vod/a.mp4"));
+      expect(t.run(queue(null))).toBe(true);
+      expect(t.state().queued).toBeNull();
+      expect(t.run(queue(null))).toBe(true);
+
+      end(t);
+      expect(t.events).toEqual([{ playState: PlayState.FINISHED }, { speed: 0 }]);
+      expect(t.calls).toEqual([]);
+    });
+
+    it("while paused or connecting the media is still current: the item waits", () => {
+      const t = playing();
+      t.run(play(0));
+      t.clear();
+      expect(t.run(queue("http://vod/a.mp4"))).toBe(true);
+      expect(t.calls).toEqual([]);
+      expect(t.state().queued).toBe("http://vod/a.mp4");
+
+      const connecting = setup();
+      connecting.run(play(1));
+      connecting.clear();
+      connecting.run(queue("http://vod/a.mp4"));
+      expect(connecting.calls).toEqual([]);
+      expect(connecting.state().queued).toBe("http://vod/a.mp4");
+    });
+
+    it("with no media playing (stopped, finished, error) the item plays at once", () => {
+      const stopped = setup();
+      expect(stopped.run(queue("http://vod/a.mp4"))).toBe(true);
+      expect(stopped.calls).toEqual(["load http://vod/a.mp4"]);
+      expect(stopped.events).toEqual([{ playState: PlayState.CONNECTING }, { speed: 1 }]);
+      expect(stopped.state()).toMatchObject({ data: "http://vod/a.mp4", queued: null });
+
+      const finished = playing(60_000);
+      end(finished);
+      finished.clear();
+      finished.run(queue("http://vod/a.mp4"));
+      expect(finished.calls).toEqual(["load http://vod/a.mp4"]);
+      expect(finished.events).toEqual([{ playState: PlayState.CONNECTING }, { speed: 1 }]);
+
+      const failed = setup({ data: "" });
+      failed.run(play(1));
+      failed.clear();
+      failed.run(queue("http://vod/a.mp4"));
+      expect(failed.calls).toEqual(["load http://vod/a.mp4"]);
+      expect(failed.state().playState).toBe(PlayState.CONNECTING);
+    });
+
+    it("stop(), a change of data and the error state discard the queued item", () => {
+      const stopped = playing();
+      stopped.run(queue("http://vod/a.mp4"));
+      stopped.run(stop);
+      expect(stopped.state().queued).toBeNull();
+
+      const changed = playing();
+      changed.run(queue("http://vod/a.mp4"));
+      changed.run(setData("http://vod/other.mp4"));
+      expect(changed.state().queued).toBeNull();
+
+      const failed = playing();
+      failed.run(queue("http://vod/a.mp4"));
+      failed.stream(Stream.error(VideoStreamError.network("lost", 2)));
+      expect(failed.state().queued).toBeNull();
     });
   });
 

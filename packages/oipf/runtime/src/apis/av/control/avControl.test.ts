@@ -146,9 +146,25 @@ describe("A/V Control object (video)", () => {
     expect(calls).toEqual(["focus"]);
   });
 
-  it("queue() and setSource() are not supported", () => {
+  it("queue() plays the queued media after the current one (TS 102 796 A.2.5.1)", () => {
+    const { object, calls, media, emit } = setup();
+    object.data = "http://vod/movie.mp4";
+    object.play();
+    media.position = 0;
+    media.duration = 90_000;
+    emit(Stream.paused());
+    emit(Stream.playing());
+
+    expect(object.queue("http://vod/next.mp4")).toBe(true);
+    expect(object.queue("http://vod/other.mp4")).toBe(false);
+    media.position = 90_000;
+    emit(Stream.finished());
+    expect(object.data).toBe("http://vod/next.mp4");
+    expect(calls[calls.length - 1]).toBe("load http://vod/next.mp4");
+  });
+
+  it("setSource() is not supported (HbbTV requires it only with download or PVR)", () => {
     const { object } = setup();
-    expect(object.queue("http://vod/next.mp4")).toBe(false);
     expect(object.setSource("rec-1")).toBe(false);
   });
 

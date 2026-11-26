@@ -21,6 +21,8 @@ type AvPlayer = HTMLObjectElement & {
   play: (speed?: number) => boolean;
   stop: () => boolean;
   seek: (position: number) => boolean;
+  queue: (url: string | null) => boolean;
+  readonly data: string;
   readonly playState: number;
   readonly playPosition: number | undefined;
   readonly playTime: number | undefined;
@@ -30,6 +32,7 @@ type AvPlayer = HTMLObjectElement & {
 /** Runs a function in the page (Playwright and Puppeteer agree on this much). */
 export type Evaluate = <T>(fn: () => T) => Promise<T>;
 
+const STOPPED = 0;
 const PLAYING = 1;
 const PAUSED = 2;
 const CONNECTING = 3;
@@ -128,6 +131,7 @@ type AudioAppState = {
   initError: string | null;
   bound: Record<string, boolean>;
   playStates: { mp3: number[]; aac: number[] };
+  speeds: { mp3: number[]; aac: number[] };
 };
 
 const audioApp = (evaluate: Evaluate) => evaluate(() => (window as unknown as { __e2e: AudioAppState }).__e2e);
@@ -155,4 +159,39 @@ export const runAudioScenario = async (evaluate: Evaluate) => {
     expect(states).toContain(PLAYING);
     expect(states[states.length - 1]).toBe(FINISHED);
   }
+};
+
+/**
+ * `audio-app/index.xhtml`, HbbTV's `queue()` (TS 102 796 A.2.5.1): a jingle queued
+ * after the radio clip plays by itself when the clip ends, with no stop between and
+ * the speed unchanged. A second item while one is queued is refused.
+ */
+export const runQueueScenario = async (evaluate: Evaluate) => {
+  expect(await audioApp(evaluate)).toMatchObject({ initError: null, bound: { mp3: true } });
+
+  expect(
+    await evaluate(() => {
+      const player = document.getElementById("mp3") as AvPlayer;
+      return [player.play(1), player.queue("chime.mp3"), player.queue("tone.m4a")];
+    }),
+  ).toEqual([true, true, false]);
+  await until(
+    evaluate,
+    () => {
+      const player = document.getElementById("mp3") as AvPlayer;
+      return player.data === "chime.mp3" && player.playState === 5;
+    },
+    "the queued item finished",
+  );
+
+  const { playStates, speeds } = await audioApp(evaluate);
+  const first = playStates.mp3.indexOf(FINISHED);
+  const [clip, jingle] = [playStates.mp3.slice(0, first + 1), playStates.mp3.slice(first + 1)];
+  expect(clip[0]).toBe(CONNECTING);
+  expect(clip).toContain(PLAYING);
+  expect(jingle[0]).toBe(CONNECTING);
+  expect(jingle).toContain(PLAYING);
+  expect(jingle[jingle.length - 1]).toBe(FINISHED);
+  expect(playStates.mp3).not.toContain(STOPPED);
+  expect(speeds.mp3).toEqual([1, 0]);
 };

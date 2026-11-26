@@ -26,7 +26,12 @@
  *   playing, paused). Stopped, finished and error leave it only through the
  *   application. A seek while paused does not change it (§7.14.3.1, `seek()`);
  * - the end of the media is finished, with speed 0 (item 6);
- * - `onPlayStateChange` fires only when `playState` actually changes.
+ * - `onPlayStateChange` fires only when `playState` actually changes;
+ * - `queue(url)` (TS 102 796 A.2.5.1) holds one item: `false` if one is already queued,
+ *   `queue(null)` removes it. With no media playing (stopped, finished, error) the item
+ *   plays at once. At the end of the media the object is finished, then `data` is the
+ *   queued URL and it plays, at the same speed (no `onPlaySpeedChanged`). `stop()`, a
+ *   change of `data` and the error state discard it.
  *
  * Emulator choices the spec leaves open: `play()` with no `data` is an error 5
  * (content not available); the player's errors map to 0 (format), 1 (connection)
@@ -65,6 +70,8 @@ export type PlaybackState = Readonly<{
   /** The loaded media has presented a frame or reached its end: it can seek. */
   ready: boolean;
   seek: PendingSeek | null;
+  /** The URL `queue()` holds for when the media ends (TS 102 796 A.2.5.1). */
+  queued: string | null;
 }>;
 
 /** The player that renders `data`. Positions and durations in milliseconds. */
@@ -103,6 +110,7 @@ export const INITIAL_PLAYBACK_STATE: PlaybackState = {
   loaded: null,
   ready: false,
   seek: null,
+  queued: null,
 };
 
 export const createPlaybackEnv = (
@@ -184,7 +192,7 @@ export const closestSpeed = (speed: number): number =>
 
 const fail = (error: ErrorCode): RIO.ReaderIO<PlaybackEnv, void> =>
   pipe(
-    modify((s) => ({ ...s, error, loaded: null, ready: false, seek: null })),
+    modify((s) => ({ ...s, error, loaded: null, ready: false, seek: null, queued: null })),
     RIO.flatMap(() => setPlayState(S.ERROR)),
   );
 
@@ -201,7 +209,7 @@ export const setData = (url: string): RIO.ReaderIO<PlaybackEnv, void> =>
         : pipe(
             RIO.fromIO(logger.debug("data", url)),
             RIO.flatMap(() => (state.loaded === null ? noop : withPlayer((player) => player.stop))),
-            RIO.flatMap(() => modify((s) => ({ ...s, data: url }))),
+            RIO.flatMap(() => modify((s) => ({ ...s, data: url, queued: null }))),
             RIO.flatMap(() => forgetMedia),
             RIO.flatMap(() => setPlayState(S.STOPPED)),
           ),
@@ -275,9 +283,62 @@ export const stop: RIO.ReaderIO<PlaybackEnv, boolean> = pipe(
           RIO.flatMap(() => modify((s) => ({ ...s, seek: { position: 0, sent: true } }))),
         ),
   ),
+  RIO.flatMap(() => modify((s) => ({ ...s, queued: null }))),
   RIO.flatMap(() => setPlayState(S.STOPPED)),
   RIO.map(() => true),
 );
+
+/** `data` becomes `url` and plays at `speed`, without passing through stopped. */
+const playItem = (url: string, speed: number): RIO.ReaderIO<PlaybackEnv, void> =>
+  pipe(
+    RIO.fromIO(logger.debug("next item", url)),
+    RIO.flatMap(() => readPlaybackState),
+    RIO.flatMap((state) =>
+      pipe(
+        modify((s) => ({ ...s, data: url, speed, queued: null })),
+        RIO.flatMap(() => forgetMedia),
+        RIO.flatMap(() => startPlaying),
+        RIO.flatMap(() => (state.speed === speed ? noop : emit((events) => events.onPlaySpeedChanged(speed)))),
+      ),
+    ),
+  );
+
+/** `queue(url)` (TS 102 796 A.2.5.1): `null` (or nothing) removes the queued item. */
+export const queue = (url: string | null | undefined): RIO.ReaderIO<PlaybackEnv, boolean> =>
+  pipe(
+    RIO.fromIO(logger.debug("queue", url)),
+    RIO.flatMap(() => readPlaybackState),
+    RIO.flatMap((state) =>
+      match({ url, state })
+        .when(
+          ({ url }) => url === null || url === undefined,
+          () =>
+            pipe(
+              modify((s) => ({ ...s, queued: null })),
+              RIO.map(() => true),
+            ),
+        )
+        .when(
+          ({ state }) => state.queued !== null,
+          () => RIO.of(false),
+        )
+        // No media playing: the queued item plays at once.
+        .when(
+          ({ state }) => !isActive(state.playState),
+          ({ url }) =>
+            pipe(
+              playItem(String(url), 1),
+              RIO.map(() => true),
+            ),
+        )
+        .otherwise(({ url }) =>
+          pipe(
+            modify((s) => ({ ...s, queued: String(url) })),
+            RIO.map(() => true),
+          ),
+        ),
+    ),
+  );
 
 const isPosition = (position: number): boolean => Number.isFinite(position) && position >= 0;
 
@@ -371,13 +432,28 @@ export const followStream = (stream: VideoStreamPlayState): RIO.ReaderIO<Playbac
           state.playState === S.PLAYING && state.ready ? setPlayState(S.BUFFERING) : noop,
         )
         .with({ _tag: "Finished" }, () =>
-          isActive(state.playState)
-            ? pipe(
+          match(state)
+            .when(
+              (s) => !isActive(s.playState),
+              () => noop,
+            )
+            // Finished, then the queued item, at the same speed (TS 102 796 A.2.5.1).
+            .when(
+              (s) => s.queued !== null,
+              (s) =>
+                pipe(
+                  modify((current) => ({ ...current, ready: true, seek: null })),
+                  RIO.flatMap(() => setPlayState(S.FINISHED)),
+                  RIO.flatMap(() => playItem(String(s.queued), s.speed)),
+                ),
+            )
+            .otherwise(() =>
+              pipe(
                 modify((s) => ({ ...s, ready: true, seek: null, speed: 0 })),
                 RIO.flatMap(() => setPlayState(S.FINISHED)),
                 RIO.flatMap(() => emit((events) => events.onPlaySpeedChanged(0))),
-              )
-            : noop,
+              ),
+            ),
         )
         .with({ _tag: "Error" }, ({ error }) => (isActive(state.playState) ? fail(toErrorCode(error)) : noop))
         .with({ _tag: "Idle" }, { _tag: "Connecting" }, { _tag: "Stopped" }, () => noop)

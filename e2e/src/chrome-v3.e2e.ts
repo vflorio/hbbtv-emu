@@ -2,7 +2,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runAudioScenario, runAvControlScenario, runUnreachableStreamScenario } from "./support/avControl";
+import {
+  runAudioScenario,
+  runAvControlScenario,
+  runQueueScenario,
+  runUnreachableStreamScenario,
+} from "./support/avControl";
 import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 
@@ -194,6 +199,17 @@ describe("chrome-v3: HbbTV application", () => {
 
     try {
       await runAudioScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
+  it("plays the item queue() holds after the current one (TS 102 796 A.2.5.1)", async () => {
+    const { page, errors } = await openPage(`audio-app/index.xhtml?queue=${Date.now()}`);
+
+    try {
+      await runQueueScenario((fn) => page.evaluate(fn));
       expect(errors).toEqual([]);
     } finally {
       await page.close();

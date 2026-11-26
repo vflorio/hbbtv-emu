@@ -112,62 +112,18 @@ export abstract class BaseVideoAdapter<TConfig = unknown> implements RuntimeAdap
 
   /**
    * Synchronize adapter state with the current video element state.
+   *
+   * Only what belongs to the element (volume, muted). The adapter is mounted right
+   * before it loads a new source (`Intent/LoadRequested`), so the element's media
+   * state at this point is the previous media's: reporting it would end, or load,
+   * the new media before it starts (an element that has `ended` the previous one).
+   * The new media's own events follow the load.
    */
   protected syncInitialState(videoElement: HTMLVideoElement): IO.IO<void> {
-    const emitMetadataIfLoaded = pipe(
-      IOO.Do,
-      IOO.bind("url", () => IOO.fromNullable(this.url)),
-      IOO.filter(() => videoElement.readyState >= HTMLMediaElement.HAVE_METADATA),
-      IOO.matchE(
-        () => IO.of(undefined),
-        ({ url }) =>
-          this.emit({
-            _tag: "Engine/MetadataLoaded",
-            playbackType: this.type,
-            url,
-            duration: Number.isFinite(videoElement.duration) ? videoElement.duration : 0,
-            width: videoElement.videoWidth,
-            height: videoElement.videoHeight,
-          }),
-      ),
-    );
-
-    const emitPlaybackState = pipe(
-      O.some(videoElement),
-      O.filter((v) => v.ended),
-      O.match(
-        () =>
-          pipe(
-            O.some(videoElement),
-            O.filter((v) => !v.paused && !v.ended && v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA),
-            O.match(
-              () => IO.of(undefined),
-              (v) =>
-                this.emit({
-                  _tag: "Engine/Playing",
-                  snapshot: snapshotOf(v),
-                }),
-            ),
-          ),
-        (v) =>
-          this.emit({
-            _tag: "Engine/Ended",
-            snapshot: snapshotOf(v),
-          }),
-      ),
-    );
-
-    const emitVolumeState = pipe(
+    return pipe(
       IO.Do,
       IO.flatMap(() => this.emit({ _tag: "Engine/VolumeChanged", volume: videoElement.volume })),
       IO.flatMap(() => this.emit({ _tag: "Engine/MutedChanged", muted: videoElement.muted })),
-    );
-
-    return pipe(
-      IO.Do,
-      IO.flatMap(() => emitMetadataIfLoaded),
-      IO.flatMap(() => emitPlaybackState),
-      IO.flatMap(() => emitVolumeState),
     );
   }
 
