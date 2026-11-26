@@ -1,5 +1,4 @@
 import type { AdapterError } from "@hbb-emu/player-runtime";
-import * as dashjs from "dashjs";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -10,6 +9,7 @@ import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import type { DASHConfig } from ".";
 import { BaseVideoAdapter } from "./base";
+import { dashjs } from "./dashjs";
 
 /**
  * What a dash.js error code is about: a manifest that cannot be read, a download

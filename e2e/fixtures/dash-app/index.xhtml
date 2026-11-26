@@ -7,11 +7,31 @@
   <style type="text/css">
     body { margin: 0; width: 1280px; height: 720px; }
   </style>
+  <script type="text/javascript">
+  //<![CDATA[
+    // Every error event of a media element or of a <source>, from the start of the document.
+    window.__mediaErrors = [];
+    document.addEventListener("error", function (event) {
+      var target = event.target;
+      if (!target || !/^(video|audio|source)$/i.test(target.nodeName)) return;
+      var element = target.nodeName.toLowerCase() === "source" ? target.parentNode : target;
+      window.__mediaErrors.push(
+        element.id + ":" + target.nodeName.toLowerCase() + ":" + (target.error ? target.error.code : "-")
+      );
+    }, true);
+  //]]>
+  </script>
 </head>
 <body>
   <object id="appmgr" type="application/oipfApplicationManager"></object>
   <!-- An HbbTV 2 VOD player: the MPD is the source of an HTML5 video, set from script. -->
   <video id="video" style="position: absolute; left: 0; top: 0; width: 640px; height: 360px;"></video>
+  <!-- The MPD in the markup: as the src attribute, and as the first <source>, before a 1 s audio fallback. -->
+  <video id="markup" src="clip.mpd" autoplay="autoplay" muted="muted" style="width: 160px; height: 90px;"></video>
+  <video id="sourced" autoplay="autoplay" muted="muted" style="width: 160px; height: 90px;">
+    <source src="clip.mpd" type="application/dash+xml" />
+    <source src="../audio-app/tone.m4a" type="audio/mp4" />
+  </video>
 
   <script type="text/javascript">
   //<![CDATA[

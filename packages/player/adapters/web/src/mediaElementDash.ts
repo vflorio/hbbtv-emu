@@ -10,7 +10,7 @@
  * makes them in `VideoModel.setSource`, which the engine runs through `internally`.
  */
 
-import * as dashjs from "dashjs";
+import { dashjs } from "./dashjs";
 
 export type MediaElementDashHooks = Readonly<{
   /** Runs one of dash.js's own writes to the element's source. */

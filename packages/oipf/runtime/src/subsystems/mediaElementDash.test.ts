@@ -13,6 +13,12 @@ class FakeMediaError {}
 /** jsdom cannot load: `load()` only says it was called. */
 const loads = vi.fn();
 
+/** jsdom plays nothing: here the browser plays MP4, and nothing else. */
+const nativeCanPlayType = (type: string): CanPlayTypeResult => (type.startsWith("video/mp4") ? "maybe" : "");
+
+/** The observer's delivery of mutations. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 /** What the browser holds as the element's source: its own attribute. */
 const browserSource = (element: HTMLMediaElement) => element.getAttribute("src");
 
@@ -66,6 +72,7 @@ beforeEach(() => {
       loads(this);
     },
   });
+  Object.defineProperty(prototype, "canPlayType", { ...browserCanPlayType, value: nativeCanPlayType });
   Object.defineProperty(prototype, "error", { configurable: true, get: () => null });
   Object.defineProperty(window, "MediaError", { configurable: true, value: FakeMediaError });
   emulatorMedia = createEmulatorMedia();
@@ -75,6 +82,8 @@ beforeEach(() => {
 afterEach(() => {
   uninstall();
   Object.defineProperty(prototype, "load", browserLoad);
+  Object.defineProperty(prototype, "canPlayType", browserCanPlayType);
+  document.body.innerHTML = "";
   delete (prototype as { error?: unknown }).error;
   delete (window as { MediaError?: unknown }).MediaError;
 });
@@ -209,17 +218,158 @@ describe("DASH in the application's media (TS 102 796 §9.4.2)", () => {
     expect(video.canPlayType('application/dash+xml; codecs="avc1.4d401f, mp4a.40.2"')).toBe("probably");
     expect(video.canPlayType('application/dash+xml; codecs="hev1.1.6.L93.B0"')).toBe("");
     expect(video.canPlayType("video/x-unknown")).toBe("");
+    expect(video.canPlayType("video/mp4")).toBe("maybe");
   });
 
   it("uninstalled, the browser's accessors are back", () => {
     uninstall();
     uninstall = () => {};
 
-    expect(Object.getOwnPropertyDescriptor(prototype, "canPlayType")).toEqual(browserCanPlayType);
+    expect(Object.getOwnPropertyDescriptor(prototype, "canPlayType")?.value).toBe(nativeCanPlayType);
     const video = document.createElement("video");
     video.src = "movie.mpd";
     expect(dashes).toEqual([]);
     expect(browserSource(video)).toBe("movie.mpd");
+  });
+});
+
+describe("an MPD in the src attribute", () => {
+  it("of the markup: presented once the element is in the document, and the browser lets it go", async () => {
+    document.body.innerHTML = '<div><video src="vod/movie.mpd" autoplay=""></video></div>';
+    const video = document.querySelector("video") as HTMLVideoElement;
+
+    await settle();
+
+    expect(dashes[0]?.sources).toEqual(["http://localhost:3000/vod/movie.mpd"]);
+    expect(browserSource(video)).toBeNull();
+    expect(loads).toHaveBeenCalledWith(video);
+    expect(video.src).toBe("http://localhost:3000/vod/movie.mpd");
+  });
+
+  it("from setAttribute(), followed by load(): seen in that order", () => {
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+
+    video.setAttribute("src", "movie.mpd");
+    video.load();
+
+    expect(dashes[0]?.sources).toEqual(["http://localhost:3000/movie.mpd"]);
+    expect(video.currentSrc).toBe("http://localhost:3000/movie.mpd");
+  });
+
+  it("dash.js's own writes are not the application's", async () => {
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    video.src = "movie.mpd";
+
+    dashes[0]?.attach();
+    await settle();
+
+    expect(dashes).toHaveLength(1);
+    expect(dashes[0]?.sources).toHaveLength(1);
+    expect(dashes[0]?.resets).toBe(0);
+  });
+
+  it("another source in the attribute ends it, and the browser plays that one", async () => {
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    video.src = "movie.mpd";
+    dashes[0]?.attach();
+
+    video.setAttribute("src", "clip.mp4");
+    await settle();
+
+    expect(dashes[0]?.resets).toBe(1);
+    expect(browserSource(video)).toBe("clip.mp4");
+    expect(video.src).toBe("http://localhost:3000/clip.mp4");
+  });
+
+  it("of an element outside the document: not seen until it is inserted", async () => {
+    const video = document.createElement("video");
+    video.setAttribute("src", "movie.mpd");
+    await settle();
+    expect(dashes).toEqual([]);
+
+    document.body.appendChild(video);
+    await settle();
+
+    expect(dashes[0]?.sources).toEqual(["http://localhost:3000/movie.mpd"]);
+  });
+});
+
+describe("an MPD in a <source> (HTML's resource selection)", () => {
+  it("chosen as the browser chooses: the first source of a type it plays, or with no type", async () => {
+    document.body.innerHTML = `
+      <video id="a"><source src="clip.webm" type="video/webm"><source src="a.mpd" type="application/dash+xml"><source src="clip.mp4" type="video/mp4"></video>
+      <video id="b"><source src="b.mpd"></video>
+      <video id="c"><source src="clip.mp4" type="video/mp4"><source src="c.mpd" type="application/dash+xml"></video>
+      <video id="d"><source src="d.mpd" type='application/dash+xml; codecs="hev1.1.6.L93.B0"'><source src="clip.mp4"></video>`;
+
+    await settle();
+
+    expect(dashes.map((dash) => [dash.element.id, dash.sources])).toEqual([
+      ["a", ["http://localhost:3000/a.mpd"]],
+      ["b", ["http://localhost:3000/b.mpd"]],
+    ]);
+  });
+
+  it("src reads nothing, currentSrc the MPD", async () => {
+    document.body.innerHTML = '<video><source src="movie.mpd" type="application/dash+xml"></video>';
+    const video = document.querySelector("video") as HTMLVideoElement;
+    await settle();
+    dashes[0]?.attach();
+
+    expect(video.src).toBe("");
+    expect(video.currentSrc).toBe("http://localhost:3000/movie.mpd");
+  });
+
+  it("a <source> added to an element that presents nothing", async () => {
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    await settle();
+
+    const source = document.createElement("source");
+    source.src = "movie.mpd";
+    video.appendChild(source);
+    await settle();
+
+    expect(dashes[0]?.sources).toEqual(["http://localhost:3000/movie.mpd"]);
+  });
+
+  it("the src attribute comes first", async () => {
+    document.body.innerHTML = '<video src="clip.mp4"><source src="movie.mpd"></video>';
+
+    await settle();
+
+    expect(dashes).toEqual([]);
+  });
+
+  it("load() chooses again: the sources the application left", async () => {
+    document.body.innerHTML = '<video><source src="a.mpd"><source src="clip.mp4" type="video/mp4"></video>';
+    const video = document.querySelector("video") as HTMLVideoElement;
+    await settle();
+    dashes[0]?.attach();
+
+    video.querySelector("source")?.remove();
+    video.load();
+
+    expect(dashes[0]?.resets).toBe(1);
+    expect(loads).toHaveBeenLastCalledWith(video);
+    expect(video.currentSrc).toBe("");
+  });
+
+  it("the src attribute removed and load(): the <source> children choose", () => {
+    const video = document.createElement("video");
+    video.innerHTML = '<source src="b.mpd">';
+    video.src = "a.mpd";
+    dashes[0]?.attach();
+
+    video.removeAttribute("src");
+    video.load();
+
+    expect(dashes).toHaveLength(2);
+    expect(dashes[1]?.sources).toEqual(["http://localhost:3000/b.mpd"]);
+    expect(video.currentSrc).toBe("http://localhost:3000/b.mpd");
   });
 });
 

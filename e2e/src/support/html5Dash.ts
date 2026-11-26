@@ -1,8 +1,10 @@
 /**
  * The HTML5 DASH scenario both hosts run on `dash-app/index.xhtml` (TS 102 796
- * §9.4.2): the application sets an MPD as the source of its own `<video>` and plays
- * it to the end, as an HbbTV 2 VOD player does; a missing MPD is an error of the
- * element; `removeAttribute("src")` and `load()` unload it.
+ * §9.4.2): two videos of the markup play an MPD by themselves (its `src` attribute,
+ * and its first `<source>`, before an audio fallback); the application sets an MPD as
+ * the source of its own `<video>` and plays it to the end, as an HbbTV 2 VOD player
+ * does; `removeAttribute("src")` and `load()` unload it; a missing MPD is an error of
+ * the element.
  */
 
 import { expect } from "vitest";
@@ -31,8 +33,34 @@ const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
 /** `HTMLMediaElement.HAVE_NOTHING`: no media. */
 const HAVE_NOTHING = 0;
 
+type Played = { src: string; currentSrc: string; duration: number; size: number[]; error: MediaError | null };
+
 export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) => {
   expect(await app(evaluate)).toMatchObject({ initError: null, canPlayDash: "maybe" });
+
+  // From the markup, by themselves (autoplay): the src attribute, and the first <source>
+  // before the audio fallback. `src` reads nothing for the second, as in HTML.
+  await until(
+    evaluate,
+    () => ["markup", "sourced"].every((id) => (document.getElementById(id) as HTMLVideoElement).ended),
+    "the markup's videos ended",
+  );
+  const fromMarkup = await evaluate(() =>
+    ["markup", "sourced"].map((id): Played => {
+      const video = document.getElementById(id) as HTMLVideoElement;
+      return {
+        src: video.src,
+        currentSrc: video.currentSrc,
+        duration: video.duration,
+        size: [video.videoWidth, video.videoHeight],
+        error: video.error,
+      };
+    }),
+  );
+  expect(fromMarkup).toEqual([
+    { src: mpdUrl, currentSrc: mpdUrl, duration: 3, size: [160, 90], error: null },
+    { src: "", currentSrc: mpdUrl, duration: 3, size: [160, 90], error: null },
+  ]);
 
   // Played to the end, as from the MPD: its duration and size; the application reads its own URL back.
   await evaluate(() => {
@@ -78,4 +106,13 @@ export const runHtml5DashScenario = async (evaluate: Evaluate, mpdUrl: string) =
   // Once, as the browser reports a source it cannot play, although dash.js reports more.
   await new Promise((resolve) => setTimeout(resolve, 1000));
   expect((await app(evaluate)).errors).toEqual([MEDIA_ERR_SRC_NOT_SUPPORTED]);
+
+  // Every error event since the document started: none for the MPD of the markup's src
+  // attribute (the browser let it go before its fetch failed), and the missing MPD's.
+  // The browser still fires one at the DASH <source> it cannot play itself, which a
+  // terminal would not (a limit of the emulator).
+  expect(await evaluate(() => (window as unknown as { __mediaErrors: string[] }).__mediaErrors)).toEqual([
+    "sourced:source:-",
+    "video:video:4",
+  ]);
 };
