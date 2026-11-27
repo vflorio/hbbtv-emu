@@ -1,29 +1,24 @@
 import { proxyProperties } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf-api";
 import * as IO from "fp-ts/IO";
-import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import { type StreamEventSchedulerApi, tuneAlone } from "../../../subsystems";
 import { FULLSCREEN_ATTRIBUTE } from "../../../subsystems/provider/detection/embedded";
-import type { ChannelVideoStreamEnv } from "./channel";
+import type { BroadcastPlayer } from "./channel";
 import { createVideoBroadcast, type VideoBroadcastEventHandlers } from "./index";
 import { createObjectVideoWindow } from "./videoWindow";
 
-const createFakeVideoStream = () => {
+const createFakePlayer = () => {
   const setVolume = vi.fn((_: number) => IO.of(undefined));
   const setMuted = vi.fn((_: boolean) => IO.of(undefined));
-  const videoStream: ChannelVideoStreamEnv = {
-    videoElement: document.createElement("video"),
-    play: TE.right(undefined),
+  const player: BroadcastPlayer = {
+    present: () => IO.of(undefined),
+    bind: IO.of(false),
     stop: IO.of(undefined),
-    destroy: IO.of(undefined),
-    loadSource: () => IO.of(undefined),
-    setVolume,
-    setMuted,
-    getVolume: IO.of(100),
+    release: IO.of(undefined),
     onStreamStateChange: () => () => {},
   };
-  return { videoStream, setVolume, setMuted };
+  return { player, setVolume, setMuted };
 };
 
 type HandlerSpy = Mock<(...args: unknown[]) => void>;
@@ -50,18 +45,17 @@ const noopStreamEventScheduler: StreamEventSchedulerApi = {
 const { PlayState } = OIPF.DAE.Broadcast;
 
 const setup = (objectStyle = "width: 1280px; height: 720px", playState: OIPF.DAE.Broadcast.PlayState = 0) => {
-  const stream = createFakeVideoStream();
+  const stream = createFakePlayer();
   const eventHandlers = createEventHandlers();
   const object = document.createElement("object");
   object.setAttribute("type", "video/broadcast");
   object.setAttribute("style", objectStyle);
-  object.appendChild(stream.videoStream.videoElement);
   document.body.appendChild(object);
   const videoBroadcast = createVideoBroadcast({
     channelRegistry: { getChannels: () => [] },
-    videoStream: stream.videoStream,
+    player: stream.player,
     audioOutput: { setVolume: stream.setVolume, setMuted: stream.setMuted },
-    videoWindow: createObjectVideoWindow(object, stream.videoStream.videoElement),
+    videoWindow: createObjectVideoWindow(object),
     getTunedChannel: () => null,
     requestChannelChange: tuneAlone,
     onCurrentChannelChange: () => {},
@@ -71,7 +65,7 @@ const setup = (objectStyle = "width: 1280px; height: 720px", playState: OIPF.DAE
     defaults: { fullScreen: false, playState },
     eventHandlers,
   });
-  return { videoBroadcast, eventHandlers, object, video: stream.videoStream.videoElement, ...stream };
+  return { videoBroadcast, eventHandlers, object, ...stream };
 };
 
 describe("VideoBroadcast — volume", () => {
@@ -146,24 +140,24 @@ describe("VideoBroadcast — display", () => {
     expect(videoBroadcast.getState()).toMatchObject({ fullScreen: false, width: 640, height: 360 });
   });
 
-  it("setFullScreen() switches the video and notifies the application", () => {
-    const { videoBroadcast, video, eventHandlers } = setup();
+  it("setFullScreen() switches the object and notifies the application", () => {
+    const { videoBroadcast, object, eventHandlers } = setup();
 
     videoBroadcast.setFullScreen(true);
 
     expect(videoBroadcast.fullScreen).toBe(true);
     expect(videoBroadcast.getState()).toMatchObject({ fullScreen: true });
-    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
+    expect(object.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
     expect(eventHandlers.onFullScreenChange).toHaveBeenCalledWith(true);
   });
 
   it("applyState() from the settings UI enters full-screen and notifies the application", () => {
-    const { videoBroadcast, video, eventHandlers } = setup();
+    const { videoBroadcast, object, eventHandlers } = setup();
 
     videoBroadcast.applyState({ fullScreen: true })();
 
     expect(videoBroadcast.fullScreen).toBe(true);
-    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
+    expect(object.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
     expect(eventHandlers.onFullScreenChange).toHaveBeenCalledWith(true);
   });
 

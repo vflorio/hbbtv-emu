@@ -1,5 +1,7 @@
 /**
  * Embedded visual attach: the emulated video is rendered *inside* the `<object>`.
+ * For video/broadcast it is the TV's broadcast, which the object holds while it
+ * controls it (`subsystems/broadcastLayer.ts`).
  *
  * An `<object>` whose type the browser cannot handle (e.g. `video/broadcast`)
  * renders its children as fallback content, inside the object's own box. So
@@ -12,13 +14,12 @@
  * over the viewport, which keeps the object's stacking context (and z-index).
  */
 
-import { pipe } from "fp-ts/function";
-import * as IO from "fp-ts/IO";
+import type * as IO from "fp-ts/IO";
 
 /** Marks the emulator's video element mounted inside an object. */
 export const EMBEDDED_VIDEO_ATTRIBUTE = "data-hbbtv-emu-video";
 
-/** Present on the embedded video while the object is in full-screen. */
+/** Present on the object while it is in full-screen. */
 export const FULLSCREEN_ATTRIBUTE = "data-hbbtv-emu-fullscreen";
 
 /** Marks the emulator's stylesheet, so it is injected once per document. */
@@ -42,7 +43,7 @@ object[type="video/broadcast"] { display: inline-block; }
   background: #000 !important;
   object-fit: contain;
 }
-[${EMBEDDED_VIDEO_ATTRIBUTE}][${FULLSCREEN_ATTRIBUTE}] {
+[${FULLSCREEN_ATTRIBUTE}] > [${EMBEDDED_VIDEO_ATTRIBUTE}] {
   position: fixed !important;
   left: 0 !important;
   top: 0 !important;
@@ -64,21 +65,4 @@ export const ensureEmbeddedStyles =
 
     const parent = document.head ?? document.documentElement;
     parent.insertBefore(style, parent.firstChild);
-  };
-
-export const mountEmbeddedVideo = (object: HTMLObjectElement, video: HTMLVideoElement): IO.IO<void> =>
-  pipe(
-    ensureEmbeddedStyles(object.ownerDocument),
-    IO.flatMap(() => () => {
-      video.setAttribute(EMBEDDED_VIDEO_ATTRIBUTE, "");
-      object.appendChild(video);
-    }),
-  );
-
-export const unmountEmbeddedVideo =
-  (object: HTMLObjectElement): IO.IO<void> =>
-  () => {
-    for (const video of Array.from(object.querySelectorAll(`[${EMBEDDED_VIDEO_ATTRIBUTE}]`))) {
-      if (video.parentElement === object) video.remove();
-    }
   };

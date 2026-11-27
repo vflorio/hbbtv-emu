@@ -47,8 +47,9 @@ const unknown = { idType: DVB_T, onid: 1, tsid: 2, sid: 3 } as OIPF.DAE.Broadcas
 
 type Call =
   | { readonly load: string }
+  | { readonly bind: true }
   | { readonly stop: true }
-  | { readonly destroy: true }
+  | { readonly release: true }
   | { readonly playState: number }
   | { readonly unrealized: true }
   | { readonly left: true }
@@ -56,17 +57,22 @@ type Call =
   | { readonly succeeded: string | undefined }
   | { readonly presents: string | null };
 
-/** A video/broadcast on a TV tuned to `tuned`, whose answer to a change is `requestChannelChange`. */
+/**
+ * A video/broadcast on a TV tuned to `tuned`, whose answer to a change is
+ * `requestChannelChange`. `presented`: whether the TV's broadcast presents, to bind to.
+ */
 const setup = ({
   tuned = dmax,
   lineup = [dmax, hgtv, news],
   requestChannelChange = () => tuneAlone,
   playState = PlayState.UNREALIZED,
+  presented = true,
 }: {
   tuned?: ChannelConfig | null;
   lineup?: ReadonlyArray<ChannelConfig>;
   requestChannelChange?: (env: () => ChannelEnv) => ChannelChangeRequest;
   playState?: OIPF.DAE.Broadcast.PlayState;
+  presented?: boolean;
 } = {}) => {
   const calls: Call[] = [];
   const asked: string[] = [];
@@ -76,14 +82,18 @@ const setup = ({
     {
       getChannels: () => lineup,
       player: {
-        loadSource: (source) => () => {
-          calls.push({ load: source.url });
+        present: (url) => () => {
+          calls.push({ load: url });
+        },
+        bind: () => {
+          calls.push({ bind: true });
+          return presented;
         },
         stop: () => {
           calls.push({ stop: true });
         },
-        destroy: () => {
-          calls.push({ destroy: true });
+        release: () => {
+          calls.push({ release: true });
         },
         onStreamStateChange: (listener) => {
           streamListeners.add(listener);
@@ -129,7 +139,7 @@ const setup = ({
 const presenting = async (config: ChannelConfig, options: Parameters<typeof setup>[0] = {}) => {
   const fixture = setup({ tuned: config, ...options });
   startChannel(fixture.env)();
-  await flush();
+  await tuneTo(channel(config))(fixture.env)();
   fixture.stream(Stream.playing());
   fixture.calls.length = 0;
   return fixture;
@@ -261,7 +271,7 @@ describe("changeChannel (the application's setChannel)", () => {
     await changeChannel(null)(env)();
 
     expect(getPlayState(env)()).toBe(PlayState.UNREALIZED);
-    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { destroy: true }]);
+    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { release: true }]);
   });
 });
 
@@ -286,13 +296,13 @@ describe("stop / release", () => {
     expect(calls).toEqual([{ stop: true }, { playState: PlayState.STOPPED }]);
   });
 
-  it("release() gives the player up once, keeping the channel", async () => {
+  it("release() gives the broadcast back to the TV once, keeping the channel", async () => {
     const { env, calls } = await presenting(dmax);
 
     release(env)();
     release(env)();
 
-    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { destroy: true }]);
+    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { release: true }]);
     expect(getCurrentChannel(env)()).toMatchObject({ ccid: "dmax" });
   });
 });
@@ -319,16 +329,34 @@ describe("bindToCurrentChannel", () => {
     expect(calls).toEqual([]);
   });
 
-  it("unrealized, binds to the channel the TV presents, e.g. after the application released it", async () => {
+  it("unrealized, presents at once what the TV presents, with only PlayStateChange (OIPF DAE Table 8)", async () => {
+    const { env, calls, stream } = setup({ tuned: hgtv });
+    startChannel(env)();
+
+    expect(bindToCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
+    expect(getPlayState(env)()).toBe(PlayState.PRESENTING);
+    stream(Stream.playing());
+    await flush();
+
+    // No stream loaded: the TV's goes on. No channel changed: none succeeds.
+    expect(calls).toEqual([{ bind: true }, { presents: "hgtv" }, { playState: PlayState.PRESENTING }]);
+  });
+
+  it("unrealized again after the application released it, binds to the TV's channel the same way", async () => {
     const { env, calls } = await presenting(hgtv);
     release(env)();
     calls.length = 0;
 
     expect(bindToCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
-    await flush();
 
-    expect(calls).toContainEqual({ load: hgtv.mp4Source });
-    expect(getPlayState(env)()).toBe(PlayState.CONNECTING);
+    expect(calls).toEqual([{ bind: true }, { presents: "hgtv" }, { playState: PlayState.PRESENTING }]);
+  });
+
+  it("unrealized while the TV's broadcast presents nothing, stays unrealized and says so", () => {
+    const { env, calls } = setup({ tuned: hgtv, presented: false });
+
+    expect(bindToCurrentChannel(env)()).toBeNull();
+    expect(calls).toEqual([{ bind: true }, { playState: PlayState.UNREALIZED }]);
   });
 
   it("unrealized on a TV presenting nothing, binds nothing and tells the application it stays unrealized", () => {
@@ -490,28 +518,14 @@ describe("the stream (followStream)", () => {
 });
 
 describe("startChannel (a new object)", () => {
-  it("presents the channel the TV is tuned to, which succeeds once its stream plays", async () => {
-    const { env, calls, stream } = setup({ tuned: hgtv });
+  it("is unrealized, presents nothing, and follows the stream once it controls it (OIPF DAE §7.13.1.1)", async () => {
+    const { env, calls, streamListeners } = setup({ tuned: hgtv });
 
     startChannel(env)();
     await flush();
-    stream(Stream.playing());
 
-    expect(getCurrentChannel(env)()).toMatchObject({ ccid: "hgtv" });
-    expect(calls).toEqual([
-      { playState: PlayState.CONNECTING },
-      { presents: "hgtv" },
-      { load: hgtv.mp4Source },
-      { playState: PlayState.PRESENTING },
-      { succeeded: "hgtv" },
-    ]);
-  });
-
-  it("on a TV presenting nothing, follows its stream and presents nothing", () => {
-    const { env, calls, streamListeners } = setup({ tuned: null });
-
-    startChannel(env)();
-
+    expect(getPlayState(env)()).toBe(PlayState.UNREALIZED);
+    expect(getCurrentChannel(env)()).toBeNull();
     expect(streamListeners.size).toBe(1);
     expect(calls).toEqual([]);
   });

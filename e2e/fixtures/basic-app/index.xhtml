@@ -32,6 +32,8 @@
       app.privateData.keyset.setValue(0x1 | 0x2 | 0x4 | 0x8 | 0x10);
       app.show();
       e2e.keysetValue = app.privateData.keyset.value;
+      // The broadcast, in the object's window: the application takes it from the TV.
+      document.getElementById("video").bindToCurrentChannel();
       // What an application that does not declare its objects does: it asks the factory.
       var factory = window.oipfObjectFactory;
       var created = factory.createApplicationManagerObject().getOwnerApplication(document);

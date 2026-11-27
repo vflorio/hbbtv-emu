@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { AnyStateful } from "../binding";
 import { applyAttachStrategy, detachAttachedElement } from "./attach";
-import { EMBEDDED_STYLES_ATTRIBUTE, EMBEDDED_VIDEO_ATTRIBUTE } from "./embedded";
+import { EMBEDDED_STYLES_ATTRIBUTE } from "./embedded";
 
 const createObject = (type: string) => {
   const element = document.createElement("object");
@@ -58,14 +58,14 @@ describe("non-visual attach", () => {
 });
 
 describe("visual-embedded attach", () => {
-  it("mounts the video inside the <object>, so the object's own layout applies", () => {
+  it("mounts no video: whoever presents one mounts it inside the <object> (the broadcast layer)", () => {
     const element = createObject("video/broadcast");
     const instance = createVisualInstance();
 
     applyAttachStrategy({ attachStrategy: "visual-embedded" }, detected(element), instance)();
 
-    expect(instance.videoElement.parentElement).toBe(element);
-    expect(instance.videoElement.hasAttribute(EMBEDDED_VIDEO_ATTRIBUTE)).toBe(true);
+    expect(instance.videoElement.parentElement).toBeNull();
+    expect(element.childElementCount).toBe(0);
     expect(element.nextElementSibling).toBeNull();
   });
 
@@ -102,16 +102,6 @@ describe("visual-embedded attach", () => {
     applyAttachStrategy({ attachStrategy: "visual-embedded" }, detected(element), createVisualInstance())();
 
     expect(element.width).toBe("");
-  });
-
-  it("detach removes the embedded video", () => {
-    const element = createObject("video/broadcast");
-    const instance = createVisualInstance();
-    applyAttachStrategy({ attachStrategy: "visual-embedded" }, detected(element), instance)();
-
-    detachAttachedElement(element)();
-
-    expect(instance.videoElement.parentElement).toBeNull();
   });
 });
 

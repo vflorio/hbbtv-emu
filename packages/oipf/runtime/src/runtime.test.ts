@@ -138,6 +138,7 @@ describe("runtime — tuned channel (the tab's TV session)", () => {
     currentChannel: { ccid: string } | null;
     playState: number;
     release: () => void;
+    bindToCurrentChannel: () => unknown;
   };
   type PrivateData = { currentChannel: { ccid: string; sid: number } | null };
 
@@ -155,9 +156,11 @@ describe("runtime — tuned channel (the tab's TV session)", () => {
     return appMgr.getOwnerApplication(document).privateData;
   };
 
+  /** A video/broadcast the application binds, as applications do at start. */
   const videoBroadcast = async (): Promise<VideoBroadcastObject> => {
     const object = addObject("video/broadcast") as unknown as VideoBroadcastObject;
     await flushMutations();
+    object.bindToCurrentChannel();
     return object;
   };
 
@@ -167,7 +170,17 @@ describe("runtime — tuned channel (the tab's TV session)", () => {
     expect((await privateData()).currentChannel).toMatchObject({ ccid: "dmax", sid: 52 });
   });
 
-  it("a video/broadcast presents the channel the TV is tuned to", async () => {
+  it("a new video/broadcast is unrealized until the application binds it (OIPF DAE §7.13.1.1)", async () => {
+    start();
+
+    const object = addObject("video/broadcast") as unknown as VideoBroadcastObject;
+    await flushMutations();
+
+    expect(object.playState).toBe(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
+    expect(object.currentChannel).toBeNull();
+  });
+
+  it("a bound video/broadcast presents the channel the TV is tuned to, at once", async () => {
     start().tune(hgtv)();
 
     expect((await videoBroadcast()).currentChannel).toMatchObject({ ccid: "hgtv" });
@@ -208,6 +221,7 @@ describe("runtime — an application's channel change (setChannel)", () => {
 
   type VideoBroadcastObject = {
     currentChannel: { ccid?: string; sid: number } | null;
+    bindToCurrentChannel: () => unknown;
     setChannel: (channel: unknown) => void;
     createChannelObject: (idType: number, onid?: number, tsid?: number, sid?: number) => { ccid?: string } | null;
     onChannelChangeError?: (channel: unknown, error: number) => void;
@@ -223,6 +237,7 @@ describe("runtime — an application's channel change (setChannel)", () => {
   const videoBroadcast = async () => {
     const object = addObject("video/broadcast") as unknown as VideoBroadcastObject;
     await flushMutations();
+    object.bindToCurrentChannel();
     const errors: number[] = [];
     object.onChannelChangeError = (_, error) => errors.push(error);
     return { object, errors };
@@ -346,12 +361,16 @@ describe("runtime — oipfObjectFactory", () => {
     expect(appMgr.getOwnerApplication(document).privateData.currentChannel).toMatchObject({ ccid: "dmax" });
   });
 
-  it("a created video/broadcast presents the TV's channel, and inserting it binds nothing more", async () => {
+  it("a created video/broadcast binds before it is inserted, and inserting it binds nothing more", async () => {
     start();
 
     const video = factory()?.createVideoBroadcastObject() as HTMLObjectElement & {
       currentChannel: { ccid: string } | null;
+      bindToCurrentChannel: () => unknown;
     };
+    video.bindToCurrentChannel();
+    // Out of the document, the object shows nothing: the broadcast's video waits for it.
+    expect(video.querySelectorAll("video")).toHaveLength(0);
     document.body.appendChild(video);
     await flushMutations();
 

@@ -6,10 +6,8 @@ const setup = (style = "") => {
   const object = document.createElement("object");
   object.setAttribute("type", "video/broadcast");
   object.setAttribute("style", style);
-  const video = document.createElement("video");
-  object.appendChild(video);
   document.body.appendChild(object);
-  return { object, video, videoWindow: createObjectVideoWindow(object, video) };
+  return { object, videoWindow: createObjectVideoWindow(object) };
 };
 
 describe("parsePixels", () => {
@@ -52,26 +50,26 @@ describe("createObjectVideoWindow", () => {
     expect(object.style.height).toBe("450px");
   });
 
-  it("full-screen marks the video and leaves the object's style (and z-index) alone", () => {
-    const { object, video, videoWindow } = setup("width: 640px; height: 360px; z-index: 3");
+  it("full-screen marks the object, whichever video it holds, and leaves its style (and z-index) alone", () => {
+    const { object, videoWindow } = setup("width: 640px; height: 360px; z-index: 3");
 
     videoWindow.setFullScreen(true)();
 
-    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
+    expect(object.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(true);
     expect(object.getAttribute("style")).toBe("width: 640px; height: 360px; z-index: 3");
 
     videoWindow.setFullScreen(false)();
-    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(false);
+    expect(object.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(false);
   });
 
   it("is lazy", () => {
-    const { object, video, videoWindow } = setup("width: 640px");
+    const { object, videoWindow } = setup("width: 640px");
 
     const resize = videoWindow.setWidth(10);
     const enter = videoWindow.setFullScreen(true);
 
     expect(object.style.width).toBe("640px");
-    expect(video.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(false);
+    expect(object.hasAttribute(FULLSCREEN_ATTRIBUTE)).toBe(false);
     resize();
     enter();
     expect(object.style.width).toBe("10px");

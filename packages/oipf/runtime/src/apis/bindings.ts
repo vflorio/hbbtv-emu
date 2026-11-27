@@ -30,9 +30,8 @@ import { OipfApplicationManager } from "./dae/applicationManager";
 import { OipfCapabilities } from "./dae/capabilities";
 import { OipfConfiguration } from "./dae/configuration";
 import { createVideoBroadcast, type VideoBroadcast, type VideoBroadcastEventHandlers } from "./dae/videoBroadcast";
-import { createChannelVideoStreamEnv } from "./dae/videoBroadcast/channel";
 import { createObjectVideoWindow } from "./dae/videoBroadcast/videoWindow";
-import { type AudioOutput, audioInSeries, broadcastGain, linearGain } from "./dae/videoBroadcast/volume";
+import { type AudioOutput, audioInSeries, linearGain } from "./dae/videoBroadcast/volume";
 import { intrinsicEvent, noContext } from "./intrinsicEvents";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,12 +88,6 @@ export const createConfigurationBinding = (
 });
 
 /**
- * Creates the VideoBroadcast binding.
- * Visual object for live TV broadcast.
- *
- * @param env - Environment with channel registry and video stream factory
- */
-/**
  * An object's video, its volume in series with the TV's on the object's scale. The
  * page's `volume` accessor, which puts the application's own media in series with
  * the TV (`installMediaElementVolume`), leaves it alone: it would count the TV twice.
@@ -110,6 +103,11 @@ const inSeries = (
   return audioInSeries(env.tvVolume, gain, element, setMuted, initialVolume)();
 };
 
+/**
+ * Creates the VideoBroadcast binding.
+ * Visual object for live TV broadcast: it controls the TV's broadcast
+ * (`env.broadcastLayer`), whose video it holds while it does.
+ */
 export const createVideoBroadcastBinding = (
   env: BindingsEnv,
 ): OipfBinding<VideoBroadcast, VideoBroadcastState, "videoBroadcast"> => ({
@@ -123,12 +121,13 @@ export const createVideoBroadcastBinding = (
     nativeOverrides: ["width", "height"],
   },
   factory: (element) => {
-    const videoStream = createChannelVideoStreamEnv(env.getSharedPlayerRuntime() ?? undefined);
+    const control = env.broadcastLayer.control(element);
     return createVideoBroadcast({
       channelRegistry: env.channelRegistry,
-      videoStream,
-      audioOutput: inSeries(env, broadcastGain, videoStream.videoElement, videoStream.setMuted),
-      videoWindow: createObjectVideoWindow(element, videoStream.videoElement),
+      player: control,
+      // In series with the TV's volume, on video/broadcast's scale (the layer's `gain`).
+      audioOutput: control,
+      videoWindow: createObjectVideoWindow(element),
       getTunedChannel: env.getCurrentChannel,
       requestChannelChange: env.requestChannelChange,
       onCurrentChannelChange: env.setCurrentChannel,

@@ -4,8 +4,10 @@
  *
  * - size: OIPF defines `width`/`height` as the object's `style.width`/`style.height`,
  *   so writes go to the object's style and reads come from its computed style;
- * - full-screen: a marker attribute on the video, styled by the emulator stylesheet as
- *   `position: fixed` over the viewport. The object's style (and z-index) is untouched.
+ * - full-screen: a marker attribute on the object, which the emulator stylesheet turns
+ *   into a video `position: fixed` over the viewport. The object's style (and z-index) is
+ *   untouched. On the object, not the video: the broadcast's video moves between objects
+ *   and the TV (`subsystems/broadcastLayer.ts`), the mode is the object's.
  */
 
 import type * as IO from "fp-ts/IO";
@@ -26,7 +28,7 @@ export const readObjectSize =
     return { width: parsePixels(style.width), height: parsePixels(style.height) };
   };
 
-export const createObjectVideoWindow = (object: HTMLObjectElement, video: HTMLVideoElement): VideoWindow => ({
+export const createObjectVideoWindow = (object: HTMLObjectElement): VideoWindow => ({
   getSize: readObjectSize(object),
   setWidth: (width) => () => {
     object.style.width = `${width}px`;
@@ -35,7 +37,7 @@ export const createObjectVideoWindow = (object: HTMLObjectElement, video: HTMLVi
     object.style.height = `${height}px`;
   },
   setFullScreen: (fullScreen) => () => {
-    if (fullScreen) video.setAttribute(FULLSCREEN_ATTRIBUTE, "");
-    else video.removeAttribute(FULLSCREEN_ATTRIBUTE);
+    if (fullScreen) object.setAttribute(FULLSCREEN_ATTRIBUTE, "");
+    else object.removeAttribute(FULLSCREEN_ATTRIBUTE);
   },
 });

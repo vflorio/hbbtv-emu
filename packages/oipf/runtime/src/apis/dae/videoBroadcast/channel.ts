@@ -7,7 +7,9 @@
  *
  * Reader-style module (ROADMAP D1), same shape as `./volume.ts` and `./display.ts`:
  * - the object's `playState` and `currentChannel` live in an injected `IORef`;
- * - `BroadcastPlayer` is the stream the object presents;
+ * - `BroadcastPlayer` is the TV's broadcast, as the object controls it
+ *   (`subsystems/broadcastLayer.ts`): the page has one, which the TV presents while no
+ *   object does;
  * - the TV the object belongs to answers which channel it is tuned to
  *   (`getTunedChannel`) and decides an application's change to another service
  *   (`requestChannelChange`);
@@ -24,13 +26,13 @@
  *   changes;
  * - `onChannelChangeSucceeded` fires once per channel change, when the new channel's
  *   stream first presents (OIPF DAE §7.13.1.4), not each time the stream resumes;
- * - a new object follows its stream and presents the channel the TV is tuned to
- *   (`startChannel`).
+ * - a new object is unrealized (OIPF DAE §7.13.1.1): the TV presents the broadcast
+ *   until the application binds the object, and `bindToCurrentChannel()` takes it as
+ *   it is, presenting at once (Table 8).
  */
 
 import { createLogger } from "@hbb-emu/core";
 import { OIPF } from "@hbb-emu/oipf-api";
-import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { type IORef, newIORef } from "fp-ts/IORef";
@@ -40,21 +42,16 @@ import * as RIO from "fp-ts/ReaderIO";
 import * as RT from "fp-ts/ReaderTask";
 import * as RTE from "fp-ts/ReaderTaskEither";
 import * as RA from "fp-ts/ReadonlyArray";
-import * as TE from "fp-ts/TaskEither";
 import { match } from "ts-pattern";
 import {
+  type BroadcastControl,
   type ChannelChangeRequest,
   type ChannelRegistryEnv,
   isSameService,
   resolveChannel,
   toBroadcastChannel,
 } from "../../../subsystems";
-import {
-  isStateChangeEvent,
-  type VideoStreamPlayState,
-  VideoStreamService,
-  type VideoStreamSource,
-} from "../../../subsystems/videoStream";
+import type { VideoStreamPlayState } from "../../../subsystems/videoStream";
 import { createChannelConfig, neighbourChannel, type Step } from "./channelConfig";
 
 const logger = createLogger("VideoBroadcast:Channel");
@@ -74,14 +71,8 @@ export type ChannelState = Readonly<{
   acquiring: boolean;
 }>;
 
-/** The stream the object presents. */
-export type BroadcastPlayer = Readonly<{
-  loadSource: (source: VideoStreamSource) => IO.IO<void>;
-  stop: IO.IO<void>;
-  destroy: IO.IO<void>;
-  /** Subscribes to the stream's state; returns the unsubscribe function. */
-  onStreamStateChange: (listener: (state: VideoStreamPlayState) => void) => () => void;
-}>;
+/** The TV's broadcast, as the object controls it. */
+export type BroadcastPlayer = Pick<BroadcastControl, "present" | "bind" | "stop" | "release" | "onStreamStateChange">;
 
 export type ChannelEvents = Readonly<{
   onPlayStateChange: (playState: PlayState) => IO.IO<void>;
@@ -221,10 +212,10 @@ const fork =
     void task(env)();
   };
 
-const loadStream =
+const presentStream =
   (url: string): RIO.ReaderIO<ChannelEnv, void> =>
   ({ player }) =>
-    player.loadSource({ url, loop: true, autoPlay: true, muted: true });
+    player.present(url);
 
 const stopPlayer: RIO.ReaderIO<ChannelEnv, void> = ({ player }) => player.stop;
 
@@ -233,7 +224,8 @@ const writeAcquiring =
   ({ channelState }) =>
     channelState.modify((state) => ({ ...state, acquiring }));
 
-const destroyPlayer: RIO.ReaderIO<ChannelEnv, void> = ({ player }) => player.destroy;
+/** Control of the broadcast goes back to the TV (OIPF DAE Annex H.2). */
+const releasePlayer: RIO.ReaderIO<ChannelEnv, void> = ({ player }) => player.release;
 
 /** Bound to another service than `channel`: the object leaves it (`onLeaveChannel`). */
 const leaveFor = (channel: Channel): RIO.ReaderIO<ChannelEnv, void> =>
@@ -255,7 +247,7 @@ export const playChannel = (channel: Channel): RTE.ReaderTaskEither<ChannelEnv, 
     RTE.tapReaderIO(() => presentChannel(channel)),
     RTE.tapReaderIO(() => writeAcquiring(true)),
     RTE.flatMap(() => resolveChannel(channel)),
-    RTE.tapReaderIO((resolved) => loadStream(resolved.url)),
+    RTE.tapReaderIO((resolved) => presentStream(resolved.url)),
     RTE.map((resolved) => resolved.url),
   );
 
@@ -282,7 +274,7 @@ export const release: RIO.ReaderIO<ChannelEnv, void> = pipe(
       : pipe(
           writeAcquiring(false),
           RIO.flatMap(() => setPlayState(OIPF.DAE.Broadcast.PlayState.UNREALIZED)),
-          RIO.flatMap(() => destroyPlayer),
+          RIO.flatMap(() => releasePlayer),
         ),
   ),
 );
@@ -343,10 +335,31 @@ const stayUnrealized: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
 );
 
 /**
+ * Unrealized, the object binds to the channel the TV presents, as it presents it: it is
+ * presenting at once, and only `PlayStateChange` tells the application (OIPF DAE Table 8,
+ * "the terminal binds the video/broadcast object to the current channel being natively
+ * presented"). No channel change happened, so none succeeds.
+ */
+const bindToPresented = (tuned: Channel): RIO.ReaderIO<ChannelEnv, Channel | null> =>
+  pipe(
+    (env: ChannelEnv) => env.player.bind,
+    RIO.flatMap((bound) =>
+      bound
+        ? pipe(
+            presentChannel(tuned),
+            RIO.flatMap(() => writeAcquiring(false)),
+            RIO.flatMap(() => setPlayState(OIPF.DAE.Broadcast.PlayState.PRESENTING)),
+            RIO.as<Channel | null>(tuned),
+          )
+        : stayUnrealized,
+    ),
+  );
+
+/**
  * `bindToCurrentChannel()` (OIPF DAE §7.13.1.3): unrealized, it binds to the channel
- * the TV presents, e.g. after the application released it for on-demand content;
- * stopped, it presents its channel again; connecting or presenting, it has no
- * effect. Returns the channel it is bound to.
+ * the TV presents, e.g. at the application's start or after it released the object for
+ * on-demand content; stopped, it presents its channel again; connecting or presenting,
+ * it has no effect. Returns the channel it is bound to.
  */
 export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pipe(
   readChannelState,
@@ -356,7 +369,7 @@ export const bindToCurrentChannel: RIO.ReaderIO<ChannelEnv, Channel | null> = pi
       .with(OIPF.DAE.Broadcast.PlayState.UNREALIZED, () =>
         pipe(
           RIO.asks((env: ChannelEnv) => env.getTunedChannel()),
-          RIO.flatMap((tuned) => (tuned === null ? stayUnrealized : presentAgain(tuned))),
+          RIO.flatMap((tuned) => (tuned === null ? stayUnrealized : bindToPresented(tuned))),
         ),
       )
       .with(OIPF.DAE.Broadcast.PlayState.STOPPED, () => presentAgain(currentChannel))
@@ -389,15 +402,12 @@ export const followStream = (stream: VideoStreamPlayState): RIO.ReaderIO<Channel
   );
 
 /**
- * A new object: it follows its stream, and presents the channel the TV is tuned to
- * (none with an empty lineup). Returns the effect that stops following the stream.
+ * A new object: it follows the stream while it controls it. It starts unrealized (OIPF
+ * DAE §7.13.1.1): the TV goes on presenting the broadcast until the application binds
+ * it. Returns the effect that stops following the stream.
  */
-export const startChannel: RIO.ReaderIO<ChannelEnv, IO.IO<void>> = (env) => () => {
-  const unsubscribe = env.player.onStreamStateChange((stream) => followStream(stream)(env)());
-  const tuned = env.getTunedChannel();
-  if (tuned !== null) void tuneTo(tuned)(env)();
-  return unsubscribe;
-};
+export const startChannel: RIO.ReaderIO<ChannelEnv, IO.IO<void>> = (env) => () =>
+  env.player.onStreamStateChange((stream) => followStream(stream)(env)());
 
 /** The TV's lineup, as OIPF channels, in its order. */
 const lineup: RIO.ReaderIO<ChannelEnv, ReadonlyArray<Channel>> = ({ getChannels }) =>
@@ -514,77 +524,3 @@ export const channelApi: R.Reader<ChannelEnv, ChannelApi> = (env) => ({
     return createChannelObject(idType, onidOrDsd, tsid, sid)(env)();
   },
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Video stream
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type ChannelVideoStreamEnv = {
-  // Element
-  videoElement: HTMLVideoElement;
-  // Playback
-  play: TE.TaskEither<Error, void>;
-  stop: IO.IO<void>;
-  destroy: IO.IO<void>;
-  loadSource: (source: VideoStreamSource) => IO.IO<void>;
-  // Volume
-  setVolume: (volume: number) => IO.IO<void>;
-  setMuted: (muted: boolean) => IO.IO<void>;
-  getVolume: IO.IO<number>;
-  // Events
-  onStreamStateChange: (
-    listener: (state: VideoStreamPlayState, previousState: VideoStreamPlayState) => void,
-  ) => () => void;
-};
-
-export const createChannelVideoStreamEnv = (playerRuntime?: PlayerRuntime): ChannelVideoStreamEnv => {
-  const stream = new VideoStreamService(undefined, playerRuntime);
-
-  // If we have a PlayerRuntime, it will mount automatically in constructor
-  // Otherwise, it can be set later via setPlayerRuntime
-
-  return {
-    // Element
-    videoElement: stream.videoElement,
-
-    // Playback
-    play: pipe(
-      stream.play(),
-      TE.mapLeft((error) => new Error(error.message)),
-    ),
-    stop: pipe(
-      stream.stop(),
-      TE.mapLeft((error) => new Error(error.message)),
-    ),
-    destroy: stream.release(),
-    loadSource: (source) =>
-      pipe(
-        stream.loadSource(source),
-        TE.mapLeft((error) => new Error(error.message)),
-      ),
-
-    // Volume
-    setVolume: (volume) =>
-      pipe(
-        stream.setVolume(volume),
-        TE.mapLeft((error) => new Error(error.message)),
-      ),
-    setMuted: (muted) =>
-      pipe(
-        stream.setMuted(muted),
-        TE.mapLeft((error) => new Error(error.message)),
-      ),
-    getVolume: () => Math.round(stream.videoElement.volume * 100),
-
-    // Events
-    onStreamStateChange: (listener) => {
-      const unsubscribe = stream.subscribe((event) => {
-        if (isStateChangeEvent(event)) {
-          listener(event.state, event.previousState);
-        }
-      })();
-
-      return () => unsubscribe();
-    },
-  };
-};

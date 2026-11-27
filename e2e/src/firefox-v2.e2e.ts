@@ -8,6 +8,7 @@ import {
   runQueueScenario,
   runUnreachableStreamScenario,
 } from "./support/avControl";
+import { localStreamChannel, runBroadcastLayerScenario } from "./support/broadcastLayer";
 import { type FirefoxWithExtension, launchFirefoxWithExtension } from "./support/firefox";
 import { runHtml5DashScenario } from "./support/html5Dash";
 import { type FixtureServer, startFixtureServer } from "./support/server";
@@ -389,7 +390,9 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     const audio = () =>
       app.evaluate(() => {
         const object = document.getElementById("video") as unknown as { getVolume: () => number };
-        const element = document.querySelector("#video video") as HTMLVideoElement;
+        // The broadcast's video: in the object while it is bound, behind the application once released.
+        const element = (document.querySelector("#video video") ??
+          document.querySelector("[data-hbbtv-emu-broadcast]")?.shadowRoot?.querySelector("video")) as HTMLVideoElement;
         return { object: object.getVolume(), element: Math.round(element.volume * 100) / 100 };
       });
 
@@ -861,6 +864,28 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
       await broadcaster.close();
+    }
+  });
+
+  it("the TV presents the broadcast behind the application, which a video/broadcast takes as it is (OIPF DAE Annex H)", async () => {
+    const { request } = await openUi();
+    type UiState = { channels: (Channel & { mp4Source: string })[] };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first, ...others] = original.channels as [Channel & { mp4Source: string }];
+
+    try {
+      await request({
+        _tag: "UI/SaveState",
+        state: { ...original, channels: [localStreamChannel(first, server.url("av-app/clip.mp4")), ...others] },
+      });
+      const { page, errors } = await openPage(`broadcast-app/index.xhtml?layer=${Date.now()}`);
+
+      await runBroadcastLayerScenario((fn) => page.evaluate(fn));
+      expect(errors).toEqual([]);
+      await page.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
     }
   });
 });

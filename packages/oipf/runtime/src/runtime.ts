@@ -35,10 +35,14 @@ import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "
 import { createBindings as createDefaultBindings } from "./apis/bindings";
 import { createKeyset } from "./apis/dae/applicationManager/keyset";
 import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
+import { broadcastGain } from "./apis/dae/videoBroadcast/volume";
 import {
+  type BroadcastLayer,
   type ChannelChangeRequest,
   type ChannelRegistry,
   type ChannelRegistryEnv,
+  createBroadcastLayer,
+  createBroadcastStream,
   createChannelRegistryEnv,
   createCurrentChannelEnv,
   createEmulatorMedia,
@@ -104,8 +108,13 @@ export type BindingsEnv = Readonly<{
   fetchStreamEventDescription: FetchStreamEventDescription;
 
   /**
-   * Returns the shared PlayerRuntime instance for VideoBroadcast.
-   * VideoBroadcast uses singleton pattern (only one broadcast at a time).
+   * The TV's broadcast in the page, which video/broadcast objects control: presented
+   * by the TV behind the application while none does (OIPF DAE Annex H).
+   */
+  broadcastLayer: BroadcastLayer;
+
+  /**
+   * Returns the shared PlayerRuntime instance: the broadcast's (`broadcastLayer`).
    */
   getSharedPlayerRuntime: () => PlayerRuntime | null;
 
@@ -263,6 +272,9 @@ export class RuntimeService implements Runtime {
       logger.info("Starting"),
       IO.tap(() => initializeUserAgent(this.#env.userAgent)),
       IO.tap(() => this.#streamEventScheduler.start()),
+      // The TV presents its channel from the start, behind the application, before any object binds.
+      IO.tap(() => this.#env.bindings.broadcastLayer.mount),
+      IO.tap(() => this.#env.bindings.broadcastLayer.tune(this.#tunedStream())),
       IO.tap(() => this.#provider.start()),
       // After the provider: the objects it creates are bound at once.
       IO.tap(() => () => {
@@ -312,6 +324,7 @@ export class RuntimeService implements Runtime {
       IO.tap(() => this.#uninstallMediaElementVolume),
       IO.tap(() => this.#uninstallMediaElementDash),
       IO.tap(() => this.#provider.stop()),
+      IO.tap(() => this.#env.bindings.broadcastLayer.unmount),
       IO.tap(() => this.#streamEventScheduler.stop()),
       IO.tap(() => logger.info("Stopped")),
     );
@@ -338,16 +351,24 @@ export class RuntimeService implements Runtime {
   /** The TV's volume: every object's audio follows it, the applications cannot see it. */
   setTvVolume = (volume: number): IO.IO<void> => this.#env.bindings.tvVolume.set(volume);
 
+  /** The stream of the channel the TV is tuned to, from the lineup. */
+  #tunedStream = (): string | null => {
+    const tuned = this.#env.bindings.getCurrentChannel();
+    const config = this.#env.channelRegistry.getChannels().find((channel) => isSameService(channel, tuned));
+    return config?.mp4Source || null;
+  };
+
   /**
-   * Tunes the TV: the current channel the applications read, and every
-   * `video/broadcast` on another channel switches to it, as on a TV when the viewer
-   * changes channel. Stopped ones too: a stream that failed also ends up stopped.
-   * Objects the application released stay so.
+   * Tunes the TV: the current channel the applications read, the broadcast the TV
+   * presents, and every `video/broadcast` on another channel switches to it, as on a TV
+   * when the viewer changes channel. Stopped ones too: a stream that failed also ends up
+   * stopped. Objects the application released stay so: the TV presents the channel.
    */
   tune = (channel: ChannelConfig | null): IO.IO<void> =>
     pipe(
       IO.of(initialTunedChannel(channel, [])),
       IO.tap((tuned) => () => this.#env.bindings.setCurrentChannel(tuned)),
+      IO.tap(() => this.#env.bindings.broadcastLayer.tune(channel?.mp4Source || null)),
       IO.tap((tuned) =>
         pipe(
           this.#provider.instancesOf("videoBroadcast"),
@@ -425,6 +446,17 @@ export const createRuntimeEnv = (
   const streamEventScheduler = createStreamEventScheduler(extensionState.channels);
   // OIPF DAE §7.2.5: a broadcast-related application receives no keys by default.
   const keyset = createKeyset(DEFAULT_KEYSET_VALUE);
+  const tvVolume = createTvVolume();
+  const emulatorMedia = createEmulatorMedia();
+  // One broadcast per page, on the shared player.
+  const broadcastLayer = createBroadcastLayer({
+    document,
+    stream: createBroadcastStream(sharedPlayerRuntime),
+    tvVolume,
+    gain: broadcastGain,
+  });
+  // Its volume is the objects' and the TV's, not the page's `volume` accessor's; its DASH is the player's.
+  emulatorMedia.add(broadcastLayer.videoElement)();
 
   // Create no-op factory if not provided
   const defaultFactory: PlayerRuntimeFactory = {
@@ -445,13 +477,14 @@ export const createRuntimeEnv = (
     setCurrentChannel: currentChannelEnv.setCurrentChannel,
     requestChannelChange: tuneAlone,
     fetchStreamEventDescription: fetchFromPage,
-    // PlayerRuntime for VideoBroadcast (singleton)
+    broadcastLayer,
+    // The broadcast's PlayerRuntime
     getSharedPlayerRuntime: () => sharedPlayerRuntime ?? null,
     // PlayerRuntime factory for AVControl (multiple instances)
     playerRuntimeFactory: playerRuntimeFactory ?? defaultFactory,
     keyset,
-    tvVolume: createTvVolume(),
-    emulatorMedia: createEmulatorMedia(),
+    tvVolume,
+    emulatorMedia,
     // Defaults
     defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
     defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,

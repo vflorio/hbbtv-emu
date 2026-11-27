@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//HbbTV//1.1.1//EN" "http://www.hbbtv.org/dtd/HbbTV-1.1.1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="application/vnd.hbbtv.xhtml+xml; charset=UTF-8" />
+  <title>e2e broadcast app</title>
+  <style type="text/css">
+    /* Transparent, as OIPF DAE Annex H.1 asks: the video plane shows through. */
+    body { margin: 0; width: 1280px; height: 720px; background-color: transparent; }
+    #early { position: absolute; left: 0; top: 0; width: 320px; height: 180px; }
+    #video { position: absolute; left: 640px; top: 360px; width: 640px; height: 360px; }
+  </style>
+</head>
+<body>
+  <!-- Two broadcast objects: one the application binds at its first script, one it leaves to the test. -->
+  <object id="early" type="video/broadcast"></object>
+  <object id="video" type="video/broadcast"></object>
+
+  <script type="text/javascript">
+  //<![CDATA[
+    var e2e = (window.__e2e = { initError: null, states: { early: [], video: [] } });
+    try {
+      ["early", "video"].forEach(function (id) {
+        var object = document.getElementById(id);
+        object.addEventListener("PlayStateChange", function (event) {
+          e2e.states[id].push(event.state);
+        });
+      });
+      // What applications do at start, while the TV's stream is still loading in the emulator.
+      var early = document.getElementById("early");
+      e2e.earlyBound = early.bindToCurrentChannel() !== null;
+      e2e.earlyPlayStateAtFirstScript = early.playState;
+    } catch (error) {
+      e2e.initError = String((error && error.message) || error);
+    }
+  //]]>
+  </script>
+</body>
+</html>

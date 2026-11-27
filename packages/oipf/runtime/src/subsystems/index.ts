@@ -1,4 +1,5 @@
 export * from "./broadcastChannel";
+export * from "./broadcastLayer";
 export * from "./channelChange";
 export * from "./channelRegistry";
 export * from "./currentChannel";

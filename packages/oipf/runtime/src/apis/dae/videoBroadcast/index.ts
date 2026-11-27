@@ -23,8 +23,8 @@ import type {
 import { combine, readOnly, stateSchema } from "../../compose";
 import {
   applyChannelState,
+  type BroadcastPlayer,
   type ChannelApi,
-  type ChannelVideoStreamEnv,
   channelApi,
   createChannelEnv,
   readChannelState,
@@ -92,11 +92,12 @@ export type VideoBroadcastEventHandlers = Readonly<{
 
 export type VideoBroadcastDependencies = Readonly<{
   channelRegistry: ChannelRegistryEnv;
-  videoStream: ChannelVideoStreamEnv;
-  /** Where the object's audio goes: in series with the TV's volume (`audioInSeries`). */
+  /** The TV's broadcast, as the object controls it (`subsystems/broadcastLayer.ts`). */
+  player: BroadcastPlayer;
+  /** Where the object's audio goes: in series with the TV's volume. */
   audioOutput: AudioOutput;
   videoWindow: VideoWindow;
-  /** The channel the TV is tuned to: what a new object presents. */
+  /** The channel the TV is tuned to: what `bindToCurrentChannel()` binds to. */
   getTunedChannel: () => OIPF.DAE.Broadcast.Channel | null;
   /** Asks the TV before the application changes to another service. */
   requestChannelChange: ChannelChangeRequest;
@@ -124,14 +125,12 @@ export type VideoBroadcastApi = ChannelApi & DisplayApi & VolumeApi & ComponentA
 export type VideoBroadcast = VideoBroadcastApi &
   Stateful<VideoBroadcastState> &
   Readonly<{
-    /** The video the object presents, mounted inside the `<object>`. */
-    videoElement: HTMLVideoElement;
     /** The TV changed channel (not the application): the object presents it, nobody is asked. */
     tuneTo: (channel: OIPF.DAE.Broadcast.Channel) => void;
   }>;
 
 export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): VideoBroadcast => {
-  const { videoStream, eventHandlers, defaults } = dependencies;
+  const { eventHandlers, defaults } = dependencies;
 
   const volume = createVolumeEnv(dependencies.audioOutput)();
   const streamEvent = createStreamEventEnv({
@@ -142,7 +141,7 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
   const channel = createChannelEnv(
     {
       getChannels: dependencies.channelRegistry.getChannels,
-      player: videoStream,
+      player: dependencies.player,
       getTunedChannel: dependencies.getTunedChannel,
       requestChannelChange: dependencies.requestChannelChange,
       channelEvents: {
@@ -235,7 +234,6 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
   );
 
   const videoBroadcast: VideoBroadcast = combine(object, {
-    videoElement: videoStream.videoElement,
     tuneTo: (to: Channel) => {
       void tuneTo(to)(channel)();
     },
@@ -245,7 +243,7 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
     notifyStateChange: stateful.notifyStateChange,
   });
 
-  // Once every part exists: the object follows its stream and presents the TV's channel.
+  // Once every part exists: the object follows the stream while it controls it.
   startChannel(channel)();
   return videoBroadcast;
 };

@@ -4,7 +4,7 @@ import * as IO from "fp-ts/IO";
 import { match } from "ts-pattern";
 import type { AnyStateful, OipfConnector, VisualOipfObject } from "../binding";
 import { isVisualObject } from "../binding";
-import { mountEmbeddedVideo, unmountEmbeddedVideo } from "./embedded";
+import { ensureEmbeddedStyles } from "./embedded";
 import type { DetectedElement } from "./observer";
 
 const logger = createLogger("DetectionAttach");
@@ -20,8 +20,6 @@ const visualAttachments = new WeakMap<HTMLObjectElement, VisualAttachment>();
 export const detachAttachedElement =
   (element: HTMLObjectElement): IO.IO<void> =>
   () => {
-    unmountEmbeddedVideo(element)();
-
     const attachment = visualAttachments.get(element);
     if (!attachment) return;
 
@@ -67,19 +65,22 @@ const syncInitialProperties =
 // Embedded Visual Attach
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The object's video is mounted inside it by whoever presents it: for video/broadcast,
+ * the TV's broadcast, while the object controls it (`subsystems/broadcastLayer.ts`).
+ * The attach gives the object its stylesheet and its API.
+ */
 const attachEmbedded = (
   detected: DetectedElement,
   instance: AnyStateful,
   nativeOverrides: ReadonlyArray<string>,
 ): IO.IO<void> =>
-  isVisualObject(instance)
-    ? pipe(
-        logger.debug("Attaching embedded visual element"),
-        IO.flatMap(() => mountEmbeddedVideo(detected.element, instance.videoElement)),
-        IO.flatMap(() => proxyProperties(detected.element, instance, nativeOverrides)),
-        IO.flatMap(() => syncInitialProperties(detected.element, instance)),
-      )
-    : logger.error("Instance does not have videoElement for visual-embedded strategy");
+  pipe(
+    logger.debug("Attaching embedded visual element"),
+    IO.flatMap(() => ensureEmbeddedStyles(detected.element.ownerDocument)),
+    IO.flatMap(() => proxyProperties(detected.element, instance, nativeOverrides)),
+    IO.flatMap(() => syncInitialProperties(detected.element, instance)),
+  );
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Legacy Visual Attach

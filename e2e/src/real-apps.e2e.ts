@@ -99,8 +99,9 @@ describe.skipIf(!enabled)("real applications (HBB_EMU_REAL_APPS=1)", () => {
     await page.keyboard.press("Enter");
     await page.locator("#root-galaxy").waitFor({ state: "attached", timeout: 15_000 });
 
-    // The broadcast started once and kept presenting: the DASH source's own states are not play states.
-    expect(await broadcastStates(page)).toEqual([1, 2]);
+    // Bound to what the TV presents, the broadcast presents at once and keeps presenting (OIPF DAE Table 8):
+    // neither the TV's start-up nor the DASH source's own states are play states.
+    expect(await broadcastStates(page)).toEqual([2]);
 
     // UP is the launcher's key. What it does depends on WBD's launcher schedule and on when it comes:
     // with the launcher's banner up it runs the banner's action (e.g. start-over of the programme), with
