@@ -42,65 +42,35 @@ export type OipfCapabilitiesState = t.TypeOf<typeof OipfCapabilitiesStateCodec>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Mapping between OIPF DAE version and HbbTV version.
+ * The HbbTV versions, newest first, with the edition of ETSI TS 102 796 that defines each:
+ * the version a terminal's User-Agent names (`HbbTV/1.4.1` is HbbTV 2.0.1, §7.3.2.4). Not
+ * OIPF DAE versions, which HbbTV references (OIPF DAE R1 v1.1, R2 v2.1, v2.3).
  */
 export const HBBTV_VERSION_MAP = [
-  { oipf: "1.7.1", hbbtv: "2.0.4" },
-  { oipf: "1.6.1", hbbtv: "2.0.3" },
-  { oipf: "1.5.1", hbbtv: "2.0.2" },
-  { oipf: "1.4.1", hbbtv: "2.0.1" },
-  { oipf: "1.3.1", hbbtv: "2.0" },
-  { oipf: "1.2.1", hbbtv: "1.5" },
-  { oipf: "1.1.1", hbbtv: "1.0" },
+  { spec: "1.7.1", hbbtv: "2.0.4" },
+  { spec: "1.6.1", hbbtv: "2.0.3" },
+  { spec: "1.5.1", hbbtv: "2.0.2" },
+  { spec: "1.4.1", hbbtv: "2.0.1" },
+  { spec: "1.3.1", hbbtv: "2.0" },
+  { spec: "1.2.1", hbbtv: "1.5" },
+  { spec: "1.1.1", hbbtv: "1.0" },
 ] as const;
 
 export type HbbTVVersion = (typeof HBBTV_VERSION_MAP)[number]["hbbtv"];
-export type OIPFVersion = (typeof HBBTV_VERSION_MAP)[number]["oipf"];
+export type HbbTVSpecVersion = (typeof HBBTV_VERSION_MAP)[number]["spec"];
 
-/**
- * Get OIPF DAE version from HbbTV version.
- */
-export const getOipfVersion = (hbbtvVersion: string): string | undefined =>
-  HBBTV_VERSION_MAP.find((v) => v.hbbtv === hbbtvVersion)?.oipf;
+export const isHbbTVVersion = (version: string): version is HbbTVVersion =>
+  HBBTV_VERSION_MAP.some((entry) => entry.hbbtv === version);
 
-/**
- * Get HbbTV version from OIPF DAE version.
- */
-export const getHbbtvVersion = (oipfVersion: string): string | undefined =>
-  HBBTV_VERSION_MAP.find((v) => v.oipf === oipfVersion)?.hbbtv;
-
-/**
- * Build default User-Agent string for a given HbbTV version.
- */
-export const buildDefaultUserAgent = (opts: {
-  hbbtvVersion: string;
-  vendor?: string;
-  model?: string;
-  vendorVersion?: string;
-  firmwareVersion?: string;
-  ceHtmlVersion?: string;
-  client?: string;
-}): string => {
-  const {
-    client = "hbbtv-emu/0.1.0", // FIXME: Get from package.json
-    hbbtvVersion,
-    vendor = "Vendor",
-    model = "ModelName",
-    vendorVersion = "0.1.0",
-    firmwareVersion = "0.1.0",
-    ceHtmlVersion = "1.0",
-  } = opts;
-
-  const oipfVersion = getOipfVersion(hbbtvVersion) ?? "1.4.1";
-
-  return `Mozilla/5.0 (SmartTV; HbbTV/${oipfVersion} (+DL;${vendor}/${model};${vendorVersion};${firmwareVersion};) CE-HTML/${ceHtmlVersion} ${client})`;
-};
+/** The edition of TS 102 796 that defines an HbbTV version. */
+export const specVersionOf = (hbbtvVersion: HbbTVVersion): HbbTVSpecVersion =>
+  (HBBTV_VERSION_MAP.find((entry) => entry.hbbtv === hbbtvVersion) as (typeof HBBTV_VERSION_MAP)[number]).spec;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Default Values
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DEFAULT_HBBTV_VERSION = "2.0.1";
+export const DEFAULT_HBBTV_VERSION: HbbTVVersion = "2.0.1";
 
 export const DEFAULT_UI_PROFILES: NonNullable<DAE.Capabilities.Capabilities["uiProfiles"]> = [
   "+TRICKMODE",

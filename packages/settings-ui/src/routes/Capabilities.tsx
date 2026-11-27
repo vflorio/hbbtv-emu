@@ -120,9 +120,9 @@ export default function CapabilitiesTab() {
             setIsEditing(true);
           }}
         >
-          {HBBTV_VERSION_MAP.map(({ oipf, hbbtv }) => (
+          {HBBTV_VERSION_MAP.map(({ spec, hbbtv }) => (
             <MenuItem key={hbbtv} value={hbbtv}>
-              V{oipf} - HbbTV {hbbtv}
+              HbbTV {hbbtv} (TS 102 796 V{spec})
             </MenuItem>
           ))}
         </Select>

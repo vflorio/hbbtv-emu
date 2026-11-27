@@ -1,6 +1,6 @@
 import { createLogger } from "@hbb-emu/core";
 import type { ExtensionState } from "@hbb-emu/extension-common";
-import { buildDefaultUserAgent, DEFAULT_HBBTV_VERSION } from "@hbb-emu/oipf-api";
+import { DEFAULT_HBBTV_VERSION, emulatorUserAgent } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
@@ -78,7 +78,7 @@ export const resolveUserAgent: RIO.ReaderIO<UserAgentConfig, string> = (env) =>
         ? IO.of(userAgent)
         : pipe(
             env.getHbbTVVersion,
-            IO.map((version) => buildDefaultUserAgent({ hbbtvVersion: version ?? env.defaultHbbTVVersion })),
+            IO.map((version) => emulatorUserAgent(version ?? env.defaultHbbTVVersion)),
           ),
     ),
   );

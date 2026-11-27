@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hideUserAgentData, initializeUserAgent } from "./userAgent";
 
-const TV = "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0";
+const TV = "Mozilla/5.0 HbbTV/1.4.1 (; Sonic; VX600WDR; 1.14.0; ; dd5528b6-d0a9-40a8-acdb-21fa2eabeb2e; )";
 
 /** A navigator as Chromium has it: `userAgentData` an accessor of the prototype. */
 const chromiumNavigator = () => {
@@ -33,7 +33,7 @@ describe("the TV's user agent in the page", () => {
     initializeUserAgent({
       getUserAgent: () => TV,
       getHbbTVVersion: () => undefined,
-      defaultHbbTVVersion: "1.5.1",
+      defaultHbbTVVersion: "2.0.1",
       setUserAgent: (userAgent) => () => void applied.push(`userAgent ${userAgent}`),
       setAppVersion: (appVersion) => () => void applied.push(`appVersion ${appVersion}`),
       hideUserAgentData: () => void applied.push("no userAgentData"),

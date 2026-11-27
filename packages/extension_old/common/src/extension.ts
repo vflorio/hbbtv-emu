@@ -1,5 +1,11 @@
 import { randomUUID, textToHex } from "@hbb-emu/core";
-import { AitCodec, DEFAULT_HBBTV_STATE, HbbTVStateCodec, StreamEventStateCodec } from "@hbb-emu/oipf-api";
+import {
+  AitCodec,
+  DEFAULT_HBBTV_STATE,
+  emulatorUserAgent,
+  HbbTVStateCodec,
+  StreamEventStateCodec,
+} from "@hbb-emu/oipf-api";
 import * as t from "io-ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -156,8 +162,8 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
       ],
     },
   ],
-  // FIXME: take version from package.json/env
-  userAgent: "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 HBBTV-EMU/0.1",
+  // TS 102 796 §7.3.2.4, for the HbbTV version of the capabilities.
+  userAgent: emulatorUserAgent(DEFAULT_HBBTV_STATE.oipfCapabilities?.hbbtvVersion),
   hbbtv: DEFAULT_HBBTV_STATE,
 };
 

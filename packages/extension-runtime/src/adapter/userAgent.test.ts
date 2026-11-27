@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CLIENT_HINT_HEADERS, USER_AGENT_RULE_ID, userAgentRule, withUserAgent } from "./userAgent";
 
-const TV = "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0";
+const TV = "Mozilla/5.0 HbbTV/1.4.1 (; Sonic; VX600WDR; 1.14.0; ; dd5528b6-d0a9-40a8-acdb-21fa2eabeb2e; )";
 
 describe("the TV's user agent over HTTP", () => {
   it("MV3: one session rule sets it on every request and removes the browser's client hints", () => {

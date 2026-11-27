@@ -1,4 +1,4 @@
-import { buildDefaultUserAgent, DEFAULT_HBBTV_VERSION } from "@hbb-emu/oipf-api";
+import { DEFAULT_HBBTV_VERSION, emulatorUserAgent } from "@hbb-emu/oipf-api";
 import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
@@ -11,7 +11,7 @@ export function UserAgentSection() {
   const { userAgent: currentUserAgent, update: saveUserAgent } = useUserAgent();
   const hbbtvVersion = config.hbbtv?.oipfCapabilities?.hbbtvVersion ?? DEFAULT_HBBTV_VERSION;
 
-  const defaultUserAgent = buildDefaultUserAgent({ hbbtvVersion });
+  const defaultUserAgent = emulatorUserAgent(hbbtvVersion);
   const [userAgent, setUserAgent] = useState(currentUserAgent ?? defaultUserAgent);
   const [isEditing, setIsEditing] = useState(false);
 
