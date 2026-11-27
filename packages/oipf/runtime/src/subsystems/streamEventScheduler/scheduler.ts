@@ -1,4 +1,10 @@
-import { type ChannelTriplet, createLogger, matchesChannelTriplet, toChannelTriplet } from "@hbb-emu/core";
+import {
+  CHANNEL_EPOCH_MS,
+  type ChannelTriplet,
+  createLogger,
+  matchesChannelTriplet,
+  toChannelTriplet,
+} from "@hbb-emu/core";
 import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import type { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
@@ -30,7 +36,6 @@ type StreamEventSchedulerState = {
   channels: ReadonlyArray<ChannelConfig>;
   currentTriplet: ChannelTriplet | null;
   tickTimer: ReturnType<typeof setTimeout> | null;
-  baseTimeMs: number | null;
   lastTickMs: number | null;
   fired: FiredAtByInstanceId;
   listeners: Set<ListenerEntry>;
@@ -50,7 +55,6 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
       channels: [...initialChannels],
       currentTriplet: null,
       tickTimer: null,
-      baseTimeMs: null,
       lastTickMs: null,
       fired: new Map(),
       listeners: new Set<ListenerEntry>(),
@@ -64,9 +68,8 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
     this.#state.tickTimer = null;
   };
 
+  /** From now on: what was due before is not dispatched late. */
   readonly #resetCycleState = (): IO.IO<void> => () => {
-    const nowMs = this.#env.now();
-    this.#state.baseTimeMs = nowMs;
     this.#state.lastTickMs = null;
     this.#state.fired = new Map();
   };
@@ -75,8 +78,6 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
     if (!this.#state.running) return;
 
     const nowMs = this.#env.now();
-    const baseTimeMs = this.#state.baseTimeMs ?? nowMs;
-    this.#state.baseTimeMs = baseTimeMs;
 
     const windowStartMs = this.#state.lastTickMs ?? nowMs - this.#env.tickIntervalMs;
     this.#state.lastTickMs = nowMs;
@@ -100,7 +101,8 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
     const computed = computeDueStreamEvents({
       nowMs,
       windowStartMs,
-      baseTimeMs,
+      // On the channel's time (live simulation): on air before the page, the same in every page.
+      baseTimeMs: CHANNEL_EPOCH_MS,
       tickIntervalMs: this.#env.tickIntervalMs,
       events,
       fired: this.#state.fired,
@@ -128,15 +130,15 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
     if (this.#state.running) return;
     this.#state.running = true;
     logger.info("Started")();
-    this.#resetCycleState();
-    this.#clearTimers();
+    this.#resetCycleState()();
+    this.#clearTimers()();
     this.#state.tickTimer = this.#env.setTimeout(this.#tick(), this.#env.tickIntervalMs)();
   };
 
   stop = (): IO.IO<void> => () => {
     if (!this.#state.running) return;
     this.#state.running = false;
-    this.#clearTimers();
+    this.#clearTimers()();
     logger.info("Stopped")();
   };
 
@@ -159,7 +161,7 @@ export class StreamEventScheduler implements StreamEventSchedulerApi {
 
       this.#state.currentTriplet = nextTriplet;
       logger.debug("Current channel updated", { changed, triplet: nextTriplet })();
-      if (this.#state.running && changed) this.#resetCycleState();
+      if (this.#state.running && changed) this.#resetCycleState()();
     };
 
   addListener =

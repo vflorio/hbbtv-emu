@@ -27,6 +27,18 @@ describe("TV page", () => {
     expect(document.body.dataset.channel).toBe("radio");
   });
 
+  it("starts the broadcast where it is on air: a loop from the channel's epoch (a simulated live)", async () => {
+    // 1 000 000 s since the Unix epoch, a 3 s loop: 1 s into it.
+    vi.setSystemTime(1_000_000_000);
+    const document = await show("?channel=radio");
+    const video = document.querySelector("video") as HTMLVideoElement;
+    Object.defineProperty(video, "duration", { value: 3 });
+
+    video.dispatchEvent(new Event("loadedmetadata"));
+
+    expect(video.currentTime).toBeCloseTo(1);
+  });
+
   it("hides the banner after a while", async () => {
     const document = await show("?channel=radio");
 

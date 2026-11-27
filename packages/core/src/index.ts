@@ -1,3 +1,4 @@
+export * from "./channelClock";
 export * from "./channelTriplet";
 export * from "./diff";
 export * from "./dom";

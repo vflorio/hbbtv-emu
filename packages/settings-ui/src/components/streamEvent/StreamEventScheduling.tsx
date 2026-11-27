@@ -67,7 +67,10 @@ export function StreamEventScheduling({
         <Typography variant="caption" color="primary">
           Scheduling
         </Typography>
-        <Tooltip title="Choose how and when this event should fire during playback" arrow>
+        <Tooltip
+          title="When the event fires on the channel's time. The channel is on air since the Unix epoch (a simulated live): the event fires at the same moments in every tab, and after a reload."
+          arrow
+        >
           <InfoOutlined sx={{ fontSize: 16, color: "text.secondary" }} />
         </Tooltip>
       </Stack>

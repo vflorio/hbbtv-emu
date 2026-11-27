@@ -6,8 +6,12 @@
  * An extension page, not an HbbTV document: no page runtime runs here. Changing
  * channel (from the UI) loads the next channel's page in its place.
  * Menus, channel list and OSD come later (ROADMAP 2.3).
+ *
+ * The broadcast is on air before the page loads (a simulated live, `channelClock` in
+ * `@hbb-emu/core`): a stream with a finite duration starts where its loop is on air.
  */
 
+import { livePosition } from "@hbb-emu/core";
 import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { UiState } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
@@ -66,6 +70,10 @@ const render = (document: Document, channels: ReadonlyArray<ChannelConfig>, chan
       video.autoplay = true;
       video.loop = true;
       video.setAttribute("playsinline", "");
+      video.addEventListener("loadedmetadata", () => {
+        const position = livePosition(Date.now(), video.duration);
+        if (position !== null) video.currentTime = position;
+      });
       document.body.appendChild(video);
     }
   }

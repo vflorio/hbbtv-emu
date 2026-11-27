@@ -13,15 +13,23 @@ import { VideoStreamPlayState as Stream, type VideoStreamPlayState } from "./vid
 /** MutationObserver callbacks are microtasks; the background check waits for a frame. */
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 50));
 
-type Call = { readonly load: string } | { readonly play: true } | { readonly stop: true };
+type Call = { readonly load: string } | { readonly play: true } | { readonly stop: true } | { readonly seek: number };
+
+/** Some real time: 1 000 000 s since the Unix epoch, when the channel's time started. */
+const NOW_MS = 1_000_000_000;
 
 const setup = () => {
   const calls: Call[] = [];
+  const clock = { now: NOW_MS };
   const listeners = new Set<(state: VideoStreamPlayState) => void>();
   const video = document.createElement("video");
   // jsdom plays nothing: the video is playing unless a test says the browser paused it.
   const media = { paused: false };
   Object.defineProperty(video, "paused", { get: () => media.paused });
+  // A live stream unless a test gives it a duration; the position is the player's.
+  const timeline = { duration: Number.POSITIVE_INFINITY, currentTime: 0 };
+  Object.defineProperty(video, "duration", { get: () => timeline.duration });
+  Object.defineProperty(video, "currentTime", { get: () => timeline.currentTime });
   const stream: BroadcastStream = {
     videoElement: video,
     load: (url) => () => {
@@ -33,6 +41,9 @@ const setup = () => {
     stop: () => {
       calls.push({ stop: true });
     },
+    seek: (seconds) => () => {
+      calls.push({ seek: seconds });
+    },
     setMuted: () => () => {},
     onStateChange: (listener) => {
       listeners.add(listener);
@@ -40,14 +51,20 @@ const setup = () => {
     },
   };
   const tvVolume = createTvVolume();
-  const layer = createBroadcastLayer({ document, stream, tvVolume, gain: (volume) => volume / 100 });
+  const layer = createBroadcastLayer({
+    document,
+    stream,
+    tvVolume,
+    gain: (volume) => volume / 100,
+    now: () => clock.now,
+  });
   layer.mount();
   mounted.push(layer);
   /** The stream changes state, as the player reports it. */
   const emit = (state: VideoStreamPlayState) => {
     for (const listener of [...listeners]) listener(state);
   };
-  return { layer, calls, video, emit, tvVolume, media };
+  return { layer, calls, video, emit, tvVolume, media, timeline, clock };
 };
 
 const mounted: BroadcastLayer[] = [];
@@ -269,5 +286,65 @@ describe("a video/broadcast object controls it (OIPF DAE Annex H.2)", () => {
 
     control.release();
     expect(video.volume).toBe(0.8);
+  });
+});
+
+describe("the broadcast is on air before the page loads (a simulated live)", () => {
+  it("a looping stream joins the channel where it is on air when it first presents, as part of its start-up", () => {
+    const { layer, calls, emit, timeline } = setup();
+    const heard: string[] = [];
+    const control = layer.control(addObject());
+    control.onStreamStateChange((state) => heard.push(state._tag));
+    layer.tune("http://tv/loop.mp4")();
+    control.bind();
+    // 1 000 000 s since the channel's time started, a 3 s loop: 1 s into it.
+    timeline.duration = 3;
+
+    emit(Stream.connecting());
+    emit(Stream.playing());
+    emit(Stream.buffering());
+    timeline.currentTime = 1;
+    emit(Stream.playing());
+
+    expect(calls).toEqual([{ load: "http://tv/loop.mp4" }, { seek: expect.closeTo(1) }]);
+    expect(heard).toEqual(["Playing"]);
+  });
+
+  it("a stream already where the channel is, or a live one, does not seek", () => {
+    const { layer, calls, emit, timeline } = setup();
+    layer.tune("http://tv/live.mpd")();
+    emit(Stream.playing());
+
+    timeline.duration = 3;
+    timeline.currentTime = 0.6;
+    layer.tune("http://tv/loop.mp4")();
+    emit(Stream.playing());
+
+    expect(calls).toEqual([{ load: "http://tv/live.mpd" }, { load: "http://tv/loop.mp4" }]);
+  });
+
+  it("joins again at every load: after a stop, the TV presents its channel where it is on air", () => {
+    const { layer, calls, emit, timeline, clock } = setup();
+    const control = layer.control(addObject());
+    timeline.duration = 10;
+    clock.now += 2_000;
+    layer.tune("http://tv/loop.mp4")();
+    control.bind();
+    emit(Stream.playing());
+    timeline.currentTime = 2;
+    emit(Stream.playing());
+
+    control.stop();
+    clock.now += 4_000;
+    control.release();
+    emit(Stream.playing());
+
+    expect(calls).toEqual([
+      { load: "http://tv/loop.mp4" },
+      { seek: 2 },
+      { stop: true },
+      { load: "http://tv/loop.mp4" },
+      { seek: 6 },
+    ]);
   });
 });

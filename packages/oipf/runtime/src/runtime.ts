@@ -454,6 +454,7 @@ export const createRuntimeEnv = (
     stream: createBroadcastStream(sharedPlayerRuntime),
     tvVolume,
     gain: broadcastGain,
+    now: () => Date.now(),
   });
   // Its volume is the objects' and the TV's, not the page's `volume` accessor's; its DASH is the player's.
   emulatorMedia.add(broadcastLayer.videoElement)();

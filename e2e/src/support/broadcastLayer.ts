@@ -4,6 +4,8 @@
  *
  * - an object the application binds at its first script presents at once, and stays
  *   presenting while the TV's stream starts;
+ * - the broadcast is on air before the page loads (a simulated live): the looping clip is
+ *   where the channel's time, from the Unix epoch, says it is;
  * - released, the TV presents the broadcast behind the application, over the whole
  *   viewport, without loading it again; the application's queries do not find it;
  * - bound, an object takes the same video into its window; a created object bound before
@@ -97,8 +99,20 @@ export const runBroadcastLayerScenario = async (evaluate: Evaluate) => {
     },
     "the broadcast playing",
   );
+  // On air before the page loaded: the 3 s loop is where the channel's time says, within a seek's delay.
+  await until(
+    evaluate,
+    () => {
+      const video = document.querySelector("#early > video") as HTMLVideoElement | null;
+      if (!video || video.paused || !Number.isFinite(video.duration)) return false;
+      const drift = Math.abs(video.currentTime - ((Date.now() / 1000) % video.duration));
+      return Math.min(drift, video.duration - drift) < 0.5;
+    },
+    "the broadcast on air",
+  );
   await evaluate(installProbe);
   await playsOn(evaluate, "early");
+  // Joining the channel on air is part of the start-up: no state change either.
   expect((await app(evaluate)).states.early).toEqual([2]);
 
   // Released, the TV presents it behind the application, over the whole viewport.
