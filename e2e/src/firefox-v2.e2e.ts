@@ -15,6 +15,7 @@ import {
   runUnreachableStreamScenario,
 } from "./support/avControl";
 import { localStreamChannel, runBroadcastLayerScenario, runShippedTestCardScenario } from "./support/broadcastLayer";
+import { E2E_TERMINAL } from "./support/device";
 import { type FirefoxWithExtension, launchFirefoxWithExtension } from "./support/firefox";
 import { runHtml5DashScenario } from "./support/html5Dash";
 import { type FixtureServer, startFixtureServer } from "./support/server";
@@ -536,12 +537,14 @@ describe("firefox-v2: settings UI (sidebar)", () => {
 
   it("a user agent changed in the UI is what the next application sees at its first script", async () => {
     const { request } = await openUi();
-    type UiState = { userAgent: string };
+    type UiState = { device: { terminal: object } };
     const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
-    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV/3.0 HbbTV/1.5.1 (+DRM; e2e; TV; 3.0;)";
+    // The device's identity: the header is what TS 102 796 §7.3.2.4 makes of it (HbbTV 1.5: no family).
+    const terminal = { ...E2E_TERMINAL, softwareVersion: "3.0" };
+    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV HbbTV/1.2.1 (+DRM; e2e; TV; 3.0; ; )";
 
     try {
-      await request({ _tag: "UI/SaveState", state: { ...original, userAgent } });
+      await request({ _tag: "UI/SaveState", state: { ...original, device: { terminal } } });
       const path = `basic-app/index.xhtml?ui-ua=${Date.now()}`;
       const { page } = await openPage(path);
 

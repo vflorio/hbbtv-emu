@@ -7,9 +7,14 @@
  */
 
 import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
+import { type DeviceProfile, DeviceProfileCodec } from "@hbb-emu/oipf-api";
 
-/** The snapshot the settings UI edits (legacy shape, until the Scenario/TvSession split). */
-export type UiState = ExtensionState;
+/**
+ * The snapshot the settings UI edits (legacy shape, until the Scenario/TvSession split),
+ * with the TV the emulator is. `userAgent` is the header that device sends: the UI shows
+ * it, and changes it through `device`.
+ */
+export type UiState = ExtensionState & Readonly<{ device: DeviceProfile }>;
 
 export type UiRequest =
   | Readonly<{ _tag: "UI/GetState" }>
@@ -30,7 +35,11 @@ export type UiNotification = Readonly<{ _tag: "UI/StateChanged"; state: UiState 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isUiState = (value: unknown): value is UiState =>
-  isRecord(value) && typeof value.userAgent === "string" && Array.isArray(value.channels) && isRecord(value.hbbtv);
+  isRecord(value) &&
+  typeof value.userAgent === "string" &&
+  DeviceProfileCodec.is(value.device) &&
+  Array.isArray(value.channels) &&
+  isRecord(value.hbbtv);
 
 export const isUiRequest = (value: unknown): value is UiRequest => {
   if (!isRecord(value)) return false;

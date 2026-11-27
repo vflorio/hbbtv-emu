@@ -1,29 +1,18 @@
 import { HBBTV_VERSION_MAP, type OipfCapabilitiesState } from "@hbb-emu/oipf-api";
 import { Add } from "@mui/icons-material";
-import {
-  Box,
-  Button,
-  Chip,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Chip, IconButton, Stack, TextField, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
-import { useAppState, useCapabilities } from "../hooks";
+import { useAppState, useCapabilities, useDevice } from "../hooks";
 
 export default function CapabilitiesTab() {
   const { isLoading } = useAppState();
   const { capabilities, update } = useCapabilities();
-
-  const [hbbtvVersion, setHbbtvVersion] = useState(capabilities.hbbtvVersion ?? "2.0.1");
+  const { device } = useDevice();
+  const { hbbtvVersion } = device.terminal;
+  const specVersion = HBBTV_VERSION_MAP.find((entry) => entry.hbbtv === hbbtvVersion)?.spec;
   const [uiProfiles, setUiProfiles] = useState<string[]>(capabilities.uiProfiles ?? []);
   const [drmSystems, setDrmSystems] = useState<string[]>(capabilities.drmSystems ?? []);
   const [newProfile, setNewProfile] = useState("");
@@ -31,7 +20,6 @@ export default function CapabilitiesTab() {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setHbbtvVersion(capabilities.hbbtvVersion ?? "2.0.1");
     setUiProfiles(capabilities.uiProfiles ?? []);
     setDrmSystems(capabilities.drmSystems ?? []);
     setIsEditing(false);
@@ -40,7 +28,6 @@ export default function CapabilitiesTab() {
   const handleSave = pipe(
     TE.of<unknown, OipfCapabilitiesState>({
       ...capabilities,
-      hbbtvVersion,
       uiProfiles,
       drmSystems,
     }),
@@ -51,7 +38,6 @@ export default function CapabilitiesTab() {
   );
 
   const handleCancel = () => {
-    setHbbtvVersion(capabilities.hbbtvVersion ?? "2.0.1");
     setUiProfiles(capabilities.uiProfiles ?? []);
     setDrmSystems(capabilities.drmSystems ?? []);
     setIsEditing(false);
@@ -107,26 +93,16 @@ export default function CapabilitiesTab() {
         )
       }
     >
-      {/* HbbTV Version */}
-      <FormControl fullWidth>
-        <InputLabel id="version-label">Version</InputLabel>
-        <Select
-          labelId="version-label"
-          id="version"
-          value={hbbtvVersion}
-          label="Version"
-          onChange={(e) => {
-            setHbbtvVersion(e.target.value);
-            setIsEditing(true);
-          }}
-        >
-          {HBBTV_VERSION_MAP.map(({ spec, hbbtv }) => (
-            <MenuItem key={hbbtv} value={hbbtv}>
-              HbbTV {hbbtv} (TS 102 796 V{spec})
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      {/* HbbTV Version: the device's */}
+      <Box>
+        <Typography variant="subtitle1">Version</Typography>
+        <Typography>
+          HbbTV {hbbtvVersion} (TS 102 796 V{specVersion})
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          The device's: change it in Common → Device.
+        </Typography>
+      </Box>
       {/* UI Profiles */}
       <Box>
         <Typography variant="subtitle1" gutterBottom>

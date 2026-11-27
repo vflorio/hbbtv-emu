@@ -1,8 +1,8 @@
-import type { ExtensionState } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { useCallback } from "react";
 import { useAppState, useDispatch, useSideEffects } from "../context/AppState";
+import type { SettingsState } from "../state";
 
 /**
  * Hook for managing Player UI settings.
@@ -17,7 +17,7 @@ export const usePlayerUi = () => {
   const setVisible = useCallback(
     (visible: boolean) =>
       pipe(
-        TE.of<unknown, ExtensionState>({
+        TE.of<unknown, SettingsState>({
           ...config,
           playerUiVisible: visible,
         }),

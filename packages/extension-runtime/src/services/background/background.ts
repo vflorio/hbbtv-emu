@@ -28,6 +28,7 @@ import {
   toPageConfig,
   toPageSession,
   tvPageUrl,
+  userAgentOf,
 } from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
@@ -76,7 +77,7 @@ export class BackgroundService {
       // Before any page loads: the TV's user agent on every HTTP request.
       TE.tap((state) =>
         pipe(
-          this.env.adapter.userAgent.setUserAgent(state.runtime.userAgent),
+          this.env.adapter.userAgent.setUserAgent(userAgentOf(state)),
           TE.orElseFirstIOK((error) => this.logger.error("Could not set the HTTP user agent", error)),
           TE.orElse(() => TE.right<BackgroundServiceError, void>(undefined)),
         ),

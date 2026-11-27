@@ -34,6 +34,7 @@ import {
   toPageSession,
   toUiState,
   turnedOnSession,
+  userAgentOf,
   zapChannel,
 } from "../../state";
 import { changeTabChannel, republish, type TvEnv } from "./channel";
@@ -131,10 +132,10 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 const applyUserAgent =
   (before: ExtensionState, after: ExtensionState): RT.ReaderTask<UiEnv, void> =>
   ({ userAgent, logger }) =>
-    before.runtime.userAgent === after.runtime.userAgent
+    userAgentOf(before) === userAgentOf(after)
       ? T.of(undefined)
       : pipe(
-          userAgent.setUserAgent(after.runtime.userAgent),
+          userAgent.setUserAgent(userAgentOf(after)),
           TE.getOrElseW((error) => T.fromIO(logger.error("Could not set the HTTP user agent", error))),
         );
 

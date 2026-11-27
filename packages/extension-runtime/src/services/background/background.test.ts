@@ -1,3 +1,4 @@
+import { hbbtvUserAgent } from "@hbb-emu/oipf-api";
 import { type BootstrapData, configBootstrapScript, type HostMessage } from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
 import * as TE from "fp-ts/TaskEither";
@@ -14,8 +15,14 @@ import {
   silentLogger,
 } from "../../__tests__/fakes";
 import type { BroadbandAdapter } from "../../adapter";
-import { DEFAULT_STATE, type ExtensionState, type TvSessions, toPageConfig, toUiState } from "../../state";
+import { DEFAULT_STATE, type ExtensionState, type TvSessions, toPageConfig, toUiState, userAgentOf } from "../../state";
 import { BackgroundService } from "./background";
+
+/** A TV whose User-Agent header is its own (`device.userAgent`). */
+const withUserAgent = (state: ExtensionState, userAgent: string): ExtensionState => ({
+  ...state,
+  runtime: { ...state.runtime, device: { ...state.runtime.device, userAgent } },
+});
 
 /** Tab 1 is the active one (where the side panel is), tab 2 is in the background. */
 const OPEN_TABS = [
@@ -80,7 +87,7 @@ describe("BackgroundService", () => {
   });
 
   it("sends the persisted configuration, not the defaults", async () => {
-    const stored = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, userAgent: "Custom TV/1.0" } };
+    const stored = withUserAgent(DEFAULT_STATE, "Custom TV/1.0");
     const { messaging } = await setup(stored);
 
     messaging.receive({ _tag: "Page/Ready", url: "http://app" }, 7);
@@ -100,7 +107,7 @@ describe("BackgroundService", () => {
   });
 
   it("makes the browser send the stored user agent before any page loads", async () => {
-    const stored = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, userAgent: "Custom TV/1.0" } };
+    const stored = withUserAgent(DEFAULT_STATE, "Custom TV/1.0");
     const { userAgent } = await setup(stored);
 
     expect(userAgent.applied).toEqual(["Custom TV/1.0"]);
@@ -151,7 +158,7 @@ describe("BackgroundService", () => {
 });
 
 describe("BackgroundService — configuration bootstrap", () => {
-  const stored = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, userAgent: "Custom TV/1.0" } };
+  const stored = withUserAgent(DEFAULT_STATE, "Custom TV/1.0");
   const [first] = DEFAULT_STATE.runtime.channels;
   const hgtv = { ...first!, id: "hgtv", name: "HGTV", sid: 56 };
   const lineup = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels: [first!, hgtv] } };
@@ -166,7 +173,10 @@ describe("BackgroundService — configuration bootstrap", () => {
 
   it("publishes it again when the configuration changes", async () => {
     const { ui, bootstrap } = await setup();
-    const saved = { ...toUiState(DEFAULT_STATE), userAgent: "Custom TV/1.0" };
+    const saved = {
+      ...toUiState(DEFAULT_STATE),
+      device: { ...DEFAULT_STATE.runtime.device, userAgent: "Custom TV/1.0" },
+    };
 
     await ui.request({ _tag: "UI/SaveState", state: saved });
 
@@ -248,7 +258,8 @@ describe("BackgroundService — settings UI", () => {
 
   it("a configuration change is persisted, sent to every open tab and announced to the UIs", async () => {
     const { ui, messaging, userAgent } = await setup();
-    const saved = { ...uiState, userAgent: "Custom TV/1.0" };
+    const saved = { ...uiState, device: { ...uiState.device, userAgent: "Custom TV/1.0" } };
+    const stored = { ...saved, userAgent: "Custom TV/1.0" };
 
     expect(await ui.request({ _tag: "UI/SaveState", state: saved })).toEqual({ _tag: "UI/Done" });
 
@@ -256,9 +267,25 @@ describe("BackgroundService — settings UI", () => {
       [1, "Host/Config"],
       [2, "Host/Config"],
     ]);
-    expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: saved }]);
-    expect(userAgent.applied).toEqual([DEFAULT_STATE.runtime.userAgent, "Custom TV/1.0"]);
-    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: saved });
+    expect(messaging.sent[0]?.message).toMatchObject({ config: { userAgent: "Custom TV/1.0" } });
+    expect(ui.notified).toEqual([{ _tag: "UI/StateChanged", state: stored }]);
+    expect(userAgent.applied).toEqual([userAgentOf(DEFAULT_STATE), "Custom TV/1.0"]);
+    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: stored });
+  });
+
+  it("the HbbTV version is the device's: its User-Agent, and the Capabilities object of the active tab", async () => {
+    const { ui, messaging, userAgent } = await setup();
+    const terminal = { ...uiState.device.terminal, hbbtvVersion: "2.0.4" as const, vendorName: "Sonic" };
+
+    await ui.request({ _tag: "UI/SaveState", state: { ...uiState, device: { terminal } } });
+
+    const expected = hbbtvUserAgent(terminal);
+    expect(expected).toContain("HbbTV/1.7.1 (; Sonic; ");
+    expect(userAgent.applied).toEqual([userAgentOf(DEFAULT_STATE), expected]);
+    expect(messaging.sent.find((s) => s.tabId === 1 && s.message._tag === "Host/ApplyState")?.message).toEqual({
+      _tag: "Host/ApplyState",
+      patch: { oipfCapabilities: { hbbtvVersion: "2.0.4" } },
+    });
   });
 
   it("an object-state edit becomes a minimal patch for the active tab only", async () => {

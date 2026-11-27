@@ -1,14 +1,17 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import { describe, expect, it } from "vitest";
 import { isUiNotification, isUiRequest, isUiResponse } from "./ui";
 
-const state = DEFAULT_EXTENSION_STATE;
+const state = { ...DEFAULT_EXTENSION_STATE, device: EMULATOR_DEVICE };
 
 describe("UI messages", () => {
   it.each<[unknown, boolean]>([
     [{ _tag: "UI/GetState" }, true],
     [{ _tag: "UI/SaveState", state }, true],
     [{ _tag: "UI/SaveState", state: { userAgent: "x" } }, false],
+    // A state from before device profiles: the device is what the background stores.
+    [{ _tag: "UI/SaveState", state: DEFAULT_EXTENSION_STATE }, false],
     [{ _tag: "UI/DispatchKey", keyCode: 403 }, true],
     [{ _tag: "UI/DispatchKey", keyCode: "red" }, false],
     [{ _tag: "UI/PlayChannel", channel: state.channels[0] }, true],

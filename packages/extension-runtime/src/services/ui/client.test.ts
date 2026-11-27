@@ -1,11 +1,12 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import type { UiRequest } from "@hbb-emu/protocol";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import { createFakeExtensionChannel } from "../../__tests__/fakes";
 import { createUiClient } from "./client";
 
-const state = DEFAULT_EXTENSION_STATE;
+const state = { ...DEFAULT_EXTENSION_STATE, device: EMULATOR_DEVICE };
 
 const setup = () => {
   const channel = createFakeExtensionChannel<UiRequest>();

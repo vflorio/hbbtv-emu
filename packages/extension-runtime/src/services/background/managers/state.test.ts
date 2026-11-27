@@ -1,8 +1,9 @@
 import type { ChannelConfig } from "@hbb-emu/extension-common";
+import { EMULATOR_DEVICE, EMULATOR_TERMINAL, emulatorUserAgent } from "@hbb-emu/oipf-api";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import { createFakeStorage } from "../../../__tests__/fakes";
-import { DEFAULT_STATE, type ExtensionState } from "../../../state";
+import { DEFAULT_STATE, type ExtensionState, userAgentOf } from "../../../state";
 import { StateManager } from "./state";
 
 const getStateOrThrow = (manager: StateManager): ExtensionState => {
@@ -91,11 +92,12 @@ describe("StateManager", () => {
     await first.manager.updateState((s) => ({ ...s, common: { ...s.common, playerUiVisible: true } }))();
 
     const afterRestart = await initialized(storage);
-    await afterRestart.manager.updateState((s) => ({ ...s, runtime: { ...s.runtime, userAgent: "Custom TV/1.0" } }))();
+    const device = { terminal: { ...EMULATOR_TERMINAL, vendorName: "Custom" }, userAgent: "Custom TV/1.0" };
+    await afterRestart.manager.updateState((s) => ({ ...s, runtime: { ...s.runtime, device } }))();
 
     const state = getStateOrThrow(afterRestart.manager);
     expect(state.common.playerUiVisible).toBe(true);
-    expect(state.runtime.userAgent).toBe("Custom TV/1.0");
+    expect(state.runtime.device).toEqual(device);
   });
 
   it("loads a state stored by an older version, dropping enabledTabIds (a Set stored as {})", async () => {
@@ -121,5 +123,41 @@ describe("StateManager", () => {
 
     expect("currentChannel" in getStateOrThrow(manager).runtime).toBe(false);
     expect(storage.stored()?.runtime).not.toHaveProperty("currentChannel");
+  });
+
+  describe("a state from before device profiles (only a user agent)", () => {
+    /** The runtime part older versions stored: `userAgent`, no `device`. */
+    const legacyWith = (userAgent: string, hbbtvVersion = "2.0.1") => {
+      const { device: _none, ...runtime } = DEFAULT_STATE.runtime;
+      const api = { ...runtime.api, oipfCapabilities: { ...runtime.api.oipfCapabilities, hbbtvVersion } };
+      return { ...DEFAULT_STATE, runtime: { ...runtime, api, userAgent } } as unknown as ExtensionState;
+    };
+
+    it("is the emulator, at the HbbTV version of its Capabilities object", async () => {
+      const storage = createFakeStorage<ExtensionState>(legacyWith(emulatorUserAgent("2.0.4"), "2.0.4"));
+      const { manager } = await initialized(storage);
+      await manager.updateState((s) => s)();
+
+      expect(getStateOrThrow(manager).runtime.device).toEqual({
+        terminal: { ...EMULATOR_TERMINAL, hbbtvVersion: "2.0.4" },
+      });
+      expect(storage.stored()?.runtime).not.toHaveProperty("userAgent");
+    });
+
+    it("keeps the user agent it had, when it is not the one the emulator gives", async () => {
+      const userAgent =
+        "Mozilla/5.0 (SmartTV; HbbTV/1.5.1 (+DL;Vendor/ModelName;0.0.1;0.0.1;) CE-HTML/1.0 HBBTV-EMU/0.1";
+      const { manager } = await initialized(createFakeStorage<ExtensionState>(legacyWith(userAgent)));
+
+      const state = getStateOrThrow(manager);
+      expect(state.runtime.device).toEqual({ terminal: EMULATOR_TERMINAL, userAgent });
+      expect(userAgentOf(state)).toBe(userAgent);
+    });
+
+    it("an HbbTV version the emulator does not know is its own", async () => {
+      const { manager } = await initialized(createFakeStorage<ExtensionState>(legacyWith("", "9.9")));
+
+      expect(getStateOrThrow(manager).runtime.device).toEqual(EMULATOR_DEVICE);
+    });
   });
 });

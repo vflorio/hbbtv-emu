@@ -1,11 +1,16 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import type { UiState } from "@hbb-emu/protocol";
 import * as TE from "fp-ts/TaskEither";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BANNER_MS, startTvShell } from "./shell";
 
 const radio = { ...DEFAULT_EXTENSION_STATE.channels[0]!, id: "radio", name: "Radio", mp4Source: "http://tv/radio.mp4" };
-const state = { ...DEFAULT_EXTENSION_STATE, channels: [DEFAULT_EXTENSION_STATE.channels[0]!, radio] };
+const state = {
+  ...DEFAULT_EXTENSION_STATE,
+  device: EMULATOR_DEVICE,
+  channels: [DEFAULT_EXTENSION_STATE.channels[0]!, radio],
+};
 
 const show = async (search: string, getState: () => TE.TaskEither<unknown, UiState> = () => TE.right(state)) => {
   const document = window.document.implementation.createHTMLDocument("");

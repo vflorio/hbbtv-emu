@@ -6,6 +6,9 @@ import {
   applicationLocation,
   autostartApplication,
   DEFAULT_HBBTV_STATE,
+  type DeviceProfile,
+  deviceUserAgent,
+  EMULATOR_DEVICE,
   type HbbTVState,
   parseDvbApplicationUrl,
   signalledApplication,
@@ -34,7 +37,8 @@ export type ExtensionState = {
 
 export type OipfRuntimeState = {
   api: NonNullable<HbbTVState>;
-  userAgent: string;
+  /** The TV the emulator is (ROADMAP 2.1): the source of its User-Agent and HbbTV version. */
+  device: DeviceProfile;
   channels: ReadonlyArray<ChannelConfig>;
 };
 
@@ -53,10 +57,13 @@ export const DEFAULT_STATE: ExtensionState = {
   logger: DEFAULT_LOGGER_STATE,
   runtime: {
     api: DEFAULT_HBBTV_STATE,
-    userAgent: DEFAULT_EXTENSION_STATE.userAgent,
+    device: EMULATOR_DEVICE,
     channels: DEFAULT_EXTENSION_STATE.channels,
   },
 } as const;
+
+/** The User-Agent header of the TV: on every HTTP request, and `navigator.userAgent` in pages. */
+export const userAgentOf = (state: ExtensionState): string => deviceUserAgent(state.runtime.device);
 
 /** The URL, on the host, of a file the emulator ships at a path (`AssetsAdapter`). */
 export type AssetUrl = (path: string) => string;
@@ -66,7 +73,7 @@ export type AssetUrl = (path: string) => string;
  * state), with the files the emulator ships at their URL on the host (`emulatorAsset`).
  */
 export const toPageConfig = (state: ExtensionState, assetUrl: AssetUrl): PageConfig => ({
-  userAgent: state.runtime.userAgent,
+  userAgent: userAgentOf(state),
   channels: state.runtime.channels.map((channel) => toPageChannel(channel, assetUrl)),
 });
 
@@ -268,7 +275,7 @@ const tuningsOf = (state: ExtensionState, sessions: TvSessions): BootstrapData["
  */
 export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => {
   const data = {
-    config: { userAgent: state.runtime.userAgent, channels: state.runtime.channels },
+    config: { userAgent: userAgentOf(state), channels: state.runtime.channels },
     tunings: tuningsOf(state, sessions),
   };
   return {
@@ -312,7 +319,8 @@ export const toPageSession = (state: ExtensionState, session: TvSession, assetUr
  * user is looking at (the active tab), `null` when that tab is not a TV.
  */
 export const toUiState = (state: ExtensionState, currentChannel: ChannelConfig | null = null): UiState => ({
-  userAgent: state.runtime.userAgent,
+  userAgent: userAgentOf(state),
+  device: state.runtime.device,
   channels: [...state.runtime.channels],
   currentChannel,
   playerUiVisible: state.common.playerUiVisible,
@@ -321,15 +329,20 @@ export const toUiState = (state: ExtensionState, currentChannel: ChannelConfig |
 
 /**
  * Applies a UI snapshot onto the stored state (everything the UI does not edit is kept).
- * The current channel belongs to a tab's session, never to the shared state.
+ * The current channel belongs to a tab's session, never to the shared state. The user
+ * agent is the device's (`userAgent` is only what it gives), and so is the HbbTV version
+ * the Capabilities object reports.
  */
 export const fromUiState = (state: ExtensionState, ui: UiState): ExtensionState => ({
   ...state,
   common: { ...state.common, playerUiVisible: ui.playerUiVisible },
   runtime: {
     ...state.runtime,
-    userAgent: ui.userAgent,
+    device: ui.device,
     channels: ui.channels,
-    api: ui.hbbtv,
+    api: {
+      ...ui.hbbtv,
+      oipfCapabilities: { ...ui.hbbtv.oipfCapabilities, hbbtvVersion: ui.device.terminal.hbbtvVersion },
+    },
   },
 });

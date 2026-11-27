@@ -18,6 +18,7 @@
  *   browser's part comes first, as on TVs (the companion screen example of §14.7.3.2).
  */
 
+import * as t from "io-ts";
 import {
   DEFAULT_HBBTV_VERSION,
   HBBTV_VERSION_MAP,
@@ -31,25 +32,41 @@ export const HBBTV_OPTIONS = ["+DL", "+PVR", "+DRM", "+IPC", "+AFS"] as const;
 
 export type HbbTVOption = (typeof HBBTV_OPTIONS)[number];
 
-export type TerminalIdentity = Readonly<{
-  hbbtvVersion: HbbTVVersion;
-  /** The options the terminal supports. */
-  options: ReadonlyArray<HbbTVOption>;
-  /** The consumer-facing make or brand. */
-  vendorName: string;
-  /** The consumer-facing model name. */
-  modelName: string;
-  softwareVersion: string;
-  /** Optional: empty when the terminal gives none. */
-  hardwareVersion?: string;
-  /** Globally unique (HbbTV 2.0.1 on; ignored before). */
-  familyName: string;
-  /** The browser's user agent, before the HbbTV part; none when empty. */
-  browser?: string;
-}>;
+/** One of the keys, as an io-ts `keyof` (a union of literals). */
+const keysOf = <K extends string>(keys: ReadonlyArray<K>) =>
+  t.keyof(Object.fromEntries(keys.map((key) => [key, null])) as Record<K, null>);
+
+export const HbbTVVersionCodec = keysOf<HbbTVVersion>(HBBTV_VERSION_MAP.map((entry) => entry.hbbtv));
+
+export const HbbTVOptionCodec = keysOf<HbbTVOption>(HBBTV_OPTIONS);
+
+export const TerminalIdentityCodec = t.readonly(
+  t.intersection([
+    t.type({
+      hbbtvVersion: HbbTVVersionCodec,
+      /** The options the terminal supports. */
+      options: t.readonlyArray(HbbTVOptionCodec),
+      /** The consumer-facing make or brand. */
+      vendorName: t.string,
+      /** The consumer-facing model name. */
+      modelName: t.string,
+      softwareVersion: t.string,
+      /** Globally unique (HbbTV 2.0.1 on; ignored before). */
+      familyName: t.string,
+    }),
+    t.partial({
+      /** Optional: empty when the terminal gives none. */
+      hardwareVersion: t.string,
+      /** The browser's user agent, before the HbbTV part; none when empty. */
+      browser: t.string,
+    }),
+  ]),
+);
+
+export type TerminalIdentity = t.TypeOf<typeof TerminalIdentityCodec>;
 
 /** Whether the version's User-Agent has a `<familyName>`: from TS 102 796 V1.3.1 (HbbTV 2.0) on. */
-const hasFamilyName = (version: HbbTVVersion): boolean =>
+export const hasFamilyName = (version: HbbTVVersion): boolean =>
   HBBTV_VERSION_MAP.findIndex((entry) => entry.hbbtv === version) <=
   HBBTV_VERSION_MAP.findIndex((entry) => entry.hbbtv === "2.0");
 

@@ -1,9 +1,9 @@
 import type { VideoBroadcastState } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
-import type { ExtensionState } from "node_modules/@hbb-emu/extension-common/dist/extension";
 import { useCallback } from "react";
 import { useAppState, useDispatch, useSideEffects } from "../context/AppState";
+import type { SettingsState } from "../state";
 
 /**
  * Hook for managing Video Broadcast settings.
@@ -15,7 +15,7 @@ export const useVideoBroadcast = () => {
 
   const videoBroadcast = config.hbbtv?.videoBroadcast ?? {};
 
-  const update = useCallback<(next: VideoBroadcastState) => TE.TaskEither<unknown, ExtensionState>>(
+  const update = useCallback<(next: VideoBroadcastState) => TE.TaskEither<unknown, SettingsState>>(
     (next) =>
       pipe(
         TE.of({

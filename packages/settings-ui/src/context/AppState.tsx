@@ -1,30 +1,26 @@
-import {
-  type ChannelConfig,
-  DEFAULT_EXTENSION_STATE,
-  type ExtensionState,
-  type StreamEventConfig,
-} from "@hbb-emu/extension-common";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer } from "react";
+import { DEFAULT_SETTINGS_STATE, type SettingsState } from "../state";
 
 export interface AppState {
-  readonly config: ExtensionState;
+  readonly config: SettingsState;
   readonly isLoading: boolean;
 }
 
 const initialState: AppState = {
-  config: DEFAULT_EXTENSION_STATE,
+  config: DEFAULT_SETTINGS_STATE,
   isLoading: true,
 };
 
 export interface SideEffects {
   /** Load initial state from the service */
-  load: () => TE.TaskEither<unknown, ExtensionState>;
+  load: () => TE.TaskEither<unknown, SettingsState>;
   /** Save state to the service */
-  save: (state: ExtensionState) => TE.TaskEither<unknown, void>;
+  save: (state: SettingsState) => TE.TaskEither<unknown, void>;
   /** Subscribe to external state updates (returns unsubscribe function) */
-  subscribe: (callback: (state: ExtensionState) => void) => () => void;
+  subscribe: (callback: (state: SettingsState) => void) => () => void;
   /** Tune the TV in the active tab to a channel */
   playChannel: (channel: ChannelConfig) => TE.TaskEither<unknown, void>;
   /** Turn on a new TV (a new tab) on a channel */
@@ -77,9 +73,9 @@ export function StateProvider({ sideEffects, children }: StateProviderProps) {
 }
 
 export type Action =
-  | Readonly<{ type: "SET_CONFIG"; payload: ExtensionState }>
+  | Readonly<{ type: "SET_CONFIG"; payload: SettingsState }>
   | Readonly<{ type: "SET_LOADING"; payload: boolean }>
-  | Readonly<{ type: "UPDATE_COMMON"; payload: Omit<ExtensionState, "channels"> }>
+  | Readonly<{ type: "UPDATE_COMMON"; payload: Omit<SettingsState, "channels"> }>
   | Readonly<{ type: "UPSERT_CHANNEL"; payload: ChannelConfig }>
   | Readonly<{ type: "REMOVE_CHANNEL"; payload: string }>
   | Readonly<{ type: "SET_CURRENT_CHANNEL"; payload: ChannelConfig | null }>

@@ -16,6 +16,7 @@ import {
 } from "./support/avControl";
 import { localStreamChannel, runBroadcastLayerScenario, runShippedTestCardScenario } from "./support/broadcastLayer";
 import { type ExtensionBrowser, launchWithExtension } from "./support/browser";
+import { E2E_TERMINAL } from "./support/device";
 import { runHtml5DashScenario } from "./support/html5Dash";
 import { type FixtureServer, startFixtureServer } from "./support/server";
 import { runStreamEventScenario, streamEventChannel } from "./support/streamEvents";
@@ -550,13 +551,15 @@ describe("chrome-v3: settings UI", () => {
 
   it("the configured user agent is what the server receives and what the application reads, without the browser's client hints", async () => {
     const { ui } = await openUi();
-    type UiState = { userAgent: string };
+    type UiState = { device: { terminal: object } };
     const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
     const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
-    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV/1.0 HbbTV/1.5.1 (+DRM; e2e; TV; 1.0;)";
+    // The device's identity: the header is what TS 102 796 §7.3.2.4 makes of it (HbbTV 1.5: no family).
+    const terminal = { ...E2E_TERMINAL, softwareVersion: "1.0" };
+    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV HbbTV/1.2.1 (+DRM; e2e; TV; 1.0; ; )";
 
     try {
-      await request({ _tag: "UI/SaveState", state: { ...original, userAgent } });
+      await request({ _tag: "UI/SaveState", state: { ...original, device: { terminal } } });
       const path = `basic-app/index.xhtml?ua=${Date.now()}`;
       const { page } = await openPage(path);
       await page.evaluate(() => fetch("/basic-app/index.xhtml?xhr"));
@@ -624,13 +627,14 @@ describe("chrome-v3: settings UI", () => {
   it("with user scripts allowed, the application's first script already sees the configuration", async () => {
     await browser.allowUserScripts();
     const { ui } = await openUi();
-    type UiState = { userAgent: string };
+    type UiState = { device: object };
     const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
     const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    // A header of the device's own, verbatim: a TV that does not follow TS 102 796 §7.3.2.4.
     const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV/2.0 HbbTV/1.5.1 (+DRM; e2e; TV; 2.0;)";
 
     try {
-      await request({ _tag: "UI/SaveState", state: { ...original, userAgent } });
+      await request({ _tag: "UI/SaveState", state: { ...original, device: { ...original.device, userAgent } } });
       const { page, errors } = await openPage(`basic-app/index.xhtml?bootstrap=${Date.now()}`);
 
       const state = await page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e);

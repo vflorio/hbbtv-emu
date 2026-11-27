@@ -1,5 +1,12 @@
 import { Logger } from "@hbb-emu/core";
 import { BROADCAST_STAND_IN } from "@hbb-emu/extension-common";
+import {
+  type DeviceProfile,
+  DeviceProfileCodec,
+  EMULATOR_TERMINAL,
+  hbbtvUserAgent,
+  isHbbTVVersion,
+} from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
@@ -21,29 +28,53 @@ export type StateManagerEnv = {
  *   service-worker restart) that nothing read;
  * - `runtime.currentChannel` was one channel for every tab;
  * - the default lineup's stream was the DASH-IF live simulator, which limits its requests:
- *   channels still on it go to the test card the emulator ships.
+ *   channels still on it go to the test card the emulator ships;
+ * - the TV was only its `userAgent`, a free text, and its HbbTV version was the
+ *   Capabilities object's: see `storedDevice`.
  */
 type StoredState = Omit<ExtensionState, "runtime"> & {
   enabledTabIds?: unknown;
-  runtime: ExtensionState["runtime"] & { currentChannel?: unknown };
+  runtime: Omit<ExtensionState["runtime"], "device"> & {
+    currentChannel?: unknown;
+    device?: unknown;
+    userAgent?: unknown;
+  };
+};
+
+/**
+ * The device of a stored state. One from before device profiles is the emulator, at the
+ * HbbTV version its Capabilities object had; the user agent it had stays its own header
+ * when it is not the one that identity gives (a custom one, or an older default).
+ */
+const storedDevice = (runtime: StoredState["runtime"]): DeviceProfile => {
+  if (DeviceProfileCodec.is(runtime.device)) return runtime.device;
+  const version = runtime.api.oipfCapabilities?.hbbtvVersion;
+  const terminal = {
+    ...EMULATOR_TERMINAL,
+    hbbtvVersion: version !== undefined && isHbbTVVersion(version) ? version : EMULATOR_TERMINAL.hbbtvVersion,
+  };
+  const userAgent = runtime.userAgent;
+  return typeof userAgent === "string" && userAgent !== "" && userAgent !== hbbtvUserAgent(terminal)
+    ? { terminal, userAgent }
+    : { terminal };
 };
 
 /** The previous default stream (`https://livesim2.dashif.org/livesim2/…`). */
 const LIVE_SIMULATOR = /^https:\/\/livesim2\.dashif\.org\/livesim2\//;
 
-export const fromStoredState = ({
-  enabledTabIds: _dropped,
-  runtime: { currentChannel: _droppedToo, ...runtime },
-  ...state
-}: StoredState): ExtensionState => ({
-  ...state,
-  runtime: {
-    ...runtime,
-    channels: runtime.channels.map((channel) =>
-      LIVE_SIMULATOR.test(channel.mp4Source) ? { ...channel, mp4Source: BROADCAST_STAND_IN } : channel,
-    ),
-  },
-});
+export const fromStoredState = ({ enabledTabIds: _dropped, runtime, ...state }: StoredState): ExtensionState => {
+  const { currentChannel: _droppedToo, userAgent: _inTheDevice, device: _decoded, ...kept } = runtime;
+  return {
+    ...state,
+    runtime: {
+      ...kept,
+      device: storedDevice(runtime),
+      channels: kept.channels.map((channel) =>
+        LIVE_SIMULATOR.test(channel.mp4Source) ? { ...channel, mp4Source: BROADCAST_STAND_IN } : channel,
+      ),
+    },
+  };
+};
 
 export class StateManager {
   private state: O.Option<ExtensionState> = O.none;

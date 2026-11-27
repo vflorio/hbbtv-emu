@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from "@mui/material";
 import { ConfigSection } from "../components/common/ConfigSection";
+import { DeviceSection } from "../components/common/DeviceSection";
 import { PlayerDebugSection } from "../components/common/PlayerDebugSection";
-import { UserAgentSection } from "../components/common/UserAgentSection";
 import Panel from "../components/Panel";
 import { useAppState } from "../context/AppState";
 
@@ -19,7 +19,7 @@ export default function Common() {
   return (
     <Panel title="Common">
       <Stack gap={3} sx={{ mt: 3 }}>
-        <UserAgentSection />
+        <DeviceSection />
         <PlayerDebugSection />
         <ConfigSection />
       </Stack>
