@@ -215,8 +215,22 @@ describe("VideoBroadcast — one object composed of its parts", () => {
     expect(videoBroadcast.onProgrammesChanged).toBe(onProgrammesChanged);
   });
 
+  it("takes stream event listeners only while presenting or stopped (TS 102 796 §8.2.1.1)", () => {
+    const unrealized = setup().videoBroadcast;
+    const presenting = setup(undefined, PlayState.PRESENTING).videoBroadcast;
+    const stopped = setup(undefined, PlayState.STOPPED).videoBroadcast;
+    const connecting = setup(undefined, PlayState.CONNECTING).videoBroadcast;
+
+    for (const object of [unrealized, presenting, stopped, connecting]) {
+      object.addStreamEventListener("dvb://1", "now", () => {});
+    }
+
+    const listening = (object: typeof unrealized) => object.getState().streamEventListeners?.length;
+    expect([unrealized, presenting, stopped, connecting].map(listening)).toEqual([0, 1, 1, 0]);
+  });
+
   it("the settings UI reads the application's stream event subscriptions, and cannot write them", () => {
-    const { videoBroadcast } = setup();
+    const { videoBroadcast } = setup(undefined, PlayState.PRESENTING);
     videoBroadcast.addStreamEventListener("dvb://1", "now", () => {});
 
     videoBroadcast.applyState({ streamEventListeners: [] })();

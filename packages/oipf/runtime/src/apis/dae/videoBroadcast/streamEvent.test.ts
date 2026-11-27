@@ -34,7 +34,8 @@ const fetchFrom =
     return file ? TE.right(file) : TE.left("HTTP 404");
   };
 
-const setup = (fetchDescription: FetchStreamEventDescription = fetchFrom({})) => {
+/** `accepts`: whether the object takes listeners (presenting or stopped). */
+const setup = (fetchDescription: FetchStreamEventDescription = fetchFrom({}), accepts = true) => {
   const subscribed: string[] = [];
   const unsubscribed: string[] = [];
   const scheduler: StreamEventEnv["scheduler"] = {
@@ -48,7 +49,12 @@ const setup = (fetchDescription: FetchStreamEventDescription = fetchFrom({})) =>
       };
     },
   };
-  const env = createStreamEventEnv({ scheduler, fetchDescription, baseURI: () => "http://tv/app/index.html" })();
+  const env = createStreamEventEnv({
+    scheduler,
+    fetchDescription,
+    baseURI: () => "http://tv/app/index.html",
+    acceptsListeners: () => accepts,
+  })();
   return { env, subscribed, unsubscribed };
 };
 
@@ -78,6 +84,24 @@ describe("stream event listeners", () => {
       { targetURL: "dvb://1", eventName: "now" },
       { targetURL: "dvb://1", eventName: "now" },
     ]);
+  });
+
+  it("neither presenting nor stopped, adding has no effect: no subscription, no fetch, no error (§8.2.1.1)", async () => {
+    const fetched: string[] = [];
+    const { env, subscribed } = setup((url) => {
+      fetched.push(url);
+      return TE.left("HTTP 404");
+    }, false);
+    const { events, listener: heard } = recording();
+
+    addStreamEventListener("dvb://1", "now", heard)(env)();
+    addStreamEventListener("http://tv/missing.ste", "now", heard)(env)();
+    await settled();
+
+    expect(subscribed).toEqual([]);
+    expect(fetched).toEqual([]);
+    expect(events).toEqual([]);
+    expect(readStreamEventListeners(env)()).toEqual([]);
   });
 
   it("removing takes away one subscription with that URL, name and listener", () => {

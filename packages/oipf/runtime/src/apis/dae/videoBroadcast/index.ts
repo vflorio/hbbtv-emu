@@ -11,7 +11,7 @@
  */
 
 import { createStatefulMethods, type Stateful } from "@hbb-emu/core";
-import type { OIPF, VideoBroadcastState } from "@hbb-emu/oipf-api";
+import { OIPF, type VideoBroadcastState } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type {
@@ -25,6 +25,8 @@ import {
   applyChannelState,
   type BroadcastPlayer,
   type ChannelApi,
+  type ChannelEnv,
+  type ChannelState,
   channelApi,
   createChannelEnv,
   readChannelState,
@@ -137,8 +139,15 @@ export const createVideoBroadcast = (dependencies: VideoBroadcastDependencies): 
     scheduler: dependencies.streamEventScheduler,
     fetchDescription: dependencies.fetchStreamEventDescription,
     baseURI: dependencies.baseURI,
+    // TS 102 796 §8.2.1.1. Read when the application calls, once `channel` exists.
+    acceptsListeners: (): boolean => {
+      const { playState }: ChannelState = readChannelState(channel)();
+      return (
+        playState === OIPF.DAE.Broadcast.PlayState.PRESENTING || playState === OIPF.DAE.Broadcast.PlayState.STOPPED
+      );
+    },
   })();
-  const channel = createChannelEnv(
+  const channel: ChannelEnv = createChannelEnv(
     {
       getChannels: dependencies.channelRegistry.getChannels,
       player: dependencies.player,

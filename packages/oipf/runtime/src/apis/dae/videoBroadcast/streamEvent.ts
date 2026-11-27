@@ -6,6 +6,8 @@
  * and the schedule (the emulator's broadcast).
  *
  * Reader-style module (ROADMAP D1): the object's subscriptions live in an injected `IORef`.
+ * - listeners are added only while the object is presenting or stopped: in any other state
+ *   the call has no effect (§8.2.1.1);
  * - the same listener can be added more than once; each addition is a subscription;
  * - removing takes away one subscription with that URL, name and listener;
  * - a `targetURL` over HTTP(S) (absolute, or relative to the document) is an XML description
@@ -63,6 +65,8 @@ export type StreamEventEnv = Readonly<{
   fetchDescription: FetchStreamEventDescription;
   /** What a relative `targetURL` is relative to: the document's base URL. */
   baseURI: IO.IO<string>;
+  /** Whether the object takes listeners now: presenting or stopped (§8.2.1.1). */
+  acceptsListeners: IO.IO<boolean>;
   subscriptions: IORef<ReadonlyArray<Subscription>>;
 }>;
 
@@ -143,7 +147,7 @@ const subscribeThroughDescription =
     )();
   };
 
-export const addStreamEventListener =
+const subscribe =
   (targetURL: string, eventName: string, listener: Listener): RIO.ReaderIO<StreamEventEnv, void> =>
   (env) =>
     pipe(
@@ -158,6 +162,25 @@ export const addStreamEventListener =
             (url) => subscribeThroughDescription(subscription, url)(env),
           ),
         ),
+      ),
+    );
+
+/**
+ * `addStreamEventListener()`: only while the object is presenting or stopped. "Calls to
+ * this function when the video/broadcast object is in other states shall have no effect"
+ * (§8.2.1.1): no subscription, no fetch, no error event.
+ */
+export const addStreamEventListener =
+  (targetURL: string, eventName: string, listener: Listener): RIO.ReaderIO<StreamEventEnv, void> =>
+  (env) =>
+    pipe(
+      env.acceptsListeners,
+      IO.flatMap((accepts) =>
+        accepts
+          ? subscribe(targetURL, eventName, listener)(env)
+          : logger.warn(
+              `addStreamEventListener("${targetURL}", "${eventName}") has no effect: the object is neither presenting nor stopped (TS 102 796 §8.2.1.1)`,
+            ),
       ),
     );
 

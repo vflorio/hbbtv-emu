@@ -6,7 +6,8 @@
  *
  * - an event the file describes, and the channel's schedule sends: the listener gets it;
  * - an event the file does not describe, and a file that is not there: an error event each;
- * - `release()` (the unrealized state) drops the listeners: no more events after it.
+ * - `release()` (the unrealized state) drops the listeners: no more events after it;
+ * - unrealized, adding a listener has no effect (§8.2.1.1): not even a missing file's error.
  */
 
 import { expect } from "vitest";
@@ -45,7 +46,13 @@ export const streamEventChannel = <C extends { id: string; sid: number }>(channe
 
 type Seen = { name: string; data: string; text: string; status: string };
 type Urls = { described: string; missing: string };
-type Outcome = { described: Seen[]; undescribed: Seen[]; missing: Seen[]; afterRelease: Seen[] };
+type Outcome = {
+  described: Seen[];
+  undescribed: Seen[];
+  missing: Seen[];
+  afterRelease: Seen[];
+  addedUnrealized: Seen[];
+};
 
 /** `page.evaluate(fn, urls)`, of Playwright or Puppeteer. */
 export type EvaluateWithUrls = (fn: (urls: Urls) => Promise<Outcome>, urls: Urls) => Promise<Outcome>;
@@ -62,7 +69,7 @@ const listenThenRelease = async ({ described, missing }: Urls): Promise<Outcome>
     (event) => {
       into.push({ name: event.name, data: event.data, text: event.text, status: event.status });
     };
-  const outcome: Outcome = { described: [], undescribed: [], missing: [], afterRelease: [] };
+  const outcome: Outcome = { described: [], undescribed: [], missing: [], afterRelease: [], addedUnrealized: [] };
   video.addStreamEventListener(described, "sevent", record(outcome.described));
   video.addStreamEventListener(described, "elsewhere", record(outcome.undescribed));
   video.addStreamEventListener(missing, "sevent", record(outcome.missing));
@@ -73,6 +80,7 @@ const listenThenRelease = async ({ described, missing }: Urls): Promise<Outcome>
     await wait(100);
   }
   video.release();
+  video.addStreamEventListener(missing, "sevent", record(outcome.addedUnrealized));
   const count = outcome.described.length;
   await wait(2_500);
   outcome.afterRelease = outcome.described.slice(count);
@@ -93,4 +101,5 @@ export const runStreamEventScenario = async (evaluate: EvaluateWithUrls, urls: U
   expect(outcome.undescribed).toEqual(error("elsewhere"));
   expect(outcome.missing).toEqual(error("sevent"));
   expect(outcome.afterRelease).toEqual([]);
+  expect(outcome.addedUnrealized).toEqual([]);
 };
