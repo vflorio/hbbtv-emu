@@ -144,13 +144,13 @@ const propagate =
     pipe(
       applyUserAgent(before, after)(env),
       T.flatMap(() =>
-        sameJson(toPageConfig(before), toPageConfig(after))
+        sameJson(toPageConfig(before, env.assetUrl), toPageConfig(after, env.assetUrl))
           ? T.of(undefined)
           : pipe(
               // Pages loaded from now on start with it; open pages get it as a message.
               republish(after)(env),
               T.flatMap(() => allTabIds(env)),
-              T.flatMap((ids) => sendTo(ids, { _tag: "Host/Config", config: toPageConfig(after) })(env)),
+              T.flatMap((ids) => sendTo(ids, { _tag: "Host/Config", config: toPageConfig(after, env.assetUrl) })(env)),
             ),
       ),
       T.flatMap(() =>
@@ -286,7 +286,7 @@ const changeVolume =
                 pipe(
                   env.messaging.sendToTab(tabId, {
                     _tag: "Host/Session",
-                    session: toPageSession(state.value, session),
+                    session: toPageSession(state.value, session, env.assetUrl),
                   }),
                   T.tapIO(() => env.logger.debug(`TV volume in tab ${tabId}: ${session.volume}`)),
                   T.map(() => done),

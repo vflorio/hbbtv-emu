@@ -9,6 +9,7 @@ import {
   type WebRequestAdapter,
 } from "..";
 import type { TvSessions } from "../state";
+import { type AssetsAdapter, createAssetsAdapter } from "./assets";
 import { type BroadbandAdapter, createBroadbandAdapter } from "./broadband";
 import { createPageBootstrapAdapter, type PageBootstrapAdapter } from "./pageBootstrap";
 import { createSessionStorageAdapter, type StorageAdapter } from "./storage";
@@ -61,6 +62,7 @@ export type AdapterEnv<TState, TEvents extends BaseMessage> = {
   readonly userAgent: UserAgentAdapter;
   readonly pageBootstrap: PageBootstrapAdapter;
   readonly broadband: BroadbandAdapter;
+  readonly assets: AssetsAdapter;
 };
 
 export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
@@ -76,6 +78,7 @@ export const createAdapterEnv = <TState, TEvents extends BaseMessage>(
   userAgent: env?.userAgent ?? createUserAgentAdapter(config),
   pageBootstrap: env?.pageBootstrap ?? createPageBootstrapAdapter(config),
   broadband: env?.broadband ?? createBroadbandAdapter(),
+  assets: env?.assets ?? createAssetsAdapter(),
 });
 
 // Errors

@@ -200,3 +200,30 @@ export const runBroadcastLayerScenario = async (evaluate: Evaluate) => {
   );
   expect(await display()).toBe("block");
 };
+
+/**
+ * With the default lineup, the broadcast is the test card the extension ships (a web
+ * accessible resource, at the extension's URL): no external service. A page served over
+ * HTTP reads it whole and presents it from memory (an object URL: Firefox serves extension
+ * files without byte ranges), and the live simulation puts it where the channel is on air.
+ */
+export const runShippedTestCardScenario = async (evaluate: Evaluate) => {
+  await until(
+    evaluate,
+    () => {
+      const video = (document.querySelector("[data-hbbtv-emu-broadcast]")?.shadowRoot?.querySelector("video") ??
+        document.querySelector("object > video[data-hbbtv-emu-video]")) as HTMLVideoElement | null;
+      if (!video || video.paused || video.readyState < 2 || !Number.isFinite(video.duration)) return false;
+      const drift = Math.abs(video.currentTime - ((Date.now() / 1000) % video.duration));
+      return Math.min(drift, video.duration - drift) < 0.5;
+    },
+    "the test card on air",
+  );
+  const shown = await evaluate(() => {
+    const video = (document.querySelector("[data-hbbtv-emu-broadcast]")?.shadowRoot?.querySelector("video") ??
+      document.querySelector("object > video[data-hbbtv-emu-video]")) as HTMLVideoElement;
+    return { src: video.currentSrc, duration: video.duration, size: [video.videoWidth, video.videoHeight] };
+  });
+  expect(shown.src).toMatch(/^blob:/);
+  expect(shown).toMatchObject({ duration: 60, size: [1280, 720] });
+};

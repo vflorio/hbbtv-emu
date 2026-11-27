@@ -16,6 +16,7 @@ import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
 import type { AdapterError, MessagingAdapter, TabsAdapter } from "../../adapter";
 import {
+  type AssetUrl,
   changeChannel,
   type ExtensionState,
   findChannel,
@@ -35,13 +36,15 @@ export type TvEnv = Readonly<{
   sessions: Sessions;
   /** Where a TV shows a channel without application. */
   tvPage: TvPageUrl;
+  /** Where the files the emulator ships are, for the pages. */
+  assetUrl: AssetUrl;
 }>;
 
 /** Pages loaded from now on get the configuration and the channel of each TV. */
 export const republish =
-  (state: ExtensionState): RT.ReaderTask<Pick<TvEnv, "pageBootstrap" | "sessions">, void> =>
-  ({ pageBootstrap, sessions }) =>
-    pageBootstrap.publish(toBootstrapData(state, sessions.all()));
+  (state: ExtensionState): RT.ReaderTask<Pick<TvEnv, "pageBootstrap" | "sessions" | "assetUrl">, void> =>
+  ({ pageBootstrap, sessions, assetUrl }) =>
+    pageBootstrap.publish(toBootstrapData(state, sessions.all(), assetUrl));
 
 /**
  * The TV in `tabId` changes to `channel`. The page gets the new session even when the
@@ -64,7 +67,10 @@ export const changeTabChannel =
       TE.tap(() => TE.fromTask(republish(state)(env))),
       TE.flatMap(() =>
         pipe(
-          env.messaging.sendToTab(tabId, { _tag: "Host/Session", session: toPageSession(state, change.session) }),
+          env.messaging.sendToTab(tabId, {
+            _tag: "Host/Session",
+            session: toPageSession(state, change.session, env.assetUrl),
+          }),
           TE.orElse(() => TE.right<AdapterError, void>(undefined)),
         ),
       ),

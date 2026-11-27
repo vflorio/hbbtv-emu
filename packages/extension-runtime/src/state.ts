@@ -1,4 +1,4 @@
-import { DEFAULT_LOGGER_STATE, type LoggerState } from "@hbb-emu/core";
+import { DEFAULT_LOGGER_STATE, type LoggerState, resolveEmulatorAsset } from "@hbb-emu/core";
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import {
   type AitApplicationId,
@@ -48,10 +48,22 @@ export const DEFAULT_STATE: ExtensionState = {
   },
 } as const;
 
-/** The part of the state the page runtime needs (ROADMAP D5: configuration, not object state). */
-export const toPageConfig = (state: ExtensionState): PageConfig => ({
+/** The URL, on the host, of a file the emulator ships at a path (`AssetsAdapter`). */
+export type AssetUrl = (path: string) => string;
+
+/**
+ * The part of the state the page runtime needs (ROADMAP D5: configuration, not object
+ * state), with the files the emulator ships at their URL on the host (`emulatorAsset`).
+ */
+export const toPageConfig = (state: ExtensionState, assetUrl: AssetUrl): PageConfig => ({
   userAgent: state.runtime.userAgent,
-  channels: state.runtime.channels,
+  channels: state.runtime.channels.map((channel) => toPageChannel(channel, assetUrl)),
+});
+
+/** A channel as pages get it: its stream at its URL on the host. */
+const toPageChannel = (channel: ChannelConfig, assetUrl: AssetUrl): ChannelConfig => ({
+  ...channel,
+  mp4Source: resolveEmulatorAsset(channel.mp4Source, assetUrl),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,13 +164,17 @@ export type TvSessions = Readonly<Record<string, TvSession>>;
 export const defaultChannel = (state: ExtensionState): ChannelConfig | null => state.runtime.channels[0] ?? null;
 
 /** What every page finds at `document_start`: the configuration, and the page each TV shows on which channel. */
-export const toBootstrapData = (state: ExtensionState, sessions: TvSessions): BootstrapData => ({
-  config: toPageConfig(state),
-  tunings: Object.values(sessions).flatMap((session) => {
+export const toBootstrapData = (state: ExtensionState, sessions: TvSessions, assetUrl: AssetUrl): BootstrapData => ({
+  config: toPageConfig(state, assetUrl),
+  tunings: tuningsOf(state, sessions),
+});
+
+/** The page each TV shows, on which channel. */
+const tuningsOf = (state: ExtensionState, sessions: TvSessions): BootstrapData["tunings"] =>
+  Object.values(sessions).flatMap((session) => {
     const channel = sessionChannel(state, session);
     return session.url === null || channel === null ? [] : [{ url: session.url, channelId: channel.id }];
-  }),
-});
+  });
 
 /**
  * The TV of a tab whose first HbbTV page is `url`: on the channel `initialChannel`
@@ -167,7 +183,14 @@ export const toBootstrapData = (state: ExtensionState, sessions: TvSessions): Bo
  */
 export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => ({
   mode: "app",
-  channelId: initialChannel(toBootstrapData(state, sessions), url)?.id ?? null,
+  channelId:
+    initialChannel(
+      {
+        config: { userAgent: state.runtime.userAgent, channels: state.runtime.channels },
+        tunings: tuningsOf(state, sessions),
+      },
+      url,
+    )?.id ?? null,
   url,
   app: null,
   volume: DEFAULT_TV_VOLUME,
@@ -193,10 +216,10 @@ export const zapChannel = (state: ExtensionState, session: TvSession, step: 1 | 
   return channels[(from + step + channels.length) % channels.length] ?? null;
 };
 
-export const toPageSession = (state: ExtensionState, session: TvSession): PageSession => ({
-  channel: sessionChannel(state, session),
-  volume: session.volume,
-});
+export const toPageSession = (state: ExtensionState, session: TvSession, assetUrl: AssetUrl): PageSession => {
+  const channel = sessionChannel(state, session);
+  return { channel: channel && toPageChannel(channel, assetUrl), volume: session.volume };
+};
 
 /**
  * The snapshot the settings UI edits. `currentChannel` is the channel of the TV the

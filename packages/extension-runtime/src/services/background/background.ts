@@ -54,6 +54,9 @@ export class BackgroundService {
   private messagingUnsubscribe?: () => void;
   private uiUnsubscribe?: () => void;
 
+  /** Where the files the emulator ships are (the broadcast's test card), for the pages. */
+  private readonly assetUrl = (path: string): string => this.env.adapter.assets.url(path);
+
   constructor(protected readonly env: ServiceEnv<ExtensionState, HostMessage>) {
     this.stateManager = new StateManager({
       storage: this.env.adapter.storage,
@@ -94,7 +97,9 @@ export class BackgroundService {
       TE.tapIO(() => () => {
         this.pageBootstrap = createPageBootstrap(this.env.adapter.pageBootstrap, this.logger);
       }),
-      TE.tap((state) => TE.fromTask(this.pageBootstrap.publish(toBootstrapData(state, this.sessions.all())))),
+      TE.tap((state) =>
+        TE.fromTask(this.pageBootstrap.publish(toBootstrapData(state, this.sessions.all(), this.assetUrl))),
+      ),
       TE.tapIO(() => () => {
         this.tabsManager = new TabsManager({
           logger: this.logger,
@@ -115,6 +120,7 @@ export class BackgroundService {
           pageBootstrap: this.pageBootstrap,
           sessions: this.sessions,
           tvPage: tvPageUrl(this.env.adapter.ui.pageUrl(TV_PAGE)),
+          assetUrl: this.assetUrl,
           logger: this.logger,
         };
 
@@ -150,7 +156,7 @@ export class BackgroundService {
       T.flatMap(
         E.match(
           () => T.of(undefined),
-          (state) => this.pageBootstrap.publish(toBootstrapData(state, this.sessions.all())),
+          (state) => this.pageBootstrap.publish(toBootstrapData(state, this.sessions.all(), this.assetUrl)),
         ),
       ),
     );
@@ -253,12 +259,15 @@ export class BackgroundService {
           (error) => this.logger.error("Cannot configure the page runtime", error),
           (state) => () => {
             void pipe(
-              this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/Config", config: toPageConfig(state) }),
+              this.env.adapter.messaging.sendToTab(tabId, {
+                _tag: "Host/Config",
+                config: toPageConfig(state, this.assetUrl),
+              }),
               TE.flatMap(() => TE.fromTask(this.showing(tabId, url, state))),
               TE.flatMap((session) =>
                 this.env.adapter.messaging.sendToTab(tabId, {
                   _tag: "Host/Session",
-                  session: toPageSession(state, session),
+                  session: toPageSession(state, session, this.assetUrl),
                 }),
               ),
               TE.orElseFirstIOK((error) => this.logger.warn(`Could not configure the page in tab ${tabId}`, error)),

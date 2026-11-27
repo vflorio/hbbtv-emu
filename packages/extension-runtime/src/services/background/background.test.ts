@@ -49,11 +49,15 @@ const setup = async (
       userAgent: userAgent.userAgent,
       pageBootstrap: bootstrap.pageBootstrap,
       broadband,
+      assets: { url: assetUrl },
     },
   });
   expect(E.isRight(await background.init()())).toBe(true);
   return { background, messaging, ui, userAgent, bootstrap, tabs, sessionStorage };
 };
+
+/** The extension's URL of a file it ships. */
+const assetUrl = (path: string) => `chrome-extension://emu/${path}`;
 
 describe("BackgroundService", () => {
   it("sends the configuration, then the tab's TV session, to a page runtime that announces itself", async () => {
@@ -63,10 +67,14 @@ describe("BackgroundService", () => {
     await flushPromises();
 
     expect(messaging.sent).toEqual([
-      { tabId: 7, message: { _tag: "Host/Config", config: toPageConfig(DEFAULT_STATE) } },
+      { tabId: 7, message: { _tag: "Host/Config", config: toPageConfig(DEFAULT_STATE, assetUrl) } },
       {
         tabId: 7,
-        message: { _tag: "Host/Session", session: { channel: DEFAULT_STATE.runtime.channels[0], volume: 100 } },
+        // The channel as pages get it: its stream at the extension's URL.
+        message: {
+          _tag: "Host/Session",
+          session: { channel: toPageConfig(DEFAULT_STATE, assetUrl).channels[0], volume: 100 },
+        },
       },
     ]);
   });
@@ -148,7 +156,7 @@ describe("BackgroundService — configuration bootstrap", () => {
   const hgtv = { ...first!, id: "hgtv", name: "HGTV", sid: 56 };
   const lineup = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels: [first!, hgtv] } };
   const script = (state: ExtensionState, tunings: BootstrapData["tunings"] = []) =>
-    configBootstrapScript({ config: toPageConfig(state), tunings });
+    configBootstrapScript({ config: toPageConfig(state, assetUrl), tunings });
 
   it("publishes the configuration for pages to find at document_start, before any page loads", async () => {
     const { bootstrap } = await setup(stored);
@@ -213,10 +221,19 @@ describe("BackgroundService — configuration bootstrap", () => {
 
 describe("default configuration", () => {
   it("has a real user agent and the default channel lineup", () => {
-    const config = toPageConfig(DEFAULT_STATE);
+    const config = toPageConfig(DEFAULT_STATE, assetUrl);
 
     expect(config.userAgent).toContain("HbbTV/");
     expect(config.channels.length).toBeGreaterThan(0);
+  });
+
+  it("broadcasts the test card the extension ships, at the extension's URL: no external service", () => {
+    expect(DEFAULT_STATE.runtime.channels.map((channel) => channel.mp4Source)).toEqual(
+      DEFAULT_STATE.runtime.channels.map(() => "hbbtv-emu:broadcast/test-card.mp4"),
+    );
+    expect(toPageConfig(DEFAULT_STATE, assetUrl).channels.map((channel) => channel.mp4Source)).toEqual(
+      DEFAULT_STATE.runtime.channels.map(() => "chrome-extension://emu/broadcast/test-card.mp4"),
+    );
   });
 });
 
@@ -613,7 +630,7 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     ]);
     expect(bootstrap.published[bootstrap.published.length - 1]).toBe(
       configBootstrapScript({
-        config: toPageConfig(lineup),
+        config: toPageConfig(lineup, assetUrl),
         tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv" }],
       }),
     );

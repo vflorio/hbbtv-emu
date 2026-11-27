@@ -11,7 +11,7 @@
  * `@hbb-emu/core`): a stream with a finite duration starts where its loop is on air.
  */
 
-import { livePosition } from "@hbb-emu/core";
+import { livePosition, resolveEmulatorAsset } from "@hbb-emu/core";
 import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { UiState } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
@@ -23,6 +23,8 @@ export type TvShellEnv = Readonly<{
   /** The query of the page's URL, e.g. `?channel=radio`. */
   search: string;
   getState: () => TE.TaskEither<unknown, UiState>;
+  /** The extension's URL of a file it ships (the broadcast's test card). */
+  assetUrl: (path: string) => string;
 }>;
 
 /** How long the banner stays after the page loads, in ms. */
@@ -39,7 +41,12 @@ const STYLE = `
   .banner.hidden { opacity: 0; }
 `;
 
-const render = (document: Document, channels: ReadonlyArray<ChannelConfig>, channelId: string | null): void => {
+const render = (
+  document: Document,
+  channels: ReadonlyArray<ChannelConfig>,
+  channelId: string | null,
+  assetUrl: TvShellEnv["assetUrl"],
+): void => {
   const index = channels.findIndex((channel) => channel.id === channelId);
   const channel = channels[index];
 
@@ -64,7 +71,7 @@ const render = (document: Document, channels: ReadonlyArray<ChannelConfig>, chan
 
     if (channel.mp4Source) {
       const video = document.createElement("video");
-      video.src = channel.mp4Source;
+      video.src = resolveEmulatorAsset(channel.mp4Source, assetUrl);
       // Autoplay with sound needs a user gesture; the broadcast starts muted.
       video.muted = true;
       video.autoplay = true;
@@ -83,13 +90,13 @@ const render = (document: Document, channels: ReadonlyArray<ChannelConfig>, chan
 };
 
 /** Renders the channel named by the page's URL, as the lineup has it now. */
-export const startTvShell = ({ document, search, getState }: TvShellEnv): T.Task<void> => {
+export const startTvShell = ({ document, search, getState, assetUrl }: TvShellEnv): T.Task<void> => {
   const channelId = new URLSearchParams(search).get("channel");
   return pipe(
     getState(),
     TE.match(
-      () => render(document, [], channelId),
-      (state) => render(document, state.channels, channelId),
+      () => render(document, [], channelId, assetUrl),
+      (state) => render(document, state.channels, channelId, assetUrl),
     ),
   );
 };

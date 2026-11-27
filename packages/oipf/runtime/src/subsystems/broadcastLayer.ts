@@ -38,10 +38,13 @@
  *   sent ahead of what it has downloaded stalls a moment) is not heard, nor is the
  *   presentation that ends it;
  * - the loop going round (the element seeks back to its start) is no event of the
- *   broadcast either: the object does not hear the buffering it may cause.
+ *   broadcast either: the object does not hear the buffering it may cause;
+ * - a file the emulator ships (`hbbtv-emu:`, the default test card) has its URL from the
+ *   host. A page that starts before it (no bootstrap) is on air all the same: an object
+ *   binds to it, and the stream loads once the host's session gives its URL.
  */
 
-import { createLogger, livePosition } from "@hbb-emu/core";
+import { createLogger, isEmulatorAsset, livePosition } from "@hbb-emu/core";
 import type { PlayerRuntime } from "@hbb-emu/player-runtime";
 import type * as IO from "fp-ts/IO";
 import { EMBEDDED_STYLES, EMBEDDED_VIDEO_ATTRIBUTE, ensureEmbeddedStyles } from "./provider/detection/embedded";
@@ -66,6 +69,56 @@ export type BroadcastStream = Readonly<{
   onStateChange: (listener: (state: VideoStreamPlayState) => void) => () => void;
 }>;
 
+/** A file an extension serves (`chrome-extension://`, `moz-extension://`): the emulator's own, such as the test card. */
+const isExtensionFile = (url: string): boolean => /^(chrome|moz)-extension:/.test(url);
+
+export type SourceLoaderEnv = Readonly<{
+  /** Loads a URL into the player. */
+  loadUrl: (url: string) => void;
+  fetchBlob: (url: string) => Promise<Blob>;
+  createObjectURL: (blob: Blob) => string;
+  revokeObjectURL: (url: string) => void;
+}>;
+
+/**
+ * Loads the broadcast's sources. A file the extension ships is read whole first, and
+ * presented from memory: Firefox serves `moz-extension://` files without byte ranges,
+ * reads ahead only a few seconds of them, and cannot seek past what it has, which the
+ * live simulation needs to do. If it cannot be read, its URL is loaded as it is. The
+ * last load wins over one still reading.
+ */
+export const createSourceLoader = ({ loadUrl, fetchBlob, createObjectURL, revokeObjectURL }: SourceLoaderEnv) => {
+  let loads = 0;
+  let objectUrl: string | null = null;
+  const release = () => {
+    if (objectUrl !== null) revokeObjectURL(objectUrl);
+    objectUrl = null;
+  };
+  return (url: string): void => {
+    const load = ++loads;
+    if (!isExtensionFile(url)) {
+      loadUrl(url);
+      release();
+      return;
+    }
+    fetchBlob(url).then(
+      (blob) => {
+        if (load !== loads) return;
+        const previous = objectUrl;
+        objectUrl = createObjectURL(blob);
+        loadUrl(objectUrl);
+        if (previous !== null) revokeObjectURL(previous);
+      },
+      (error: unknown) => {
+        if (load !== loads) return;
+        logger.warn("Cannot read the file whole, loading it as it is:", url, error)();
+        loadUrl(url);
+        release();
+      },
+    );
+  };
+};
+
 /** The stream on the page's player (the web player's adapters: native, HLS, DASH). */
 export const createBroadcastStream = (playerRuntime?: PlayerRuntime): BroadcastStream => {
   const stream = new VideoStreamService(undefined, playerRuntime);
@@ -73,9 +126,19 @@ export const createBroadcastStream = (playerRuntime?: PlayerRuntime): BroadcastS
   const run = (task: () => Promise<unknown>) => () => {
     void task();
   };
+  const loadSource = createSourceLoader({
+    loadUrl: (url) => run(stream.loadSource({ url, loop: true, autoPlay: true, muted: true }))(),
+    fetchBlob: async (url) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.blob();
+    },
+    createObjectURL: (blob) => URL.createObjectURL(blob),
+    revokeObjectURL: (url) => URL.revokeObjectURL(url),
+  });
   return {
     videoElement: stream.videoElement,
-    load: (url) => run(stream.loadSource({ url, loop: true, autoPlay: true, muted: true })),
+    load: (url) => () => loadSource(url),
     play: run(stream.play()),
     stop: run(stream.stop()),
     setMuted: (muted) => run(stream.setMuted(muted)),
@@ -199,6 +262,12 @@ const LANDED_TOLERANCE_S = 1;
 /** How long a stream's start-up waits for its seek to the channel's position, in ms. */
 const JOIN_TIMEOUT_MS = 5000;
 
+type Join =
+  | { readonly _tag: "Unchecked" }
+  | { readonly _tag: "OnAir" }
+  | { readonly _tag: "Waiting"; readonly since: number }
+  | { readonly _tag: "Sent"; readonly since: number };
+
 /** How long the start-up settles after the first frame, in ms. */
 const SETTLE_MS = 1000;
 
@@ -224,8 +293,11 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
   /** The stream loaded, and whether it presented since. */
   let loaded: string | null = null;
   let presented = false;
-  /** When the stream loaded was sent to the channel's position (`null`: not sent). */
-  let joinSeekAt: number | null = null;
+  /**
+   * The stream loaded joining the channel where it is on air: not looked at yet, there
+   * already (or live), waiting for its position to be seekable, or sent there.
+   */
+  let join: Join = { _tag: "Unchecked" };
   /** When the stream loaded first presented (`null`: not yet). */
   let presentedAt: number | null = null;
   /** The loop is going round: what the element does meanwhile is not the broadcast's. */
@@ -240,14 +312,20 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
   let backgroundCheck: number | null = null;
 
   const load = (url: string) => {
-    logger.debug("Loading", url)();
+    const playing = loaded !== null && !isEmulatorAsset(loaded);
     loaded = url;
     presented = false;
-    joinSeekAt = null;
+    join = { _tag: "Unchecked" };
     presentedAt = null;
     wrapping = false;
     unheardBuffering = false;
     stopped = false;
+    if (isEmulatorAsset(url)) {
+      logger.debug("On air, until the host says where it is:", url)();
+      if (playing) stream.stop();
+      return;
+    }
+    logger.debug("Loading", url)();
     stream.load(url)();
   };
 
@@ -308,31 +386,51 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
     return !video.seeking && Math.min(drift, video.duration - drift) < tolerance;
   };
 
+  /** Whether the element can seek to `position` now (a server without byte ranges: what it has). */
+  const seekable = (position: number): boolean => {
+    for (let i = 0; i < video.seekable.length; i++) {
+      if (video.seekable.start(i) <= position && position <= video.seekable.end(i)) return true;
+    }
+    return false;
+  };
+
   /**
-   * Sends the loaded stream where the channel is on air, once, if it is not there. On the
-   * element itself, which is the layer's: the player hears a seek, as of any other.
+   * Sends the loaded stream where the channel is on air, once, if it is not there, as soon
+   * as it can seek there: before that, a browser stops the seek where it can (Firefox, on a
+   * `moz-extension://` file, which it gets without byte ranges). On the element itself,
+   * which is the layer's: the player hears a seek, as of any other.
    */
-  const join = () => {
-    if (loaded === null || stopped || presented || joinSeekAt !== null) return;
+  const advanceJoin = () => {
+    if (loaded === null || isEmulatorAsset(loaded) || stopped || presented) return;
     const position = livePosition(now(), video.duration);
-    if (position === null || near(position, SEEK_THRESHOLD_S)) return;
-    joinSeekAt = now();
-    logger.debug("Joining the channel on air at", position)();
-    video.currentTime = position;
+    if (join._tag === "Unchecked") {
+      if (position === null) return;
+      join = near(position, SEEK_THRESHOLD_S) ? { _tag: "OnAir" } : { _tag: "Waiting", since: now() };
+    }
+    if (join._tag === "Waiting" && position !== null && seekable(position)) {
+      logger.debug("Joining the channel on air at", position)();
+      join = { _tag: "Sent", since: join.since };
+      video.currentTime = position;
+    }
   };
 
   /**
    * Whether a stream that presents is still joining the channel where it is on air: its
-   * start-up goes on until it is there, whatever the player reports in between.
+   * start-up goes on until it is there (or `JOIN_TIMEOUT_MS` has gone by), whatever the
+   * player reports in between.
    */
   const joining = (): boolean => {
-    join();
-    if (joinSeekAt === null) return false;
+    advanceJoin();
+    if (join._tag === "Unchecked" || join._tag === "OnAir") return false;
     const position = livePosition(now(), video.duration);
-    return position !== null && !near(position, LANDED_TOLERANCE_S) && now() - joinSeekAt < JOIN_TIMEOUT_MS;
+    const there = join._tag === "Sent" && position !== null && near(position, LANDED_TOLERANCE_S);
+    return !there && now() - join.since < JOIN_TIMEOUT_MS;
   };
 
-  video.addEventListener("loadedmetadata", join);
+  video.addEventListener("loadedmetadata", advanceJoin);
+  // What the element can seek to grows as it downloads.
+  video.addEventListener("progress", advanceJoin);
+  video.addEventListener("canplaythrough", advanceJoin);
   // Once presented, nothing but the loop seeks the broadcast's video.
   video.addEventListener("seeking", () => {
     if (presented) wrapping = true;

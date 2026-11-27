@@ -3,6 +3,7 @@ export * from "./channelTriplet";
 export * from "./diff";
 export * from "./dom";
 export * from "./domObserver";
+export * from "./emulatorAsset";
 export * from "./errors";
 export * from "./hex";
 export * from "./json";

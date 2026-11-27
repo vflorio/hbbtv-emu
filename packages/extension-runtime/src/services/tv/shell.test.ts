@@ -9,7 +9,7 @@ const state = { ...DEFAULT_EXTENSION_STATE, channels: [DEFAULT_EXTENSION_STATE.c
 
 const show = async (search: string, getState: () => TE.TaskEither<unknown, UiState> = () => TE.right(state)) => {
   const document = window.document.implementation.createHTMLDocument("");
-  await startTvShell({ document, search, getState })();
+  await startTvShell({ document, search, getState, assetUrl: (path) => `moz-extension://emu/${path}` })();
   return document;
 };
 
@@ -37,6 +37,12 @@ describe("TV page", () => {
     video.dispatchEvent(new Event("loadedmetadata"));
 
     expect(video.currentTime).toBeCloseTo(1);
+  });
+
+  it("shows the test card the extension ships at the extension's URL", async () => {
+    const document = await show("?channel=channel-1");
+
+    expect(document.querySelector("video")?.getAttribute("src")).toBe("moz-extension://emu/broadcast/test-card.mp4");
   });
 
   it("hides the banner after a while", async () => {

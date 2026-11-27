@@ -8,7 +8,7 @@ import {
   runQueueScenario,
   runUnreachableStreamScenario,
 } from "./support/avControl";
-import { localStreamChannel, runBroadcastLayerScenario } from "./support/broadcastLayer";
+import { localStreamChannel, runBroadcastLayerScenario, runShippedTestCardScenario } from "./support/broadcastLayer";
 import { type FirefoxWithExtension, launchFirefoxWithExtension } from "./support/firefox";
 import { runHtml5DashScenario } from "./support/html5Dash";
 import { type FixtureServer, startFixtureServer } from "./support/server";
@@ -869,6 +869,14 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       await request({ _tag: "UI/SaveState", state: original });
       await broadcaster.close();
     }
+  });
+
+  it("with the default lineup, the broadcast is the test card the extension ships, on air", async () => {
+    const { page, errors } = await openPage(`broadcast-app/index.xhtml?card=${Date.now()}`);
+
+    await runShippedTestCardScenario((fn) => page.evaluate(fn));
+    expect(errors).toEqual([]);
+    await page.close();
   });
 
   it("the TV presents the broadcast behind the application, which a video/broadcast takes as it is (OIPF DAE Annex H)", async () => {

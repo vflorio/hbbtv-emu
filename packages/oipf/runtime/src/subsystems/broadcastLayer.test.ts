@@ -6,6 +6,7 @@ import {
   type BroadcastStream,
   coversVideoPlane,
   createBroadcastLayer,
+  createSourceLoader,
 } from "./broadcastLayer";
 import { createTvVolume } from "./tvVolume";
 import { VideoStreamPlayState as Stream, type VideoStreamPlayState } from "./videoStream";
@@ -28,8 +29,18 @@ const setup = () => {
   Object.defineProperty(video, "paused", { get: () => media.paused });
   // A live stream unless a test gives it a duration. Setting the position is a seek, which
   // lands at once unless a test says it is still seeking, or stuck.
-  const timeline = { duration: Number.POSITIVE_INFINITY, currentTime: 0, seeking: false, stuck: false };
+  const timeline = {
+    duration: Number.POSITIVE_INFINITY,
+    currentTime: 0,
+    seeking: false,
+    stuck: false,
+    /** How far the element can seek (a server without byte ranges: what it has); all of it by default. */
+    seekableEnd: null as number | null,
+  };
   Object.defineProperty(video, "duration", { get: () => timeline.duration });
+  Object.defineProperty(video, "seekable", {
+    get: () => ({ length: 1, start: () => 0, end: () => timeline.seekableEnd ?? timeline.duration }),
+  });
   Object.defineProperty(video, "seeking", { get: () => timeline.seeking });
   Object.defineProperty(video, "currentTime", {
     get: () => timeline.currentTime,
@@ -340,6 +351,27 @@ describe("the broadcast is on air before the page loads (a simulated live)", () 
     expect(heard).toEqual(["Playing"]);
   });
 
+  it("waits until it can seek there: a browser without byte ranges seeks only within what it has", () => {
+    const { layer, calls, emit, timeline, video } = setup();
+    const { control, heard } = bound(layer);
+    layer.tune("moz-extension://emu/broadcast/test-card.mp4")();
+    control.bind();
+    timeline.duration = 3;
+    timeline.seekableEnd = 0.5;
+
+    video.dispatchEvent(new Event("loadedmetadata"));
+    emit(Stream.playing());
+    expect(calls).toEqual([{ load: "moz-extension://emu/broadcast/test-card.mp4" }]);
+    expect(heard).toEqual([]);
+
+    timeline.seekableEnd = 3;
+    video.dispatchEvent(new Event("progress"));
+    emit(Stream.playing());
+
+    expect(calls).toEqual([{ load: "moz-extension://emu/broadcast/test-card.mp4" }, { seek: expect.closeTo(1) }]);
+    expect(heard).toEqual(["Playing"]);
+  });
+
   it("joins at the first frame if the player reports it before the layer heard of the metadata", () => {
     const { layer, calls, emit, timeline } = setup();
     layer.tune("http://tv/loop.mp4")();
@@ -457,5 +489,85 @@ describe("the broadcast is on air before the page loads (a simulated live)", () 
     emit(Stream.buffering());
 
     expect(heard).toEqual(["Playing", "Buffering"]);
+  });
+});
+
+describe("a file the emulator ships, before the host says where it is (no bootstrap)", () => {
+  it("is on air: an object binds to it, and the stream loads once the host gives its URL", () => {
+    const { layer, calls, emit } = setup();
+    const heard: string[] = [];
+    const control = layer.control(addObject());
+    control.onStreamStateChange((state) => heard.push(state._tag));
+
+    layer.tune("hbbtv-emu:broadcast/test-card.mp4")();
+    expect(control.bind()).toBe(true);
+    expect(calls).toEqual([]);
+
+    layer.tune("chrome-extension://emu/broadcast/test-card.mp4")();
+    emit(Stream.connecting());
+    emit(Stream.playing());
+
+    expect(calls).toEqual([{ load: "chrome-extension://emu/broadcast/test-card.mp4" }]);
+    // Its start-up is the emulator's: the object hears it from when it presents.
+    expect(heard).toEqual(["Playing"]);
+  });
+
+  it("stops a stream the page was presenting", () => {
+    const { layer, calls } = setup();
+    layer.tune("http://tv/dmax.mpd")();
+
+    layer.tune("hbbtv-emu:broadcast/test-card.mp4")();
+
+    expect(calls).toEqual([{ load: "http://tv/dmax.mpd" }, { stop: true }]);
+  });
+});
+
+describe("the broadcast's sources (createSourceLoader)", () => {
+  const loader = (fetchBlob: (url: string) => Promise<Blob>) => {
+    const loaded: string[] = [];
+    const revoked: string[] = [];
+    let objects = 0;
+    const load = createSourceLoader({
+      loadUrl: (url) => loaded.push(url),
+      fetchBlob,
+      createObjectURL: () => `blob:emu/${++objects}`,
+      revokeObjectURL: (url) => revoked.push(url),
+    });
+    return { load, loaded, revoked };
+  };
+
+  it("reads a file the extension ships whole and presents it from memory (Firefox serves it without byte ranges)", async () => {
+    const fetched: string[] = [];
+    const { load, loaded, revoked } = loader(async (url) => {
+      fetched.push(url);
+      return new Blob(["card"]);
+    });
+
+    load("moz-extension://emu/broadcast/test-card.mp4");
+    await flush();
+    load("moz-extension://emu/broadcast/test-card.mp4");
+    await flush();
+    load("https://cdn.example/live.mpd");
+
+    expect(fetched).toEqual([
+      "moz-extension://emu/broadcast/test-card.mp4",
+      "moz-extension://emu/broadcast/test-card.mp4",
+    ]);
+    expect(loaded).toEqual(["blob:emu/1", "blob:emu/2", "https://cdn.example/live.mpd"]);
+    // Each object URL goes once another source replaces it.
+    expect(revoked).toEqual(["blob:emu/1", "blob:emu/2"]);
+  });
+
+  it("loads a file it cannot read as it is, and the last load wins over one still reading", async () => {
+    const failing = loader(() => Promise.reject(new Error("no")));
+    failing.load("chrome-extension://emu/broadcast/test-card.mp4");
+    await flush();
+    expect(failing.loaded).toEqual(["chrome-extension://emu/broadcast/test-card.mp4"]);
+
+    const slow = loader(() => new Promise((resolve) => setTimeout(() => resolve(new Blob(["card"])), 20)));
+    slow.load("chrome-extension://emu/broadcast/test-card.mp4");
+    slow.load("https://cdn.example/live.mpd");
+    await flush();
+    expect(slow.loaded).toEqual(["https://cdn.example/live.mpd"]);
   });
 });

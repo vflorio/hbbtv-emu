@@ -1,4 +1,5 @@
 import { Logger } from "@hbb-emu/core";
+import { BROADCAST_STAND_IN } from "@hbb-emu/extension-common";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";
@@ -18,18 +19,31 @@ export type StateManagerEnv = {
  * belongs to the tab's TV session (ROADMAP D5), not here:
  * - `enabledTabIds` was a Set (stored as `{}`, which crashed every update after a
  *   service-worker restart) that nothing read;
- * - `runtime.currentChannel` was one channel for every tab.
+ * - `runtime.currentChannel` was one channel for every tab;
+ * - the default lineup's stream was the DASH-IF live simulator, which limits its requests:
+ *   channels still on it go to the test card the emulator ships.
  */
 type StoredState = Omit<ExtensionState, "runtime"> & {
   enabledTabIds?: unknown;
   runtime: ExtensionState["runtime"] & { currentChannel?: unknown };
 };
 
+/** The previous default stream (`https://livesim2.dashif.org/livesim2/…`). */
+const LIVE_SIMULATOR = /^https:\/\/livesim2\.dashif\.org\/livesim2\//;
+
 export const fromStoredState = ({
   enabledTabIds: _dropped,
   runtime: { currentChannel: _droppedToo, ...runtime },
   ...state
-}: StoredState): ExtensionState => ({ ...state, runtime });
+}: StoredState): ExtensionState => ({
+  ...state,
+  runtime: {
+    ...runtime,
+    channels: runtime.channels.map((channel) =>
+      LIVE_SIMULATOR.test(channel.mp4Source) ? { ...channel, mp4Source: BROADCAST_STAND_IN } : channel,
+    ),
+  },
+});
 
 export class StateManager {
   private state: O.Option<ExtensionState> = O.none;

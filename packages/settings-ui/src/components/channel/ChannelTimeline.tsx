@@ -1,4 +1,10 @@
-import { cycleDurationMsFor, msFromSeconds, occurrencesBetween, parseVideoDuration } from "@hbb-emu/core";
+import {
+  cycleDurationMsFor,
+  msFromSeconds,
+  occurrencesBetween,
+  parseVideoDuration,
+  resolveEmulatorAsset,
+} from "@hbb-emu/core";
 import type { StreamEventConfig } from "@hbb-emu/extension-common";
 import { Box, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
@@ -106,7 +112,8 @@ export function ChannelTimeline({ mp4Source, streamEvents }: ChannelTimelineProp
     }
 
     setError(null);
-    parseVideoDuration(mp4Source)
+    // The UI is a page of the extension: a file it ships is at its path, relative to the page.
+    parseVideoDuration(resolveEmulatorAsset(mp4Source, (path) => new URL(path, document.baseURI).href))
       .then((dur) => {
         setDuration(dur);
         const computed = computeEventOccurrences(streamEvents, dur);

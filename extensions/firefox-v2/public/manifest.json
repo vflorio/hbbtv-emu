@@ -24,6 +24,7 @@
   "background": {
     "page": "background.html"
   },
+  "web_accessible_resources": ["broadcast/*"],
   "content_security_policy": "script-src 'self'; object-src 'self'",
   "browser_specific_settings": {
     "gecko": {

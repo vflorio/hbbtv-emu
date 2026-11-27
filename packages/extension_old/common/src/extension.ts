@@ -1,4 +1,4 @@
-import { randomUUID, textToHex } from "@hbb-emu/core";
+import { emulatorAsset, randomUUID, textToHex } from "@hbb-emu/core";
 import {
   AitCodec,
   DEFAULT_HBBTV_STATE,
@@ -104,10 +104,12 @@ const DMAX_APP_URL = "http://it.container.enhanced.live/dmax";
 const DMAX_STREAM_EVENTS_URL = "http://it.container.enhanced.live/it/default.ste";
 
 /**
- * A live DASH stream in place of the broadcast: the DASH-IF live simulator, whose position follows the wall
- * clock, as a broadcast does (CORS open, since dash.js fetches it from the application's page).
+ * The broadcast's stand-in: a 60 s test card the emulator ships (VP9 and silent Opus in MP4,
+ * a timecode in its corner), looped from the channel's epoch by the live simulation, so it is
+ * where a broadcast would be. No external service to depend on (the DASH-IF live simulator,
+ * the previous stand-in, limits its requests).
  */
-const BROADCAST_STAND_IN = "https://livesim2.dashif.org/livesim2/testpic_2s/Manifest.mpd";
+export const BROADCAST_STAND_IN = emulatorAsset("broadcast/test-card.mp4");
 
 /**
  * Off by default: they would reach the production ad substitution of the real application, with

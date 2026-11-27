@@ -1,3 +1,4 @@
+import type { ChannelConfig } from "@hbb-emu/extension-common";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import { createFakeStorage } from "../../../__tests__/fakes";
@@ -36,6 +37,21 @@ describe("StateManager", () => {
     const { manager } = await initialized(createFakeStorage<ExtensionState>(persisted));
 
     expect(getStateOrThrow(manager).common).toEqual({ autoInjectHbbTV: false, playerUiVisible: true });
+  });
+
+  it("moves the channels still on the DASH-IF live simulator, the old default, to the shipped test card", async () => {
+    const [first, second] = DEFAULT_STATE.runtime.channels as [ChannelConfig, ChannelConfig];
+    const channels = [
+      { ...first, mp4Source: "https://livesim2.dashif.org/livesim2/testpic_2s/Manifest.mpd" },
+      { ...second, mp4Source: "https://cdn.example/own.mpd" },
+    ];
+    const persisted = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels } };
+    const { manager } = await initialized(createFakeStorage<ExtensionState>(persisted));
+
+    expect(getStateOrThrow(manager).runtime.channels.map((channel) => channel.mp4Source)).toEqual([
+      "hbbtv-emu:broadcast/test-card.mp4",
+      "https://cdn.example/own.mpd",
+    ]);
   });
 
   it("propagates storage read errors from init()", async () => {
