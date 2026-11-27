@@ -1,128 +1,79 @@
-import {
-  createLogger,
-  createStatefulMethods,
-  deriveSchema,
-  type OnStateChangeCallback,
-  type Stateful,
-} from "@hbb-emu/core";
-import { type OIPF, type OipfCapabilitiesState, OipfCapabilitiesStateCodec } from "@hbb-emu/oipf-api";
-import { pipe } from "fp-ts/function";
+import { createLogger, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
+import { type DeviceProfile, deviceHasCapability, type OIPF, type OipfCapabilitiesState } from "@hbb-emu/oipf-api";
 import * as IO from "fp-ts/IO";
-import * as RA from "fp-ts/ReadonlyArray";
 
 const logger = createLogger("OipfCapabilities");
 
 export type OipfCapabilitiesEnv = Readonly<{
-  defaults: OipfCapabilitiesState;
+  /** The TV the page runs on, as the host configures it now. */
+  device: IO.IO<DeviceProfile>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OipfCapabilities Class
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * `application/oipfCapabilities` (OIPF DAE §7.15.3): what the TV can do, which is the
+ * device's (`DeviceProfile`), read when the application asks. The host's configuration
+ * may come after the object (a page without the synchronous bootstrap): it answers for
+ * the TV it is then.
+ *
+ * `hbbtvVersion`, `uiProfiles`, `drmSystems` and `mediaFormats` are the emulator's, not the
+ * spec's, which has `xmlCapabilities` instead (TS 102 796 §10.2.4).
+ */
 export class OipfCapabilities implements OIPF.DAE.Capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
-  hbbtvVersion: NonNullable<OipfCapabilitiesState["hbbtvVersion"]>;
-  uiProfiles: NonNullable<OipfCapabilitiesState["uiProfiles"]>;
-  drmSystems: NonNullable<OipfCapabilitiesState["drmSystems"]>;
-  mediaFormats: NonNullable<OipfCapabilitiesState["mediaFormats"]>;
+  readonly #device: IO.IO<DeviceProfile>;
 
   constructor(env: OipfCapabilitiesEnv) {
-    const defaults = env.defaults;
-    this.hbbtvVersion = defaults.hbbtvVersion ?? "";
-    this.uiProfiles = [...(defaults.uiProfiles ?? [])];
-    this.drmSystems = [...(defaults.drmSystems ?? [])];
-    this.mediaFormats = [...(defaults.mediaFormats ?? [])];
+    this.#device = env.device;
+  }
+
+  get hbbtvVersion(): string {
+    return this.#device().terminal.hbbtvVersion;
+  }
+
+  get uiProfiles(): string[] {
+    return [...this.#device().capabilities.uiProfiles];
+  }
+
+  get drmSystems(): string[] {
+    return [...this.#device().capabilities.drmSystems];
+  }
+
+  get mediaFormats(): NonNullable<OipfCapabilitiesState["mediaFormats"]> {
+    return [...this.#device().capabilities.mediaFormats];
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Stateful Interface
+  // Stateful Interface: the state is the device's, which only the host changes
   // ═══════════════════════════════════════════════════════════════════════════
 
-  readonly stateful = createStatefulMethods(
-    deriveSchema<OipfCapabilitiesState, OipfCapabilities>(OipfCapabilitiesStateCodec),
-    this,
-  );
+  applyState = (_state: Partial<OipfCapabilitiesState>): IO.IO<void> => IO.of(undefined);
 
-  applyState = (state: Partial<OipfCapabilitiesState>): IO.IO<void> => this.stateful.applyState(state);
+  getState: IO.IO<Partial<OipfCapabilitiesState>> = () => ({
+    hbbtvVersion: this.hbbtvVersion,
+    uiProfiles: this.uiProfiles,
+    drmSystems: this.drmSystems,
+    mediaFormats: this.mediaFormats,
+  });
 
-  getState: IO.IO<Partial<OipfCapabilitiesState>> = this.stateful.getState;
+  subscribe = (_callback: OnStateChangeCallback<OipfCapabilitiesState>): IO.IO<() => void> => IO.of(() => {});
 
-  subscribe = (callback: OnStateChangeCallback<OipfCapabilitiesState>): IO.IO<() => void> =>
-    this.stateful.subscribe(callback);
-
-  notifyStateChange = (changedKeys: ReadonlyArray<keyof OipfCapabilitiesState>): IO.IO<void> =>
-    this.stateful.notifyStateChange(changedKeys);
+  notifyStateChange = (_changedKeys: ReadonlyArray<keyof OipfCapabilitiesState>): IO.IO<void> => IO.of(undefined);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Capabilities API
   // ═══════════════════════════════════════════════════════════════════════════
 
-  hasCapability = (capability: string): boolean =>
-    pipe(
-      logger.debug("hasCapability:", capability),
-      IO.map(() => {
-        // Check in known capabilities
-        if (isKnownCapability(capability)) {
-          return true;
-        }
-
-        // Check in UI profiles
-        if (
-          pipe(
-            this.uiProfiles,
-            RA.some((p) => p === capability),
-          )
-        ) {
-          return true;
-        }
-
-        // Check in DRM systems
-        if (
-          pipe(
-            this.drmSystems,
-            RA.some((d) => d === capability),
-          )
-        ) {
-          return true;
-        }
-
-        // Check in media formats (container or codec)
-        const hasInMediaFormats = pipe(
-          this.mediaFormats,
-          RA.some(
-            (format) =>
-              format.container === capability ||
-              (format.videoCodecs?.includes(capability) ?? false) ||
-              (format.audioCodecs?.includes(capability) ?? false),
-          ),
-        );
-
-        return hasInMediaFormats;
-      }),
-    )();
+  /**
+   * Whether the TV supports `profileName` (OIPF DAE §7.15.3.2): one of the terminal's HbbTV
+   * option strings (TS 102 796 §10.2.4.8), or its base UI profile or one of its name
+   * fragments (OIPF DAE §9.2). See `deviceHasCapability`.
+   */
+  hasCapability = (profileName: string): boolean => {
+    const supported = deviceHasCapability(this.#device(), String(profileName));
+    logger.debug("hasCapability:", profileName, supported)();
+    return supported;
+  };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Capability Strings
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Known capability strings that can be queried via hasCapability() */
-const KNOWN_CAPABILITIES: ReadonlySet<string> = new Set([
-  "video/broadcast",
-  "video/mpeg",
-  "video/mp4",
-  "video/webm",
-  "application/dash+xml",
-  "application/oipfApplicationManager",
-  "application/oipfCapabilities",
-  "application/oipfConfiguration",
-  "+DVB_T",
-  "+DVB_T2",
-  "+DVB_C",
-  "+DVB_C2",
-  "+DVB_S",
-  "+DVB_S2",
-  "+TRICKMODE",
-]);
-
-const isKnownCapability = (capability: string): boolean => KNOWN_CAPABILITIES.has(capability);

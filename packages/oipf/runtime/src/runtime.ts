@@ -4,11 +4,11 @@ import {
   DEFAULT_BROADCAST_PLAY_STATE,
   DEFAULT_FULL_SCREEN,
   DEFAULT_KEYSET_VALUE,
-  DEFAULT_OIPF_CAPABILITIES,
   DEFAULT_OIPF_CONFIGURATION,
+  type DeviceProfile,
+  EMULATOR_DEVICE,
   type HbbTVState,
   OIPF,
-  type OipfCapabilitiesState,
   type OipfConfigurationState,
 } from "@hbb-emu/oipf-api";
 import { mediaElementDashEngine } from "@hbb-emu/player-adapter-web";
@@ -154,8 +154,8 @@ export type BindingsEnv = Readonly<{
   /** The OIPF objects' videos: their volume is the objects', not the page's `volume` accessor's */
   emulatorMedia: EmulatorMedia;
 
-  /** Default state for Capabilities object */
-  defaultOipfCapabilities: OipfCapabilitiesState;
+  /** The TV the page runs on (its Capabilities object's), as the host configures it now */
+  device: IO.IO<DeviceProfile>;
 
   /** Default state for Configuration object */
   defaultOipfConfiguration: OipfConfigurationState;
@@ -197,7 +197,17 @@ export type RuntimeEnv = Readonly<{
   bindings: BindingsEnv;
   /** Factory function that creates all OIPF bindings */
   createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding>;
+  /** The host configures another TV (`bindings.device` reads it from then on) */
+  setDevice: (device: DeviceProfile) => IO.IO<void>;
 }>;
+
+/**
+ * What the runtime takes from its host: the old extension state, and the TV the page runs
+ * on. Without a device, the emulator as itself.
+ */
+export type RuntimeState = ExtensionState & Readonly<{ device?: DeviceProfile }>;
+
+const deviceOf = (state: RuntimeState): DeviceProfile => state.device ?? EMULATOR_DEVICE;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime API
@@ -426,7 +436,7 @@ export class RuntimeService implements Runtime {
    * Applies new host configuration: the channel lineup (for the OIPF objects and the
    * stream-event scheduler) and the user agent.
    */
-  updateExtensionState = (state: ExtensionState): IO.IO<void> =>
+  updateExtensionState = (state: RuntimeState): IO.IO<void> =>
     pipe(
       logger.debug("Updating extension state"),
       IO.tap(() => this.#env.channelRegistry.setChannels(state.channels)),
@@ -435,9 +445,10 @@ export class RuntimeService implements Runtime {
         initializeUserAgent({
           ...this.#env.userAgent,
           getUserAgent: () => state.userAgent,
-          getHbbTVVersion: () => state.hbbtv.oipfCapabilities?.hbbtvVersion,
+          getHbbTVVersion: () => deviceOf(state).terminal.hbbtvVersion,
         }),
       ),
+      IO.tap(() => this.#env.setDevice(deviceOf(state))),
     );
 }
 
@@ -455,7 +466,7 @@ export class RuntimeService implements Runtime {
  * @returns Complete runtime environment
  */
 export const createRuntimeEnv = (
-  extensionState: ExtensionState,
+  extensionState: RuntimeState,
   sharedPlayerRuntime?: PlayerRuntime,
   playerRuntimeFactory?: PlayerRuntimeFactory,
   createBindings: (env: BindingsEnv) => ReadonlyArray<AnyOipfBinding> = createDefaultBindings,
@@ -468,6 +479,7 @@ export const createRuntimeEnv = (
   // OIPF DAE §7.2.5: a broadcast-related application receives no keys by default.
   const keyset = createKeyset(DEFAULT_KEYSET_VALUE);
   const tvVolume = createTvVolume();
+  let device = deviceOf(extensionState);
   const emulatorMedia = createEmulatorMedia();
   // One broadcast per page, on the shared player.
   const broadcastLayer = createBroadcastLayer({
@@ -511,7 +523,7 @@ export const createRuntimeEnv = (
     tvVolume,
     emulatorMedia,
     // Defaults
-    defaultOipfCapabilities: DEFAULT_OIPF_CAPABILITIES,
+    device: () => device,
     defaultOipfConfiguration: DEFAULT_OIPF_CONFIGURATION,
     defaultVideoBroadcast: {
       fullScreen: DEFAULT_FULL_SCREEN,
@@ -523,6 +535,9 @@ export const createRuntimeEnv = (
   return {
     channelRegistry,
     userAgent: createUserAgentEnv(extensionState),
+    setDevice: (next) => () => {
+      device = next;
+    },
     remoteControl: createRemoteControlEnv(() => keyset.value),
     keyboard: { keyMap: DEFAULT_KEY_MAP, pressTvKey: ignoreTvKey },
     bindings: bindingsEnv,
@@ -538,7 +553,7 @@ export type RuntimeHandle = Readonly<{
   /** Applies a partial HbbTV state update */
   updateState: (state: Partial<HbbTVState>) => IO.IO<void>;
   /** Updates extension-level config (channels, scheduling) */
-  updateExtensionState: (state: ExtensionState) => IO.IO<void>;
+  updateExtensionState: (state: RuntimeState) => IO.IO<void>;
   /** Reads current state from the runtime */
   collectState: () => IO.IO<GlobalState>;
   /** Dispatches a remote control key event */

@@ -2,7 +2,8 @@
  * Wires the OIPF runtime with the web player, and exposes it to the host.
  */
 
-import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
+import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import {
   type ApplicationExit,
   type ApplicationLaunch,
@@ -15,6 +16,7 @@ import {
   launchAlone,
   type PlayerRuntimeFactory,
   type RuntimeHandle,
+  type RuntimeState,
   runtime,
   tuneAlone,
 } from "@hbb-emu/oipf-runtime";
@@ -46,16 +48,21 @@ const playerRuntimeFactory: PlayerRuntimeFactory = {
 };
 
 /** The runtime still takes the old extension state: the host configuration over the defaults. */
-export const toExtensionState = (config: PageConfig, currentChannel: ChannelConfig | null = null): ExtensionState => ({
+export const toExtensionState = (config: PageConfig, currentChannel: ChannelConfig | null = null): RuntimeState => ({
   ...DEFAULT_EXTENSION_STATE,
   userAgent: config.userAgent,
+  device: config.device,
   channels: [...config.channels],
   currentChannel,
 });
 
 /** Without bootstrap: the defaults, until the host's configuration arrives. */
 const DEFAULT_BOOTSTRAP: BootstrapData = {
-  config: { userAgent: DEFAULT_EXTENSION_STATE.userAgent, channels: DEFAULT_EXTENSION_STATE.channels },
+  config: {
+    userAgent: DEFAULT_EXTENSION_STATE.userAgent,
+    device: EMULATOR_DEVICE,
+    channels: DEFAULT_EXTENSION_STATE.channels,
+  },
   tunings: [],
 };
 

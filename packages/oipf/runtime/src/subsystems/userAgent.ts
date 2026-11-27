@@ -1,9 +1,9 @@
 import { createLogger } from "@hbb-emu/core";
-import type { ExtensionState } from "@hbb-emu/extension-common";
 import { DEFAULT_HBBTV_VERSION, emulatorUserAgent } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
+import type { RuntimeState } from "../runtime";
 
 const logger = createLogger("UserAgent");
 
@@ -90,9 +90,9 @@ export const initializeUserAgent: RIO.ReaderIO<UserAgentEnv, void> = (env) =>
     IO.flatMap((userAgent) => overrideUserAgent(userAgent)(env)),
   );
 
-export const createUserAgentEnv = (extensionState: ExtensionState): UserAgentEnv => ({
+export const createUserAgentEnv = (extensionState: RuntimeState): UserAgentEnv => ({
   getUserAgent: () => extensionState.userAgent,
-  getHbbTVVersion: () => extensionState.hbbtv.oipfCapabilities?.hbbtvVersion,
+  getHbbTVVersion: () => extensionState.device?.terminal.hbbtvVersion,
   defaultHbbTVVersion: DEFAULT_HBBTV_VERSION,
   ...navigatorContextOverride,
 });

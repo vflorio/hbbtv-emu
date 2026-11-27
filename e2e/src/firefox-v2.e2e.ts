@@ -32,6 +32,7 @@ type BasicAppState = {
   events: unknown[];
   userAgentAtFirstScript: string;
   userAgentDataAtFirstScript: boolean;
+  capabilitiesAtFirstScript: string[];
   configAtFirstScript: boolean;
   channelAtFirstScript: string | null;
   factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
@@ -537,20 +538,22 @@ describe("firefox-v2: settings UI (sidebar)", () => {
 
   it("a user agent changed in the UI is what the next application sees at its first script", async () => {
     const { request } = await openUi();
-    type UiState = { device: { terminal: object } };
+    type UiState = { device: { terminal: object; capabilities: object } };
     const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
     // The device's identity: the header is what TS 102 796 §7.3.2.4 makes of it (HbbTV 1.5: no family).
     const terminal = { ...E2E_TERMINAL, softwareVersion: "3.0" };
     const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV HbbTV/1.2.1 (+DRM; e2e; TV; 3.0; ; )";
 
     try {
-      await request({ _tag: "UI/SaveState", state: { ...original, device: { terminal } } });
+      await request({ _tag: "UI/SaveState", state: { ...original, device: { ...original.device, terminal } } });
       const path = `basic-app/index.xhtml?ui-ua=${Date.now()}`;
       const { page } = await openPage(path);
 
       const state = await appState(page);
       expect(state.userAgentAtFirstScript).toBe(userAgent);
       expect(server.requests.find((r) => r.url === `/${path}`)?.userAgent).toBe(userAgent);
+      // Its Capabilities object answers with its option strings (OIPF DAE §7.15.3.2), not a MIME type.
+      expect(state.capabilitiesAtFirstScript).toEqual(["+DRM", "OITF_HD_UIPROF", "+DVB_S"]);
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

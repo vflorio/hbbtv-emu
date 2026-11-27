@@ -74,6 +74,7 @@ export type AssetUrl = (path: string) => string;
  */
 export const toPageConfig = (state: ExtensionState, assetUrl: AssetUrl): PageConfig => ({
   userAgent: userAgentOf(state),
+  device: state.runtime.device,
   channels: state.runtime.channels.map((channel) => toPageChannel(channel, assetUrl)),
 });
 
@@ -275,7 +276,7 @@ const tuningsOf = (state: ExtensionState, sessions: TvSessions): BootstrapData["
  */
 export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => {
   const data = {
-    config: { userAgent: userAgentOf(state), channels: state.runtime.channels },
+    config: { userAgent: userAgentOf(state), device: state.runtime.device, channels: state.runtime.channels },
     tunings: tuningsOf(state, sessions),
   };
   return {
@@ -330,19 +331,14 @@ export const toUiState = (state: ExtensionState, currentChannel: ChannelConfig |
 /**
  * Applies a UI snapshot onto the stored state (everything the UI does not edit is kept).
  * The current channel belongs to a tab's session, never to the shared state. The user
- * agent is the device's (`userAgent` is only what it gives), and so is the HbbTV version
- * the Capabilities object reports.
+ * agent is the device's (`userAgent` is only what it gives), and so is what the
+ * Capabilities object reports: pages get it with the configuration, not as object state.
  */
-export const fromUiState = (state: ExtensionState, ui: UiState): ExtensionState => ({
-  ...state,
-  common: { ...state.common, playerUiVisible: ui.playerUiVisible },
-  runtime: {
-    ...state.runtime,
-    device: ui.device,
-    channels: ui.channels,
-    api: {
-      ...ui.hbbtv,
-      oipfCapabilities: { ...ui.hbbtv.oipfCapabilities, hbbtvVersion: ui.device.terminal.hbbtvVersion },
-    },
-  },
-});
+export const fromUiState = (state: ExtensionState, ui: UiState): ExtensionState => {
+  const { oipfCapabilities: _theDevices, ...api } = ui.hbbtv;
+  return {
+    ...state,
+    common: { ...state.common, playerUiVisible: ui.playerUiVisible },
+    runtime: { ...state.runtime, device: ui.device, channels: ui.channels, api },
+  };
+};

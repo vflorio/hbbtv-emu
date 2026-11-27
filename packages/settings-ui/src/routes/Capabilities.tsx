@@ -1,4 +1,4 @@
-import { HBBTV_VERSION_MAP, type OipfCapabilitiesState } from "@hbb-emu/oipf-api";
+import { type DeviceCapabilities, HBBTV_VERSION_MAP } from "@hbb-emu/oipf-api";
 import { Add } from "@mui/icons-material";
 import { Box, Button, Chip, IconButton, Stack, TextField, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";
@@ -13,20 +13,20 @@ export default function CapabilitiesTab() {
   const { device } = useDevice();
   const { hbbtvVersion } = device.terminal;
   const specVersion = HBBTV_VERSION_MAP.find((entry) => entry.hbbtv === hbbtvVersion)?.spec;
-  const [uiProfiles, setUiProfiles] = useState<string[]>(capabilities.uiProfiles ?? []);
-  const [drmSystems, setDrmSystems] = useState<string[]>(capabilities.drmSystems ?? []);
+  const [uiProfiles, setUiProfiles] = useState<ReadonlyArray<string>>(capabilities.uiProfiles);
+  const [drmSystems, setDrmSystems] = useState<ReadonlyArray<string>>(capabilities.drmSystems);
   const [newProfile, setNewProfile] = useState("");
   const [newDrm, setNewDrm] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setUiProfiles(capabilities.uiProfiles ?? []);
-    setDrmSystems(capabilities.drmSystems ?? []);
+    setUiProfiles(capabilities.uiProfiles);
+    setDrmSystems(capabilities.drmSystems);
     setIsEditing(false);
   }, [capabilities]);
 
   const handleSave = pipe(
-    TE.of<unknown, OipfCapabilitiesState>({
+    TE.of<unknown, DeviceCapabilities>({
       ...capabilities,
       uiProfiles,
       drmSystems,
@@ -38,8 +38,8 @@ export default function CapabilitiesTab() {
   );
 
   const handleCancel = () => {
-    setUiProfiles(capabilities.uiProfiles ?? []);
-    setDrmSystems(capabilities.drmSystems ?? []);
+    setUiProfiles(capabilities.uiProfiles);
+    setDrmSystems(capabilities.drmSystems);
     setIsEditing(false);
   };
 
@@ -105,8 +105,10 @@ export default function CapabilitiesTab() {
       </Box>
       {/* UI Profiles */}
       <Box>
-        <Typography variant="subtitle1" gutterBottom>
-          UI Profiles
+        <Typography variant="subtitle1">UI Profile</Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          A base profile (OITF_HD_UIPROF, OITF_FULL_HD_UIPROF, …) and name fragments (OIPF DAE §9.2): hasCapability()
+          answers them, and the device's option strings ({device.terminal.options.join(" ") || "none"}).
         </Typography>
         <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mb: 1 }}>
           {uiProfiles.map((profile) => (
@@ -118,7 +120,7 @@ export default function CapabilitiesTab() {
             size="small"
             value={newProfile}
             onChange={(e) => setNewProfile(e.target.value)}
-            placeholder="+TRICKMODE, +DVB_T, etc."
+            placeholder="OITF_HD_UIPROF, +TRICKMODE, +DVB_T, etc."
             onKeyDown={(e) => e.key === "Enter" && addProfile()}
           />
           <IconButton onClick={addProfile} color="primary">

@@ -1,3 +1,4 @@
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import { describe, expect, it, vi } from "vitest";
 import { createBridgeChannel, createPageChannel, TO_HOST_EVENT, TO_PAGE_EVENT } from "./domChannel";
 import { type HostMessage, isHostMessage, isPageMessage, type PageMessage } from "./messages";
@@ -13,8 +14,9 @@ describe("message guards", () => {
     [{ _tag: "Host/DispatchKey", keyCode: 403 }, true],
     [{ _tag: "Host/DispatchKey", keyCode: "403" }, false],
     [{ _tag: "Host/DispatchKey", keyCode: 4.5 }, false],
-    [{ _tag: "Host/Config", config: { userAgent: "ua", channels: [] } }, true],
-    [{ _tag: "Host/Config", config: { userAgent: "ua" } }, false],
+    [{ _tag: "Host/Config", config: { userAgent: "ua", device: EMULATOR_DEVICE, channels: [] } }, true],
+    [{ _tag: "Host/Config", config: { userAgent: "ua", device: EMULATOR_DEVICE } }, false],
+    [{ _tag: "Host/Config", config: { userAgent: "ua", channels: [] } }, false],
     [{ _tag: "Page/Ready", url: "x" }, false],
     [null, false],
     ["Host/Hello", false],

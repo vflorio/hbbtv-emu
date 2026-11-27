@@ -72,7 +72,23 @@ export const specVersionOf = (hbbtvVersion: HbbTVVersion): HbbTVSpecVersion =>
 
 export const DEFAULT_HBBTV_VERSION: HbbTVVersion = "2.0.1";
 
+/** The base UI profiles of OIPF DAE §9.2 (Table 15): a terminal supports at least one. */
+export const BASE_UI_PROFILES = [
+  "OITF_SDEU_UIPROF",
+  "OITF_SD60_UIPROF",
+  "OITF_SDUS_UIPROF",
+  "OITF_HD_UIPROF",
+  "OITF_FULL_HD_UIPROF",
+] as const;
+
+export const isBaseUiProfile = (name: string): boolean => (BASE_UI_PROFILES as ReadonlyArray<string>).includes(name);
+
+/**
+ * The UI profile: a base profile, then the name fragments of what the terminal adds to it
+ * (OIPF DAE §9.2, Table 16). The one of TS 102 796 §10.2.4.7 is HD (`OITF_HD_UIPROF`).
+ */
 export const DEFAULT_UI_PROFILES: NonNullable<DAE.Capabilities.Capabilities["uiProfiles"]> = [
+  "OITF_HD_UIPROF",
   "+TRICKMODE",
   "+DVB_T",
   "+DVB_T2",
@@ -106,10 +122,3 @@ export const DEFAULT_MEDIA_FORMATS: NonNullable<DAE.Capabilities.Capabilities["m
     subtitleFormats: ["application/ttml+xml"],
   },
 ];
-
-export const DEFAULT_OIPF_CAPABILITIES: NonNullable<OipfCapabilitiesState> = {
-  hbbtvVersion: DEFAULT_HBBTV_VERSION,
-  uiProfiles: DEFAULT_UI_PROFILES,
-  drmSystems: DEFAULT_DRM_SYSTEMS,
-  mediaFormats: DEFAULT_MEDIA_FORMATS,
-};

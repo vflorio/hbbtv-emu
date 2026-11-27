@@ -1,7 +1,7 @@
 import {
   type DeviceProfile,
   deviceUserAgent,
-  EMULATOR_DEVICE,
+  EMULATOR_TERMINAL,
   HBBTV_OPTIONS,
   HBBTV_VERSION_MAP,
   type HbbTVOption,
@@ -155,7 +155,10 @@ export function DeviceSection() {
       </Stack>
 
       <Stack direction="row" gap={2}>
-        <Button onClick={() => edit(EMULATOR_DEVICE)}>Reset to the emulator</Button>
+        {/* The identity and the header: the capabilities have their own page. */}
+        <Button onClick={() => edit({ ...draft, terminal: EMULATOR_TERMINAL, userAgent: undefined })}>
+          Reset to the emulator
+        </Button>
         {isEditing && (
           <>
             <Button variant="contained" onClick={handleSave}>

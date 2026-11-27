@@ -18,11 +18,14 @@
  */
 
 import type { ChannelConfig } from "@hbb-emu/extension-common";
-import type { HbbTVState } from "@hbb-emu/oipf-api";
+import { type DeviceProfile, DeviceProfileCodec, type HbbTVState } from "@hbb-emu/oipf-api";
 
 /** What the page runtime needs from the host's configuration. */
 export type PageConfig = Readonly<{
+  /** The User-Agent header the TV sends, which the host already applies to HTTP: the device's. */
   userAgent: string;
+  /** The TV the page runs on: what its Capabilities object reports. */
+  device: DeviceProfile;
   channels: ReadonlyArray<ChannelConfig>;
 }>;
 
@@ -89,7 +92,10 @@ export type HostMessage =
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 export const isPageConfig = (value: unknown): value is PageConfig =>
-  isRecord(value) && typeof value.userAgent === "string" && Array.isArray(value.channels);
+  isRecord(value) &&
+  typeof value.userAgent === "string" &&
+  DeviceProfileCodec.is(value.device) &&
+  Array.isArray(value.channels);
 
 const isStreamEventDescriptionResult = (value: unknown): value is StreamEventDescriptionResult =>
   isRecord(value) &&

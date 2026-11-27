@@ -68,7 +68,7 @@ export const createCapabilitiesBinding = (
     predicate: OIPF.DAE.Capabilities.isValidElement,
     attachStrategy: "non-visual",
   },
-  factory: (_element) => new OipfCapabilities({ defaults: env.defaultOipfCapabilities }),
+  factory: (_element) => new OipfCapabilities({ device: env.device }),
 });
 
 /**

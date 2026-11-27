@@ -13,6 +13,7 @@
   <!-- The usual HbbTV boilerplate: OIPF objects declared in the markup... -->
   <object id="appmgr" type="application/oipfApplicationManager"></object>
   <object id="oipfcfg" type="application/oipfConfiguration"></object>
+  <object id="oipfcap" type="application/oipfCapabilities"></object>
   <object id="video" type="video/broadcast"></object>
 
   <!-- ...and used right away by an inline script, as most applications do. -->
@@ -36,6 +37,11 @@
       e2e.keysetValue = app.privateData.keyset.value;
       // The broadcast, in the object's window: the application takes it from the TV.
       document.getElementById("video").bindToCurrentChannel();
+      // What the TV can do: its option strings and UI profile (OIPF DAE §7.15.3.2).
+      var capabilities = document.getElementById("oipfcap");
+      e2e.capabilitiesAtFirstScript = ["+DL", "+DRM", "OITF_HD_UIPROF", "+DVB_S", "video/mp4"].filter(function (name) {
+        return capabilities.hasCapability(name);
+      });
       // What an application that does not declare its objects does: it asks the factory.
       var factory = window.oipfObjectFactory;
       var created = factory.createApplicationManagerObject().getOwnerApplication(document);

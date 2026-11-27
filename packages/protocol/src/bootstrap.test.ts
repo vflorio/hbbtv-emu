@@ -1,4 +1,5 @@
 import type { ChannelConfig } from "@hbb-emu/extension-common";
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import * as O from "fp-ts/Option";
 import { describe, expect, it } from "vitest";
 import {
@@ -13,7 +14,7 @@ const dmax: ChannelConfig = { id: "dmax", name: "DMAX", mp4Source: "http://tv/dm
 const hgtv: ChannelConfig = { ...dmax, id: "hgtv", name: "HGTV", sid: 56 };
 
 const data: BootstrapData = {
-  config: { userAgent: 'Custom TV/1.0 "quoted" </script>', channels: [dmax] },
+  config: { userAgent: 'Custom TV/1.0 "quoted" </script>', device: EMULATOR_DEVICE, channels: [dmax] },
   tunings: [{ url: "http://app.example/", channelId: "dmax" }],
 };
 
@@ -102,7 +103,7 @@ describe("initialChannel", () => {
     ...hgtv,
     ait: { applications: [{ orgId: 1, appId: 1, controlCode: "AUTOSTART", url }] },
   };
-  const config = { userAgent: "TV", channels: [dmax, signalledByHgtv] };
+  const config = { userAgent: "TV", device: EMULATOR_DEVICE, channels: [dmax, signalledByHgtv] };
 
   it("is the channel of the TV showing the page, before what the AIT says", () => {
     expect(initialChannel({ config, tunings: [{ url, channelId: "dmax" }] }, url)).toBe(dmax);

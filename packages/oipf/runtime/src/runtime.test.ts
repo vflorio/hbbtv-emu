@@ -1,5 +1,5 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
-import { OIPF } from "@hbb-emu/oipf-api";
+import { EMULATOR_CAPABILITIES, EMULATOR_TERMINAL, OIPF } from "@hbb-emu/oipf-api";
 import * as E from "fp-ts/Either";
 import * as TE from "fp-ts/TaskEither";
 import { afterEach, describe, expect, it } from "vitest";
@@ -214,6 +214,30 @@ describe("runtime — host configuration", () => {
     handle.updateExtensionState({ ...DEFAULT_EXTENSION_STATE, channels: [channel] })();
 
     expect(await resolve()).toEqual(E.right({ url: channel.mp4Source, config: channel }));
+  });
+
+  it("the Capabilities object is the TV's: its option strings and UI profile, now (OIPF DAE §7.15.3)", async () => {
+    type Capabilities = { hasCapability: (name: string) => boolean; hbbtvVersion: string; uiProfiles: string[] };
+    const { handle } = start();
+    const capabilities = addObject("application/oipfCapabilities") as unknown as Capabilities;
+    await flushMutations();
+
+    // The emulator: no option, an HD UI profile; a MIME type is no profile name.
+    expect([capabilities.hasCapability("+DL"), capabilities.hasCapability("OITF_HD_UIPROF")]).toEqual([false, true]);
+    expect(capabilities.hasCapability("video/mp4")).toBe(false);
+
+    const device = {
+      terminal: { ...EMULATOR_TERMINAL, hbbtvVersion: "2.0.4" as const, options: ["+DL" as const] },
+      capabilities: { ...EMULATOR_CAPABILITIES, uiProfiles: ["OITF_FULL_HD_UIPROF", "+DVB_S"] },
+    };
+    handle.updateExtensionState({ ...DEFAULT_EXTENSION_STATE, device })();
+
+    expect(["+DL", "OITF_HD_UIPROF", "OITF_FULL_HD_UIPROF"].map(capabilities.hasCapability)).toEqual([
+      true,
+      false,
+      true,
+    ]);
+    expect([capabilities.hbbtvVersion, capabilities.uiProfiles]).toEqual(["2.0.4", ["OITF_FULL_HD_UIPROF", "+DVB_S"]]);
   });
 });
 

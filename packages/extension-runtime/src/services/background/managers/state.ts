@@ -1,11 +1,16 @@
 import { Logger } from "@hbb-emu/core";
 import { BROADCAST_STAND_IN } from "@hbb-emu/extension-common";
 import {
+  type DeviceCapabilities,
   type DeviceProfile,
   DeviceProfileCodec,
+  EMULATOR_CAPABILITIES,
   EMULATOR_TERMINAL,
   hbbtvUserAgent,
+  isBaseUiProfile,
   isHbbTVVersion,
+  type OipfCapabilitiesState,
+  TerminalIdentityCodec,
 } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
@@ -30,7 +35,9 @@ export type StateManagerEnv = {
  * - the default lineup's stream was the DASH-IF live simulator, which limits its requests:
  *   channels still on it go to the test card the emulator ships;
  * - the TV was only its `userAgent`, a free text, and its HbbTV version was the
- *   Capabilities object's: see `storedDevice`.
+ *   Capabilities object's: see `storedDevice`;
+ * - the capabilities were the Capabilities object's state (`api.oipfCapabilities`), which
+ *   only reached the active tab: now they are the device's.
  */
 type StoredState = Omit<ExtensionState, "runtime"> & {
   enabledTabIds?: unknown;
@@ -41,22 +48,48 @@ type StoredState = Omit<ExtensionState, "runtime"> & {
   };
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
 /**
- * The device of a stored state. One from before device profiles is the emulator, at the
- * HbbTV version its Capabilities object had; the user agent it had stays its own header
- * when it is not the one that identity gives (a custom one, or an older default).
+ * The capabilities the Capabilities object had, as the device's. A UI profile without a base
+ * profile (the older defaults) gets the HD one of TS 102 796 §10.2.4.7: a terminal supports
+ * at least one (OIPF DAE §9.2).
+ */
+const storedCapabilities = (stored: OipfCapabilitiesState | undefined): DeviceCapabilities => {
+  const uiProfiles = stored?.uiProfiles ?? EMULATOR_CAPABILITIES.uiProfiles;
+  return {
+    uiProfiles: uiProfiles.some(isBaseUiProfile) ? uiProfiles : ["OITF_HD_UIPROF", ...uiProfiles],
+    drmSystems: stored?.drmSystems ?? EMULATOR_CAPABILITIES.drmSystems,
+    mediaFormats: stored?.mediaFormats ?? EMULATOR_CAPABILITIES.mediaFormats,
+  };
+};
+
+/**
+ * The device of a stored state.
+ * - One from before capabilities keeps its identity and its own header, with the
+ *   capabilities the Capabilities object had.
+ * - One from before device profiles is the emulator, at the HbbTV version its Capabilities
+ *   object had; the user agent it had stays its own header when it is not the one that
+ *   identity gives (a custom one, or an older default).
  */
 const storedDevice = (runtime: StoredState["runtime"]): DeviceProfile => {
   if (DeviceProfileCodec.is(runtime.device)) return runtime.device;
-  const version = runtime.api.oipfCapabilities?.hbbtvVersion;
+  const stored = runtime.api.oipfCapabilities;
+  const capabilities = storedCapabilities(stored);
+  const before = runtime.device;
+  if (isRecord(before) && TerminalIdentityCodec.is(before.terminal)) {
+    const { terminal, userAgent } = before;
+    return typeof userAgent === "string" ? { terminal, capabilities, userAgent } : { terminal, capabilities };
+  }
+  const version = stored?.hbbtvVersion;
   const terminal = {
     ...EMULATOR_TERMINAL,
     hbbtvVersion: version !== undefined && isHbbTVVersion(version) ? version : EMULATOR_TERMINAL.hbbtvVersion,
   };
   const userAgent = runtime.userAgent;
   return typeof userAgent === "string" && userAgent !== "" && userAgent !== hbbtvUserAgent(terminal)
-    ? { terminal, userAgent }
-    : { terminal };
+    ? { terminal, capabilities, userAgent }
+    : { terminal, capabilities };
 };
 
 /** The previous default stream (`https://livesim2.dashif.org/livesim2/…`). */
@@ -64,10 +97,12 @@ const LIVE_SIMULATOR = /^https:\/\/livesim2\.dashif\.org\/livesim2\//;
 
 export const fromStoredState = ({ enabledTabIds: _dropped, runtime, ...state }: StoredState): ExtensionState => {
   const { currentChannel: _droppedToo, userAgent: _inTheDevice, device: _decoded, ...kept } = runtime;
+  const { oipfCapabilities: _theDevices, ...api } = kept.api;
   return {
     ...state,
     runtime: {
       ...kept,
+      api,
       device: storedDevice(runtime),
       channels: kept.channels.map((channel) =>
         LIVE_SIMULATOR.test(channel.mp4Source) ? { ...channel, mp4Source: BROADCAST_STAND_IN } : channel,

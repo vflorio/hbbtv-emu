@@ -1,3 +1,4 @@
+import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import type { DomChannel, HostMessage, PageConfig, PageMessage } from "@hbb-emu/protocol";
 import * as IO from "fp-ts/IO";
 import { describe, expect, it } from "vitest";
@@ -43,7 +44,7 @@ const setup = () => {
   return { ...fake, calls, disconnect };
 };
 
-const config: PageConfig = { userAgent: "HbbTV/1.5.1", channels: [] };
+const config: PageConfig = { userAgent: "HbbTV/1.5.1", device: EMULATOR_DEVICE, channels: [] };
 
 describe("connectToHost", () => {
   it("announces the page", () => {

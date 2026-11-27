@@ -92,7 +92,11 @@ describe("StateManager", () => {
     await first.manager.updateState((s) => ({ ...s, common: { ...s.common, playerUiVisible: true } }))();
 
     const afterRestart = await initialized(storage);
-    const device = { terminal: { ...EMULATOR_TERMINAL, vendorName: "Custom" }, userAgent: "Custom TV/1.0" };
+    const device = {
+      ...EMULATOR_DEVICE,
+      terminal: { ...EMULATOR_TERMINAL, vendorName: "Custom" },
+      userAgent: "Custom TV/1.0",
+    };
     await afterRestart.manager.updateState((s) => ({ ...s, runtime: { ...s.runtime, device } }))();
 
     const state = getStateOrThrow(afterRestart.manager);
@@ -139,9 +143,11 @@ describe("StateManager", () => {
       await manager.updateState((s) => s)();
 
       expect(getStateOrThrow(manager).runtime.device).toEqual({
+        ...EMULATOR_DEVICE,
         terminal: { ...EMULATOR_TERMINAL, hbbtvVersion: "2.0.4" },
       });
       expect(storage.stored()?.runtime).not.toHaveProperty("userAgent");
+      expect(storage.stored()?.runtime.api).not.toHaveProperty("oipfCapabilities");
     });
 
     it("keeps the user agent it had, when it is not the one the emulator gives", async () => {
@@ -150,7 +156,7 @@ describe("StateManager", () => {
       const { manager } = await initialized(createFakeStorage<ExtensionState>(legacyWith(userAgent)));
 
       const state = getStateOrThrow(manager);
-      expect(state.runtime.device).toEqual({ terminal: EMULATOR_TERMINAL, userAgent });
+      expect(state.runtime.device).toEqual({ ...EMULATOR_DEVICE, userAgent });
       expect(userAgentOf(state)).toBe(userAgent);
     });
 
@@ -158,6 +164,45 @@ describe("StateManager", () => {
       const { manager } = await initialized(createFakeStorage<ExtensionState>(legacyWith("", "9.9")));
 
       expect(getStateOrThrow(manager).runtime.device).toEqual(EMULATOR_DEVICE);
+    });
+  });
+
+  describe("a state from before the device's capabilities (they were the Capabilities object's)", () => {
+    /** Its device had only an identity, and the UI edited the capabilities as object state. */
+    const legacyWith = (device: object, oipfCapabilities: object) =>
+      ({
+        ...DEFAULT_STATE,
+        runtime: { ...DEFAULT_STATE.runtime, device, api: { ...DEFAULT_STATE.runtime.api, oipfCapabilities } },
+      }) as unknown as ExtensionState;
+    const sonic = { ...EMULATOR_TERMINAL, vendorName: "Sonic", options: ["+DL"] };
+    const edited = {
+      hbbtvVersion: "2.0.1",
+      uiProfiles: ["OITF_FULL_HD_UIPROF", "+DVB_S"],
+      drmSystems: ["urn:dvb:casystemid:19188"],
+      mediaFormats: [{ container: "video/mp4", videoCodecs: ["avc1"] }],
+    };
+
+    it("keeps its identity and own header, and takes the capabilities the object had", async () => {
+      const storage = createFakeStorage<ExtensionState>(legacyWith({ terminal: sonic, userAgent: "TV/1.0" }, edited));
+      const { manager } = await initialized(storage);
+      await manager.updateState((s) => s)();
+
+      const { hbbtvVersion: _theTerminals, ...capabilities } = edited;
+      expect(getStateOrThrow(manager).runtime.device).toEqual({ terminal: sonic, capabilities, userAgent: "TV/1.0" });
+      expect(storage.stored()?.runtime.api).not.toHaveProperty("oipfCapabilities");
+    });
+
+    it("a UI profile without a base profile (the older default) gets the HD one (OIPF DAE §9.2)", async () => {
+      const olderDefault = { ...edited, uiProfiles: ["+TRICKMODE", "+DVB_T"] };
+      const { manager } = await initialized(
+        createFakeStorage<ExtensionState>(legacyWith({ terminal: sonic }, olderDefault)),
+      );
+
+      expect(getStateOrThrow(manager).runtime.device.capabilities.uiProfiles).toEqual([
+        "OITF_HD_UIPROF",
+        "+TRICKMODE",
+        "+DVB_T",
+      ]);
     });
   });
 });

@@ -103,7 +103,7 @@ describe("BackgroundService", () => {
     await flushPromises();
 
     const config = (messaging.sent[0]?.message as Extract<HostMessage, { _tag: "Host/Config" }>).config;
-    expect(Object.keys(config).sort()).toEqual(["channels", "userAgent"]);
+    expect(Object.keys(config).sort()).toEqual(["channels", "device", "userAgent"]);
   });
 
   it("makes the browser send the stored user agent before any page loads", async () => {
@@ -273,19 +273,32 @@ describe("BackgroundService — settings UI", () => {
     expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: stored });
   });
 
-  it("the HbbTV version is the device's: its User-Agent, and the Capabilities object of the active tab", async () => {
+  it("the device is every page's TV: its User-Agent, and its capabilities with the configuration", async () => {
     const { ui, messaging, userAgent } = await setup();
     const terminal = { ...uiState.device.terminal, hbbtvVersion: "2.0.4" as const, vendorName: "Sonic" };
+    const capabilities = { ...uiState.device.capabilities, uiProfiles: ["OITF_FULL_HD_UIPROF"] };
+    const device = { terminal, capabilities };
 
-    await ui.request({ _tag: "UI/SaveState", state: { ...uiState, device: { terminal } } });
+    await ui.request({ _tag: "UI/SaveState", state: { ...uiState, device } });
 
     const expected = hbbtvUserAgent(terminal);
     expect(expected).toContain("HbbTV/1.7.1 (; Sonic; ");
     expect(userAgent.applied).toEqual([userAgentOf(DEFAULT_STATE), expected]);
-    expect(messaging.sent.find((s) => s.tabId === 1 && s.message._tag === "Host/ApplyState")?.message).toEqual({
-      _tag: "Host/ApplyState",
-      patch: { oipfCapabilities: { hbbtvVersion: "2.0.4" } },
-    });
+    // Both tabs, not only the active one: the capabilities are no object state.
+    expect(messaging.sent.map((s) => [s.tabId, s.message])).toEqual([
+      [1, { _tag: "Host/Config", config: expect.objectContaining({ userAgent: expected, device }) }],
+      [2, { _tag: "Host/Config", config: expect.objectContaining({ userAgent: expected, device }) }],
+    ]);
+  });
+
+  it("drops the Capabilities object state an older UI sends: what it reports is the device's", async () => {
+    const { ui, messaging } = await setup();
+    const hbbtv = { ...uiState.hbbtv, oipfCapabilities: { uiProfiles: ["+DVB_C"] } };
+
+    await ui.request({ _tag: "UI/SaveState", state: { ...uiState, hbbtv } });
+
+    expect(messaging.sent).toEqual([]);
+    expect(await ui.request({ _tag: "UI/GetState" })).toEqual({ _tag: "UI/State", state: uiState });
   });
 
   it("an object-state edit becomes a minimal patch for the active tab only", async () => {
