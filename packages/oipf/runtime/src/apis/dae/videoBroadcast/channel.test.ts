@@ -296,6 +296,17 @@ describe("stop / release", () => {
     expect(calls).toEqual([{ stop: true }, { playState: PlayState.STOPPED }]);
   });
 
+  it("stop() has no effect on an unrealized object: the TV goes on presenting (OIPF DAE §7.13.1.3)", async () => {
+    const { env, calls } = await presenting(dmax);
+    release(env)();
+    calls.length = 0;
+
+    stop(env)();
+
+    expect(getPlayState(env)()).toBe(PlayState.UNREALIZED);
+    expect(calls).toEqual([]);
+  });
+
   it("release() gives the broadcast back to the TV once, keeping the channel", async () => {
     const { env, calls } = await presenting(dmax);
 
@@ -478,6 +489,36 @@ describe("channelApi", () => {
 
     expect(api.currentChannel).toMatchObject({ ccid: "hgtv" });
     expect(api.playState).toBe(PlayState.CONNECTING);
+  });
+
+  it("setChannel(null) releases the object before it returns, as release() does (Table 8)", async () => {
+    const { env, calls } = await presenting(dmax);
+    const api = channelApi(env);
+
+    api.setChannel(null);
+
+    expect(api.playState).toBe(PlayState.UNREALIZED);
+    expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { release: true }]);
+  });
+
+  it("setChannel(null) then stop() leaves it unrealized; setChannel() to the channel presents it again", async () => {
+    const { env, calls, stream } = await presenting(dmax);
+    const api = channelApi(env);
+
+    api.setChannel(null);
+    api.stop();
+    expect(api.playState).toBe(PlayState.UNREALIZED);
+
+    if (api.playState === PlayState.UNREALIZED) api.setChannel(channel(dmax));
+    await flush();
+    stream(Stream.playing());
+
+    expect(api.playState).toBe(PlayState.PRESENTING);
+    expect(calls.filter((call) => "playState" in call || "stop" in call)).toEqual([
+      { playState: PlayState.UNREALIZED },
+      { playState: PlayState.CONNECTING },
+      { playState: PlayState.PRESENTING },
+    ]);
   });
 });
 

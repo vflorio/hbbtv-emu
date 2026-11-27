@@ -62,7 +62,7 @@ const applicationMediaPlays = async (page: Page): Promise<boolean> => {
 };
 
 describe.skipIf(!enabled)("real applications (HBB_EMU_REAL_APPS=1)", () => {
-  it("DMAX: broadcast on DMAX, consent, launcher, then an on-demand video", async () => {
+  it("DMAX: broadcast on DMAX, consent, launcher, an on-demand video, then back to live", async () => {
     const page = await browser.context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(`${error.message}\n${error.stack ?? ""}`));
@@ -120,6 +120,34 @@ describe.skipIf(!enabled)("real applications (HBB_EMU_REAL_APPS=1)", () => {
         { timeout: 60_000, interval: 5_000 },
       )
       .toBe(true);
+
+    // Back to live. DMAX stops the broadcast while its player plays (`stop()`); BACK closes the
+    // player (the start-over one asks first: ← and OK on "ESCI"), and a second later DMAX binds
+    // the object again (`bindToCurrentChannel()` from STOPPED): the channel presents again,
+    // where it is on air.
+    expect(await broadcastStates(page)).toEqual([2, 3]);
+    await expect
+      .poll(
+        async () => {
+          if (await page.getByText("Sei sicuro di voler uscire?").isVisible()) {
+            await page.keyboard.press("ArrowLeft");
+            await page.keyboard.press("Enter");
+          } else if (await applicationMediaPlays(page)) {
+            await page.keyboard.press("Backspace");
+          }
+          return page.evaluate(() => {
+            const object = document.getElementById("broadcastVideoObject") as unknown as { playState: number };
+            const video = document.querySelector("#broadcastVideoObject > video") as HTMLVideoElement | null;
+            if (!video || video.paused || !Number.isFinite(video.duration)) return { playState: object.playState };
+            const drift = Math.abs(video.currentTime - ((Date.now() / 1000) % video.duration));
+            return { playState: object.playState, onAir: Math.min(drift, video.duration - drift) < 1 };
+          });
+        },
+        { timeout: 30_000, interval: 2_500 },
+      )
+      .toEqual({ playState: 2, onAir: true });
+    expect(await broadcastStates(page)).toEqual([2, 3, 1, 2]);
+    expect(await applicationMediaPlays(page)).toBe(false);
 
     if (errors.length > emulatorErrors().length) console.info("DMAX's own errors:", errors);
     expect(emulatorErrors()).toEqual([]);

@@ -305,6 +305,13 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
   /** A buffering the object did not hear: nor does it hear the presentation that ends it. */
   let unheardBuffering = false;
   let stopped = false;
+  /**
+   * A load was asked and the element has not started it yet (`loadstart`): what the stream
+   * reports meanwhile is the previous source's. A stop is a pause and a seek, which the
+   * player reports after the load that follows it (`stop()` then `release()`): that pause,
+   * with the old source still where the channel is on air, is no presentation of the new one.
+   */
+  let awaitingSource = false;
   let streamState: VideoStreamPlayState = { _tag: "Idle" };
   let controller: Controller | null = null;
   let observers: ReadonlyArray<MutationObserver> = [];
@@ -326,6 +333,7 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
       return;
     }
     logger.debug("Loading", url)();
+    awaitingSource = true;
     stream.load(url)();
   };
 
@@ -427,6 +435,9 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
     return !there && now() - join.since < JOIN_TIMEOUT_MS;
   };
 
+  video.addEventListener("loadstart", () => {
+    awaitingSource = false;
+  });
   video.addEventListener("loadedmetadata", advanceJoin);
   // What the element can seek to grows as it downloads.
   video.addEventListener("progress", advanceJoin);
@@ -437,6 +448,7 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
   });
 
   stream.onStateChange((state) => {
+    if (awaitingSource && hasPresented(state)) return;
     streamState = state;
     if (!presented && hasPresented(state) && joining()) return;
     // Settling, or round the loop, the stream presents as it did: the object hears none of it.

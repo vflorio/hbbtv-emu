@@ -49,10 +49,15 @@ const setup = () => {
       if (!timeline.stuck) timeline.currentTime = position;
     },
   });
+  // The element starts a load at once (`loadstart`), unless a test holds it back (a file
+  // the extension ships is read whole first) and starts it with `startSource`.
+  const sources = { held: false };
+  const startSource = () => video.dispatchEvent(new Event("loadstart"));
   const stream: BroadcastStream = {
     videoElement: video,
     load: (url) => () => {
       calls.push({ load: url });
+      if (!sources.held) startSource();
     },
     play: () => {
       calls.push({ play: true });
@@ -80,7 +85,7 @@ const setup = () => {
   const emit = (state: VideoStreamPlayState) => {
     for (const listener of [...listeners]) listener(state);
   };
-  return { layer, calls, video, emit, tvVolume, media, timeline, clock };
+  return { layer, calls, video, emit, tvVolume, media, timeline, clock, sources, startSource };
 };
 
 const mounted: BroadcastLayer[] = [];
@@ -451,6 +456,39 @@ describe("the broadcast is on air before the page loads (a simulated live)", () 
       { stop: true },
       { load: "http://tv/loop.mp4" },
       { seek: 6 },
+    ]);
+  });
+
+  it("joins after a stop the player reports late: its pause, before the new load starts, is the old source's", () => {
+    const { layer, calls, emit, timeline, clock, video, sources, startSource } = setup();
+    const { control } = bound(layer);
+    timeline.duration = 10;
+    clock.now += 2_000;
+    layer.tune("http://tv/loop.mp4")();
+    control.bind();
+    video.dispatchEvent(new Event("loadedmetadata"));
+    emit(Stream.playing());
+    clock.now += 4_000;
+    // The old source has played on to where the channel is on air: 6 s.
+    timeline.currentTime = 6;
+
+    // `stop()` then `release()`: the new load is read whole first, while the stop's pause comes.
+    sources.held = true;
+    control.stop();
+    control.release();
+    emit(Stream.paused());
+    // The new source starts from its beginning.
+    timeline.currentTime = 0;
+    startSource();
+    clock.now += 500;
+    video.dispatchEvent(new Event("loadedmetadata"));
+
+    expect(calls).toEqual([
+      { load: "http://tv/loop.mp4" },
+      { seek: 2 },
+      { stop: true },
+      { load: "http://tv/loop.mp4" },
+      { seek: 6.5 },
     ]);
   });
 

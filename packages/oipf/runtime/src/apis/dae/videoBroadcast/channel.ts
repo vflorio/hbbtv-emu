@@ -21,6 +21,8 @@
  *   before anything changes;
  * - `nextChannel()` / `prevChannel()` are `setChannel()` to the neighbouring channel of
  *   the lineup, cycling at both ends; unrealized, they fail (`NO_CHANNEL_LIST`);
+ * - `setChannel(null)` releases the object at once, as `release()`; `stop()` has no
+ *   effect on an unrealized object (§7.13.1.3);
  * - the TV's own tuning (`tuneTo`) asks nobody;
  * - `playState` follows the stream; `onPlayStateChange` fires only when it actually
  *   changes;
@@ -251,11 +253,16 @@ export const playChannel = (channel: Channel): RTE.ReaderTaskEither<ChannelEnv, 
     RTE.map((resolved) => resolved.url),
   );
 
+/**
+ * `stop()` (OIPF DAE §7.13.1.3): connecting or presenting, the object stops presenting.
+ * Unrealized, it has no effect ("Calling this method from the unrealized state SHALL have
+ * no effect"): the TV goes on presenting its broadcast, and the object stays unrealized.
+ */
 export const stop: RIO.ReaderIO<ChannelEnv, void> = pipe(
   getPlayState,
-  RIO.tapIO(() => logger.debug("stop")),
+  RIO.tapIO((playState) => logger.debug("stop", playState)),
   RIO.flatMap((playState) =>
-    playState === OIPF.DAE.Broadcast.PlayState.STOPPED
+    playState === OIPF.DAE.Broadcast.PlayState.STOPPED || playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED
       ? noop
       : pipe(
           writeAcquiring(false),
@@ -317,6 +324,18 @@ export const setChannel = (channel: Channel | null): RT.ReaderTask<ChannelEnv, v
     RT.fromIO(logger.debug("setChannel", channel)),
     RT.flatMap(() => reportingTo(channel)(changeChannel(channel))),
   );
+
+/**
+ * `setChannel(null)` releases the object before it returns, as `release()` does (OIPF DAE
+ * Table 8): what the application calls next (`stop()`, `playState`) sees it unrealized.
+ */
+export const setChannelNow = (channel: Channel | null): RIO.ReaderIO<ChannelEnv, void> =>
+  channel === null
+    ? pipe(
+        RIO.fromIO(logger.debug("setChannel", null)),
+        RIO.flatMap(() => release),
+      )
+    : fork(setChannel(channel));
 
 /** The TV changed channel (not the application): the object presents it, nobody is asked. */
 export const tuneTo = (channel: Channel): RT.ReaderTask<ChannelEnv, void> => reportingTo(channel)(bindTo(channel));
@@ -502,9 +521,7 @@ export const channelApi: R.Reader<ChannelEnv, ChannelApi> = (env) => ({
     return getPlayState(env)();
   },
   bindToCurrentChannel: () => bindToCurrentChannel(env)(),
-  setChannel: (channel: Channel | null) => {
-    void setChannel(channel)(env)();
-  },
+  setChannel: (channel: Channel | null) => setChannelNow(channel)(env)(),
   stop: () => stop(env)(),
   release: () => release(env)(),
   prevChannel: () => {

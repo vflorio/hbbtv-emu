@@ -179,6 +179,28 @@ export const runBroadcastLayerScenario = async (evaluate: Evaluate) => {
   await evaluate(() => (document.getElementById("created") as Broadcast).release());
   await playsOn(evaluate, "layer");
 
+  // setChannel(null) releases at once, as release() (Table 8); stop() then has no effect
+  // (OIPF DAE §7.13.1.3): the TV goes on presenting, and setChannel() presents it again.
+  const nulled = await evaluate(() => {
+    const object = document.getElementById("video") as Broadcast & {
+      setChannel: (channel: unknown) => void;
+      currentChannel: unknown;
+    };
+    object.bindToCurrentChannel();
+    const channel = object.currentChannel;
+    object.setChannel(null);
+    const afterNull = object.playState;
+    object.stop();
+    const afterStop = object.playState;
+    object.setChannel(channel);
+    return { afterNull, afterStop };
+  });
+  expect(nulled).toEqual({ afterNull: 0, afterStop: 0 });
+  await until(evaluate, () => (document.getElementById("video") as Broadcast).playState === 2, "presenting again");
+  expect((await app(evaluate)).states.video).toEqual([2, 0, 2, 0, 1, 2]);
+  await playsOn(evaluate, "video");
+  await evaluate(() => (document.getElementById("video") as Broadcast).release());
+
   // An opaque page background hides the video plane (Annex H.1), a transparent one shows it.
   const display = () =>
     evaluate(() => getComputedStyle((window as unknown as { __layer: () => HTMLElement }).__layer()).display);
@@ -199,6 +221,28 @@ export const runBroadcastLayerScenario = async (evaluate: Evaluate) => {
     "the layer shown",
   );
   expect(await display()).toBe("block");
+
+  // stop() then release(): the TV loads its channel again, where it is on air, although the
+  // player reports the stop's pause after the new load.
+  await evaluate(() => {
+    const object = document.getElementById("video") as Broadcast;
+    object.bindToCurrentChannel();
+    object.stop();
+    object.release();
+  });
+  await until(
+    evaluate,
+    () => {
+      const video = (window as unknown as { __where: () => Where }).__where();
+      const element = document
+        .querySelector("[data-hbbtv-emu-broadcast]")
+        ?.shadowRoot?.querySelector("video") as HTMLVideoElement | null;
+      if (!element || video.in !== "layer" || !video.playing || video.loads !== 1) return false;
+      const drift = Math.abs(element.currentTime - ((Date.now() / 1000) % element.duration));
+      return Math.min(drift, element.duration - drift) < 0.5;
+    },
+    "the broadcast on air again behind the application",
+  );
 };
 
 /**
