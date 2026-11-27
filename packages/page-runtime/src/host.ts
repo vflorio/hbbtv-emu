@@ -31,6 +31,8 @@ export type PageRuntimeControl = Readonly<{
   channelChangeFailed: (channelId: string, error: number) => IO.IO<void>;
   /** The host fetched (or could not fetch) a stream event description. */
   streamEventDescriptionFetched: (url: string, result: StreamEventDescriptionResult) => IO.IO<void>;
+  /** The TV could not start the application the page asked for (`createApplication()`). */
+  applicationLoadFailed: (url: string, reason: string) => IO.IO<void>;
 }>;
 
 export type HostEnv = Readonly<{
@@ -59,6 +61,8 @@ const handle =
         return env.control.channelChangeFailed(message.channelId, message.error);
       case "Host/StreamEventDescription":
         return env.control.streamEventDescriptionFetched(message.url, message.result);
+      case "Host/ApplicationLoadError":
+        return env.control.applicationLoadFailed(message.url, message.reason);
     }
   };
 

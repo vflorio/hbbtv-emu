@@ -93,6 +93,67 @@ describe("runtime", () => {
     expect(exits).toBe(2);
   });
 
+  it("createApplication() asks the TV for the new application, and returns it; null for a URL none starts from", async () => {
+    const env = createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [] });
+    const asked: string[] = [];
+    started.push(
+      runtime({
+        ...env,
+        bindings: {
+          ...env.bindings,
+          launchApplication: (url) => {
+            asked.push(url);
+            return () => new Promise(() => undefined); // the TV loads it: this page ends
+          },
+        },
+      })(),
+    );
+    type App = { createApplication: (uri: unknown, createChild?: boolean) => object | null };
+    const appMgr = addObject("application/oipfApplicationManager") as unknown as {
+      getOwnerApplication: (d: Document) => App;
+    };
+    await flushMutations();
+    const app = appMgr.getOwnerApplication(document);
+
+    expect(app.createApplication("full/index.html?x=1", false)).not.toBeNull();
+    expect(app.createApplication("dvb://current.ait/a.2#menu", false)).not.toBeNull();
+    expect(app.createApplication("javascript:alert(1)", false)).toBeNull();
+    expect(app.createApplication(42, false)).toBeNull();
+
+    expect(asked).toEqual([new URL("full/index.html?x=1", document.baseURI).href, "dvb://current.ait/a.2#menu"]);
+  });
+
+  it("when the TV cannot start it, every application manager fires ApplicationLoadError with it (OIPF DAE §7.2.1.3)", async () => {
+    const env = createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [] });
+    started.push(runtime({ ...env, bindings: { ...env.bindings, launchApplication: () => TE.left("HTTP 404") } })());
+    type App = { show: () => void; privateData: unknown };
+    type AppMgr = HTMLObjectElement & {
+      getOwnerApplication: (d: Document) => { createApplication: (uri: string, createChild: boolean) => App };
+      onApplicationLoadError: ((appl: App) => void) | null;
+    };
+    const markup = addObject("application/oipfApplicationManager") as unknown as AppMgr;
+    await flushMutations();
+    const created = (
+      window as unknown as { oipfObjectFactory: { createApplicationManagerObject: () => AppMgr } }
+    ).oipfObjectFactory.createApplicationManagerObject();
+    const heard: string[] = [];
+    let launched: App | null = null;
+    markup.onApplicationLoadError = (appl) => heard.push(appl === launched ? "markup property" : "other");
+    markup.addEventListener("ApplicationLoadError", (event) =>
+      heard.push((event as Event & { appl: App }).appl === launched ? "markup event" : "other"),
+    );
+    created.onApplicationLoadError = (appl) => heard.push(appl === launched ? "created property" : "other");
+
+    launched = markup.getOwnerApplication(document).createApplication("http://missing.example/", false);
+    expect(heard).toEqual([]); // asynchronous (§7.2.2.2)
+    await flushMutations();
+
+    expect(heard).toEqual(["markup property", "markup event", "created property"]);
+    // Its properties are undefined, and its methods fail.
+    expect(launched?.privateData).toBeUndefined();
+    expect(() => launched?.show()).toThrow();
+  });
+
   it("delivers a remote-control key only once the application's keyset asks for it", async () => {
     const handle = startRuntime();
     const appMgr = addObject("application/oipfApplicationManager") as unknown as {

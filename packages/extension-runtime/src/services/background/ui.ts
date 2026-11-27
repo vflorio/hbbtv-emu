@@ -27,7 +27,7 @@ import {
   type ExtensionState,
   findChannel,
   fromUiState,
-  sessionChannel,
+  presentedChannel,
   stepVolume,
   type TvSession,
   toPageConfig,
@@ -89,7 +89,7 @@ const activeChannel =
           O.flatMap((id) => env.sessions.get(id)()),
           O.match(
             () => null,
-            (session) => sessionChannel(state, session),
+            (session) => presentedChannel(state, session),
           ),
         ),
       ),

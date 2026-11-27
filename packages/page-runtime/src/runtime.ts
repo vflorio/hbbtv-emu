@@ -5,12 +5,14 @@
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
 import {
   type ApplicationExit,
+  type ApplicationLaunch,
   type ChannelChangeRequest,
   createRuntimeEnv,
   exitAlone,
   type FetchStreamEventDescription,
   fetchFromPage,
   ignoreTvKey,
+  launchAlone,
   type PlayerRuntimeFactory,
   type RuntimeHandle,
   runtime,
@@ -22,6 +24,7 @@ import { type BootstrapData, initialChannel, type PageConfig } from "@hbb-emu/pr
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
+import type { HostApplicationLaunches } from "./applicationLaunch";
 import type { HostChannelChanges } from "./channelChange";
 import type { PageRuntimeControl } from "./host";
 import type { HostStreamEventDescriptions } from "./streamEventDescriptions";
@@ -66,18 +69,22 @@ export type HostRequests = Readonly<{
   fetchStreamEventDescription: FetchStreamEventDescription;
   /** The application exits (`destroyApplication()`). */
   exitApplication: ApplicationExit;
+  /** The application starts another (`createApplication()`). */
+  launchApplication: ApplicationLaunch;
 }>;
 
 /**
  * Without a host, the objects tune by themselves, the TV's keys do nothing, the page
- * fetches the stream event descriptions (subject to CORS, unlike a TV), and an
- * application that exits keeps running.
+ * fetches the stream event descriptions (subject to CORS, unlike a TV), an
+ * application that exits keeps running, and one that starts another at an HTTP(S)
+ * URL just goes there.
  */
 export const WITHOUT_HOST: HostRequests = {
   requestChannelChange: tuneAlone,
   pressTvKey: ignoreTvKey,
   fetchStreamEventDescription: fetchFromPage,
   exitApplication: exitAlone,
+  launchApplication: launchAlone,
 };
 
 /**
@@ -108,6 +115,7 @@ export const startRuntime =
         requestChannelChange: host.requestChannelChange,
         fetchStreamEventDescription: host.fetchStreamEventDescription,
         exitApplication: host.exitApplication,
+        launchApplication: host.launchApplication,
       },
       keyboard: { ...env.keyboard, pressTvKey: host.pressTvKey },
     })();
@@ -135,6 +143,7 @@ export const controlRuntime = (
   handle: RuntimeHandle,
   changes: HostChannelChanges,
   descriptions: HostStreamEventDescriptions,
+  launches: HostApplicationLaunches,
 ): PageRuntimeControl => ({
   applyConfig: (config: PageConfig) => handle.updateExtensionState(toExtensionState(config)),
   dispatchKey: handle.dispatchKey,
@@ -147,4 +156,5 @@ export const controlRuntime = (
     ),
   channelChangeFailed: changes.fail,
   streamEventDescriptionFetched: descriptions.settle,
+  applicationLoadFailed: launches.fail,
 });

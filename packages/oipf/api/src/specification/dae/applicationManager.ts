@@ -13,6 +13,12 @@ export interface ApplicationManager {
   /** Retrieve an application by identifier (availability varies). */
   getApplication(appId: string): Application | null;
 
+  /**
+   * Called when the first page of an application started with `createApplication()`
+   * cannot be loaded (OIPF DAE §7.2.1.3); also the DOM event `ApplicationLoadError`.
+   */
+  onApplicationLoadError?: ((application: Application) => void) | null;
+
   /** Control broadcast video transparency behind app UI. */
   setVideoTransparency?(transparent: boolean): void;
 
@@ -46,6 +52,11 @@ export interface Application {
    * starts the autostart application of the current service (TS 102 796 §6.2.2.3).
    */
   destroyApplication?(): void;
+  /**
+   * Starts another application (OIPF DAE §7.2.2.2); HbbTV has only `createChild`
+   * false (TS 102 796 Annex A). `null` if it cannot be created.
+   */
+  createApplication?(uri: string, createChild?: boolean): Application | null;
 
   id?: string;
   name?: string;

@@ -3,12 +3,22 @@ import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-
 import {
   type AitApplicationId,
   applicationIdOf,
+  applicationLocation,
   autostartApplication,
   DEFAULT_HBBTV_STATE,
   type HbbTVState,
+  parseDvbApplicationUrl,
+  signalledApplication,
   signalsApplication,
 } from "@hbb-emu/oipf-api";
-import { type BootstrapData, initialChannel, type PageConfig, type PageSession, type UiState } from "@hbb-emu/protocol";
+import {
+  type BootstrapData,
+  initialChannel,
+  type PageConfig,
+  type PageSession,
+  tunedChannelId,
+  type UiState,
+} from "@hbb-emu/protocol";
 
 /**
  * Extension State Domain Types
@@ -84,8 +94,14 @@ const toPageChannel = (channel: ChannelConfig, assetUrl: AssetUrl): ChannelConfi
  */
 export type TvSession = Readonly<{
   mode: "app" | "tv";
-  /** The channel the TV is tuned to (an id of the lineup). */
+  /** The channel the TV is tuned to (an id of the lineup), or was before it selected none. */
   channelId: string | null;
+  /**
+   * Whether the TV selects that channel's service: `false` while a broadcast-independent
+   * application runs, the "null service" of TS 102 796 §6.2.2.6.1 (no broadcast, no
+   * current channel). Selecting a channel selects it again.
+   */
+  serviceSelected: boolean;
   /** The page the TV shows (the last one that started in the tab); `null` before any. */
   url: string | null;
   /** The application the TV started from the AIT (`tv` mode); `null` when it runs none. */
@@ -128,6 +144,7 @@ const selectService = (channel: ChannelConfig, tvPage: TvPageUrl): Readonly<{ ur
 export const turnedOnSession = (channel: ChannelConfig, tvPage: TvPageUrl): TvSession & { url: string } => ({
   mode: "tv",
   channelId: channel.id,
+  serviceSelected: true,
   volume: DEFAULT_TV_VOLUME,
   ...selectService(channel, tvPage),
 });
@@ -141,7 +158,7 @@ export const changeChannel = (
   channel: ChannelConfig,
   tvPage: TvPageUrl,
 ): Readonly<{ session: TvSession; navigateTo: string | null }> => {
-  const retuned = { ...session, channelId: channel.id };
+  const retuned = { ...session, channelId: channel.id, serviceSelected: true };
   if (session.mode === "app" || (session.app !== null && signalsApplication(channel.ait, session.app))) {
     return { session: retuned, navigateTo: null };
   }
@@ -165,7 +182,51 @@ export const exitApplication = (
 ): Readonly<{ session: TvSession; navigateTo: string | null }> => {
   if (channel === null) return { session, navigateTo: null };
   const selected = selectService(channel, tvPage);
-  return { session: { ...session, channelId: channel.id, ...selected }, navigateTo: selected.url };
+  return {
+    session: { ...session, channelId: channel.id, serviceSelected: true, ...selected },
+    navigateTo: selected.url,
+  };
+};
+
+/**
+ * The session after the application starts another (`createApplication()`), and the
+ * page the tab must load; or why the TV cannot start it, which the application hears
+ * as `ApplicationLoadError` (TS 102 796 §6.2.2.5.6).
+ * - `dvb://current.ait/<org>.<app>`: that application of `channel`'s AIT, if it is
+ *   signalled as AUTOSTART or PRESENT, at its signalled location with the URL's query
+ *   and fragment (§9.2). It is broadcast-related, as the TV still selects the service.
+ *   One of another service fails "as if the initial page could not be loaded" (§9.2).
+ * - HTTP(S): a broadcast-independent application (§6.2.2.6.1). The TV selects no
+ *   service any more: no broadcast, no current channel, until a channel is selected.
+ * The same in both modes.
+ */
+export const launchApplication = (
+  session: TvSession,
+  channel: ChannelConfig | null,
+  url: string,
+): Readonly<{ _tag: "load"; session: TvSession; navigateTo: string } | { _tag: "fail"; reason: string }> => {
+  const locator = parseDvbApplicationUrl(url);
+  if (locator === null) {
+    return /^https?:/i.test(url)
+      ? { _tag: "load", session: { ...session, serviceSelected: false, app: null, url }, navigateTo: url }
+      : { _tag: "fail", reason: `no application at ${url}` };
+  }
+  if (locator._tag === "otherService") return { _tag: "fail", reason: "an application of another service" };
+  if (channel === null || !session.serviceSelected) return { _tag: "fail", reason: "no service is selected" };
+  const signalled = signalledApplication(channel.ait, locator.id);
+  if (signalled === null) {
+    const { orgId, appId } = locator.id;
+    return {
+      _tag: "fail",
+      reason: `${channel.name} signals no application ${orgId.toString(16)}.${appId.toString(16)}`,
+    };
+  }
+  const location = applicationLocation(signalled.url, locator);
+  return {
+    _tag: "load",
+    session: { ...session, app: applicationIdOf(signalled), url: location },
+    navigateTo: location,
+  };
 };
 
 /**
@@ -182,6 +243,10 @@ export type TvSessions = Readonly<Record<string, TvSession>>;
 /** Until device profiles exist, a TV is on the first channel of the lineup when nothing else says. */
 export const defaultChannel = (state: ExtensionState): ChannelConfig | null => state.runtime.channels[0] ?? null;
 
+/** The channel whose service the TV presents: none while it selects no service. */
+export const presentedChannel = (state: ExtensionState, session: TvSession): ChannelConfig | null =>
+  session.serviceSelected ? sessionChannel(state, session) : null;
+
 /** What every page finds at `document_start`: the configuration, and the page each TV shows on which channel. */
 export const toBootstrapData = (state: ExtensionState, sessions: TvSessions, assetUrl: AssetUrl): BootstrapData => ({
   config: toPageConfig(state, assetUrl),
@@ -192,7 +257,8 @@ export const toBootstrapData = (state: ExtensionState, sessions: TvSessions, ass
 const tuningsOf = (state: ExtensionState, sessions: TvSessions): BootstrapData["tunings"] =>
   Object.values(sessions).flatMap((session) => {
     const channel = sessionChannel(state, session);
-    return session.url === null || channel === null ? [] : [{ url: session.url, channelId: channel.id }];
+    if (session.url === null || channel === null) return [];
+    return [{ url: session.url, channelId: session.serviceSelected ? channel.id : null }];
   });
 
 /**
@@ -200,20 +266,21 @@ const tuningsOf = (state: ExtensionState, sessions: TvSessions): BootstrapData["
  * gives, with the data the page itself got at `document_start`, so the two agree
  * (the TV already showing that page, else the channel signalling it, else the first).
  */
-export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => ({
-  mode: "app",
-  channelId:
-    initialChannel(
-      {
-        config: { userAgent: state.runtime.userAgent, channels: state.runtime.channels },
-        tunings: tuningsOf(state, sessions),
-      },
-      url,
-    )?.id ?? null,
-  url,
-  app: null,
-  volume: DEFAULT_TV_VOLUME,
-});
+export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => {
+  const data = {
+    config: { userAgent: state.runtime.userAgent, channels: state.runtime.channels },
+    tunings: tuningsOf(state, sessions),
+  };
+  return {
+    mode: "app",
+    channelId: initialChannel(data, url)?.id ?? null,
+    // The page another TV shows with no service selected starts with none too.
+    serviceSelected: tunedChannelId(data.tunings, url) !== null,
+    url,
+    app: null,
+    volume: DEFAULT_TV_VOLUME,
+  };
+};
 
 export const findChannel = (state: ExtensionState, channelId: string): ChannelConfig | null =>
   state.runtime.channels.find((channel) => channel.id === channelId) ?? null;
@@ -236,7 +303,7 @@ export const zapChannel = (state: ExtensionState, session: TvSession, step: 1 | 
 };
 
 export const toPageSession = (state: ExtensionState, session: TvSession, assetUrl: AssetUrl): PageSession => {
-  const channel = sessionChannel(state, session);
+  const channel = presentedChannel(state, session);
   return { channel: channel && toPageChannel(channel, assetUrl), volume: session.volume };
 };
 

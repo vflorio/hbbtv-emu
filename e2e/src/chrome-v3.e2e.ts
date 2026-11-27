@@ -3,6 +3,12 @@ import { fileURLToPath } from "node:url";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  broadcastSeen,
+  createApplicationIn,
+  createApplicationThatFails,
+  selectService,
+} from "./support/applicationLaunch";
+import {
   runAudioScenario,
   runAvControlScenario,
   runQueueScenario,
@@ -906,6 +912,80 @@ describe("chrome-v3: settings UI", () => {
       await restarted(tv, hgtvUrl);
       expect((await appState(tv)).channelAtFirstScript).toBe(hgtv.id);
       expect((await getState()).currentChannel?.id).toBe(hgtv.id);
+      await tv.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
+  it("createApplication() starts an application of the current AIT, or a broadcast-independent one; the caller hears when it cannot (TS 102 796 §6.2.2.6.1, §9.2)", async () => {
+    const { ui } = await openUi();
+    type Service = Channel & { onid: number; tsid: number };
+    type UiState = { channels: Service[]; currentChannel: Service | null };
+    const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Service];
+    const stamp = Date.now();
+    const linearUrl = server.url(`basic-app/index.xhtml?launch-linear=${stamp}`);
+    const fullUrl = server.url(`basic-app/index.xhtml?launch-full=${stamp}`);
+    const portalUrl = server.url(`basic-app/index.xhtml?launch-portal=${stamp}`);
+    // DMAX's linear application, and its full one (PRESENT): org 10, apps 1 and 2.
+    const dmax = {
+      ...first,
+      id: "e2e-dmax",
+      name: "e2e DMAX",
+      sid: first.sid + 3000,
+      ait: {
+        applications: [
+          { orgId: 10, appId: 1, controlCode: "AUTOSTART", url: linearUrl },
+          { orgId: 10, appId: 2, controlCode: "PRESENT", url: `${fullUrl}#top` },
+        ],
+      },
+    };
+    const appState = (page: Page) => page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e);
+    /** The page that asked is gone, and `url` started in its place. */
+    const replacedBy = async (page: Page, url: string) => {
+      await expect
+        .poll(() => page.evaluate(() => "__stayed" in window).catch(() => true), { timeout: 5000 })
+        .toBe(false);
+      await page.waitForURL(url);
+      await page.waitForFunction(() => "__e2e" in window);
+    };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, dmax] } });
+      const opened = browser.context.waitForEvent("page");
+      expect(await request({ _tag: "UI/TurnOnTv", channelId: dmax.id })).toEqual({ _tag: "UI/Done" });
+      const tv = await opened;
+      await tv.waitForURL(linearUrl);
+      await tv.waitForFunction(() => "__e2e" in window);
+
+      // The full application, from the current AIT: its signalled URL with the dvb: URL's
+      // query appended and its fragment instead (§9.2). Broadcast-related: still on DMAX.
+      expect(await tv.evaluate(createApplicationIn, "dvb://current.ait/a.2?from=dvb#menu")).toBe(true);
+      const composed = `${fullUrl}&from=dvb#menu`;
+      await replacedBy(tv, composed);
+      expect((await appState(tv)).channelAtFirstScript).toBe(dmax.id);
+
+      // A page that is not there: the application stays, and hears it (OIPF DAE §7.2.1.3).
+      expect(await tv.evaluate(createApplicationThatFails, "missing.xhtml")).toEqual({
+        heard: ["property", "event"],
+        stayed: true,
+      });
+
+      // An HTTP(S) page: broadcast-independent, no service selected, no broadcast.
+      expect(await tv.evaluate(createApplicationIn, portalUrl)).toBe(true);
+      await replacedBy(tv, portalUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBeNull();
+      expect(await tv.evaluate(broadcastSeen)).toEqual({ application: null, videoBroadcast: null, playState: 0 });
+      expect((await getState()).currentChannel).toBeNull();
+
+      // Selecting a service stops it: the TV starts the service's autostart application.
+      await tv.evaluate(() => Object.assign(window, { __stayed: true }));
+      await tv.evaluate(selectService, dmax);
+      await replacedBy(tv, linearUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBe(dmax.id);
       await tv.close();
     } finally {
       await request({ _tag: "UI/SaveState", state: original });

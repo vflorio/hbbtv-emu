@@ -535,10 +535,11 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
   });
 
   it("a restarted background (MV3 service worker) finds the sessions of the tabs still open", async () => {
-    const stored: TvSessions = {
+    const stored = {
+      // As an older version stored it: it always selected the channel's service.
       "1": { mode: "app", channelId: "hgtv", url: null, app: null, volume: 100 },
-      "99": { mode: "app", channelId: "hgtv", url: null, app: null, volume: 100 },
-    };
+      "99": { mode: "app", channelId: "hgtv", serviceSelected: true, url: null, app: null, volume: 100 },
+    } as unknown as TvSessions;
     const { messaging, sessionStorage } = await setup(lineup, OPEN_TABS, true, stored);
 
     await pageReady(messaging, 1);
@@ -557,7 +558,9 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
   });
 
   it("a session whose channel left the lineup is back on the first channel", async () => {
-    const stored: TvSessions = { "1": { mode: "app", channelId: "gone", url: null, app: null, volume: 100 } };
+    const stored: TvSessions = {
+      "1": { mode: "app", channelId: "gone", serviceSelected: true, url: null, app: null, volume: 100 },
+    };
     const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
 
     await pageReady(messaging, 1);
@@ -841,5 +844,138 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     await destroyApplication(messaging, 1);
 
     expect(tabs.navigations).toEqual([]);
+  });
+});
+
+describe("BackgroundService — createApplication()", () => {
+  const [first] = DEFAULT_STATE.runtime.channels;
+  // DMAX: its linear application (AUTOSTART) and its full one (PRESENT, org 10 app 2).
+  const dmax = {
+    ...first!,
+    id: "dmax",
+    name: "DMAX",
+    sid: 52,
+    ait: {
+      applications: [
+        { orgId: 10, appId: 1, controlCode: "AUTOSTART" as const, url: "http://linear.example/dmax.html" },
+        { orgId: 10, appId: 2, controlCode: "PRESENT" as const, url: "http://full.example/index.html?from=ait#top" },
+      ],
+    },
+  };
+  const news = {
+    ...first!,
+    id: "news",
+    name: "NEWS",
+    sid: 60,
+    ait: { applications: [{ orgId: 20, appId: 1, controlCode: "AUTOSTART" as const, url: "http://news.example/" }] },
+  };
+  const lineup = { ...DEFAULT_STATE, runtime: { ...DEFAULT_STATE.runtime, channels: [dmax, news] } };
+  const TV_TAB = 100;
+  type Sent = { tabId: number; message: HostMessage };
+
+  /** A TV turned on on DMAX, its application running; `pages` are what the TV can load. */
+  const onDmax = async (pages: Record<string, string | null> = {}) => {
+    const broadband: BroadbandAdapter = {
+      fetchText: (url) =>
+        url in pages
+          ? TE.right({ contentType: pages[url] ?? null, body: "<html/>" })
+          : TE.left({ _tag: "BroadbandFetchError", url, cause: new Error("HTTP 404") }),
+    };
+    const env = await setup(lineup, OPEN_TABS, true, undefined, broadband);
+    await env.ui.request({ _tag: "UI/TurnOnTv", channelId: "dmax" });
+    env.messaging.receive({ _tag: "Page/Ready", url: "http://linear.example/dmax.html" }, TV_TAB);
+    await flushPromises();
+    return env;
+  };
+
+  const createApplication = async (env: Awaited<ReturnType<typeof onDmax>>, url: string) => {
+    env.messaging.receive({ _tag: "Page/CreateApplication", url }, TV_TAB);
+    await flushPromises();
+  };
+
+  const loadErrors = (sent: ReadonlyArray<Sent>) =>
+    sent.filter((s) => s.message._tag === "Host/ApplicationLoadError").map((s) => s.message);
+
+  /** The last bootstrap published, as the script made of `tunings`. */
+  const publishedWith = (bootstrap: { published: string[] }, tunings: BootstrapData["tunings"]) =>
+    expect(bootstrap.published[bootstrap.published.length - 1]).toBe(
+      configBootstrapScript({ config: toPageConfig(lineup, assetUrl), tunings }),
+    );
+
+  it("dvb://current.ait/<org>.<app> starts that application of the current AIT, with the URL's query and fragment (TS 102 796 §9.2)", async () => {
+    const full = "http://full.example/index.html?from=ait&from=dvb#menu";
+    const env = await onDmax({ [full]: "application/vnd.hbbtv.xhtml+xml" });
+
+    await createApplication(env, "dvb://current.ait/a.2?from=dvb#menu");
+
+    expect(env.tabs.navigations.slice(2)).toEqual([{ tabId: TV_TAB, url: full }]);
+    // Broadcast-related: the TV still presents DMAX, and the new page starts on it.
+    publishedWith(env.bootstrap, [{ url: full, channelId: "dmax" }]);
+    expect(loadErrors(env.messaging.sent)).toEqual([]);
+  });
+
+  it("an HTTP(S) page is a broadcast-independent application: the TV selects no service (§6.2.2.6.1)", async () => {
+    const page = "http://portal.example/";
+    const env = await onDmax({ [page]: "text/html" });
+    env.ui.notified.splice(0);
+
+    await createApplication(env, page);
+    env.messaging.receive({ _tag: "Page/Ready", url: page }, TV_TAB);
+    await flushPromises();
+
+    expect(env.tabs.navigations.slice(2)).toEqual([{ tabId: TV_TAB, url: page }]);
+    publishedWith(env.bootstrap, [{ url: page, channelId: null }]);
+    const sessions = env.messaging.sent.filter((s) => s.tabId === TV_TAB && s.message._tag === "Host/Session");
+    expect(sessions[sessions.length - 1]?.message).toMatchObject({ session: { channel: null } });
+    expect(env.ui.notified[env.ui.notified.length - 1]).toEqual({
+      _tag: "UI/StateChanged",
+      state: toUiState(lineup, null),
+    });
+  });
+
+  it("…and selecting a channel stops it: the TV loads that channel's autostart application", async () => {
+    const page = "http://portal.example/";
+    const env = await onDmax({ [page]: "text/html" });
+    await createApplication(env, page);
+
+    env.messaging.receive({ _tag: "Page/SetChannel", channelId: "dmax" }, TV_TAB);
+    await flushPromises();
+
+    expect(env.tabs.navigations.slice(3)).toEqual([{ tabId: TV_TAB, url: "http://linear.example/dmax.html" }]);
+    publishedWith(env.bootstrap, [{ url: "http://linear.example/dmax.html", channelId: "dmax" }]);
+  });
+
+  it("fails, without loading anything, for what the TV cannot start (§6.2.2.5.6, §9.2)", async () => {
+    const env = await onDmax({ "http://portal.example/ait.xml": "application/vnd.dvb.ait+xml" });
+
+    await createApplication(env, "dvb://current.ait/a.9");
+    await createApplication(env, "dvb://233a.4.5.ait/a.2");
+    await createApplication(env, "http://missing.example/");
+    await createApplication(env, "http://portal.example/ait.xml");
+
+    expect(env.tabs.navigations).toHaveLength(2);
+    expect(loadErrors(env.messaging.sent)).toEqual([
+      { _tag: "Host/ApplicationLoadError", url: "dvb://current.ait/a.9", reason: "DMAX signals no application a.9" },
+      { _tag: "Host/ApplicationLoadError", url: "dvb://233a.4.5.ait/a.2", reason: "an application of another service" },
+      { _tag: "Host/ApplicationLoadError", url: "http://missing.example/", reason: "HTTP 404" },
+      {
+        _tag: "Host/ApplicationLoadError",
+        url: "http://portal.example/ait.xml",
+        reason: "not an application page (application/vnd.dvb.ait+xml)",
+      },
+    ]);
+  });
+
+  it("a broadcast-independent application has no current AIT to start from", async () => {
+    const page = "http://portal.example/";
+    const env = await onDmax({ [page]: "text/html", "http://full.example/index.html?from=ait#top": null });
+    await createApplication(env, page);
+
+    await createApplication(env, "dvb://current.ait/a.2");
+
+    expect(env.tabs.navigations).toHaveLength(3);
+    expect(loadErrors(env.messaging.sent)).toEqual([
+      { _tag: "Host/ApplicationLoadError", url: "dvb://current.ait/a.2", reason: "no service is selected" },
+    ]);
   });
 });

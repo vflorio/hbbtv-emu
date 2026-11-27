@@ -33,6 +33,8 @@ describe("message guards", () => {
     [{ _tag: "Page/FetchStreamEventDescription", url: "http://tv/a.ste" }, true],
     [{ _tag: "Page/FetchStreamEventDescription" }, false],
     [{ _tag: "Page/DestroyApplication" }, true],
+    [{ _tag: "Page/CreateApplication", url: "dvb://current.ait/1.1" }, true],
+    [{ _tag: "Page/CreateApplication" }, false],
     [{ _tag: "Host/Hello" }, false],
   ])("isPageMessage(%j) → %s", (value, expected) => {
     expect(isPageMessage(value)).toBe(expected);

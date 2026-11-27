@@ -155,12 +155,26 @@ export const createApplicationManagerBinding = (
     predicate: OIPF.DAE.ApplicationManager.isValidElement,
     attachStrategy: "non-visual",
   },
-  factory: (_element) =>
-    new OipfApplicationManager({
+  factory: (element) => {
+    // OIPF DAE §7.2.1.4: the DOM event of the intrinsic one, with the application.
+    const oipfElement = element as HTMLObjectElement &
+      Pick<OIPF.DAE.ApplicationManager.ApplicationManager, "onApplicationLoadError">;
+    env.applicationLoadErrors.add(
+      intrinsicEvent(
+        element,
+        "ApplicationLoadError",
+        (appl) => ({ appl }),
+        (appl: OIPF.DAE.ApplicationManager.Application) => oipfElement.onApplicationLoadError?.(appl),
+      ),
+    )();
+    return new OipfApplicationManager({
       getCurrentChannel: env.getCurrentChannel,
       keyset: env.keyset,
       exitApplication: env.exitApplication,
-    }),
+      launchApplication: env.launchApplication,
+      applicationLoadErrors: env.applicationLoadErrors,
+    });
+  },
 });
 
 /**

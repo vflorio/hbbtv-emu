@@ -14,13 +14,14 @@ import * as O from "fp-ts/Option";
 import type * as RT from "fp-ts/ReaderTask";
 import * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";
-import type { AdapterError, MessagingAdapter, TabsAdapter } from "../../adapter";
+import type { AdapterError, BroadbandAdapter, MessagingAdapter, TabsAdapter } from "../../adapter";
 import {
   type AssetUrl,
   changeChannel,
   type ExtensionState,
   exitApplication,
   findChannel,
+  launchApplication,
   mayChangeChannel,
   sessionChannel,
   type TvPageUrl,
@@ -40,6 +41,8 @@ export type TvEnv = Readonly<{
   tvPage: TvPageUrl;
   /** Where the files the emulator ships are, for the pages. */
   assetUrl: AssetUrl;
+  /** What the TV fetches for itself: the first page of an application it starts, to check it. */
+  broadband: BroadbandAdapter;
 }>;
 
 /** Pages loaded from now on get the configuration and the channel of each TV. */
@@ -101,6 +104,59 @@ export const exitTabApplication =
       TE.tap(() => TE.fromTask(republish(state)(env))),
       TE.flatMap(() => env.tabs.navigate(tabId, navigateTo)),
       TE.map(() => true),
+    );
+  };
+
+/**
+ * What the TV accepts as an application's first page: an HTML document (HbbTV's own
+ * content type, XHTML, HTML), or a response that does not say. An XML AIT, which
+ * would start a broadcast-independent application with its ids (§6.2.2.6.1), is not
+ * supported yet.
+ */
+const isApplicationPage = (contentType: string | null): boolean =>
+  contentType === null || /hbbtv|html/i.test(contentType);
+
+/**
+ * Whether the TV can load the first page at `url` (OIPF DAE §7.2.1.3: an HTTP error, a
+ * timeout, a file that is not HTML), and why not. The TV fetches it once to check,
+ * so the application that asked is still there to hear it; the tab then loads it.
+ */
+const checkApplicationPage =
+  (url: string): RT.ReaderTask<Pick<TvEnv, "broadband">, E.Either<string, void>> =>
+  ({ broadband }) =>
+    pipe(
+      broadband.fetchText(url),
+      TE.mapLeft((error) =>
+        error._tag === "BroadbandFetchError" && error.cause instanceof Error ? error.cause.message : error._tag,
+      ),
+      TE.flatMap(({ contentType }) =>
+        isApplicationPage(contentType) ? TE.right(undefined) : TE.left(`not an application page (${contentType})`),
+      ),
+    );
+
+/**
+ * The application in `tabId` starts another at `url` (`createApplication()`): the TV
+ * checks its first page, then loads it in the tab, its channel (or none) already in
+ * the bootstrap (`launchApplication`). Loading it ends the application that asked.
+ * Fails with the reason the application hears as `ApplicationLoadError`.
+ */
+export const launchTabApplication =
+  (tabId: number, url: string, state: ExtensionState): RT.ReaderTask<TvEnv, E.Either<string, void>> =>
+  (env) => {
+    const session = env.sessions.get(tabId)();
+    if (O.isNone(session)) return T.of(E.left("the tab is not a TV"));
+    const launch = launchApplication(session.value, sessionChannel(state, session.value), url);
+    if (launch._tag === "fail") return T.of(E.left(launch.reason));
+    return pipe(
+      checkApplicationPage(launch.navigateTo)(env),
+      TE.flatMap(() =>
+        pipe(
+          TE.fromTask(env.sessions.update(tabId, () => launch.session)),
+          TE.tap(() => TE.fromTask(republish(state)(env))),
+          TE.flatMap(() => env.tabs.navigate(tabId, launch.navigateTo)),
+          TE.mapLeft((error) => error._tag),
+        ),
+      ),
     );
   };
 

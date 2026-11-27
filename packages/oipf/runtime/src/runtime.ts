@@ -38,10 +38,13 @@ import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFa
 import { broadcastGain } from "./apis/dae/videoBroadcast/volume";
 import {
   type ApplicationExit,
+  type ApplicationLaunch,
+  type ApplicationLoadErrors,
   type BroadcastLayer,
   type ChannelChangeRequest,
   type ChannelRegistry,
   type ChannelRegistryEnv,
+  createApplicationLoadErrors,
   createBroadcastLayer,
   createBroadcastStream,
   createChannelRegistryEnv,
@@ -65,6 +68,7 @@ import {
   installMediaElementVolume,
   isSameService,
   type KeyMap,
+  launchAlone,
   type RemoteControlEnv,
   type StreamEventSchedulerApi,
   type TvVolume,
@@ -114,6 +118,15 @@ export type BindingsEnv = Readonly<{
    * it and starts what the AIT says (TS 102 796 §6.2.2.3). Without a host, nothing.
    */
   exitApplication: ApplicationExit;
+
+  /**
+   * Asks the TV to start another application (`createApplication()`): the host
+   * checks its page and loads it. Without a host, the page goes to an HTTP(S) URL.
+   */
+  launchApplication: ApplicationLaunch;
+
+  /** The page's application managers, which fire `ApplicationLoadError` when that fails. */
+  applicationLoadErrors: ApplicationLoadErrors;
 
   /**
    * The TV's broadcast in the page, which video/broadcast objects control: presented
@@ -487,6 +500,8 @@ export const createRuntimeEnv = (
     requestChannelChange: tuneAlone,
     fetchStreamEventDescription: fetchFromPage,
     exitApplication: exitAlone,
+    launchApplication: launchAlone,
+    applicationLoadErrors: createApplicationLoadErrors(),
     broadcastLayer,
     // The broadcast's PlayerRuntime
     getSharedPlayerRuntime: () => sharedPlayerRuntime ?? null,

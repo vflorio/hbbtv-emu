@@ -9,6 +9,7 @@ import * as IO from "fp-ts/IO";
 import { IORef } from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
 import { createHostApplicationExit } from "./applicationExit";
+import { createHostApplicationLaunches } from "./applicationLaunch";
 import { bootPageRuntime } from "./boot";
 import { createHostChannelChanges } from "./channelChange";
 import { connectToHost } from "./host";
@@ -21,6 +22,7 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
   // Created before the runtime: the application may change channel in its first script.
   const changes = createHostChannelChanges(channel.send);
   const descriptions = createHostStreamEventDescriptions(channel.send);
+  const launches = createHostApplicationLaunches(channel.send);
   const applyLate = new IORef<O.Option<(data: BootstrapData) => IO.IO<void>>>(O.none);
 
   // A bootstrap script injected after this one runs only once this whole startup is
@@ -43,6 +45,7 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
             pressTvKey: (keyCode) => channel.send({ _tag: "Page/TvKey", keyCode }),
             fetchStreamEventDescription: descriptions.fetch,
             exitApplication: createHostApplicationExit(channel.send),
+            launchApplication: launches.launch,
           }),
         ),
       ),
@@ -53,7 +56,9 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
         (handle) =>
           pipe(
             applyLate.write(O.some(applyBootstrap(handle, url))),
-            IO.flatMap(() => connectToHost({ channel, control: controlRuntime(handle, changes, descriptions), url })),
+            IO.flatMap(() =>
+              connectToHost({ channel, control: controlRuntime(handle, changes, descriptions, launches), url }),
+            ),
             IO.asUnit,
           ),
       ),

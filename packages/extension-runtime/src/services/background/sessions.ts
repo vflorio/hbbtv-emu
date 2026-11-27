@@ -38,16 +38,27 @@ const isApplicationId = (value: unknown): value is AitApplicationId => {
   return typeof orgId === "number" && typeof appId === "number";
 };
 
-/** A stored session, as this version understands it; older ones had no `url`, `app` nor `volume`. */
+/**
+ * A stored session, as this version understands it; older ones had no `url`, `app`,
+ * `volume` nor `serviceSelected` (they always selected one).
+ */
 const toTvSession = (value: unknown): O.Option<TvSession> => {
   if (typeof value !== "object" || value === null) return O.none;
-  const { mode, channelId, url = null, app = null, volume = DEFAULT_TV_VOLUME } = value as Record<string, unknown>;
+  const {
+    mode,
+    channelId,
+    serviceSelected = true,
+    url = null,
+    app = null,
+    volume = DEFAULT_TV_VOLUME,
+  } = value as Record<string, unknown>;
   return (mode === "app" || mode === "tv") &&
     isNullableString(channelId) &&
+    typeof serviceSelected === "boolean" &&
     isNullableString(url) &&
     (app === null || isApplicationId(app)) &&
     typeof volume === "number"
-    ? O.some({ mode, channelId, url, app, volume })
+    ? O.some({ mode, channelId, serviceSelected, url, app, volume })
     : O.none;
 };
 

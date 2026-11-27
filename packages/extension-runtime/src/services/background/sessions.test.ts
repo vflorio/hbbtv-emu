@@ -3,7 +3,14 @@ import { createFakeStorage, flushPromises, silentLogger } from "../../__tests__/
 import type { TvSession, TvSessions } from "../../state";
 import { createSessions } from "./sessions";
 
-const session = (channelId: string): TvSession => ({ mode: "app", channelId, url: null, app: null, volume: 100 });
+const session = (channelId: string): TvSession => ({
+  mode: "app",
+  channelId,
+  serviceSelected: true,
+  url: null,
+  app: null,
+  volume: 100,
+});
 
 const setup = () => {
   const storage = createFakeStorage<TvSessions>();

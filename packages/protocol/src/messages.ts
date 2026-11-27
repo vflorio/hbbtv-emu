@@ -10,7 +10,8 @@
  * - requests: the application asks the TV to change channel (`setChannel()`), and
  *   the host answers with the new session or an error, or loads another page; the page
  *   asks the host for a stream event description, which a TV fetches without CORS;
- *   the application exits (`destroyApplication()`), and the host loads another page.
+ *   the application exits (`destroyApplication()`) or starts another
+ *   (`createApplication()`), and the host loads another page, or says why it cannot.
  *
  * Plus the TV session of the tab (the channel it is tuned to, …): owned by the host,
  * it outlives the page, which gets it again after every navigation.
@@ -54,7 +55,12 @@ export type PageMessage =
    * The application exits (`destroyApplication()`): the TV of this tab stops it and
    * starts what the AIT of its channel says (TS 102 796 §6.2.2.3).
    */
-  | Readonly<{ _tag: "Page/DestroyApplication" }>;
+  | Readonly<{ _tag: "Page/DestroyApplication" }>
+  /**
+   * The application starts another (`createApplication()`): an absolute HTTP(S) URL or
+   * a `dvb:` one. The host loads it, or answers `Host/ApplicationLoadError`.
+   */
+  | Readonly<{ _tag: "Page/CreateApplication"; url: string }>;
 
 /** A stream event description as the host fetched it, or why it could not. */
 export type StreamEventDescriptionResult =
@@ -76,7 +82,9 @@ export type HostMessage =
    */
   | Readonly<{ _tag: "Host/ChannelChangeError"; channelId: string; error: number }>
   /** The answer to `Page/FetchStreamEventDescription`. */
-  | Readonly<{ _tag: "Host/StreamEventDescription"; url: string; result: StreamEventDescriptionResult }>;
+  | Readonly<{ _tag: "Host/StreamEventDescription"; url: string; result: StreamEventDescriptionResult }>
+  /** The TV could not start the application at `url` (`Page/CreateApplication`), and why. */
+  | Readonly<{ _tag: "Host/ApplicationLoadError"; url: string; reason: string }>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
@@ -109,6 +117,8 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
       return typeof value.url === "string";
     case "Page/DestroyApplication":
       return true;
+    case "Page/CreateApplication":
+      return typeof value.url === "string";
     default:
       return false;
   }
@@ -131,6 +141,8 @@ export const isHostMessage = (value: unknown): value is HostMessage => {
       return typeof value.channelId === "string" && typeof value.error === "number" && Number.isInteger(value.error);
     case "Host/StreamEventDescription":
       return typeof value.url === "string" && isStreamEventDescriptionResult(value.result);
+    case "Host/ApplicationLoadError":
+      return typeof value.url === "string" && typeof value.reason === "string";
     default:
       return false;
   }

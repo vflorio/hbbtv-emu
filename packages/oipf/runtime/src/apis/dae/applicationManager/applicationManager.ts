@@ -10,6 +10,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import type { ApplicationExit } from "../../../subsystems/applicationExit";
+import type { ApplicationLaunch, ApplicationLoadErrors } from "../../../subsystems/applicationLaunch";
 import { type ApplicationEnv, createApplication } from "./application";
 
 const logger = createLogger("OipfApplicationManager");
@@ -30,6 +31,12 @@ export type ApplicationManagerEnv = Readonly<{
 
   /** Tells the TV that the application exits (`destroyApplication()`). */
   exitApplication: ApplicationExit;
+
+  /** Asks the TV to start another application (`createApplication()`). */
+  launchApplication: ApplicationLaunch;
+
+  /** The page's application managers, which hear when an application could not be started. */
+  applicationLoadErrors: ApplicationLoadErrors;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,6 +87,8 @@ export class OipfApplicationManager
       getCurrentChannel: this.#env.getCurrentChannel,
       keyset: this.#env.keyset,
       exitApplication: this.#env.exitApplication,
+      launchApplication: this.#env.launchApplication,
+      applicationLoadErrors: this.#env.applicationLoadErrors,
     });
   }
 

@@ -1,6 +1,15 @@
 import { isRight } from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
-import { type AitApplication, AitCodec, autostartApplication, channelSignalling, signalsApplication } from "./ait";
+import {
+  type AitApplication,
+  AitCodec,
+  applicationLocation,
+  autostartApplication,
+  channelSignalling,
+  parseDvbApplicationUrl,
+  signalledApplication,
+  signalsApplication,
+} from "./ait";
 
 const app = (url: string, overrides: Partial<AitApplication> = {}): AitApplication => ({
   orgId: 1,
@@ -62,7 +71,7 @@ describe("signalsApplication", () => {
 describe("channelSignalling", () => {
   const news = channel("news", app("http://apps.example/news/index.html"));
   const sport = channel("sport", app("http://apps.example/sport/index.html"));
-  const plain = { id: "plain" };
+  const plain = { id: "plain", ait: undefined };
 
   it("is the channel signalling the page's own URL, fragment aside", () => {
     expect(channelSignalling([plain, news, sport], "http://apps.example/sport/index.html#menu")).toBe(sport);
@@ -90,5 +99,66 @@ describe("channelSignalling", () => {
   it("ignores URLs it cannot parse", () => {
     expect(channelSignalling([channel("broken", app("not a url"))], "http://apps.example/")).toBeNull();
     expect(channelSignalling([news], "not a url")).toBeNull();
+  });
+});
+
+describe("parseDvbApplicationUrl", () => {
+  it("names an application of the current service's AIT, its ids in hexadecimal (TS 102 812 §14.5)", () => {
+    expect(parseDvbApplicationUrl("dvb://current.ait/1.1")).toEqual({
+      _tag: "current",
+      id: { orgId: 1, appId: 1 },
+      query: null,
+      fragment: null,
+    });
+    expect(parseDvbApplicationUrl("dvb://current.ait/13.1a?param2=value2#foo")).toEqual({
+      _tag: "current",
+      id: { orgId: 0x13, appId: 0x1a },
+      query: "param2=value2",
+      fragment: "foo",
+    });
+    expect(parseDvbApplicationUrl("DVB://CURRENT.AIT/FF.A")).toMatchObject({ id: { orgId: 0xff, appId: 0xa } });
+  });
+
+  it("tells an application of another service apart, and names nothing otherwise", () => {
+    expect(parseDvbApplicationUrl("dvb://233a.4.5.ait/1.1")).toEqual({ _tag: "otherService" });
+    expect(parseDvbApplicationUrl("dvb://current.ait/app_root")).toBeNull();
+    expect(parseDvbApplicationUrl("dvb://1.2.3/index.html")).toBeNull();
+    expect(parseDvbApplicationUrl("http://apps.example/")).toBeNull();
+  });
+});
+
+describe("signalledApplication", () => {
+  it("is the runnable application with that id", () => {
+    const present = app("http://present.example/", { orgId: 10, appId: 2, controlCode: "PRESENT" });
+    const killed = app("http://killed.example/", { orgId: 10, appId: 3, controlCode: "KILL" });
+    const ait = { applications: [present, killed] };
+
+    expect(signalledApplication(ait, { orgId: 10, appId: 2 })).toBe(present);
+    expect(signalledApplication(ait, { orgId: 10, appId: 3 })).toBeNull();
+    expect(signalledApplication(undefined, { orgId: 10, appId: 2 })).toBeNull();
+  });
+});
+
+describe("applicationLocation", () => {
+  // The examples of TS 102 796 §9.2.
+  it("appends the dvb: URL's query to the signalled one with &", () => {
+    expect(
+      applicationLocation("http://www.example.com/app1?param1=value1", { query: "param2=value2", fragment: "foo" }),
+    ).toBe("http://www.example.com/app1?param1=value1&param2=value2#foo");
+  });
+
+  it("gives the dvb: URL's fragment precedence over the signalled one", () => {
+    expect(
+      applicationLocation("http://www.example.com/app1?param1=value1#test", { query: null, fragment: "foo" }),
+    ).toBe("http://www.example.com/app1?param1=value1#foo");
+  });
+
+  it("keeps what only one of them has", () => {
+    expect(applicationLocation("http://www.example.com/app1#test", { query: "a=1", fragment: null })).toBe(
+      "http://www.example.com/app1?a=1#test",
+    );
+    expect(applicationLocation("http://www.example.com/app1", { query: null, fragment: null })).toBe(
+      "http://www.example.com/app1",
+    );
   });
 });

@@ -24,8 +24,11 @@ import type * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import { isPageConfig, type PageConfig } from "./messages";
 
-/** The TV of a tab showing `url` is on `channelId`. */
-export type Tuning = Readonly<{ url: string; channelId: string }>;
+/**
+ * The TV of a tab showing `url` is on `channelId`; `null` when it selects no service,
+ * as while a broadcast-independent application runs (TS 102 796 §6.2.2.6.1).
+ */
+export type Tuning = Readonly<{ url: string; channelId: string | null }>;
 
 /** What the bootstrap gives the page: the configuration, and what each TV is tuned to. */
 export type BootstrapData = Readonly<{
@@ -36,7 +39,7 @@ export type BootstrapData = Readonly<{
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isTuning = (value: unknown): value is Tuning =>
-  isRecord(value) && typeof value.url === "string" && typeof value.channelId === "string";
+  isRecord(value) && typeof value.url === "string" && (value.channelId === null || typeof value.channelId === "string");
 
 export const isBootstrapData = (value: unknown): value is BootstrapData =>
   isRecord(value) && isPageConfig(value.config) && Array.isArray(value.tunings) && value.tunings.every(isTuning);
@@ -56,19 +59,21 @@ const documentUrl = (url: string): string | null => {
 };
 
 /**
- * The channel the TVs showing this page are on; `null` if none is, or if TVs on
- * different channels show it (the page cannot tell which tab it is in).
+ * The channel the TVs showing this page are on (`null`: they select no service);
+ * `undefined` if no TV shows it, or if TVs on different channels do (the page cannot
+ * tell which tab it is in).
  */
-export const tunedChannelId = (tunings: ReadonlyArray<Tuning>, url: string): string | null => {
+export const tunedChannelId = (tunings: ReadonlyArray<Tuning>, url: string): string | null | undefined => {
   const page = documentUrl(url);
-  if (page === null) return null;
+  if (page === null) return undefined;
   const ids = new Set(tunings.filter((tuning) => documentUrl(tuning.url) === page).map((t) => t.channelId));
-  return ids.size === 1 ? [...ids][0]! : null;
+  return ids.size === 1 ? [...ids][0] : undefined;
 };
 
 /**
  * The channel a page starts on, before the host says which one its tab is on:
- * 1. the channel of the TV showing it (a reload, a navigation the host made);
+ * 1. the channel of the TV showing it (a reload, a navigation the host made), none
+ *    if that TV selects no service (a broadcast-independent application);
  * 2. the channel whose AIT signals its application;
  * 3. the first of the lineup.
  * The background opens a tab's TV session with the same rule and the same data, so
@@ -76,7 +81,8 @@ export const tunedChannelId = (tunings: ReadonlyArray<Tuning>, url: string): str
  */
 export const initialChannel = ({ config, tunings }: BootstrapData, url: string): ChannelConfig | null => {
   const tunedId = tunedChannelId(tunings, url);
-  const tuned = tunedId === null ? undefined : config.channels.find((channel) => channel.id === tunedId);
+  if (tunedId === null) return null;
+  const tuned = tunedId === undefined ? undefined : config.channels.find((channel) => channel.id === tunedId);
   return tuned ?? channelSignalling(config.channels, url) ?? config.channels[0] ?? null;
 };
 

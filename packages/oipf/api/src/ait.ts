@@ -155,3 +155,69 @@ export const channelSignalling = <Channel extends WithAit>(
   }
   return boundaryMatch;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// dvb: URLs of applications (TS 102 851 §6.3.1, TS 102 796 §9.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * What a `dvb:` URL given to `createApplication()` names:
+ * - `current`: an application of the current service's AIT,
+ *   `dvb://current.ait/<org>.<app>[?query][#fragment]`;
+ * - `otherService`: an application of another service's AIT
+ *   (`dvb://<onid>.<tsid>.<sid>.ait/…`), which makes `createApplication()` fail as
+ *   if the page could not be loaded (TS 102 796 §9.2).
+ *
+ * `org` and `app` are hexadecimal (TS 102 812 §14.5: "a hexadecimal representation of
+ * the value", lower case; upper case is accepted too). `query` and `fragment` are
+ * without their `?` and `#`, `null` when absent.
+ */
+export type DvbApplicationLocator =
+  | Readonly<{ _tag: "current"; id: AitApplicationId; query: string | null; fragment: string | null }>
+  | Readonly<{ _tag: "otherService" }>;
+
+const CURRENT_AIT_APPLICATION = /^dvb:\/\/current\.ait\/([0-9a-f]{1,8})\.([0-9a-f]{1,4})(?:\?([^#]*))?(?:#(.*))?$/i;
+const SERVICE_AIT = /^dvb:\/\/[0-9a-f]+\.[0-9a-f]*\.[0-9a-f]+(?:;[0-9a-f]+)?\.ait\//i;
+
+/** The application a `dvb:` URL names, or `null` if it names none (not an application locator). */
+export const parseDvbApplicationUrl = (url: string): DvbApplicationLocator | null => {
+  const current = CURRENT_AIT_APPLICATION.exec(url.trim());
+  if (current !== null) {
+    const [, org, app, query, fragment] = current;
+    return {
+      _tag: "current",
+      id: { orgId: Number.parseInt(org!, 16), appId: Number.parseInt(app!, 16) },
+      query: query ?? null,
+      fragment: fragment ?? null,
+    };
+  }
+  return SERVICE_AIT.test(url.trim()) ? { _tag: "otherService" } : null;
+};
+
+/** The application the AIT signals with this id as runnable (AUTOSTART or PRESENT), if any. */
+export const signalledApplication = (ait: Ait | undefined, id: AitApplicationId): AitApplication | null =>
+  (ait?.applications ?? []).find(
+    (application) => isRunnable(application) && application.orgId === id.orgId && application.appId === id.appId,
+  ) ?? null;
+
+/**
+ * The URL an application named by a `dvb:` URL starts at (TS 102 796 §9.2): the
+ * location the AIT signals, with the `dvb:` URL's query and fragment attached. Both
+ * queries: the `dvb:` one appended with `&`; both fragments: the `dvb:` one wins.
+ * Neither is parsed.
+ */
+export const applicationLocation = (
+  signalled: string,
+  { query, fragment }: Readonly<{ query: string | null; fragment: string | null }>,
+): string => {
+  const hashAt = signalled.indexOf("#");
+  const withoutFragment = hashAt === -1 ? signalled : signalled.slice(0, hashAt);
+  const signalledFragment = hashAt === -1 ? null : signalled.slice(hashAt + 1);
+  const queryAt = withoutFragment.indexOf("?");
+  const base = queryAt === -1 ? withoutFragment : withoutFragment.slice(0, queryAt);
+  const signalledQuery = queryAt === -1 ? null : withoutFragment.slice(queryAt + 1);
+  const joinedQuery =
+    signalledQuery !== null && query !== null ? `${signalledQuery}&${query}` : (query ?? signalledQuery);
+  const joinedFragment = fragment ?? signalledFragment;
+  return `${base}${joinedQuery === null ? "" : `?${joinedQuery}`}${joinedFragment === null ? "" : `#${joinedFragment}`}`;
+};

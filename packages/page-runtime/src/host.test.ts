@@ -28,6 +28,7 @@ const setup = () => {
     | { tunedTo: string | null }
     | { refused: string; error: number }
     | { described: string; ok: boolean }
+    | { notLoaded: string; reason: string }
   > = [];
   const control: PageRuntimeControl = {
     applyConfig: (config) => () => void calls.push({ config }),
@@ -36,6 +37,7 @@ const setup = () => {
     applySession: (session) => () => void calls.push({ tunedTo: session.channel?.id ?? null }),
     channelChangeFailed: (channelId, error) => () => void calls.push({ refused: channelId, error }),
     streamEventDescriptionFetched: (url, result) => () => void calls.push({ described: url, ok: result.ok }),
+    applicationLoadFailed: (url, reason) => () => void calls.push({ notLoaded: url, reason }),
   };
   const disconnect = connectToHost({ channel: fake.channel, control, url: "http://app/index.xhtml" })();
   return { ...fake, calls, disconnect };
@@ -109,6 +111,14 @@ describe("connectToHost", () => {
     expect(calls).toEqual([{ described: "http://tv/a.ste", ok: false }]);
   });
 
+  it("reports the application the TV could not start", () => {
+    const { calls, deliver } = setup();
+
+    deliver({ _tag: "Host/ApplicationLoadError", url: "http://app/missing.html", reason: "HTTP 404" });
+
+    expect(calls).toEqual([{ notLoaded: "http://app/missing.html", reason: "HTTP 404" }]);
+  });
+
   it("stops handling messages once disconnected", () => {
     const { calls, deliver, disconnect } = setup();
 
@@ -130,6 +140,7 @@ describe("connectToHost", () => {
         applySession: () => IO.of(undefined),
         channelChangeFailed: () => IO.of(undefined),
         streamEventDescriptionFetched: () => IO.of(undefined),
+        applicationLoadFailed: () => IO.of(undefined),
       },
       url: "x",
     });

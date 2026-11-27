@@ -77,7 +77,7 @@ describe("tunedChannelId", () => {
     ).toBe("hgtv");
   });
 
-  it("is null for a page no TV shows, or that TVs on different channels show", () => {
+  it("is undefined for a page no TV shows, or that TVs on different channels show", () => {
     const tunings = [
       { url: "http://app.example/", channelId: "dmax" },
       { url: "http://app.example/", channelId: "hgtv" },
@@ -85,10 +85,14 @@ describe("tunedChannelId", () => {
       { url: "http://other.example/", channelId: "dmax" },
     ];
 
-    expect(tunedChannelId(tunings, "http://app.example/")).toBeNull();
+    expect(tunedChannelId(tunings, "http://app.example/")).toBeUndefined();
     expect(tunedChannelId(tunings, "http://other.example/")).toBe("dmax");
-    expect(tunedChannelId(tunings, "http://nowhere.example/")).toBeNull();
-    expect(tunedChannelId(tunings, "not a url")).toBeNull();
+    expect(tunedChannelId(tunings, "http://nowhere.example/")).toBeUndefined();
+    expect(tunedChannelId(tunings, "not a url")).toBeUndefined();
+  });
+
+  it("is null for a page a TV shows with no service selected (a broadcast-independent application)", () => {
+    expect(tunedChannelId([{ url: "http://app.example/", channelId: null }], "http://app.example/")).toBeNull();
   });
 });
 
@@ -102,6 +106,10 @@ describe("initialChannel", () => {
 
   it("is the channel of the TV showing the page, before what the AIT says", () => {
     expect(initialChannel({ config, tunings: [{ url, channelId: "dmax" }] }, url)).toBe(dmax);
+  });
+
+  it("is none when the TV showing the page selects no service, whatever the AIT says", () => {
+    expect(initialChannel({ config, tunings: [{ url, channelId: null }] }, url)).toBeNull();
   });
 
   it("is the channel whose AIT signals the page when no TV shows it", () => {

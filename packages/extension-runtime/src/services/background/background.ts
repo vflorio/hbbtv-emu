@@ -31,7 +31,7 @@ import {
 } from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
-import { applicationChangesChannel, exitTabApplication } from "./channel";
+import { applicationChangesChannel, exitTabApplication, launchTabApplication } from "./channel";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
 import { createSessions, type Sessions } from "./sessions";
@@ -121,6 +121,7 @@ export class BackgroundService {
           sessions: this.sessions,
           tvPage: tvPageUrl(this.env.adapter.ui.pageUrl(TV_PAGE)),
           assetUrl: this.assetUrl,
+          broadband: this.env.adapter.broadband,
           logger: this.logger,
         };
 
@@ -205,8 +206,42 @@ export class BackgroundService {
         return this.onFetchStreamEventDescription(message.url, tabId);
       case "Page/DestroyApplication":
         return this.onDestroyApplication(tabId);
+      case "Page/CreateApplication":
+        return this.onCreateApplication(message.url, tabId);
     }
   };
+
+  /**
+   * The application starts another (`createApplication()`): the TV of the tab loads it,
+   * and the UIs show what it presents now; or the page hears why it cannot.
+   */
+  private readonly onCreateApplication = (url: string, tabId: number): IO.IO<void> =>
+    pipe(
+      this.logger.info(`The application in tab ${tabId} starts ${url}`),
+      IO.flatMap(() => this.stateManager.getState()),
+      IO.flatMap(
+        E.match(
+          (error) => this.logger.error("Cannot start the application", error),
+          (state) => () => {
+            void pipe(
+              launchTabApplication(tabId, url, state)(this.uiEnv),
+              TE.match(
+                (reason) =>
+                  pipe(
+                    T.fromIO(this.logger.warn(`Tab ${tabId} cannot start ${url}: ${reason}`)),
+                    T.flatMap(() =>
+                      this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/ApplicationLoadError", url, reason }),
+                    ),
+                    T.asUnit,
+                  ),
+                () => notifyUis(state)(this.uiEnv),
+              ),
+              T.flatten,
+            )();
+          },
+        ),
+      ),
+    );
 
   /**
    * The application exits (`destroyApplication()`): the TV of the tab loads what its

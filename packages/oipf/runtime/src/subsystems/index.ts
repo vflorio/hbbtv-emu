@@ -1,4 +1,5 @@
 export * from "./applicationExit";
+export * from "./applicationLaunch";
 export * from "./broadcastChannel";
 export * from "./broadcastLayer";
 export * from "./channelChange";
