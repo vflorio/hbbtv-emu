@@ -24,6 +24,7 @@ type BasicAppState = {
   keys: number[];
   events: unknown[];
   userAgentAtFirstScript: string;
+  userAgentDataAtFirstScript: boolean;
   configAtFirstScript: boolean;
   channelAtFirstScript: string | null;
   factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
@@ -170,6 +171,9 @@ describe("firefox-v2: HbbTV application", () => {
     // The TV's user agent, the same over HTTP and in the page, from the start.
     expect(request?.userAgent).toContain("HbbTV/");
     expect(state.userAgentAtFirstScript).toBe(request?.userAgent);
+    // No client hints, in the page or over HTTP (Gecko has none of its own either).
+    expect(request?.clientHints).toEqual([]);
+    expect(state.userAgentDataAtFirstScript).toBe(false);
   });
 
   it("delivers navigation keys to the application", async () => {

@@ -6,12 +6,37 @@ import { type AdapterConfig, type AdapterError, MANIFEST_VERSION_2, MANIFEST_VER
  * The user agent the emulated TV sends over HTTP, on every request (documents,
  * scripts, media, XHR…), like a real TV. In the page, `navigator.userAgent` is the
  * page runtime's job.
+ *
+ * The browser's User-Agent Client Hints go: Chromium sends `Sec-CH-UA*` to every secure
+ * origin (an application's HTTPS ad server, say), and they name the real browser, against
+ * the TV's user agent. Choice of the emulator: the emulated TV sends none, as a browser
+ * from before them (Chromium < 89, WebKit, Gecko) does.
  */
 export interface UserAgentAdapter {
   readonly setUserAgent: (userAgent: string) => TE.TaskEither<AdapterError, void>;
 }
 
 export const USER_AGENT_RULE_ID = 1000;
+
+/**
+ * Every User-Agent Client Hint request header (WICG UA-CH, and Chromium's form factors):
+ * the low-entropy ones Chromium sends by default, the others when a server asks (`Accept-CH`).
+ */
+export const CLIENT_HINT_HEADERS = [
+  "Sec-CH-UA",
+  "Sec-CH-UA-Arch",
+  "Sec-CH-UA-Bitness",
+  "Sec-CH-UA-Form-Factors",
+  "Sec-CH-UA-Full-Version",
+  "Sec-CH-UA-Full-Version-List",
+  "Sec-CH-UA-Mobile",
+  "Sec-CH-UA-Model",
+  "Sec-CH-UA-Platform",
+  "Sec-CH-UA-Platform-Version",
+  "Sec-CH-UA-WoW64",
+] as const;
+
+const isClientHint = (name: string): boolean => name.toLowerCase().startsWith("sec-ch-ua");
 
 /** Every resource type: without a list, DNR would leave the document request out. */
 const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
@@ -29,13 +54,18 @@ const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
   "other",
 ] as chrome.declarativeNetRequest.ResourceType[];
 
-const userAgentRule = (userAgent: string): chrome.declarativeNetRequest.Rule => ({
+/** MV3: the TV's user agent, and no client hints. */
+export const userAgentRule = (userAgent: string): chrome.declarativeNetRequest.Rule => ({
   id: USER_AGENT_RULE_ID,
   priority: 1,
   action: {
     type: "modifyHeaders" as chrome.declarativeNetRequest.RuleActionType,
     requestHeaders: [
       { header: "User-Agent", operation: "set" as chrome.declarativeNetRequest.HeaderOperation, value: userAgent },
+      ...CLIENT_HINT_HEADERS.map((header) => ({
+        header,
+        operation: "remove" as chrome.declarativeNetRequest.HeaderOperation,
+      })),
     ],
   },
   condition: { urlFilter: "|http", resourceTypes: ALL_RESOURCE_TYPES },
@@ -54,6 +84,15 @@ const declarativeUserAgent = (): UserAgentAdapter => ({
     ),
 });
 
+/** MV2 / Firefox: a request's headers with the TV's user agent, and no client hints. */
+export const withUserAgent = (
+  headers: ReadonlyArray<chrome.webRequest.HttpHeader>,
+  userAgent: string,
+): chrome.webRequest.HttpHeader[] => [
+  ...headers.filter(({ name }) => name.toLowerCase() !== "user-agent" && !isClientHint(name)),
+  { name: "User-Agent", value: userAgent },
+];
+
 /** MV2 / Firefox: a blocking listener that reads the current value. */
 const webRequestUserAgent = (): UserAgentAdapter => {
   let current: string | undefined;
@@ -61,8 +100,7 @@ const webRequestUserAgent = (): UserAgentAdapter => {
 
   const listener = (details: chrome.webRequest.OnBeforeSendHeadersDetails): chrome.webRequest.BlockingResponse => {
     if (current === undefined || !details.requestHeaders) return {};
-    const others = details.requestHeaders.filter((header) => header.name.toLowerCase() !== "user-agent");
-    return { requestHeaders: [...others, { name: "User-Agent", value: current }] };
+    return { requestHeaders: withUserAgent(details.requestHeaders, current) };
   };
 
   return {

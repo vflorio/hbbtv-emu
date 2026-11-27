@@ -1,6 +1,8 @@
 /**
  * Serves the test applications in `e2e/fixtures` like a broadcaster would:
- * `.xhtml` files with the HbbTV content type, everything else by extension.
+ * `.xhtml` files with the HbbTV content type, everything else by extension, and byte
+ * ranges, as any web server (Chromium cannot seek in a progressive file whose server
+ * does not answer them, until it has it in its buffer).
  */
 
 import { readFile } from "node:fs/promises";
@@ -24,7 +26,12 @@ const CONTENT_TYPES: Record<string, string> = {
   ".ste": "application/vnd.dvb.streamevent+xml",
 };
 
-export type RecordedRequest = Readonly<{ url: string; userAgent: string | undefined }>;
+export type RecordedRequest = Readonly<{
+  url: string;
+  userAgent: string | undefined;
+  /** The User-Agent Client Hints received (`sec-ch-ua…`, lower case): a TV sends none. */
+  clientHints: ReadonlyArray<string>;
+}>;
 
 export type FixtureServer = Readonly<{
   /** Absolute URL of a fixture, e.g. `url("basic-app/index.xhtml")`. */
@@ -34,10 +41,25 @@ export type FixtureServer = Readonly<{
   close: () => Promise<void>;
 }>;
 
+/** A single `bytes=start-end` range of a body of `size` bytes, or null if there is none to serve. */
+const byteRange = (header: string | undefined, size: number): { start: number; end: number } | null => {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header ?? "");
+  if (!match || (match[1] === "" && match[2] === "")) return null;
+  const [start, end] =
+    match[1] === ""
+      ? [Math.max(0, size - Number(match[2])), size - 1]
+      : [Number(match[1]), match[2] === "" ? size - 1 : Math.min(Number(match[2]), size - 1)];
+  return start <= end && start < size ? { start, end } : null;
+};
+
 export const startFixtureServer = async (root: string): Promise<FixtureServer> => {
   const requests: RecordedRequest[] = [];
   const server: Server = createServer(async (request, response) => {
-    requests.push({ url: request.url ?? "/", userAgent: request.headers["user-agent"] });
+    requests.push({
+      url: request.url ?? "/",
+      userAgent: request.headers["user-agent"],
+      clientHints: Object.keys(request.headers).filter((name) => name.startsWith("sec-ch-ua")),
+    });
     const path = normalize(decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname));
     if (path.includes("..")) {
       response.writeHead(400).end();
@@ -45,7 +67,23 @@ export const startFixtureServer = async (root: string): Promise<FixtureServer> =
     }
     try {
       const body = await readFile(join(root, path));
-      response.writeHead(200, { "Content-Type": CONTENT_TYPES[extname(path)] ?? "application/octet-stream" });
+      const type = CONTENT_TYPES[extname(path)] ?? "application/octet-stream";
+      const range = byteRange(request.headers.range, body.length);
+      if (request.headers.range !== undefined && range === null) {
+        response.writeHead(416, { "Content-Range": `bytes */${body.length}` }).end();
+        return;
+      }
+      if (range !== null) {
+        response.writeHead(206, {
+          "Content-Type": type,
+          "Accept-Ranges": "bytes",
+          "Content-Range": `bytes ${range.start}-${range.end}/${body.length}`,
+          "Content-Length": range.end - range.start + 1,
+        });
+        response.end(body.subarray(range.start, range.end + 1));
+        return;
+      }
+      response.writeHead(200, { "Content-Type": type, "Accept-Ranges": "bytes", "Content-Length": body.length });
       response.end(body);
     } catch {
       // With a type, as real servers answer: Firefox parses an untyped empty answer

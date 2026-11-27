@@ -21,6 +21,8 @@
     var e2e = (window.__e2e = { initError: null, keysetValue: null, keys: [], events: [] });
     // What the application sees when it sniffs the device, as many do at start.
     e2e.userAgentAtFirstScript = navigator.userAgent;
+    // And the browser's client hints, which would name the real browser (secure contexts only).
+    e2e.userAgentDataAtFirstScript = "userAgentData" in navigator;
     // Whether the host's configuration was already there (synchronous bootstrap).
     e2e.configAtFirstScript = Boolean(window[Symbol.for("hbb-emu.config")]);
     try {

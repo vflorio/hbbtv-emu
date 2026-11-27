@@ -20,6 +20,13 @@ type UserAgentConfig = Readonly<{
 type ContextOverride = Readonly<{
   setUserAgent: (userAgent: string) => IO.IO<void>;
   setAppVersion: (appVersion: string) => IO.IO<void>;
+  /**
+   * Takes the browser's User-Agent Client Hints away (`navigator.userAgentData`, in secure
+   * contexts): they name the real browser, against the TV's user agent. Choice of the
+   * emulator, as for the HTTP headers (the host's `UserAgentAdapter`): the TV has none, as
+   * a browser from before them (Chromium < 89, WebKit, Gecko).
+   */
+  hideUserAgentData: IO.IO<void>;
 }>;
 
 export type UserAgentEnv = UserAgentConfig & ContextOverride;
@@ -39,6 +46,15 @@ export const navigatorContextOverride: ContextOverride = {
       configurable: true,
     });
   },
+  hideUserAgentData: () => hideUserAgentData(navigator),
+};
+
+/** Off the navigator and its prototypes: `"userAgentData" in navigator` is false, as on a browser without it. */
+export const hideUserAgentData = (target: object): void => {
+  for (let object: object | null = target; object !== null; object = Object.getPrototypeOf(object)) {
+    const descriptor = Object.getOwnPropertyDescriptor(object, "userAgentData");
+    if (descriptor?.configurable) delete (object as { userAgentData?: unknown }).userAgentData;
+  }
 };
 
 // Operations
@@ -50,6 +66,7 @@ export const overrideUserAgent =
       logger.info("Overriding navigator.userAgent:", userAgent),
       IO.tap(() => env.setUserAgent(userAgent)),
       IO.tap(() => env.setAppVersion(userAgent.replace("Mozilla/", ""))),
+      IO.tap(() => env.hideUserAgentData),
       IO.tap(() => logger.info("navigator.userAgent override complete")),
     );
 

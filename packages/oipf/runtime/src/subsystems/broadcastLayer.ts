@@ -30,9 +30,15 @@
  * - while the controlling object is not in the document, or is stopped, no video is
  *   shown. The stream stays in the document, so the browser does not pause it;
  * - the broadcast is on air before the page loads (a simulated live, `channelClock`). A
- *   stream with a finite duration loops from the channel's epoch: when it first presents,
- *   it seeks to where the loop is on air now, as part of its start-up. A live stream (no
- *   finite duration) follows the real time on its own.
+ *   stream with a finite duration loops from the channel's epoch: once its metadata is
+ *   loaded, before its first frame, its video goes to where the loop is on air now. That is
+ *   part of its start-up, which lasts until the stream is there (or `JOIN_TIMEOUT_MS` has
+ *   gone by). A live stream (no finite duration) follows the real time on its own;
+ * - the start-up settles for `SETTLE_MS` after the first frame: a buffering then (a stream
+ *   sent ahead of what it has downloaded stalls a moment) is not heard, nor is the
+ *   presentation that ends it;
+ * - the loop going round (the element seeks back to its start) is no event of the
+ *   broadcast either: the object does not hear the buffering it may cause.
  */
 
 import { createLogger, livePosition } from "@hbb-emu/core";
@@ -55,8 +61,6 @@ export type BroadcastStream = Readonly<{
   load: (url: string) => IO.IO<void>;
   play: IO.IO<void>;
   stop: IO.IO<void>;
-  /** Seeks to a position, in seconds. */
-  seek: (seconds: number) => IO.IO<void>;
   setMuted: (muted: boolean) => IO.IO<void>;
   /** Subscribes to the stream's state; returns the unsubscribe function. */
   onStateChange: (listener: (state: VideoStreamPlayState) => void) => () => void;
@@ -74,7 +78,6 @@ export const createBroadcastStream = (playerRuntime?: PlayerRuntime): BroadcastS
     load: (url) => run(stream.loadSource({ url, loop: true, autoPlay: true, muted: true })),
     play: run(stream.play()),
     stop: run(stream.stop()),
-    seek: (seconds) => run(stream.seek(seconds * 1000)),
     setMuted: (muted) => run(stream.setMuted(muted)),
     onStateChange: (listener) =>
       stream.subscribe((event) => {
@@ -187,8 +190,17 @@ const isStartUp = (state: VideoStreamPlayState): boolean =>
 
 const hasPresented = (state: VideoStreamPlayState): boolean => state._tag === "Playing" || state._tag === "Paused";
 
-/** How far from the channel's position a stream may start without seeking, in seconds. */
-const LIVE_TOLERANCE_S = 1;
+/** How far from the channel's position a stream may present without seeking, in seconds. */
+const SEEK_THRESHOLD_S = 0.25;
+
+/** How far from it a stream may be once sent there (the seek takes its time), in seconds. */
+const LANDED_TOLERANCE_S = 1;
+
+/** How long a stream's start-up waits for its seek to the channel's position, in ms. */
+const JOIN_TIMEOUT_MS = 5000;
+
+/** How long the start-up settles after the first frame, in ms. */
+const SETTLE_MS = 1000;
 
 export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: BroadcastLayerEnv): BroadcastLayer => {
   const video = stream.videoElement;
@@ -212,8 +224,14 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
   /** The stream loaded, and whether it presented since. */
   let loaded: string | null = null;
   let presented = false;
-  /** Whether the stream loaded has joined the channel where it is on air. */
-  let joined = false;
+  /** When the stream loaded was sent to the channel's position (`null`: not sent). */
+  let joinSeekAt: number | null = null;
+  /** When the stream loaded first presented (`null`: not yet). */
+  let presentedAt: number | null = null;
+  /** The loop is going round: what the element does meanwhile is not the broadcast's. */
+  let wrapping = false;
+  /** A buffering the object did not hear: nor does it hear the presentation that ends it. */
+  let unheardBuffering = false;
   let stopped = false;
   let streamState: VideoStreamPlayState = { _tag: "Idle" };
   let controller: Controller | null = null;
@@ -225,7 +243,10 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
     logger.debug("Loading", url)();
     loaded = url;
     presented = false;
-    joined = false;
+    joinSeekAt = null;
+    presentedAt = null;
+    wrapping = false;
+    unheardBuffering = false;
     stopped = false;
     stream.load(url)();
   };
@@ -280,25 +301,62 @@ export const createBroadcastLayer = ({ document, stream, tvVolume, gain, now }: 
     attributes.observe(observedBody, { attributes: true, attributeFilter: ["class", "style"] });
   };
 
-  /**
-   * On its first frame, a looping stream joins the channel where it is on air: it seeks
-   * there, and its start-up goes on until the seek presents. Whether it seeks.
-   */
-  const joinLive = (): boolean => {
-    if (joined) return false;
-    joined = true;
-    const position = livePosition(now(), video.duration);
-    if (position === null || Math.abs(position - video.currentTime) < LIVE_TOLERANCE_S) return false;
-    logger.debug("Joining the channel on air at", position)();
-    stream.seek(position)();
-    return true;
+  /** Whether the stream is within `tolerance` seconds of where the loop is on air (`position`). */
+  const near = (position: number, tolerance: number): boolean => {
+    const drift = Math.abs(position - video.currentTime);
+    // Round the loop: just before its end is near its start.
+    return !video.seeking && Math.min(drift, video.duration - drift) < tolerance;
   };
+
+  /**
+   * Sends the loaded stream where the channel is on air, once, if it is not there. On the
+   * element itself, which is the layer's: the player hears a seek, as of any other.
+   */
+  const join = () => {
+    if (loaded === null || stopped || presented || joinSeekAt !== null) return;
+    const position = livePosition(now(), video.duration);
+    if (position === null || near(position, SEEK_THRESHOLD_S)) return;
+    joinSeekAt = now();
+    logger.debug("Joining the channel on air at", position)();
+    video.currentTime = position;
+  };
+
+  /**
+   * Whether a stream that presents is still joining the channel where it is on air: its
+   * start-up goes on until it is there, whatever the player reports in between.
+   */
+  const joining = (): boolean => {
+    join();
+    if (joinSeekAt === null) return false;
+    const position = livePosition(now(), video.duration);
+    return position !== null && !near(position, LANDED_TOLERANCE_S) && now() - joinSeekAt < JOIN_TIMEOUT_MS;
+  };
+
+  video.addEventListener("loadedmetadata", join);
+  // Once presented, nothing but the loop seeks the broadcast's video.
+  video.addEventListener("seeking", () => {
+    if (presented) wrapping = true;
+  });
 
   stream.onStateChange((state) => {
     streamState = state;
-    if (!presented && hasPresented(state) && joinLive()) return;
+    if (!presented && hasPresented(state) && joining()) return;
+    // Settling, or round the loop, the stream presents as it did: the object hears none of it.
+    const settling = presentedAt !== null && now() - presentedAt < SETTLE_MS;
+    if (presented && state._tag === "Buffering" && (settling || wrapping)) {
+      unheardBuffering = true;
+      return;
+    }
+    if (presented && hasPresented(state) && (unheardBuffering || wrapping)) {
+      unheardBuffering = false;
+      wrapping = false;
+      return;
+    }
     const startUp = !presented && isStartUp(state);
-    if (hasPresented(state)) presented = true;
+    if (hasPresented(state) && !presented) {
+      presented = true;
+      presentedAt = now();
+    }
     // Stopped, what the stream does is the stop's own (a pause): the object is stopped already.
     if (startUp || stopped) return;
     for (const listener of controller ? [...controller.listeners] : []) listener(state);

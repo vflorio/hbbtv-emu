@@ -24,6 +24,7 @@ type BasicAppState = {
   keys: number[];
   events: unknown[];
   userAgentAtFirstScript: string;
+  userAgentDataAtFirstScript: boolean;
   channelAtFirstScript: string | null;
   factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
 };
@@ -541,7 +542,7 @@ describe("chrome-v3: settings UI", () => {
     }
   });
 
-  it("the configured user agent is what the server receives and what the application reads", async () => {
+  it("the configured user agent is what the server receives and what the application reads, without the browser's client hints", async () => {
     const { ui } = await openUi();
     type UiState = { userAgent: string };
     const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
@@ -556,8 +557,14 @@ describe("chrome-v3: settings UI", () => {
 
       const seen = server.requests.filter((r) => r.url === `/${path}` || r.url === "/basic-app/index.xhtml?xhr");
       expect(seen.map((r) => r.userAgent)).toEqual([userAgent, userAgent]);
+      // Chromium sends Sec-CH-UA* to a secure origin (127.0.0.1 is one): they would name it.
+      expect(seen.map((r) => r.clientHints)).toEqual([[], []]);
       // Without user scripts allowed, it arrives later: by the time the page has loaded.
       await page.waitForFunction((expected) => navigator.userAgent === expected, userAgent);
+      // The page runtime takes navigator.userAgentData away before the application's first script.
+      const state = await page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e);
+      expect(state.userAgentDataAtFirstScript).toBe(false);
+      expect(await page.evaluate(() => [window.isSecureContext, "userAgentData" in navigator])).toEqual([true, false]);
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }
