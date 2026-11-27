@@ -72,10 +72,22 @@ export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logg
     TE.getOrElseW((error) => T.fromIO(logger.warn("Could not store the TV sessions", error))),
   );
 
-  const set = (all: TvSessions): T.Task<void> =>
+  /**
+   * Reads, changes and writes the sessions in one step, then stores them: tabs that
+   * open or change at the same time (pages ready together, a restored browser
+   * session) all keep their change. `f` returns the new sessions (the same object
+   * when nothing changes: nothing is stored) and a result.
+   */
+  const change = <A>(f: (all: TvSessions) => Readonly<{ all: TvSessions; result: A }>): T.Task<A> =>
     pipe(
-      T.fromIO(sessions.write(all)),
-      T.flatMap(() => persist),
+      T.fromIO(() => {
+        const current = sessions.read();
+        const { all, result } = f(current);
+        if (all !== current) sessions.write(all)();
+        return { changed: all !== current, result };
+      }),
+      T.tap(({ changed }) => (changed ? persist : T.of(undefined))),
+      T.map(({ result }) => result),
     );
 
   const get =
@@ -94,7 +106,7 @@ export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logg
           ),
         ),
         T.map(O.getOrElseW(() => ({}))),
-        T.flatMap((stored) => set(keepValid(stored, openTabIds))),
+        T.flatMap((stored) => change(() => ({ all: keepValid(stored, openTabIds), result: undefined }))),
       ),
 
     get,
@@ -103,13 +115,17 @@ export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logg
 
     open: (tabId, initial) =>
       pipe(
-        T.fromIO(get(tabId)),
+        change((all) => {
+          const existing = all[String(tabId)];
+          return existing === undefined
+            ? { all: { ...all, [String(tabId)]: initial }, result: O.none }
+            : { all, result: O.some(existing) };
+        }),
         T.flatMap(
           O.match(
             () =>
               pipe(
-                set({ ...sessions.read(), [String(tabId)]: initial }),
-                T.tapIO(() => logger.info(`TV session opened in tab ${tabId}`, initial)),
+                T.fromIO(logger.info(`TV session opened in tab ${tabId}`, initial)),
                 T.map(() => initial),
               ),
             T.of,
@@ -118,35 +134,21 @@ export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logg
       ),
 
     update: (tabId, f) =>
-      pipe(
-        T.fromIO(get(tabId)),
-        T.flatMap(
-          O.match(
-            () => T.of(O.none),
-            (session) =>
-              pipe(
-                T.of(f(session)),
-                T.tap((next) => set({ ...sessions.read(), [String(tabId)]: next })),
-                T.map(O.some),
-              ),
-          ),
-        ),
-      ),
+      change((all) => {
+        const session = all[String(tabId)];
+        if (session === undefined) return { all, result: O.none };
+        const next = f(session);
+        return { all: { ...all, [String(tabId)]: next }, result: O.some(next) };
+      }),
 
     close: (tabId) =>
       pipe(
-        T.fromIO(get(tabId)),
-        T.flatMap(
-          O.match(
-            (): T.Task<void> => T.of(undefined),
-            () => {
-              const { [String(tabId)]: _closed, ...rest } = sessions.read();
-              return pipe(
-                set(rest),
-                T.tapIO(() => logger.info(`TV session closed with tab ${tabId}`)),
-              );
-            },
-          ),
+        change((all) => {
+          const { [String(tabId)]: closed, ...rest } = all;
+          return closed === undefined ? { all, result: false } : { all: rest, result: true };
+        }),
+        T.flatMap((closed) =>
+          closed ? T.fromIO(logger.info(`TV session closed with tab ${tabId}`)) : T.of(undefined),
         ),
       ),
   };
