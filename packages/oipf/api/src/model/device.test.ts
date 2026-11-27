@@ -64,7 +64,7 @@ describe("hasCapability() of its Capabilities object (OIPF DAE §7.15.3.2)", () 
       "video/mp4",
       "application/dash+xml",
       "avc1",
-      EMULATOR_CAPABILITIES.drmSystems[0],
+      "urn:dvb:casystemid:19219",
       "video/broadcast",
       "",
       "+dl",

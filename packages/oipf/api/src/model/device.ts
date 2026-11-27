@@ -5,8 +5,54 @@
  */
 
 import * as t from "io-ts";
-import { DEFAULT_DRM_SYSTEMS, DEFAULT_MEDIA_FORMATS, DEFAULT_UI_PROFILES } from "./dae/capabilities";
+import { DEFAULT_UI_PROFILES } from "./dae/capabilities";
 import { EMULATOR_TERMINAL, hbbtvUserAgent, TerminalIdentityCodec } from "./terminal";
+
+/** HEVC HD video (TS 102 796 §7.3.1.3): none, 8-bit only, or 10-bit (which includes 8-bit). */
+export const HEVC_HD_SUPPORT = ["none", "8-bit", "10-bit"] as const;
+
+export type HevcHdSupport = (typeof HEVC_HD_SUPPORT)[number];
+
+/**
+ * The broadband media a terminal supports beyond the base level, as TS 102 796 §10.2.4.7
+ * lists them: each adds its audio and video profiles to `xmlCapabilities`.
+ */
+export const DeviceMediaCodec = t.readonly(
+  t.type({
+    /**
+     * E-AC3 audio (Table 9). The emulator has one broadcast and one broadband: the HEVC
+     * profiles with E-AC3, which ask for it "in the broadcast channel", follow it too.
+     */
+    eac3: t.boolean,
+    /** HEVC HD video: a terminal lists at most one of `HEVC_HD_25_8` and `HEVC_HD_25_10`. */
+    hevcHd: t.keyof({ none: null, "8-bit": null, "10-bit": null }),
+    /** HEVC UHD video (Table 9a). */
+    hevcUhd: t.boolean,
+  }),
+);
+
+export type DeviceMedia = t.TypeOf<typeof DeviceMediaCodec>;
+
+/** A DRM system the terminal supports: a `<drm>` element (OIPF DAE §9.3.10, TS 102 796 §10.2.4.7). */
+export const DrmSystemCodec = t.readonly(
+  t.intersection([
+    t.type({
+      /** Its DVB CA system id, e.g. `urn:dvb:casystemid:19188` (Marlin). */
+      systemId: t.string,
+      /**
+       * The protected formats, each a system layer and a protection format, e.g. `TS_PF`,
+       * `MP4_PDCF`: the element's content. May be none.
+       */
+      formats: t.readonlyArray(t.string),
+    }),
+    t.partial({
+      /** The CSP gateways that support it: `ci+` for a CA system of a CICAM, `dtcp-ip`. */
+      protectionGateways: t.readonlyArray(t.string),
+    }),
+  ]),
+);
+
+export type DrmSystem = t.TypeOf<typeof DrmSystemCodec>;
 
 /** What the TV can do, as its `application/oipfCapabilities` object reports it. */
 export const DeviceCapabilitiesCodec = t.readonly(
@@ -17,17 +63,8 @@ export const DeviceCapabilitiesCodec = t.readonly(
      * The HbbTV option strings are the terminal's (`terminal.options`).
      */
     uiProfiles: t.readonlyArray(t.string),
-    /** The DRM systems, by DVB CA system id URN. */
-    drmSystems: t.readonlyArray(t.string),
-    /** The media formats, by container. */
-    mediaFormats: t.readonlyArray(
-      t.partial({
-        container: t.string,
-        videoCodecs: t.array(t.string),
-        audioCodecs: t.array(t.string),
-        subtitleFormats: t.array(t.string),
-      }),
-    ),
+    media: DeviceMediaCodec,
+    drm: t.readonlyArray(DrmSystemCodec),
   }),
 );
 
@@ -52,10 +89,17 @@ export const DeviceProfileCodec = t.readonly(
 
 export type DeviceProfile = t.TypeOf<typeof DeviceProfileCodec>;
 
+/** Only the base level of media. */
+export const BASE_MEDIA: DeviceMedia = { eac3: false, hevcHd: "none", hevcUhd: false };
+
+/**
+ * The emulator's capabilities: the base level of media, and no DRM system, because it has
+ * no DRM agent (nor the `+DRM` option).
+ */
 export const EMULATOR_CAPABILITIES: DeviceCapabilities = {
   uiProfiles: DEFAULT_UI_PROFILES,
-  drmSystems: DEFAULT_DRM_SYSTEMS,
-  mediaFormats: DEFAULT_MEDIA_FORMATS,
+  media: BASE_MEDIA,
+  drm: [],
 };
 
 /** The emulator as itself: its own identity, the header that identity gives, its capabilities. */
@@ -70,7 +114,7 @@ export const deviceUserAgent = (device: DeviceProfile): string =>
  * name is one of the terminal's HbbTV option strings (TS 102 796 §10.2.4.8, which Annex A
  * makes the profile names of the method), or its base UI profile or one of its name
  * fragments (OIPF DAE §9.2). Anything else, a MIME type or a codec, is no profile name:
- * applications find those in `xmlCapabilities`.
+ * applications find those in `xmlCapabilities` (`deviceXmlCapabilities`).
  */
 export const deviceHasCapability = (device: DeviceProfile, profileName: string): boolean =>
   (device.terminal.options as ReadonlyArray<string>).includes(profileName) ||

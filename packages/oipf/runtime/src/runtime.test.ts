@@ -217,7 +217,7 @@ describe("runtime — host configuration", () => {
   });
 
   it("the Capabilities object is the TV's: its option strings and UI profile, now (OIPF DAE §7.15.3)", async () => {
-    type Capabilities = { hasCapability: (name: string) => boolean; hbbtvVersion: string; uiProfiles: string[] };
+    type Capabilities = { hasCapability: (name: string) => boolean; xmlCapabilities: Document };
     const { handle } = start();
     const capabilities = addObject("application/oipfCapabilities") as unknown as Capabilities;
     await flushMutations();
@@ -237,7 +237,45 @@ describe("runtime — host configuration", () => {
       false,
       true,
     ]);
-    expect([capabilities.hbbtvVersion, capabilities.uiProfiles]).toEqual(["2.0.4", ["OITF_FULL_HD_UIPROF", "+DVB_S"]]);
+    // What a TV has, and not what the emulator used to add.
+    for (const property of ["hbbtvVersion", "uiProfiles", "drmSystems", "mediaFormats"]) {
+      expect(capabilities).not.toHaveProperty(property);
+    }
+  });
+
+  it("xmlCapabilities is the device's capability description, as a Document (TS 102 796 §10.2.4)", async () => {
+    type Capabilities = { xmlCapabilities: Document };
+    const { handle } = start();
+    const capabilities = addObject("application/oipfCapabilities") as unknown as Capabilities;
+    await flushMutations();
+
+    const document = capabilities.xmlCapabilities;
+    expect(document.documentElement.localName).toBe("profilelist");
+    expect(document.documentElement.namespaceURI).toBe("urn:hbbtv:config:oitf:oitfCapabilities:2014-1");
+    expect(document.doctype).toBeNull(); // §10.2.4.6
+    expect(document.getElementsByTagName("ui_profile")[0]?.getAttribute("name")).toBe(
+      "OITF_HD_UIPROF+TRICKMODE+DVB_T+DVB_T2+DVB_C+DVB_C2+DVB_S+DVB_S2",
+    );
+    expect(document.getElementsByTagName("drm")).toHaveLength(0);
+    // The same document while the device stays the same.
+    expect(capabilities.xmlCapabilities).toBe(document);
+
+    const device = {
+      terminal: { ...EMULATOR_TERMINAL, hbbtvVersion: "2.0.4" as const, options: ["+DRM" as const] },
+      capabilities: {
+        ...EMULATOR_CAPABILITIES,
+        media: { ...EMULATOR_CAPABILITIES.media, hevcUhd: true },
+        drm: [{ systemId: "urn:dvb:casystemid:19188", formats: ["TS_PF"] }],
+      },
+    };
+    handle.updateExtensionState({ ...DEFAULT_EXTENSION_STATE, device })();
+
+    const changed = capabilities.xmlCapabilities;
+    expect(changed).not.toBe(document);
+    expect(changed.documentElement.namespaceURI).toBe("urn:hbbtv:config:oitf:oitfCapabilities:2017-1");
+    expect(changed.getElementsByTagName("ui_profile")[0]?.getAttribute("name")).toMatch(/\+DRM$/);
+    expect(changed.querySelector('video_profile[name="MP4_HEVC_UHD_25_HEAAC_EBUTTD"]')).not.toBeNull();
+    expect(changed.getElementsByTagName("drm")[0]?.getAttribute("DRMSystemID")).toBe("urn:dvb:casystemid:19188");
   });
 });
 

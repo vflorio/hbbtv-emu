@@ -33,6 +33,13 @@ type BasicAppState = {
   userAgentAtFirstScript: string;
   userAgentDataAtFirstScript: boolean;
   capabilitiesAtFirstScript: string[];
+  xmlCapabilitiesAtFirstScript: {
+    root: string;
+    namespace: string | null;
+    uiProfile: string;
+    html5Media: number;
+    drm: string[];
+  };
   channelAtFirstScript: string | null;
   factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
 };
@@ -636,7 +643,11 @@ describe("chrome-v3: settings UI", () => {
     // A full HD TV, with download and a satellite tuner.
     const device = {
       terminal: { ...E2E_TERMINAL, options: ["+DL"] },
-      capabilities: { ...original.device.capabilities, uiProfiles: ["OITF_FULL_HD_UIPROF", "+DVB_S"] },
+      capabilities: {
+        ...original.device.capabilities,
+        uiProfiles: ["OITF_FULL_HD_UIPROF", "+DVB_S"],
+        drm: [{ systemId: "urn:dvb:casystemid:19188", formats: ["TS_PF", "MP4_PDCF"] }],
+      },
       userAgent,
     };
 
@@ -650,6 +661,14 @@ describe("chrome-v3: settings UI", () => {
       expect(state.userAgentAtFirstScript).toBe(userAgent);
       // Its Capabilities object, from the configuration: a new page has the TV's, not the defaults.
       expect(state.capabilitiesAtFirstScript).toEqual(["+DL", "+DVB_S"]);
+      // And its XML capabilities: the HbbTV 1.5 document (no namespace, no HTML5 media), with its DRM system.
+      expect(state.xmlCapabilitiesAtFirstScript).toEqual({
+        root: "profilelist",
+        namespace: null,
+        uiProfile: "OITF_FULL_HD_UIPROF+DVB_S+DL",
+        html5Media: 0,
+        drm: ["urn:dvb:casystemid:19188 TS_PF MP4_PDCF"],
+      });
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

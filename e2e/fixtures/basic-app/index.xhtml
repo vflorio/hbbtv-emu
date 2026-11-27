@@ -42,6 +42,17 @@
       e2e.capabilitiesAtFirstScript = ["+DL", "+DRM", "OITF_HD_UIPROF", "+DVB_S", "video/mp4"].filter(function (name) {
         return capabilities.hasCapability(name);
       });
+      // What it can play and decrypt: its XML capabilities (TS 102 796 §10.2.4).
+      var xml = capabilities.xmlCapabilities;
+      e2e.xmlCapabilitiesAtFirstScript = {
+        root: xml.documentElement.nodeName,
+        namespace: xml.documentElement.namespaceURI,
+        uiProfile: xml.getElementsByTagName("ui_profile")[0].getAttribute("name"),
+        html5Media: xml.getElementsByTagName("html5_media").length,
+        drm: Array.prototype.map.call(xml.getElementsByTagName("drm"), function (drm) {
+          return drm.getAttribute("DRMSystemID") + " " + drm.textContent;
+        }),
+      };
       // What an application that does not declare its objects does: it asks the factory.
       var factory = window.oipfObjectFactory;
       var created = factory.createApplicationManagerObject().getOwnerApplication(document);

@@ -2,6 +2,7 @@ import { Logger } from "@hbb-emu/core";
 import { BROADCAST_STAND_IN } from "@hbb-emu/extension-common";
 import {
   type DeviceCapabilities,
+  DeviceCapabilitiesCodec,
   type DeviceProfile,
   DeviceProfileCodec,
   EMULATOR_CAPABILITIES,
@@ -9,7 +10,6 @@ import {
   hbbtvUserAgent,
   isBaseUiProfile,
   isHbbTVVersion,
-  type OipfCapabilitiesState,
   TerminalIdentityCodec,
 } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
@@ -37,7 +37,9 @@ export type StateManagerEnv = {
  * - the TV was only its `userAgent`, a free text, and its HbbTV version was the
  *   Capabilities object's: see `storedDevice`;
  * - the capabilities were the Capabilities object's state (`api.oipfCapabilities`), which
- *   only reached the active tab: now they are the device's.
+ *   only reached the active tab: now they are the device's;
+ * - the device's capabilities had DRM systems by id and `mediaFormats`, the emulator's:
+ *   see `storedCapabilities`.
  */
 type StoredState = Omit<ExtensionState, "runtime"> & {
   enabledTabIds?: unknown;
@@ -50,24 +52,39 @@ type StoredState = Omit<ExtensionState, "runtime"> & {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
+const isStrings = (value: unknown): value is ReadonlyArray<string> =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+/** The DRM system the emulator used to claim by default, without a DRM agent (Widevine). */
+const OLD_DEFAULT_DRM_SYSTEM = "urn:dvb:casystemid:19219";
+
 /**
- * The capabilities the Capabilities object had, as the device's. A UI profile without a base
- * profile (the older defaults) gets the HD one of TS 102 796 §10.2.4.7: a terminal supports
- * at least one (OIPF DAE §9.2).
+ * The capabilities of a stored state, as the device's: the ones it has, or the older ones
+ * (the Capabilities object's state, or the device's before `xmlCapabilities`).
+ * - A UI profile without a base profile (the older defaults) gets the HD one of
+ *   TS 102 796 §10.2.4.7: a terminal supports at least one (OIPF DAE §9.2).
+ * - DRM systems by id become `<drm>` elements without formats, unless they are the old
+ *   default, which no one chose.
+ * - The media are the base level: `mediaFormats` were the emulator's, and its default
+ *   listed everything.
  */
-const storedCapabilities = (stored: OipfCapabilitiesState | undefined): DeviceCapabilities => {
-  const uiProfiles = stored?.uiProfiles ?? EMULATOR_CAPABILITIES.uiProfiles;
+const storedCapabilities = (stored: unknown): DeviceCapabilities => {
+  if (DeviceCapabilitiesCodec.is(stored)) return stored;
+  const older = isRecord(stored) ? stored : {};
+  const uiProfiles = isStrings(older.uiProfiles) ? older.uiProfiles : EMULATOR_CAPABILITIES.uiProfiles;
+  const drmSystems = isStrings(older.drmSystems) ? older.drmSystems : [];
+  const chosen = drmSystems.length === 1 && drmSystems[0] === OLD_DEFAULT_DRM_SYSTEM ? [] : drmSystems;
   return {
     uiProfiles: uiProfiles.some(isBaseUiProfile) ? uiProfiles : ["OITF_HD_UIPROF", ...uiProfiles],
-    drmSystems: stored?.drmSystems ?? EMULATOR_CAPABILITIES.drmSystems,
-    mediaFormats: stored?.mediaFormats ?? EMULATOR_CAPABILITIES.mediaFormats,
+    media: EMULATOR_CAPABILITIES.media,
+    drm: chosen.map((systemId) => ({ systemId, formats: [] })),
   };
 };
 
 /**
  * The device of a stored state.
  * - One from before capabilities keeps its identity and its own header, with the
- *   capabilities the Capabilities object had.
+ *   capabilities it had, or the ones the Capabilities object had.
  * - One from before device profiles is the emulator, at the HbbTV version its Capabilities
  *   object had; the user agent it had stays its own header when it is not the one that
  *   identity gives (a custom one, or an older default).
@@ -75,12 +92,13 @@ const storedCapabilities = (stored: OipfCapabilitiesState | undefined): DeviceCa
 const storedDevice = (runtime: StoredState["runtime"]): DeviceProfile => {
   if (DeviceProfileCodec.is(runtime.device)) return runtime.device;
   const stored = runtime.api.oipfCapabilities;
-  const capabilities = storedCapabilities(stored);
   const before = runtime.device;
   if (isRecord(before) && TerminalIdentityCodec.is(before.terminal)) {
     const { terminal, userAgent } = before;
+    const capabilities = storedCapabilities(before.capabilities ?? stored);
     return typeof userAgent === "string" ? { terminal, capabilities, userAgent } : { terminal, capabilities };
   }
+  const capabilities = storedCapabilities(stored);
   const version = stored?.hbbtvVersion;
   const terminal = {
     ...EMULATOR_TERMINAL,

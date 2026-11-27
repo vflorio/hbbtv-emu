@@ -33,6 +33,13 @@ type BasicAppState = {
   userAgentAtFirstScript: string;
   userAgentDataAtFirstScript: boolean;
   capabilitiesAtFirstScript: string[];
+  xmlCapabilitiesAtFirstScript: {
+    root: string;
+    namespace: string | null;
+    uiProfile: string;
+    html5Media: number;
+    drm: string[];
+  };
   configAtFirstScript: boolean;
   channelAtFirstScript: string | null;
   factoryAtFirstScript: { videoBroadcast: boolean; drmAgent: boolean; channel: string | null };
@@ -540,12 +547,20 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     const { request } = await openUi();
     type UiState = { device: { terminal: object; capabilities: object } };
     const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
-    // The device's identity: the header is what TS 102 796 §7.3.2.4 makes of it (HbbTV 1.5: no family).
-    const terminal = { ...E2E_TERMINAL, softwareVersion: "3.0" };
-    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV HbbTV/1.2.1 (+DRM; e2e; TV; 3.0; ; )";
+    // The device's identity: the header is what TS 102 796 §7.3.2.4 makes of it (HbbTV 2.0.1: with its family).
+    const terminal = { ...E2E_TERMINAL, hbbtvVersion: "2.0.1", softwareVersion: "3.0" };
+    const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV HbbTV/1.4.1 (+DRM; e2e; TV; 3.0; ; org.hbbtv-emu.e2e; )";
+    // The DRM system that its +DRM option says it has (TS 102 796 Table 13).
+    const capabilities = {
+      ...original.device.capabilities,
+      drm: [{ systemId: "urn:dvb:casystemid:19188", formats: [] }],
+    };
 
     try {
-      await request({ _tag: "UI/SaveState", state: { ...original, device: { ...original.device, terminal } } });
+      await request({
+        _tag: "UI/SaveState",
+        state: { ...original, device: { ...original.device, terminal, capabilities } },
+      });
       const path = `basic-app/index.xhtml?ui-ua=${Date.now()}`;
       const { page } = await openPage(path);
 
@@ -554,6 +569,14 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       expect(server.requests.find((r) => r.url === `/${path}`)?.userAgent).toBe(userAgent);
       // Its Capabilities object answers with its option strings (OIPF DAE §7.15.3.2), not a MIME type.
       expect(state.capabilitiesAtFirstScript).toEqual(["+DRM", "OITF_HD_UIPROF", "+DVB_S"]);
+      // And its XML capabilities: the HbbTV 2.0.1 document, with the DRM system.
+      expect(state.xmlCapabilitiesAtFirstScript).toEqual({
+        root: "profilelist",
+        namespace: "urn:hbbtv:config:oitf:oitfCapabilities:2014-1",
+        uiProfile: "OITF_HD_UIPROF+TRICKMODE+DVB_T+DVB_T2+DVB_C+DVB_C2+DVB_S+DVB_S2+DRM",
+        html5Media: 1,
+        drm: ["urn:dvb:casystemid:19188 "],
+      });
     } finally {
       await request({ _tag: "UI/SaveState", state: original });
     }

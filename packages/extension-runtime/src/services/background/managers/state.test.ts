@@ -1,5 +1,5 @@
 import type { ChannelConfig } from "@hbb-emu/extension-common";
-import { EMULATOR_DEVICE, EMULATOR_TERMINAL, emulatorUserAgent } from "@hbb-emu/oipf-api";
+import { EMULATOR_CAPABILITIES, EMULATOR_DEVICE, EMULATOR_TERMINAL, emulatorUserAgent } from "@hbb-emu/oipf-api";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import { createFakeStorage } from "../../../__tests__/fakes";
@@ -187,7 +187,11 @@ describe("StateManager", () => {
       const { manager } = await initialized(storage);
       await manager.updateState((s) => s)();
 
-      const { hbbtvVersion: _theTerminals, ...capabilities } = edited;
+      const capabilities = {
+        uiProfiles: edited.uiProfiles,
+        media: EMULATOR_CAPABILITIES.media,
+        drm: [{ systemId: "urn:dvb:casystemid:19188", formats: [] }],
+      };
       expect(getStateOrThrow(manager).runtime.device).toEqual({ terminal: sonic, capabilities, userAgent: "TV/1.0" });
       expect(storage.stored()?.runtime.api).not.toHaveProperty("oipfCapabilities");
     });
@@ -203,6 +207,46 @@ describe("StateManager", () => {
         "+TRICKMODE",
         "+DVB_T",
       ]);
+    });
+  });
+
+  describe("a state from before xmlCapabilities (DRM systems by id, the emulator's media formats)", () => {
+    const sonic = { ...EMULATOR_TERMINAL, vendorName: "Sonic" };
+    const legacyWith = (capabilities: object) =>
+      ({
+        ...DEFAULT_STATE,
+        runtime: { ...DEFAULT_STATE.runtime, device: { terminal: sonic, capabilities } },
+      }) as unknown as ExtensionState;
+    const mediaFormats = [{ container: "video/mp4", videoCodecs: ["avc1", "hev1"], audioCodecs: ["ec-3"] }];
+
+    it("keeps its UI profile and DRM systems, as <drm> elements, with the base level of media", async () => {
+      const uiProfiles = ["OITF_FULL_HD_UIPROF", "+DVB_S"];
+      const drmSystems = ["urn:dvb:casystemid:19219", "urn:dvb:casystemid:19188"];
+      const storage = createFakeStorage<ExtensionState>(legacyWith({ uiProfiles, drmSystems, mediaFormats }));
+      const { manager } = await initialized(storage);
+      await manager.updateState((s) => s)();
+
+      const expected = {
+        terminal: sonic,
+        capabilities: {
+          uiProfiles,
+          media: { eac3: false, hevcHd: "none", hevcUhd: false },
+          drm: drmSystems.map((systemId) => ({ systemId, formats: [] })),
+        },
+      };
+      expect(getStateOrThrow(manager).runtime.device).toEqual(expected);
+      expect(storage.stored()?.runtime.device).toEqual(expected);
+    });
+
+    it("drops the DRM system of the old default (Widevine), which no one chose: the emulator has no DRM agent", async () => {
+      const olderDefault = {
+        uiProfiles: EMULATOR_CAPABILITIES.uiProfiles,
+        drmSystems: ["urn:dvb:casystemid:19219"],
+        mediaFormats,
+      };
+      const { manager } = await initialized(createFakeStorage<ExtensionState>(legacyWith(olderDefault)));
+
+      expect(getStateOrThrow(manager).runtime.device.capabilities).toEqual(EMULATOR_CAPABILITIES);
     });
   });
 });

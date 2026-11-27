@@ -1,5 +1,11 @@
 import { createLogger, type OnStateChangeCallback, type Stateful } from "@hbb-emu/core";
-import { type DeviceProfile, deviceHasCapability, type OIPF, type OipfCapabilitiesState } from "@hbb-emu/oipf-api";
+import {
+  type DeviceProfile,
+  deviceHasCapability,
+  deviceXmlCapabilities,
+  type OIPF,
+  type OipfCapabilitiesState,
+} from "@hbb-emu/oipf-api";
 import * as IO from "fp-ts/IO";
 
 const logger = createLogger("OipfCapabilities");
@@ -19,30 +25,31 @@ export type OipfCapabilitiesEnv = Readonly<{
  * may come after the object (a page without the synchronous bootstrap): it answers for
  * the TV it is then.
  *
- * `hbbtvVersion`, `uiProfiles`, `drmSystems` and `mediaFormats` are the emulator's, not the
- * spec's, which has `xmlCapabilities` instead (TS 102 796 §10.2.4).
+ * It has what a TV has: `xmlCapabilities` and `hasCapability()`. The emulator's own
+ * `hbbtvVersion`, `uiProfiles`, `drmSystems` and `mediaFormats` are gone: an application
+ * that relied on them would not find them on a TV.
  */
 export class OipfCapabilities implements OIPF.DAE.Capabilities.Capabilities, Stateful<OipfCapabilitiesState> {
   readonly #device: IO.IO<DeviceProfile>;
+  #document: { xml: string; document: Document } | null = null;
 
   constructor(env: OipfCapabilitiesEnv) {
     this.#device = env.device;
   }
 
-  get hbbtvVersion(): string {
-    return this.#device().terminal.hbbtvVersion;
-  }
-
-  get uiProfiles(): string[] {
-    return [...this.#device().capabilities.uiProfiles];
-  }
-
-  get drmSystems(): string[] {
-    return [...this.#device().capabilities.drmSystems];
-  }
-
-  get mediaFormats(): NonNullable<OipfCapabilitiesState["mediaFormats"]> {
-    return [...this.#device().capabilities.mediaFormats];
+  /**
+   * The device's capability description (TS 102 796 §10.2.4), parsed as XML: its
+   * `doctype` is `null` (§10.2.4.6). The same `Document` while the device's capabilities
+   * stay the same; a new one when they change (§10.2.4.1: some "are dynamic").
+   */
+  get xmlCapabilities(): Document {
+    const xml = deviceXmlCapabilities(this.#device());
+    const parsed =
+      this.#document?.xml === xml
+        ? this.#document
+        : { xml, document: new DOMParser().parseFromString(xml, "text/xml") };
+    this.#document = parsed;
+    return parsed.document;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -51,12 +58,7 @@ export class OipfCapabilities implements OIPF.DAE.Capabilities.Capabilities, Sta
 
   applyState = (_state: Partial<OipfCapabilitiesState>): IO.IO<void> => IO.of(undefined);
 
-  getState: IO.IO<Partial<OipfCapabilitiesState>> = () => ({
-    hbbtvVersion: this.hbbtvVersion,
-    uiProfiles: this.uiProfiles,
-    drmSystems: this.drmSystems,
-    mediaFormats: this.mediaFormats,
-  });
+  getState: IO.IO<Partial<OipfCapabilitiesState>> = () => ({});
 
   subscribe = (_callback: OnStateChangeCallback<OipfCapabilitiesState>): IO.IO<() => void> => IO.of(() => {});
 
