@@ -41,6 +41,11 @@ export interface Application {
   activate?(): void;
   deactivate?(): void;
   destroy?(): void;
+  /**
+   * Terminates the application (OIPF DAE §7.2.2.2). In HbbTV, the terminal then
+   * starts the autostart application of the current service (TS 102 796 §6.2.2.3).
+   */
+  destroyApplication?(): void;
 
   id?: string;
   name?: string;

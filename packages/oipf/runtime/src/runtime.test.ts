@@ -67,6 +67,32 @@ describe("runtime", () => {
     );
   });
 
+  it("destroyApplication() tells the TV that the application exits, from any application manager", async () => {
+    const env = createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [] });
+    let exits = 0;
+    started.push(
+      runtime({
+        ...env,
+        bindings: {
+          ...env.bindings,
+          exitApplication: () => {
+            exits += 1;
+          },
+        },
+      })(),
+    );
+    type AppMgr = { getOwnerApplication: (doc: Document) => { destroyApplication: () => void } };
+
+    const markup = addObject("application/oipfApplicationManager") as unknown as AppMgr;
+    await flushMutations();
+    markup.getOwnerApplication(document).destroyApplication();
+    const factory = (window as unknown as { oipfObjectFactory: { createApplicationManagerObject: () => unknown } })
+      .oipfObjectFactory;
+    (factory.createApplicationManagerObject() as AppMgr).getOwnerApplication(document).destroyApplication();
+
+    expect(exits).toBe(2);
+  });
+
   it("delivers a remote-control key only once the application's keyset asks for it", async () => {
     const handle = startRuntime();
     const appMgr = addObject("application/oipfApplicationManager") as unknown as {

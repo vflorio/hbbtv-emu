@@ -9,6 +9,7 @@ import { type ApplicationManagerState, ApplicationManagerStateCodec, type OIPF }
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
+import type { ApplicationExit } from "../../../subsystems/applicationExit";
 import { type ApplicationEnv, createApplication } from "./application";
 
 const logger = createLogger("OipfApplicationManager");
@@ -26,6 +27,9 @@ export type ApplicationManagerEnv = Readonly<{
    * the markup, from `oipfObjectFactory`) gives the same, whose keys the page receives.
    */
   keyset: OIPF.DAE.ApplicationManager.Keyset;
+
+  /** Tells the TV that the application exits (`destroyApplication()`). */
+  exitApplication: ApplicationExit;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +79,7 @@ export class OipfApplicationManager
     this.#getOrCreateApplication = createGetOrCreateApplication(this.#applicationCache, {
       getCurrentChannel: this.#env.getCurrentChannel,
       keyset: this.#env.keyset,
+      exitApplication: this.#env.exitApplication,
     });
   }
 

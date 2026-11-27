@@ -19,8 +19,10 @@ import {
   type AssetUrl,
   changeChannel,
   type ExtensionState,
+  exitApplication,
   findChannel,
   mayChangeChannel,
+  sessionChannel,
   type TvPageUrl,
   type TvSession,
   toBootstrapData,
@@ -77,6 +79,28 @@ export const changeTabChannel =
       TE.flatMap(() =>
         change.navigateTo === null ? TE.right(undefined) : env.tabs.navigate(tabId, change.navigateTo),
       ),
+    );
+  };
+
+/**
+ * The application in `tabId` exits (`destroyApplication()`): the TV, still on its
+ * channel, loads what that channel's AIT starts (`exitApplication`), its channel
+ * already in the bootstrap. Loading it ends the application. `false` when the tab
+ * loads nothing: it is not a TV, or its lineup is empty.
+ */
+export const exitTabApplication =
+  (tabId: number, state: ExtensionState): RT.ReaderTask<TvEnv, E.Either<AdapterError, boolean>> =>
+  (env) => {
+    const session = env.sessions.get(tabId)();
+    if (O.isNone(session)) return T.of(E.right(false));
+    const exit = exitApplication(session.value, sessionChannel(state, session.value), env.tvPage);
+    const navigateTo = exit.navigateTo;
+    if (navigateTo === null) return T.of(E.right(false));
+    return pipe(
+      TE.fromTask(env.sessions.update(tabId, () => exit.session)),
+      TE.tap(() => TE.fromTask(republish(state)(env))),
+      TE.flatMap(() => env.tabs.navigate(tabId, navigateTo)),
+      TE.map(() => true),
     );
   };
 

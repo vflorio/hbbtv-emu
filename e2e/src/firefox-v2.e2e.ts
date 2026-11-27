@@ -767,6 +767,78 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     }
   });
 
+  it("an application that exits (destroyApplication()) is stopped, and the TV starts its channel's autostart application again (TS 102 796 §6.2.2.3)", async () => {
+    const { request } = await openUi();
+    type Service = Channel & { onid: number; tsid: number };
+    type UiState = { channels: Service[]; currentChannel: Service | null };
+    const getState = async () => ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const original = await getState();
+    const [first] = original.channels as [Service];
+    const stamp = Date.now();
+    const dmaxUrl = server.url(`basic-app/index.xhtml?exit-dmax=${stamp}`);
+    const hgtvUrl = server.url(`basic-app/index.xhtml?exit-hgtv=${stamp}`);
+    // The same application (org 10, app 1), from a different URL on each channel.
+    const signals = (url: string) => ({ applications: [{ orgId: 10, appId: 1, controlCode: "AUTOSTART", url }] });
+    const dmax = { ...first, id: "e2e-dmax", name: "e2e DMAX", sid: first.sid + 3000, ait: signals(dmaxUrl) };
+    const hgtv = { ...first, id: "e2e-hgtv", name: "e2e HGTV", sid: first.sid + 3001, ait: signals(hgtvUrl) };
+    const loaded = async (page: Page, url: string) => {
+      await expect.poll(() => page.evaluate(() => location.href).catch(() => null), { timeout: 5000 }).toBe(url);
+      await page.waitForFunction(() => "__e2e" in window && document.readyState === "complete");
+    };
+    /** The application exits, twice as some do; the page records how it was hidden. */
+    const exit = (page: Page) =>
+      page.evaluate(() => {
+        Object.assign(window, { __stayed: true });
+        document.addEventListener("visibilitychange", () => {
+          localStorage.setItem("e2e-exit-visibility", document.visibilityState);
+        });
+        type AppMgr = { getOwnerApplication: (d: Document) => { destroyApplication: () => void } };
+        const app = (document.getElementById("appmgr") as unknown as AppMgr).getOwnerApplication(document);
+        app.destroyApplication();
+        app.destroyApplication();
+      });
+    /** The page that exited is gone, and `url` started in its place. */
+    const restarted = async (page: Page, url: string) => {
+      await expect
+        .poll(() => page.evaluate(() => "__stayed" in window).catch(() => true), { timeout: 5000 })
+        .toBe(false);
+      await loaded(page, url);
+    };
+    const exitVisibility = (page: Page) =>
+      page.evaluate(() => {
+        const seen = localStorage.getItem("e2e-exit-visibility");
+        localStorage.removeItem("e2e-exit-visibility");
+        return seen;
+      });
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, dmax, hgtv] } });
+      const opened = firefox.browser.waitForTarget((target) => target.url() === dmaxUrl);
+      expect(await request({ _tag: "UI/TurnOnTv", channelId: dmax.id })).toEqual({ _tag: "UI/Done" });
+      const tv = (await (await opened).page())!;
+      await loaded(tv, dmaxUrl);
+
+      // DMAX's AIT signals it as autostart: the TV starts it again, the same page.
+      await exit(tv);
+      await restarted(tv, dmaxUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBe(dmax.id);
+      // The TV stopped the page as it stops an application (§6.2.2.11).
+      expect(await exitVisibility(tv)).toBe("hidden");
+
+      // On HGTV, which signals it too, the application keeps running on DMAX's page.
+      // When it exits, the TV starts HGTV's autostart application: HGTV's page.
+      expect(await request({ _tag: "UI/PlayChannel", channel: hgtv })).toEqual({ _tag: "UI/Done" });
+      await expect.poll(() => tv.evaluate(channelSeen), { timeout: 5000 }).toMatchObject({ application: hgtv.id });
+      await exit(tv);
+      await restarted(tv, hgtvUrl);
+      expect((await appState(tv)).channelAtFirstScript).toBe(hgtv.id);
+      expect((await getState()).currentChannel?.id).toBe(hgtv.id);
+      await tv.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
   it("getChannelConfig() lists the lineup, and nextChannel()/prevChannel() go through it as setChannel() does", async () => {
     const { request } = await openUi();
     type Service = Channel & { onid: number; tsid: number };

@@ -4,8 +4,10 @@
 
 import { type ChannelConfig, DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
 import {
+  type ApplicationExit,
   type ChannelChangeRequest,
   createRuntimeEnv,
+  exitAlone,
   type FetchStreamEventDescription,
   fetchFromPage,
   ignoreTvKey,
@@ -62,16 +64,20 @@ export type HostRequests = Readonly<{
   pressTvKey: (keyCode: number) => IO.IO<void>;
   /** The XML descriptions of stream events (TS 102 796 §8.2.1.1). */
   fetchStreamEventDescription: FetchStreamEventDescription;
+  /** The application exits (`destroyApplication()`). */
+  exitApplication: ApplicationExit;
 }>;
 
 /**
- * Without a host, the objects tune by themselves, the TV's keys do nothing, and the page
- * fetches the stream event descriptions (subject to CORS, unlike a TV).
+ * Without a host, the objects tune by themselves, the TV's keys do nothing, the page
+ * fetches the stream event descriptions (subject to CORS, unlike a TV), and an
+ * application that exits keeps running.
  */
 export const WITHOUT_HOST: HostRequests = {
   requestChannelChange: tuneAlone,
   pressTvKey: ignoreTvKey,
   fetchStreamEventDescription: fetchFromPage,
+  exitApplication: exitAlone,
 };
 
 /**
@@ -101,6 +107,7 @@ export const startRuntime =
         ...env.bindings,
         requestChannelChange: host.requestChannelChange,
         fetchStreamEventDescription: host.fetchStreamEventDescription,
+        exitApplication: host.exitApplication,
       },
       keyboard: { ...env.keyboard, pressTvKey: host.pressTvKey },
     })();

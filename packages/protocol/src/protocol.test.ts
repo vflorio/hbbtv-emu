@@ -32,6 +32,7 @@ describe("message guards", () => {
     [{ _tag: "Page/TvKey" }, false],
     [{ _tag: "Page/FetchStreamEventDescription", url: "http://tv/a.ste" }, true],
     [{ _tag: "Page/FetchStreamEventDescription" }, false],
+    [{ _tag: "Page/DestroyApplication" }, true],
     [{ _tag: "Host/Hello" }, false],
   ])("isPageMessage(%j) → %s", (value, expected) => {
     expect(isPageMessage(value)).toBe(expected);

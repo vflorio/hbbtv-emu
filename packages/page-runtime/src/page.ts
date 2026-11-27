@@ -8,6 +8,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { IORef } from "fp-ts/IORef";
 import * as O from "fp-ts/Option";
+import { createHostApplicationExit } from "./applicationExit";
 import { bootPageRuntime } from "./boot";
 import { createHostChannelChanges } from "./channelChange";
 import { connectToHost } from "./host";
@@ -41,6 +42,7 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
             requestChannelChange: changes.request,
             pressTvKey: (keyCode) => channel.send({ _tag: "Page/TvKey", keyCode }),
             fetchStreamEventDescription: descriptions.fetch,
+            exitApplication: createHostApplicationExit(channel.send),
           }),
         ),
       ),

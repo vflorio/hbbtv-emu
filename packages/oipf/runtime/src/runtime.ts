@@ -37,6 +37,7 @@ import { createKeyset } from "./apis/dae/applicationManager/keyset";
 import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
 import { broadcastGain } from "./apis/dae/videoBroadcast/volume";
 import {
+  type ApplicationExit,
   type BroadcastLayer,
   type ChannelChangeRequest,
   type ChannelRegistry,
@@ -53,6 +54,7 @@ import {
   DEFAULT_KEY_MAP,
   dispatchRemoteKey,
   type EmulatorMedia,
+  exitAlone,
   type FetchStreamEventDescription,
   fetchFromPage,
   ignoreTvKey,
@@ -106,6 +108,12 @@ export type BindingsEnv = Readonly<{
    * where there is one, as a TV does (no CORS); without a host, the page does.
    */
   fetchStreamEventDescription: FetchStreamEventDescription;
+
+  /**
+   * Tells the TV that the application exits (`destroyApplication()`): the host stops
+   * it and starts what the AIT says (TS 102 796 §6.2.2.3). Without a host, nothing.
+   */
+  exitApplication: ApplicationExit;
 
   /**
    * The TV's broadcast in the page, which video/broadcast objects control: presented
@@ -478,6 +486,7 @@ export const createRuntimeEnv = (
     setCurrentChannel: currentChannelEnv.setCurrentChannel,
     requestChannelChange: tuneAlone,
     fetchStreamEventDescription: fetchFromPage,
+    exitApplication: exitAlone,
     broadcastLayer,
     // The broadcast's PlayerRuntime
     getSharedPlayerRuntime: () => sharedPlayerRuntime ?? null,

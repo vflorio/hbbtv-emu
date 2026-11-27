@@ -9,7 +9,8 @@
  *   keyboard: page → host.
  * - requests: the application asks the TV to change channel (`setChannel()`), and
  *   the host answers with the new session or an error, or loads another page; the page
- *   asks the host for a stream event description, which a TV fetches without CORS.
+ *   asks the host for a stream event description, which a TV fetches without CORS;
+ *   the application exits (`destroyApplication()`), and the host loads another page.
  *
  * Plus the TV session of the tab (the channel it is tuned to, …): owned by the host,
  * it outlives the page, which gets it again after every navigation.
@@ -48,7 +49,12 @@ export type PageMessage =
    * The application listens for stream events described by an XML file over HTTP(S)
    * (TS 102 796 §8.2.1.1): the host fetches it, as a TV does, without CORS.
    */
-  | Readonly<{ _tag: "Page/FetchStreamEventDescription"; url: string }>;
+  | Readonly<{ _tag: "Page/FetchStreamEventDescription"; url: string }>
+  /**
+   * The application exits (`destroyApplication()`): the TV of this tab stops it and
+   * starts what the AIT of its channel says (TS 102 796 §6.2.2.3).
+   */
+  | Readonly<{ _tag: "Page/DestroyApplication" }>;
 
 /** A stream event description as the host fetched it, or why it could not. */
 export type StreamEventDescriptionResult =
@@ -101,6 +107,8 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
       return isKeyCode(value.keyCode);
     case "Page/FetchStreamEventDescription":
       return typeof value.url === "string";
+    case "Page/DestroyApplication":
+      return true;
     default:
       return false;
   }

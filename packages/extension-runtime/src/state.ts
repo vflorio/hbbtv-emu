@@ -150,6 +150,25 @@ export const changeChannel = (
 };
 
 /**
+ * The session after the application exits (`destroyApplication()`), and the page the
+ * tab must load. The TV stays on `channel`, re-parses its AIT and starts its
+ * autostart application again, which may be the one that just exited; with none, it
+ * shows the channel alone (TS 102 796 §6.2.2.3). The same in both modes: an
+ * application opened on its own is also stopped, and its channel starts what it
+ * signals. Without a channel (an empty lineup) the spec says nothing: the tab loads
+ * nothing (`navigateTo` is `null`).
+ */
+export const exitApplication = (
+  session: TvSession,
+  channel: ChannelConfig | null,
+  tvPage: TvPageUrl,
+): Readonly<{ session: TvSession; navigateTo: string | null }> => {
+  if (channel === null) return { session, navigateTo: null };
+  const selected = selectService(channel, tvPage);
+  return { session: { ...session, channelId: channel.id, ...selected }, navigateTo: selected.url };
+};
+
+/**
  * Whether the application may change its TV to `channel` (`setChannel()`): only a
  * TV changes channel. An application opened on its own has only its channel
  * (ROADMAP D5).

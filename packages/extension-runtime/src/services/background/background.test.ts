@@ -768,4 +768,78 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     ]);
     expect(tabs.navigations).toHaveLength(2);
   });
+
+  const destroyApplication = async (messaging: { receive: (m: object, tabId: number) => void }, tabId: number) => {
+    messaging.receive({ _tag: "Page/DestroyApplication" }, tabId);
+    await flushPromises();
+  };
+
+  it("an application that exits is started again: the channel's AIT signals it as autostart (TS 102 796 §6.2.2.3)", async () => {
+    const env = await turnOn("dmax");
+    env.messaging.receive({ _tag: "Page/Ready", url: "http://linear.example/dmax.html" }, TV_TAB);
+    await flushPromises();
+    env.ui.notified.splice(0);
+
+    await destroyApplication(env.messaging, TV_TAB);
+
+    expect(env.tabs.navigations.slice(2)).toEqual([{ tabId: TV_TAB, url: "http://linear.example/dmax.html" }]);
+    expect(env.ui.notified).toEqual([{ _tag: "UI/StateChanged", state: toUiState(lineup, dmax) }]);
+  });
+
+  it("…the autostart application of the channel the TV is on now, not the page that ran", async () => {
+    const { ui, messaging, tabs, bootstrap } = await turnOn("dmax");
+    // HGTV signals DMAX's application: it survives the change, on DMAX's page.
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+
+    await destroyApplication(messaging, TV_TAB);
+
+    expect(tabs.navigations.slice(2)).toEqual([{ tabId: TV_TAB, url: "http://linear.example/hgtv.html" }]);
+    expect(bootstrap.published[bootstrap.published.length - 1]).toBe(
+      configBootstrapScript({
+        config: toPageConfig(lineup, assetUrl),
+        tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv" }],
+      }),
+    );
+  });
+
+  it("an application opened on its own exits too: its channel starts what it signals, or shows alone", async () => {
+    const { messaging, tabs } = await setup(lineup, [
+      { id: 1, url: "http://linear.example/dmax.html" },
+      { id: 2, url: "http://app/b.xhtml" },
+    ]);
+    messaging.receive({ _tag: "Page/Ready", url: "http://linear.example/dmax.html" }, 1);
+    await flushPromises();
+    // No channel signals this page: the TV is on the first channel, DMAX.
+    messaging.receive({ _tag: "Page/Ready", url: "http://app/b.xhtml" }, 2);
+    await flushPromises();
+
+    await destroyApplication(messaging, 1);
+    await destroyApplication(messaging, 2);
+
+    expect(tabs.navigations).toEqual([
+      { tabId: 1, url: "http://linear.example/dmax.html" },
+      { tabId: 2, url: "http://linear.example/dmax.html" },
+    ]);
+  });
+
+  it("with no autostart application, the TV shows the channel alone", async () => {
+    const { messaging, tabs } = await setup({
+      ...lineup,
+      runtime: { ...lineup.runtime, channels: [radio, dmax] },
+    });
+    messaging.receive({ _tag: "Page/Ready", url: "http://app/a.xhtml" }, 1);
+    await flushPromises();
+
+    await destroyApplication(messaging, 1);
+
+    expect(tabs.navigations).toEqual([{ tabId: 1, url: "ext://hbb-emu/tv.html?channel=radio" }]);
+  });
+
+  it("a tab that is not a TV loads nothing", async () => {
+    const { messaging, tabs } = await setup(lineup);
+
+    await destroyApplication(messaging, 1);
+
+    expect(tabs.navigations).toEqual([]);
+  });
 });

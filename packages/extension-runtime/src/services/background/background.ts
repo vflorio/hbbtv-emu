@@ -31,7 +31,7 @@ import {
 } from "../../state";
 import type { ServiceEnv } from "..";
 import { createPageBootstrap, type PageBootstrap } from "./bootstrap";
-import { applicationChangesChannel } from "./channel";
+import { applicationChangesChannel, exitTabApplication } from "./channel";
 import { StateManager } from "./managers/state";
 import { TabsManager } from "./managers/tabs";
 import { createSessions, type Sessions } from "./sessions";
@@ -203,8 +203,41 @@ export class BackgroundService {
         return this.onTvKey(message.keyCode, tabId);
       case "Page/FetchStreamEventDescription":
         return this.onFetchStreamEventDescription(message.url, tabId);
+      case "Page/DestroyApplication":
+        return this.onDestroyApplication(tabId);
     }
   };
+
+  /**
+   * The application exits (`destroyApplication()`): the TV of the tab loads what its
+   * channel's AIT starts, maybe the same application (TS 102 796 §6.2.2.3), and the
+   * UIs show it.
+   */
+  private readonly onDestroyApplication = (tabId: number): IO.IO<void> =>
+    pipe(
+      this.logger.info(`The application in tab ${tabId} exits`),
+      IO.flatMap(() => this.stateManager.getState()),
+      IO.flatMap(
+        E.match(
+          (error) => this.logger.error("Cannot stop the application", error),
+          (state) => () => {
+            void pipe(
+              exitTabApplication(tabId, state)(this.uiEnv),
+              TE.match(
+                (error) => T.fromIO(this.logger.warn(`Could not stop the application in tab ${tabId}`, error)),
+                (stopped) =>
+                  stopped
+                    ? notifyUis(state)(this.uiEnv)
+                    : T.fromIO(
+                        this.logger.warn(`Tab ${tabId} has no TV to start what comes next: the application runs on`),
+                      ),
+              ),
+              T.flatten,
+            )();
+          },
+        ),
+      ),
+    );
 
   /**
    * The application listens for stream events described over HTTP(S) (TS 102 796

@@ -159,6 +159,7 @@ export const createApplicationManagerBinding = (
     new OipfApplicationManager({
       getCurrentChannel: env.getCurrentChannel,
       keyset: env.keyset,
+      exitApplication: env.exitApplication,
     }),
 });
 
