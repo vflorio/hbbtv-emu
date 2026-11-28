@@ -3,6 +3,7 @@ import { OIPF } from "@hbb-emu/oipf-api";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import type * as RIO from "fp-ts/ReaderIO";
+import { MAXIMUM_KEYSET_VALUE } from "../apis/dae/applicationManager/keyset";
 
 const logger = createLogger("RemoteControl");
 
@@ -48,13 +49,19 @@ export const HbbTVKeyCodes = {
   // Channel
   VK_CHANNEL_UP: 427,
   VK_CHANNEL_DOWN: 428,
+
+  // Outside TS 102 796 Table 12: the TV keeps them, unless it is one that gives them
+  // (`DeviceKeys.extra`). The values of CEA-2014-A Annex F.
+  VK_INFO: 457,
+  VK_PAGE_UP: 33,
+  VK_PAGE_DOWN: 34,
 } as const;
 
 export type HbbTVKeyCode = (typeof HbbTVKeyCodes)[keyof typeof HbbTVKeyCodes];
 
 // Which keys the application receives
 
-const { RED, GREEN, YELLOW, BLUE, NAVIGATION, VCR, NUMERIC } = OIPF.DAE.ApplicationManager.KeysetMask;
+const { RED, GREEN, YELLOW, BLUE, NAVIGATION, VCR, SCROLL, INFO, NUMERIC } = OIPF.DAE.ApplicationManager.KeysetMask;
 
 const KEY_GROUPS: Readonly<Record<number, number>> = {
   [HbbTVKeyCodes.VK_RED]: RED,
@@ -72,24 +79,53 @@ const KEY_GROUPS: Readonly<Record<number, number>> = {
   [HbbTVKeyCodes.VK_STOP]: VCR,
   [HbbTVKeyCodes.VK_FAST_FWD]: VCR,
   [HbbTVKeyCodes.VK_REWIND]: VCR,
+  [HbbTVKeyCodes.VK_PAGE_UP]: SCROLL,
+  [HbbTVKeyCodes.VK_PAGE_DOWN]: SCROLL,
+  [HbbTVKeyCodes.VK_INFO]: INFO,
 };
 
 /**
  * The Keyset constant a key belongs to (OIPF DAE §7.2.5.1); `null` for the keys the
- * terminal keeps for itself, because they have no key code in HbbTV TS 102 796
- * Table 12 (P+/P-, volume).
+ * terminal keeps for itself whatever it is, which have no Keyset constant (P+/P-,
+ * volume). INFO and the page keys have one: a TV may give them (`KeyDelivery.maximum`).
  */
 export const keyGroup = (keyCode: number): number | null =>
   KEY_GROUPS[keyCode] ?? (keyCode >= HbbTVKeyCodes.VK_0 && keyCode <= HbbTVKeyCodes.VK_9 ? NUMERIC : null);
 
+/** Which keys the TV delivers, beyond what the application's keyset asks for. */
+export type KeyDelivery = Readonly<{
+  /** The keys the TV gives applications at all (`Keyset.maximumValue`). */
+  maximum: number;
+  /** Those available to the application now: not the digits nor VCR before its activation. */
+  available: number;
+  /** It also delivers the available keys the keyset does not ask for (`DeviceKeys.deliversUnrequested`). */
+  unrequested: boolean;
+}>;
+
+/** A TV that follows the spec, with an application that does not depend on activation. */
+export const SPEC_DELIVERY: KeyDelivery = {
+  maximum: MAXIMUM_KEYSET_VALUE,
+  available: MAXIMUM_KEYSET_VALUE,
+  unrequested: false,
+};
+
 /**
- * Whether the application receives a key (TS 102 796 §10.2.2.1): only a key
- * available to applications, and only if its keyset asks for it, except when a text
- * field has the focus, which receives the keys whatever the keyset.
+ * Whether the application receives a key (TS 102 796 §10.2.2.1): only a key the TV
+ * gives applications, and only if its keyset asks for it (or the TV delivers it
+ * anyway), except when a text field has the focus, which receives the keys whatever
+ * the keyset.
  */
-export const isDelivered = (keyCode: number, keysetValue: number, textEntryFocused: boolean): boolean => {
+export const isDelivered = (
+  keyCode: number,
+  keysetValue: number,
+  textEntryFocused: boolean,
+  delivery: KeyDelivery = SPEC_DELIVERY,
+): boolean => {
   const group = keyGroup(keyCode);
-  return group !== null && (textEntryFocused || (keysetValue & group) !== 0);
+  if (group === null || (delivery.maximum & group) === 0) return false;
+  return (
+    textEntryFocused || (keysetValue & group) !== 0 || (delivery.unrequested && (delivery.available & group) !== 0)
+  );
 };
 
 /** `<input>` types that accept text input (other types, e.g. checkbox, do not). */
@@ -115,6 +151,8 @@ export type RemoteControlEnv = EventDispatcher &
   Readonly<{
     /** The keys the application asked for: the value of its keyset. */
     keysetValue: IO.IO<number>;
+    /** Which keys the TV delivers (its remote, the application's activation). */
+    delivery: IO.IO<KeyDelivery>;
     /**
      * The application receives a key event, which activates an application the TV
      * AUTOSTARTed (TS 102 796 §10.2.2.1, see `Activation`).
@@ -145,6 +183,9 @@ const KEY_NAMES: Readonly<Record<number, string>> = {
   448: "AudioVolumeDown",
   427: "ChannelUp",
   428: "ChannelDown",
+  457: "Info",
+  33: "PageUp",
+  34: "PageDown",
 };
 
 export const keyName = (keyCode: number): string =>
@@ -152,10 +193,13 @@ export const keyName = (keyCode: number): string =>
 
 /**
  * `KeyboardEvent.code` values, as TS 102 796 Table 12 gives them: the same as `key`,
- * except for the digits ("Digit0" to "Digit9").
+ * except for the digits ("Digit0" to "Digit9"). INFO has no `code` (UI Events names no
+ * such key); the page keys have the keyboard's.
  */
-export const keyCodeName = (keyCode: number): string =>
-  keyCode >= 48 && keyCode <= 57 ? `Digit${keyCode - 48}` : (KEY_NAMES[keyCode] ?? "");
+export const keyCodeName = (keyCode: number): string => {
+  if (keyCode >= 48 && keyCode <= 57) return `Digit${keyCode - 48}`;
+  return keyCode === HbbTVKeyCodes.VK_INFO ? "" : (KEY_NAMES[keyCode] ?? "");
+};
 
 /** Keys that also produce a character, hence a `keypress` (as a browser does for a real keyboard). */
 const producesCharacter = (keyCode: number): boolean => keyCode === 13 || (keyCode >= 48 && keyCode <= 57);
@@ -241,12 +285,20 @@ export const defaultEventDispatcher: EventDispatcher = {
 // Operations
 
 /** Why the application does not receive a key: said in the log, where developers look. */
-const notDelivered = (keyCode: number, keysetValue: number): IO.IO<void> =>
-  keyGroup(keyCode) === null
-    ? logger.info(`Key ${keyCode} not delivered: the TV keeps it, applications never receive it`)
-    : logger.info(
-        `Key ${keyCode} not delivered: not in the application's keyset (0x${keysetValue.toString(16)}, see Keyset.setValue())`,
-      );
+const notDelivered = (keyCode: number, keysetValue: number, delivery: KeyDelivery): IO.IO<void> => {
+  const group = keyGroup(keyCode);
+  if (group === null || (delivery.maximum & group) === 0) {
+    return logger.info(`Key ${keyCode} not delivered: the TV keeps it, applications never receive it`);
+  }
+  if ((delivery.available & group) === 0) {
+    return logger.info(
+      `Key ${keyCode} not delivered: only available once the application is activated, by its first key (TS 102 796 §10.2.2.1), then asked for with Keyset.setValue()`,
+    );
+  }
+  return logger.info(
+    `Key ${keyCode} not delivered: not in the application's keyset (0x${keysetValue.toString(16)}, see Keyset.setValue())`,
+  );
+};
 
 /**
  * A remote-control key: dispatched to the page if the application receives it. The
@@ -261,23 +313,26 @@ export const dispatchRemoteKey =
       IO.Do,
       IO.bind("keysetValue", () => env.keysetValue),
       IO.bind("textEntryFocused", () => env.textEntryFocused),
-      IO.flatMap(({ keysetValue, textEntryFocused }) =>
-        isDelivered(keyCode, keysetValue, textEntryFocused)
+      IO.bind("delivery", () => env.delivery),
+      IO.flatMap(({ keysetValue, textEntryFocused, delivery }) =>
+        isDelivered(keyCode, keysetValue, textEntryFocused, delivery)
           ? pipe(
               logger.debug("Dispatching remote key:", keyCode),
               IO.flatMap(() => env.keyReceived),
               IO.flatMap(() => env.dispatchKeyEvent(keyCode)),
             )
-          : notDelivered(keyCode, keysetValue),
+          : notDelivered(keyCode, keysetValue, delivery),
       ),
     );
 
-/** The page's remote control, delivering the keys asked for by `keysetValue`. */
+/** The page's remote control, delivering the keys asked for by `keysetValue`, as `delivery` says. */
 export const createRemoteControlEnv = (
   keysetValue: IO.IO<number>,
+  delivery: IO.IO<KeyDelivery> = () => SPEC_DELIVERY,
   keyReceived: IO.IO<void> = IO.of(undefined),
 ): RemoteControlEnv => ({
   ...defaultEventDispatcher,
   keysetValue,
+  delivery,
   keyReceived,
 });

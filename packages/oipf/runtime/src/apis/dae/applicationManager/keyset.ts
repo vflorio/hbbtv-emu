@@ -1,4 +1,4 @@
-import { OIPF } from "@hbb-emu/oipf-api";
+import { type DeviceKeys, OIPF } from "@hbb-emu/oipf-api";
 
 const { RED, GREEN, YELLOW, BLUE, NAVIGATION, VCR, NUMERIC } = OIPF.DAE.ApplicationManager.KeysetMask;
 
@@ -11,18 +11,36 @@ const { RED, GREEN, YELLOW, BLUE, NAVIGATION, VCR, NUMERIC } = OIPF.DAE.Applicat
 export const MAXIMUM_KEYSET_VALUE = RED | GREEN | YELLOW | BLUE | NAVIGATION | VCR | NUMERIC;
 
 /**
+ * The keys a TV makes available to applications (`maximumValue`): those of Table 12,
+ * and the groups beyond it its remote gives too (a quirk of the device).
+ */
+export const keysetMaximum = (keys: DeviceKeys): number =>
+  keys.extra.reduce((maximum, group) => maximum | OIPF.DAE.ApplicationManager.KeysetMask[group], MAXIMUM_KEYSET_VALUE);
+
+/**
  * The keys "only available to applications once activated" (Table 12): the digits and
  * the VCR keys. The others are always available. (Annex O.7 makes the VCR keys always
  * available to a DVB-I linked application controlling media: the emulator has no DVB-I.)
  */
 export const ACTIVATION_KEYS = VCR | NUMERIC;
 
-/** The keys available to an application now (TS 102 796 §10.2.2.1). */
-export const availableKeys = (activated: boolean): number =>
-  activated ? MAXIMUM_KEYSET_VALUE : MAXIMUM_KEYSET_VALUE & ~ACTIVATION_KEYS;
+/** The keys available to an application now, of the TV's `maximum` (TS 102 796 §10.2.2.1). */
+export const availableKeys = (maximum: number, activated: boolean): number =>
+  activated ? maximum : maximum & ~ACTIVATION_KEYS;
 
-/** Every key is available: an application that does not depend on activation. */
-const ALWAYS_AVAILABLE = (): number => MAXIMUM_KEYSET_VALUE;
+/** Which keys the application may have: the TV's, and those available to it now. */
+export type KeysetAvailability = Readonly<{
+  /** The keys the TV makes available to applications (`maximumValue`). */
+  maximum: () => number;
+  /** Those available to the application now (`availableKeys`). */
+  available: () => number;
+}>;
+
+/** A TV that follows the spec, and an application that does not depend on activation. */
+const ALWAYS_AVAILABLE: KeysetAvailability = {
+  maximum: () => MAXIMUM_KEYSET_VALUE,
+  available: () => MAXIMUM_KEYSET_VALUE,
+};
 
 /** OIPF DAE §7.2.5 Keyset: the remote-control keys the application receives. */
 export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
@@ -41,18 +59,17 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   /** OIPF DAE §7.2.5.2: the application sets it; the OITF assumes `false` otherwise. */
   supportsPointer = false;
 
-  /** The keys available to the application now (`availableKeys`). */
-  readonly #available: () => number;
+  readonly #availability: KeysetAvailability;
 
   /** What the application asked for last, before the unavailable keys were discarded. */
   #requested: number;
 
   #value: number;
 
-  constructor(initialValue = 0, available: () => number = ALWAYS_AVAILABLE) {
-    this.#available = available;
+  constructor(initialValue = 0, availability: KeysetAvailability = ALWAYS_AVAILABLE) {
+    this.#availability = availability;
     this.#requested = initialValue;
-    this.#value = initialValue & available();
+    this.#value = initialValue & availability.available();
   }
 
   get value(): number {
@@ -60,7 +77,7 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   }
 
   get maximumValue(): number {
-    return MAXIMUM_KEYSET_VALUE;
+    return this.#availability.maximum();
   }
 
   /**
@@ -70,7 +87,7 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
    */
   setValue = (value: number, _otherKeys?: ReadonlyArray<number>): number => {
     this.#requested = value;
-    this.#value = value & this.#available();
+    this.#value = value & this.#availability.available();
     return this.#value;
   };
 
@@ -81,7 +98,7 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
    * otherwise (see `Activation`).
    */
   reapply = (): number => {
-    this.#value = this.#requested & this.#available();
+    this.#value = this.#requested & this.#availability.available();
     return this.#value;
   };
 
@@ -89,5 +106,5 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   getKeyIcon = (_code: number): string | null => null;
 }
 
-export const createKeyset = (initialValue = 0, available: () => number = ALWAYS_AVAILABLE): Keyset =>
-  new Keyset(initialValue, available);
+export const createKeyset = (initialValue = 0, availability: KeysetAvailability = ALWAYS_AVAILABLE): Keyset =>
+  new Keyset(initialValue, availability);

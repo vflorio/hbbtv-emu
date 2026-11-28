@@ -51,6 +51,9 @@ export const DEFAULT_KEY_MAP: KeyMap = {
   s: HbbTVKeyCodes.VK_STOP,
   f: HbbTVKeyCodes.VK_FAST_FWD,
   w: HbbTVKeyCodes.VK_REWIND,
+  // Only a TV whose remote gives it delivers it (`DeviceKeys.extra`); the page keys
+  // have no key of their own: Page Up/Down are P+/P-.
+  i: HbbTVKeyCodes.VK_INFO,
   MediaPlay: HbbTVKeyCodes.VK_PLAY,
   MediaPause: HbbTVKeyCodes.VK_PAUSE,
   MediaStop: HbbTVKeyCodes.VK_STOP,

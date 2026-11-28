@@ -1,5 +1,5 @@
 import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
-import { EMULATOR_CAPABILITIES, EMULATOR_TERMINAL, OIPF } from "@hbb-emu/oipf-api";
+import { EMULATOR_CAPABILITIES, EMULATOR_DEVICE, EMULATOR_TERMINAL, OIPF } from "@hbb-emu/oipf-api";
 import * as E from "fp-ts/Either";
 import * as TE from "fp-ts/TaskEither";
 import { afterEach, describe, expect, it } from "vitest";
@@ -222,6 +222,35 @@ describe("runtime", () => {
     handle.tellActivation(true)();
 
     expect(keyset.value).toBe(0x121);
+  });
+
+  it("the TV's remote decides the rest: INFO only from one that gives it, unrequested keys from one that delivers them", async () => {
+    const quirky = { ...EMULATOR_DEVICE, keys: { extra: ["INFO" as const], deliversUnrequested: true } };
+    type AppMgr = { getOwnerApplication: (doc: Document) => { privateData: { keyset: { maximumValue: number } } } };
+    const keys: number[] = [];
+    const listener = (event: KeyboardEvent) => keys.push(event.keyCode);
+    document.addEventListener("keydown", listener);
+
+    try {
+      const spec = startRuntime();
+      spec.dispatchKey(457)();
+      spec.dispatchKey(403)();
+      expect(keys).toEqual([]);
+      spec.stop()();
+
+      const handle = runtime(createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [], device: quirky }))();
+      started.push(handle);
+      const appMgr = addObject("application/oipfApplicationManager") as unknown as AppMgr;
+      await flushMutations();
+      // Table 12's keys, and INFO.
+      expect(appMgr.getOwnerApplication(document).privateData.keyset.maximumValue).toBe(0x1bf);
+      // The application asked for nothing.
+      handle.dispatchKey(457)();
+      handle.dispatchKey(403)();
+      expect(keys).toEqual([457, 403]);
+    } finally {
+      document.removeEventListener("keydown", listener);
+    }
   });
 
   it("stops binding objects once stopped", async () => {

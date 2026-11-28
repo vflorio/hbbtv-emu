@@ -1,7 +1,11 @@
 import {
+  type DeviceKeys,
   type DeviceProfile,
+  deviceKeys,
   deviceUserAgent,
   EMULATOR_TERMINAL,
+  EXTRA_KEY_GROUPS,
+  type ExtraKeyGroup,
   HBBTV_OPTIONS,
   HBBTV_VERSION_MAP,
   type HbbTVOption,
@@ -39,7 +43,13 @@ const IDENTITY_FIELDS = [
   { key: "browser", label: "Browser", helper: "The browser's user agent, sent before the HbbTV part" },
 ] as const satisfies ReadonlyArray<{ key: keyof TerminalIdentity; label: string; helper?: string }>;
 
-/** The TV the emulator is: its identity, and the User-Agent header it sends. */
+/** The keys outside Table 12 a TV may give the applications, by Keyset constant. */
+const EXTRA_KEY_LABELS: Readonly<Record<ExtraKeyGroup, string>> = {
+  INFO: "INFO (VK_INFO)",
+  SCROLL: "Page up/down (VK_PAGE_UP, VK_PAGE_DOWN)",
+};
+
+/** The TV the emulator is: its identity, the User-Agent header it sends, and its remote. */
 export function DeviceSection() {
   const { device, update } = useDevice();
   const [draft, setDraft] = useState<DeviceProfile>(device);
@@ -64,6 +74,13 @@ export function DeviceSection() {
       options: HBBTV_OPTIONS.filter((o) => (o === option ? enabled : draft.terminal.options.includes(o))),
     });
 
+  const editKeys = (changes: Partial<DeviceKeys>) => edit({ ...draft, keys: { ...deviceKeys(draft), ...changes } });
+
+  const toggleExtraKeys = (group: ExtraKeyGroup, enabled: boolean) =>
+    editKeys({
+      extra: EXTRA_KEY_GROUPS.filter((g) => (g === group ? enabled : deviceKeys(draft).extra.includes(g))),
+    });
+
   const handleSave = pipe(
     TE.of(draft),
     TE.tap((next) => update(next)),
@@ -78,6 +95,7 @@ export function DeviceSection() {
   };
 
   const { terminal } = draft;
+  const keys = deviceKeys(draft);
 
   return (
     <Stack gap={2}>
@@ -154,9 +172,44 @@ export function DeviceSection() {
         </Typography>
       </Stack>
 
+      <FormControl>
+        <FormLabel>Remote control (TS 102 796 §10.2.2.1)</FormLabel>
+        <Typography variant="caption" color="text.secondary">
+          A TV that follows the spec gives applications only the keys of Table 12 they ask for. Many do more.
+        </Typography>
+        <FormGroup>
+          {EXTRA_KEY_GROUPS.map((group) => (
+            <FormControlLabel
+              key={group}
+              label={`Gives ${EXTRA_KEY_LABELS[group]}`}
+              control={
+                <Checkbox
+                  checked={keys.extra.includes(group)}
+                  onChange={(e) => toggleExtraKeys(group, e.target.checked)}
+                />
+              }
+            />
+          ))}
+          <FormControlLabel
+            label="Delivers the keys the application's keyset does not ask for"
+            control={
+              <Checkbox
+                checked={keys.deliversUnrequested}
+                onChange={(e) => editKeys({ deliversUnrequested: e.target.checked })}
+              />
+            }
+          />
+        </FormGroup>
+      </FormControl>
+
       <Stack direction="row" gap={2}>
-        {/* The identity and the header: the capabilities have their own page. */}
-        <Button onClick={() => edit({ ...draft, terminal: EMULATOR_TERMINAL, userAgent: undefined })}>
+        {/* The identity, the header and the remote: the capabilities have their own page. */}
+        <Button
+          onClick={() => {
+            const { keys: _spec, ...rest } = draft;
+            edit({ ...rest, terminal: EMULATOR_TERMINAL, userAgent: undefined });
+          }}
+        >
           Reset to the emulator
         </Button>
         {isEditing && (

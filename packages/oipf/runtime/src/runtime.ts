@@ -6,6 +6,7 @@ import {
   DEFAULT_KEYSET_VALUE,
   DEFAULT_OIPF_CONFIGURATION,
   type DeviceProfile,
+  deviceKeys,
   EMULATOR_DEVICE,
   type HbbTVState,
   OIPF,
@@ -33,7 +34,7 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/control";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
-import { availableKeys, createKeyset } from "./apis/dae/applicationManager/keyset";
+import { availableKeys, createKeyset, keysetMaximum } from "./apis/dae/applicationManager/keyset";
 import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
 import { broadcastGain } from "./apis/dae/videoBroadcast/volume";
 import {
@@ -497,12 +498,15 @@ export const createRuntimeEnv = (
     initialTunedChannel(extensionState.currentChannel, extensionState.channels),
   );
   const streamEventScheduler = createStreamEventScheduler(extensionState.channels);
+  let device = deviceOf(extensionState);
   const activation = createActivation(extensionState.activated ?? true);
+  // The TV's remote, and what the application may have of it now.
+  const maximumKeys = () => keysetMaximum(deviceKeys(device));
+  const available = () => availableKeys(maximumKeys(), activation.activated());
   // OIPF DAE §7.2.5: a broadcast-related application receives no keys by default.
   // TS 102 796 §10.2.2.1: and only those available to it at that time.
-  const keyset = createKeyset(DEFAULT_KEYSET_VALUE, () => availableKeys(activation.activated()));
+  const keyset = createKeyset(DEFAULT_KEYSET_VALUE, { maximum: maximumKeys, available });
   const tvVolume = createTvVolume();
-  let device = deviceOf(extensionState);
   const emulatorMedia = createEmulatorMedia();
   // One broadcast per page, on the shared player.
   const broadcastLayer = createBroadcastLayer({
@@ -561,7 +565,10 @@ export const createRuntimeEnv = (
     setDevice: (next) => () => {
       device = next;
     },
-    remoteControl: createRemoteControlEnv(() => keyset.value),
+    remoteControl: createRemoteControlEnv(
+      () => keyset.value,
+      () => ({ maximum: maximumKeys(), available: available(), unrequested: deviceKeys(device).deliversUnrequested }),
+    ),
     activation: { activation, reapplyKeyset: keyset.reapply, report: reportNowhere },
     keyboard: { keyMap: DEFAULT_KEY_MAP, pressTvKey: ignoreTvKey },
     bindings: bindingsEnv,

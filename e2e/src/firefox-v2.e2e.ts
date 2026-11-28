@@ -402,6 +402,48 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     expect((await appState(app)).keys).toEqual([403, 38]);
   });
 
+  it("a TV whose remote gives INFO and delivers the keys the keyset does not ask for: quirks of the device profile", async () => {
+    const { ui, request } = await openUi();
+    type UiState = { device: object };
+    const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const device = { ...original.device, keys: { extra: ["INFO"], deliversUnrequested: true } };
+    type AppMgr = { getOwnerApplication: (d: Document) => { privateData: { keyset: { maximumValue: number } } } };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, device } });
+      const { page: app } = await openPage(`basic-app/index.xhtml?remote=${Date.now()}`);
+      await app.bringToFront();
+      // Table 12's keys, and INFO.
+      await expect
+        .poll(
+          () =>
+            app.evaluate(
+              () =>
+                (document.getElementById("appmgr") as unknown as AppMgr).getOwnerApplication(document).privateData
+                  .keyset.maximumValue,
+            ),
+          { timeout: 5000 },
+        )
+        .toBe(0x1bf);
+
+      // The application asked for colours and navigation: INFO and the digits come anyway;
+      // the page keys stay the TV's, as CH+ does.
+      await ui.locator("button ::-p-text(RED)").wait();
+      for (const name of ["INFO", "1", "PAGE+", "CH+", "RED"]) {
+        // By exact label: text selectors match substrings.
+        await ui.evaluate((label) => {
+          const buttons = Array.from(document.querySelectorAll("button"));
+          buttons.find((button) => button.textContent?.trim() === label)?.click();
+        }, name);
+      }
+
+      await app.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length >= 3);
+      expect((await appState(app)).keys).toEqual([457, 49, 403]);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
   it("VOL-/VOL+ set the TV's volume, which video/broadcast's own volume only attenuates", async () => {
     const { ui } = await openUi();
     const { page: app } = await openPage(`basic-app/index.xhtml?volume=${Date.now()}`);

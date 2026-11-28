@@ -3,6 +3,7 @@ import {
   type DeviceProfile,
   DeviceProfileCodec,
   deviceHasCapability,
+  deviceKeys,
   deviceUserAgent,
   EMULATOR_CAPABILITIES,
   EMULATOR_DEVICE,
@@ -10,6 +11,16 @@ import {
 import { EMULATOR_TERMINAL, emulatorUserAgent, hbbtvUserAgent, TerminalIdentityCodec } from "./terminal";
 
 describe("a device profile", () => {
+  it("has the keys of a TV that follows the spec, unless it says otherwise", () => {
+    expect(deviceKeys(EMULATOR_DEVICE)).toEqual({ extra: [], deliversUnrequested: false });
+    const quirky = { ...EMULATOR_DEVICE, keys: { extra: ["INFO" as const], deliversUnrequested: true } };
+    expect(deviceKeys(quirky)).toEqual(quirky.keys);
+    expect(DeviceProfileCodec.is(JSON.parse(JSON.stringify(quirky)))).toBe(true);
+    expect(DeviceProfileCodec.is({ ...EMULATOR_DEVICE, keys: { extra: ["ALPHA"], deliversUnrequested: false } })).toBe(
+      false,
+    );
+  });
+
   it("sends the User-Agent its identity gives (TS 102 796 §7.3.2.4)", () => {
     expect(deviceUserAgent(EMULATOR_DEVICE)).toBe(emulatorUserAgent());
 

@@ -1,7 +1,8 @@
 /**
  * A device profile: the TV the emulator is (ROADMAP 2.1). What it says it is (its
- * identity, and the User-Agent header it sends) and what it can do (its capabilities).
- * Keyset, resolution and known quirks will join it.
+ * identity, and the User-Agent header it sends), what it can do (its capabilities) and
+ * how its remote reaches the applications (its keys). Resolution and other known quirks
+ * will join it.
  */
 
 import * as t from "io-ts";
@@ -70,6 +71,37 @@ export const DeviceCapabilitiesCodec = t.readonly(
 
 export type DeviceCapabilities = t.TypeOf<typeof DeviceCapabilitiesCodec>;
 
+/**
+ * Key groups (OIPF DAE §7.2.5.1) outside TS 102 796 Table 12 that a TV may give the
+ * applications that ask: VK_INFO (`INFO`), VK_PAGE_UP and VK_PAGE_DOWN (`SCROLL`).
+ */
+export const EXTRA_KEY_GROUPS = ["INFO", "SCROLL"] as const;
+
+export type ExtraKeyGroup = (typeof EXTRA_KEY_GROUPS)[number];
+
+/**
+ * How the TV's remote reaches the applications. A TV that follows the spec gives them the
+ * keys of Table 12 they ask for, and handles every other key itself (§10.2.2.1); many TVs
+ * do otherwise, and applications come to depend on it.
+ */
+export const DeviceKeysCodec = t.readonly(
+  t.type({
+    /** Groups outside Table 12 it gives too (a quirk: `maximumValue` has them). */
+    extra: t.readonlyArray(t.keyof({ INFO: null, SCROLL: null })),
+    /**
+     * It delivers the keys available to the application even when its keyset does not ask
+     * for them. The spec allows it ("the set of key events requested via a Keyset object
+     * only identifies the minimum set"), and an application should not rely on it.
+     */
+    deliversUnrequested: t.boolean,
+  }),
+);
+
+export type DeviceKeys = t.TypeOf<typeof DeviceKeysCodec>;
+
+/** The keys of a TV that follows the spec. */
+export const SPEC_KEYS: DeviceKeys = { extra: [], deliversUnrequested: false };
+
 export const DeviceProfileCodec = t.readonly(
   t.intersection([
     t.type({
@@ -83,6 +115,8 @@ export const DeviceProfileCodec = t.readonly(
        * follow the spec, which applications may look for. None when empty.
        */
       userAgent: t.string,
+      /** Its keys; none: those of a TV that follows the spec (`SPEC_KEYS`). */
+      keys: DeviceKeysCodec,
     }),
   ]),
 );
@@ -104,6 +138,9 @@ export const EMULATOR_CAPABILITIES: DeviceCapabilities = {
 
 /** The emulator as itself: its own identity, the header that identity gives, its capabilities. */
 export const EMULATOR_DEVICE: DeviceProfile = { terminal: EMULATOR_TERMINAL, capabilities: EMULATOR_CAPABILITIES };
+
+/** The device's keys: its own, else those of a TV that follows the spec. */
+export const deviceKeys = (device: DeviceProfile): DeviceKeys => device.keys ?? SPEC_KEYS;
 
 /** The User-Agent header the device sends: its own if it has one, else the one its identity gives. */
 export const deviceUserAgent = (device: DeviceProfile): string =>

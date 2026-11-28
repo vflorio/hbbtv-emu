@@ -5,9 +5,11 @@ import {
   dispatchRemoteKey,
   isDelivered,
   isTextEntry,
+  keyCodeName,
   keyGroup,
   keyName,
   type RemoteControlEnv,
+  SPEC_DELIVERY,
 } from "./remoteControl";
 
 type Seen = { type: string; target: string; key: string; keyCode: number; which: number; charCode: number };
@@ -139,6 +141,10 @@ describe("keyGroup", () => {
   it("is null for the keys the TV keeps: P+/P-, volume, anything else", () => {
     expect([427, 428, 447, 448, 999].map(keyGroup)).toEqual([null, null, null, null, null]);
   });
+
+  it("INFO and the page keys have one, for a TV that gives them (CEA-2014-A codes)", () => {
+    expect([457, 33, 34].map(keyGroup)).toEqual([0x80, 0x40, 0x40]);
+  });
 });
 
 describe("isDelivered", () => {
@@ -153,6 +159,25 @@ describe("isDelivered", () => {
   it("any available key to a focused text field, whatever the keyset", () => {
     expect(isDelivered(49, 0, true)).toBe(true);
     expect(isDelivered(447, 0, true)).toBe(false);
+  });
+
+  it("never INFO nor the page keys on a TV that follows the spec, whatever the keyset", () => {
+    expect(isDelivered(457, 0xff, false)).toBe(false);
+    expect(isDelivered(33, 0xff, true)).toBe(false);
+  });
+
+  it("INFO and the page keys from a TV that gives them, when the keyset asks", () => {
+    const delivery = { ...SPEC_DELIVERY, maximum: SPEC_DELIVERY.maximum | 0x80 | 0x40 };
+    expect(isDelivered(457, 0x80, false, delivery)).toBe(true);
+    expect(isDelivered(34, 0x80, false, delivery)).toBe(false);
+  });
+
+  it("the available keys the keyset does not ask for, from a TV that delivers them anyway", () => {
+    const notActivated = { ...SPEC_DELIVERY, available: SPEC_DELIVERY.maximum & ~0x120, unrequested: true };
+    expect(isDelivered(403, 0, false, notActivated)).toBe(true);
+    // Still not the digits before activation, nor what the TV keeps.
+    expect(isDelivered(49, 0, false, notActivated)).toBe(false);
+    expect(isDelivered(457, 0, false, notActivated)).toBe(false);
   });
 });
 
@@ -180,6 +205,7 @@ describe("dispatchRemoteKey", () => {
       dispatchKeyEvent: (keyCode) => () => void dispatched.push(keyCode),
       textEntryFocused: () => textEntryFocused,
       keysetValue: () => keysetValue,
+      delivery: () => SPEC_DELIVERY,
       keyReceived: () => void dispatched.push(-1),
     };
     return { remote, dispatched: () => dispatched.filter((keyCode) => keyCode !== -1), log: dispatched };
@@ -200,6 +226,7 @@ describe("dispatchRemoteKey", () => {
       dispatchKeyEvent: (keyCode) => () => void dispatched.push(keyCode),
       textEntryFocused: () => false,
       keysetValue: () => value,
+      delivery: () => SPEC_DELIVERY,
       keyReceived: () => {},
     };
 
@@ -252,6 +279,11 @@ describe("keyName", () => {
     }
 
     expect(codes).toEqual(["ColorF0Red", "BrowserBack", "Digit0", "Digit9", "Enter", "MediaPlay"]);
+  });
+
+  it("names INFO and the page keys; INFO has no code", () => {
+    expect([457, 33, 34].map(keyName)).toEqual(["Info", "PageUp", "PageDown"]);
+    expect([457, 33, 34].map(keyCodeName)).toEqual(["", "PageUp", "PageDown"]);
   });
 });
 

@@ -1,7 +1,7 @@
 import { OIPF } from "@hbb-emu/oipf-api";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_KEY_MAP, installKeyboard, keyOf, routeOf } from "./keyboard";
-import { createEventDispatcher } from "./remoteControl";
+import { createEventDispatcher, SPEC_DELIVERY } from "./remoteControl";
 
 const { RED, NAVIGATION } = OIPF.DAE.ApplicationManager.KeysetMask;
 
@@ -29,6 +29,7 @@ beforeEach(() => {
     ...dispatcher,
     keysetValue: () => keysetValue,
     keyReceived: () => {},
+    delivery: () => SPEC_DELIVERY,
     window,
     keyMap: DEFAULT_KEY_MAP,
     pressTvKey: (keyCode) => () => void tvKeys.push(keyCode),

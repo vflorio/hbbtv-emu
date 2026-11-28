@@ -423,6 +423,41 @@ describe("chrome-v3: settings UI", () => {
     expect(keys).toEqual([403, 38]);
   });
 
+  it("a TV whose remote gives INFO and delivers the keys the keyset does not ask for: quirks of the device profile", async () => {
+    const { ui } = await openUi();
+    type UiState = { device: object };
+    const request = (message: object) => ui.evaluate((m) => chrome.runtime.sendMessage(m), message);
+    const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const device = { ...original.device, keys: { extra: ["INFO"], deliversUnrequested: true } };
+    type AppMgr = { getOwnerApplication: (d: Document) => { privateData: { keyset: { maximumValue: number } } } };
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, device } });
+      const { page: app } = await openPage(`basic-app/index.xhtml?remote=${Date.now()}`);
+      await app.bringToFront();
+      const maximumValue = () =>
+        app.evaluate(
+          () =>
+            (document.getElementById("appmgr") as unknown as AppMgr).getOwnerApplication(document).privateData.keyset
+              .maximumValue,
+        );
+      // Table 12's keys, and INFO.
+      await expect.poll(maximumValue, { timeout: 5000 }).toBe(0x1bf);
+
+      // The application asked for colours and navigation: INFO and the digits come anyway;
+      // the page keys stay the TV's, as CH+ does.
+      for (const name of ["INFO", "1", "PAGE+", "CH+", "RED"]) {
+        await ui.getByRole("button", { name, exact: true }).click();
+      }
+
+      await app.waitForFunction(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys.length >= 3);
+      const keys = await app.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys);
+      expect(keys).toEqual([457, 49, 403]);
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
   it("VOL-/VOL+ set the TV's volume, which video/broadcast's own volume only attenuates", async () => {
     const { ui } = await openUi();
     const { page: app } = await openPage(`basic-app/index.xhtml?volume=${Date.now()}`);

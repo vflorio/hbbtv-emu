@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { availableKeys, createKeyset } from "./keyset";
+import { availableKeys, createKeyset, keysetMaximum, MAXIMUM_KEYSET_VALUE } from "./keyset";
+
+/** A TV that follows the spec, with the application activated or not. */
+const activation = (isActivated: () => boolean) => ({
+  maximum: () => MAXIMUM_KEYSET_VALUE,
+  available: () => availableKeys(MAXIMUM_KEYSET_VALUE, isActivated()),
+});
 
 describe("Keyset", () => {
   it("exposes the OIPF key group constants", () => {
@@ -72,7 +78,10 @@ describe("Keyset", () => {
 
   it("before activation, setValue() discards the digits and the VCR keys (TS 102 796 §10.2.2.1, Table 12)", () => {
     let activated = false;
-    const keyset = createKeyset(0, () => availableKeys(activated));
+    const keyset = createKeyset(
+      0,
+      activation(() => activated),
+    );
     const all = keyset.RED | keyset.NAVIGATION | keyset.VCR | keyset.NUMERIC;
 
     expect(keyset.setValue(all)).toBe(keyset.RED | keyset.NAVIGATION);
@@ -87,7 +96,10 @@ describe("Keyset", () => {
 
   it("reapply() takes the last request again against the keys available now", () => {
     let activated = false;
-    const keyset = createKeyset(0, () => availableKeys(activated));
+    const keyset = createKeyset(
+      0,
+      activation(() => activated),
+    );
     keyset.setValue(keyset.RED | keyset.NUMERIC);
 
     activated = true;
@@ -95,5 +107,15 @@ describe("Keyset", () => {
     activated = false;
     expect(keyset.reapply()).toBe(keyset.RED);
     expect(keyset.value).toBe(keyset.RED);
+  });
+
+  it("a TV whose remote gives INFO and the page keys offers them too, before activation as well", () => {
+    const maximum = keysetMaximum({ extra: ["INFO", "SCROLL"], deliversUnrequested: false });
+    const keyset = createKeyset(0, { maximum: () => maximum, available: () => availableKeys(maximum, false) });
+
+    expect(keyset.maximumValue).toBe(MAXIMUM_KEYSET_VALUE | keyset.INFO | keyset.SCROLL);
+    expect(keyset.setValue(keyset.INFO | keyset.SCROLL | keyset.NUMERIC | keyset.ALPHA)).toBe(
+      keyset.INFO | keyset.SCROLL,
+    );
   });
 });

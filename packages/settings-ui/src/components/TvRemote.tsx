@@ -8,6 +8,9 @@ import {
   ExpandMore,
   FastForward,
   FastRewind,
+  InfoOutlined,
+  KeyboardDoubleArrowDown,
+  KeyboardDoubleArrowUp,
   Pause,
   PlayArrow,
   Stop,
@@ -60,6 +63,11 @@ const KEY_CODES = {
   // Channel
   VK_CHANNEL_UP: 427,
   VK_CHANNEL_DOWN: 428,
+
+  // Outside Table 12: only a TV that gives them delivers them (CEA-2014-A codes)
+  VK_INFO: 457,
+  VK_PAGE_UP: 33,
+  VK_PAGE_DOWN: 34,
 } as const;
 
 const spacing = {
@@ -228,6 +236,35 @@ export function TvRemote({ handleKeyPress }: { handleKeyPress: (keyCode: number)
     </Section>
   );
 
+  const extraSection = (
+    <Section row>
+      <TvRemoteButton
+        label="INFO"
+        keyCode={KEY_CODES.VK_INFO}
+        icon={<InfoOutlined />}
+        onClick={handleKeyPress}
+        buttonSize="small"
+        fullWidth
+      />
+      <TvRemoteButton
+        label="PAGE+"
+        keyCode={KEY_CODES.VK_PAGE_UP}
+        icon={<KeyboardDoubleArrowUp />}
+        onClick={handleKeyPress}
+        buttonSize="small"
+        fullWidth
+      />
+      <TvRemoteButton
+        label="PAGE-"
+        keyCode={KEY_CODES.VK_PAGE_DOWN}
+        icon={<KeyboardDoubleArrowDown />}
+        onClick={handleKeyPress}
+        buttonSize="small"
+        fullWidth
+      />
+    </Section>
+  );
+
   const mediaSection = (
     <Section row>
       <TvRemoteButton
@@ -281,6 +318,7 @@ export function TvRemote({ handleKeyPress }: { handleKeyPress: (keyCode: number)
       </Stack>
       {smartSection}
       {mediaSection}
+      {extraSection}
     </Stack>
   );
 }
