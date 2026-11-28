@@ -153,8 +153,61 @@ describe("A/V Control playback", () => {
     it("reports the speed even when it does not change", () => {
       const t = playing();
       expect(t.run(play(1))).toBe(true);
-      expect(t.events).toEqual([{ speed: 1 }]);
+      expect(t.events).toEqual([{ playState: PlayState.PLAYING }, { speed: 1 }]);
       expect(t.calls).toEqual(["play"]);
+    });
+
+    describe("returns true, so at least one play state change follows (TS 102 796 A.2.5.1)", () => {
+      it("play(1) while playing: playing again", () => {
+        const t = playing();
+        t.run(play(1));
+        expect(t.events).toEqual([{ playState: PlayState.PLAYING }, { speed: 1 }]);
+        expect(t.state().playState).toBe(PlayState.PLAYING);
+      });
+
+      it("play(0) while paused: paused again", () => {
+        const t = playing();
+        t.run(play(0));
+        t.stream(Stream.paused());
+        t.clear();
+
+        t.run(play(0));
+        expect(t.events).toEqual([{ playState: PlayState.PAUSED }, { speed: 0 }]);
+      });
+
+      it("with no data while already in error: error again, with code 5", () => {
+        const t = setup({ data: "" });
+        t.run(play(1));
+        t.clear();
+
+        t.run(play(1));
+        expect(t.events).toEqual([{ playState: PlayState.ERROR }]);
+        expect(t.state().error).toBe(ErrorCode.CONTENT_NOT_AVAILABLE);
+      });
+
+      it("where a change follows, no repeat: paused to playing comes from the player", () => {
+        const t = playing();
+        t.run(play(0));
+        t.stream(Stream.paused());
+        t.clear();
+
+        t.run(play(1));
+        expect(t.events).toEqual([{ speed: 1 }]);
+        t.stream(Stream.playing());
+        expect(t.events).toEqual([{ speed: 1 }, { playState: PlayState.PLAYING }]);
+      });
+
+      it("while connecting: no repeat, playing (or error) follows from the player", () => {
+        const t = setup();
+        t.run(play(1));
+        t.clear();
+
+        t.run(play(1));
+        expect(t.events).toEqual([{ speed: 1 }]);
+        t.loaded();
+        t.stream(Stream.playing());
+        expect(t.events).toEqual([{ speed: 1 }, { playState: PlayState.PLAYING }]);
+      });
     });
 
     it("plays at the supported speed closest to the one asked", () => {
@@ -163,7 +216,7 @@ describe("A/V Control playback", () => {
       const t = playing();
       t.run(play(4));
       expect(t.state().speed).toBe(1);
-      expect(t.events).toEqual([{ speed: 1 }]);
+      expect(t.events).toEqual([{ playState: PlayState.PLAYING }, { speed: 1 }]);
       t.clear();
       t.run(play(-2));
       expect(t.calls).toEqual(["pause"]);

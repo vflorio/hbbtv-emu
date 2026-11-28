@@ -67,6 +67,21 @@ export const runAvControlScenario = async (evaluate: Evaluate) => {
   expect(afterPlay.playStates[afterPlay.playStates.length - 1]).toBe(PLAYING);
   expect(afterPlay.speeds).toEqual([1]);
 
+  // play(1) while playing: it returns true, so a play state change follows (TS 102 796
+  // A.2.5.1), playing again; the DOM listener gets it too.
+  const again = await evaluate(() => {
+    const player = document.getElementById("player") as AvPlayer;
+    const state = (window as unknown as { __e2e: AvAppState }).__e2e;
+    const before = { intrinsic: state.playStates.length, dom: state.dom.playStates };
+    const result = player.play(1);
+    return {
+      result,
+      intrinsic: state.playStates.slice(before.intrinsic),
+      dom: state.dom.playStates - before.dom,
+    };
+  });
+  expect(again).toEqual({ result: true, intrinsic: [PLAYING], dom: 1 });
+
   // seek(): the position is the target as soon as it returns.
   const seeked = await evaluate(() => {
     const player = document.getElementById("player") as AvPlayer;
@@ -98,7 +113,7 @@ export const runAvControlScenario = async (evaluate: Evaluate) => {
   expect(lastRun[0]).toBe(CONNECTING);
   expect(lastRun).not.toContain(PAUSED);
   expect(lastRun[lastRun.length - 1]).toBe(FINISHED);
-  expect(end.speeds).toEqual([1, 0, 1, 0]);
+  expect(end.speeds).toEqual([1, 1, 0, 1, 0]);
 
   // OIPF DAE §7.14.9, §7.14.3.2: each intrinsic event is a DOM event of the object too.
   expect(end.dom).toEqual({ playStates: end.playStates.length, speeds: end.speeds, positions: end.positions });

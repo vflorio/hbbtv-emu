@@ -15,7 +15,9 @@
  *   item 4) and forgets the loaded media;
  * - `play(speed)` plays at the supported speed closest to `speed` (only 0 and 1: a
  *   speed of 0 pauses), always returns `true` and reports the speed (`onPlaySpeedChanged`)
- *   even if it did not change. From stopped, `play(0)` reaches paused (item 1);
+ *   even if it did not change. From stopped, `play(0)` reaches paused (item 1). Since it
+ *   returns `true`, at least one `onPlayStateChange` follows (TS 102 796 A.2.5.1): a `play()`
+ *   that leaves `playState` as it was (`play(1)` while playing) reports it again;
  * - `stop()` stops and brings `playPosition` back to 0;
  * - `seek(pos)` answers `false` for a position that is not one (negative, past the
  *   end): the application gets `onPlayPositionChanged` either way, with the position
@@ -26,7 +28,7 @@
  *   playing, paused). Stopped, finished and error leave it only through the
  *   application. A seek while paused does not change it (§7.14.3.1, `seek()`);
  * - the end of the media is finished, with speed 0 (item 6);
- * - `onPlayStateChange` fires only when `playState` actually changes;
+ * - `onPlayStateChange` fires only when `playState` actually changes, except after `play()`;
  * - `queue(url)` (TS 102 796 A.2.5.1) holds one item: `false` if one is already queued,
  *   `queue(null)` removes it. With no media playing (stopped, finished, error) the item
  *   plays at once. At the end of the media the object is finished, then `data` is the
@@ -35,7 +37,10 @@
  *
  * Emulator choices the spec leaves open: `play()` with no `data` is an error 5
  * (content not available); the player's errors map to 0 (format), 1 (connection)
- * and 2 (anything else); `error` keeps the last error.
+ * and 2 (anything else); `error` keeps the last error, also once stopped (A.2.5.1: it is
+ * available in the stopped state), and is `undefined` until the first. The object stays in
+ * the error state until the application acts: the automatic transition to stopped of some
+ * TVs is implementation dependent (A.2.5.1).
  */
 
 import { createLogger } from "@hbb-emu/core";
@@ -254,18 +259,42 @@ const pausePlaying: RIO.ReaderIO<PlaybackEnv, void> = pipe(
   RIO.flatMap(() => setPlayState(S.PAUSED)),
 );
 
-/** `play(speed)`: always `true`. */
+/** `onPlayStateChange` with the current `playState`, even if it did not change. */
+const repeatPlayState: RIO.ReaderIO<PlaybackEnv, void> = pipe(
+  readPlaybackState,
+  RIO.flatMap(({ playState }) => emit((events) => events.onPlayStateChange(playState))),
+);
+
+/**
+ * `play()` already in the state it leads to: playing at a speed other than 0, paused at
+ * speed 0, in error with nothing to play. Elsewhere a change follows, at once or from the
+ * player (paused to playing, connecting or buffering to playing or error).
+ */
+const staysInState = (playState: PlayState, speed: number, data: string): boolean =>
+  data === "" ? playState === S.ERROR : playState === (speed === 0 ? S.PAUSED : S.PLAYING);
+
+/**
+ * `play(speed)`: always `true` (OIPF DAE Table 11), so it always gives the application a
+ * play state change (TS 102 796 A.2.5.1): in the state it already was, the same `playState` again.
+ */
 export const play = (requested: number): RIO.ReaderIO<PlaybackEnv, boolean> =>
   pipe(
     RIO.fromIO(logger.debug("play", requested)),
     RIO.flatMap(() => readPlaybackState),
     RIO.flatMap((state) => {
       const speed = closestSpeed(requested);
-      if (state.data === "") return fail(E.CONTENT_NOT_AVAILABLE);
+      const repeat = staysInState(state.playState, speed, state.data) ? repeatPlayState : noop;
+      const operation =
+        state.data === ""
+          ? fail(E.CONTENT_NOT_AVAILABLE)
+          : pipe(
+              modify((s) => ({ ...s, speed })),
+              RIO.flatMap(() => (speed === 0 ? pausePlaying : startPlaying)),
+            );
       return pipe(
-        modify((s) => ({ ...s, speed })),
-        RIO.flatMap(() => (speed === 0 ? pausePlaying : startPlaying)),
-        RIO.flatMap(() => emit((events) => events.onPlaySpeedChanged(speed))),
+        operation,
+        RIO.flatMap(() => repeat),
+        RIO.flatMap(() => (state.data === "" ? noop : emit((events) => events.onPlaySpeedChanged(speed)))),
       );
     }),
     RIO.map(() => true),
