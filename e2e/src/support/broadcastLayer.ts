@@ -21,6 +21,7 @@ type Broadcast = HTMLObjectElement & {
   playState: number;
   bindToCurrentChannel: () => unknown;
   release: () => void;
+  stop: () => void;
   setFullScreen: (fullScreen: boolean) => void;
 };
 type BroadcastAppState = {
@@ -179,8 +180,9 @@ export const runBroadcastLayerScenario = async (evaluate: Evaluate) => {
   await evaluate(() => (document.getElementById("created") as Broadcast).release());
   await playsOn(evaluate, "layer");
 
-  // setChannel(null) releases at once, as release() (Table 8); stop() then has no effect
-  // (OIPF DAE §7.13.1.3): the TV goes on presenting, and setChannel() presents it again.
+  // setChannel(null) releases at once, as release() (Table 8), and the object is bound to no
+  // channel (currentChannel null, TS 102 796 A.2.4); stop() then has no effect (OIPF DAE
+  // §7.13.1.3): the TV goes on presenting, and setChannel() presents it again.
   const nulled = await evaluate(() => {
     const object = document.getElementById("video") as Broadcast & {
       setChannel: (channel: unknown) => void;
@@ -190,12 +192,13 @@ export const runBroadcastLayerScenario = async (evaluate: Evaluate) => {
     const channel = object.currentChannel;
     object.setChannel(null);
     const afterNull = object.playState;
+    const channelAfterNull = object.currentChannel;
     object.stop();
     const afterStop = object.playState;
     object.setChannel(channel);
-    return { afterNull, afterStop };
+    return { bound: channel !== null, afterNull, channelAfterNull, afterStop };
   });
-  expect(nulled).toEqual({ afterNull: 0, afterStop: 0 });
+  expect(nulled).toEqual({ bound: true, afterNull: 0, channelAfterNull: null, afterStop: 0 });
   await until(evaluate, () => (document.getElementById("video") as Broadcast).playState === 2, "presenting again");
   expect((await app(evaluate)).states.video).toEqual([2, 0, 2, 0, 1, 2]);
   await playsOn(evaluate, "video");

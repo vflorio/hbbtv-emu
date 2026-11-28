@@ -23,6 +23,9 @@
  *   the lineup, cycling at both ends; unrealized, they fail (`NO_CHANNEL_LIST`);
  * - `setChannel(null)` releases the object at once, as `release()`; `stop()` has no
  *   effect on an unrealized object (§7.13.1.3);
+ * - `currentChannel` is the channel the object is bound to (connecting, presenting,
+ *   stopped), `null` once unrealized (TS 102 796 A.2.4, on §7.13.7.1). The TV's channel
+ *   (`ApplicationPrivateData.currentChannel`) does not change with it;
  * - the TV's own tuning (`tuneTo`) asks nobody;
  * - `playState` follows the stream; `onPlayStateChange` fires only when it actually
  *   changes;
@@ -140,9 +143,17 @@ const writePlayState =
     channelState.modify((state) => ({ ...state, playState }));
 
 /**
+ * Unrealized, the object is bound to no channel: its `currentChannel` is `null` (TS 102 796
+ * A.2.4, on OIPF DAE §7.13.7.1). The TV stays where it is, so nobody else is told.
+ */
+const unbind: RIO.ReaderIO<ChannelEnv, void> = ({ channelState }) =>
+  channelState.modify((state) => ({ ...state, currentChannel: null }));
+
+/**
  * Changes `playState`, notifying the application only if it actually changed. An
- * object that enters the unrealized state drops what the application changed on it
- * first (`onUnrealized`), so a handler of the change already sees it gone.
+ * object that enters the unrealized state is bound to no channel, and drops what the
+ * application changed on it first (`onUnrealized`), so a handler of the change already
+ * sees it gone.
  */
 export const setPlayState = (playState: PlayState): RIO.ReaderIO<ChannelEnv, void> =>
   pipe(
@@ -155,7 +166,10 @@ export const setPlayState = (playState: PlayState): RIO.ReaderIO<ChannelEnv, voi
             RIO.tapIO(() => logger.debug("PlayState changed:", current, "->", playState)),
             RIO.flatMap(() =>
               playState === OIPF.DAE.Broadcast.PlayState.UNREALIZED
-                ? (env: ChannelEnv) => env.channelEvents.onUnrealized
+                ? pipe(
+                    unbind,
+                    RIO.flatMap(() => (env: ChannelEnv) => env.channelEvents.onUnrealized),
+                  )
                 : noop,
             ),
             RIO.flatMap(() => (env: ChannelEnv) => env.channelEvents.onPlayStateChange(playState)),

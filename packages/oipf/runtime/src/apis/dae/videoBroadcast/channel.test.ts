@@ -307,13 +307,41 @@ describe("stop / release", () => {
     expect(calls).toEqual([]);
   });
 
-  it("release() gives the broadcast back to the TV once, keeping the channel", async () => {
+  it("release() gives the broadcast back to the TV once; the object is bound to no channel, the TV stays", async () => {
     const { env, calls } = await presenting(dmax);
 
     release(env)();
     release(env)();
 
+    // No `presents`: the rest of the page (the TV) is still on DMAX.
     expect(calls).toEqual([{ unrealized: true }, { playState: PlayState.UNREALIZED }, { release: true }]);
+    // TS 102 796 A.2.4, on OIPF DAE §7.13.7.1: null when the object is bound to no channel.
+    expect(getCurrentChannel(env)()).toBeNull();
+  });
+
+  it("released, currentChannel is already null for a handler of the change", async () => {
+    const { env } = await presenting(dmax);
+    const seen: Array<string | null> = [];
+    const { channelEvents } = env;
+    const observed = {
+      ...env,
+      channelEvents: {
+        ...channelEvents,
+        onPlayStateChange: (playState: number) => () => {
+          if (playState === PlayState.UNREALIZED) seen.push(getCurrentChannel(env)()?.ccid ?? null);
+        },
+      },
+    };
+
+    release(observed)();
+    expect(seen).toEqual([null]);
+  });
+
+  it("bound again, currentChannel is the channel the TV presents", async () => {
+    const { env } = await presenting(dmax);
+    release(env)();
+
+    expect(bindToCurrentChannel(env)()).toMatchObject({ ccid: "dmax" });
     expect(getCurrentChannel(env)()).toMatchObject({ ccid: "dmax" });
   });
 });

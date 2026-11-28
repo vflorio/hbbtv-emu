@@ -425,18 +425,26 @@ describe("runtime — tuned channel (the tab's TV session)", () => {
     expect(object.currentChannel).toMatchObject({ ccid: "hgtv" });
   });
 
-  it("a video/broadcast the application released stays released", async () => {
+  it("a video/broadcast the application released stays released, bound to no channel", async () => {
     const handle = start();
+    const data = await privateData();
     const object = await videoBroadcast();
     object.release();
     await flushMutations();
     expect(object.playState).toBe(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
+    // TS 102 796 A.2.4 (OIPF DAE §7.13.7.1): the object's channel is null, the TV's stays.
+    expect(object.currentChannel).toBeNull();
+    expect(data.currentChannel).toMatchObject({ ccid: "dmax" });
 
     handle.tune(hgtv)();
     await flushMutations();
 
     expect(object.playState).toBe(OIPF.DAE.Broadcast.PlayState.UNREALIZED);
-    expect(object.currentChannel).toMatchObject({ ccid: "dmax" });
+    expect(object.currentChannel).toBeNull();
+    expect(data.currentChannel).toMatchObject({ ccid: "hgtv" });
+    // Bound again: the channel the TV presents now.
+    expect(object.bindToCurrentChannel()).toMatchObject({ ccid: "hgtv" });
+    expect(object.currentChannel).toMatchObject({ ccid: "hgtv" });
   });
 });
 
