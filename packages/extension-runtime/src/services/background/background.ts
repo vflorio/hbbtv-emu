@@ -203,6 +203,8 @@ export class BackgroundService {
         return this.onSetChannel(message.channelId, tabId);
       case "Page/TvKey":
         return this.onTvKey(message.keyCode, tabId);
+      case "Page/Activated":
+        return this.onActivated(tabId);
       case "Page/FetchStreamEventDescription":
         return this.onFetchStreamEventDescription(message.url, tabId);
       case "Page/DestroyApplication":
@@ -295,6 +297,28 @@ export class BackgroundService {
           this.env.adapter.messaging.sendToTab(tabId, { _tag: "Host/StreamEventDescription", url, result }),
         ),
         TE.orElseFirstIOK((error) => this.logger.warn(`Could not answer tab ${tabId} about ${url}`, error)),
+      )();
+    };
+
+  /**
+   * The application received its first key event (TS 102 796 §10.2.2.1): the TV of the
+   * tab keeps it activated, and its next pages, a reload too, start so.
+   */
+  private readonly onActivated =
+    (tabId: number): IO.IO<void> =>
+    () => {
+      void pipe(
+        this.sessions.update(tabId, (session) => (session.activated ? session : { ...session, activated: true })),
+        T.flatMap(
+          O.match(
+            () => T.fromIO(this.logger.warn(`Tab ${tabId} has no TV to keep its application activated`)),
+            () =>
+              pipe(
+                T.fromIO(this.logger.info(`The application in tab ${tabId} is activated`)),
+                T.flatMap(this.republish),
+              ),
+          ),
+        ),
       )();
     };
 

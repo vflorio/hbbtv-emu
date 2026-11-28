@@ -16,6 +16,7 @@ import {
 } from "@hbb-emu/oipf-api";
 import {
   type BootstrapData,
+  initialActivation,
   initialChannel,
   type PageConfig,
   type PageSession,
@@ -116,6 +117,12 @@ export type TvSession = Readonly<{
   app: AitApplicationId | null;
   /** The TV's volume, 0–100: the user's (VOL+/VOL-), not the applications'. */
   volume: number;
+  /**
+   * Whether the running application is activated (TS 102 796 §10.2.2.1), which gives it
+   * the digits and the VCR keys: one the TV AUTOSTARTed once it receives a key event (the
+   * page says so), any other from its launch. Its next pages start so.
+   */
+  activated: boolean;
 }>;
 
 /** A TV starts at full volume: the browser's own, as before the TV had a volume. */
@@ -140,12 +147,18 @@ export const tvPageUrl =
   (channelId) =>
     `${base}?channel=${encodeURIComponent(channelId)}`;
 
-/** What a TV shows when it selects the channel: its autostart application, or the TV page. */
-const selectService = (channel: ChannelConfig, tvPage: TvPageUrl): Readonly<{ url: string; app: TvSession["app"] }> => {
+/**
+ * What a TV shows when it selects the channel: its autostart application, or the TV
+ * page. The TV AUTOSTARTs it: not activated until it receives a key event.
+ */
+const selectService = (
+  channel: ChannelConfig,
+  tvPage: TvPageUrl,
+): Readonly<{ url: string; app: TvSession["app"]; activated: false }> => {
   const autostart = autostartApplication(channel.ait);
   return autostart === null
-    ? { url: tvPage(channel.id), app: null }
-    : { url: autostart.url, app: applicationIdOf(autostart) };
+    ? { url: tvPage(channel.id), app: null, activated: false }
+    : { url: autostart.url, app: applicationIdOf(autostart), activated: false };
 };
 
 /** The TV turned on from the UI, on `channel`: the tab still has to load `url`. */
@@ -206,7 +219,8 @@ export const exitApplication = (
  *   One of another service fails "as if the initial page could not be loaded" (§9.2).
  * - HTTP(S): a broadcast-independent application (§6.2.2.6.1). The TV selects no
  *   service any more: no broadcast, no current channel, until a channel is selected.
- * The same in both modes.
+ * The same in both modes. Either is activated from its launch (§10.2.2.1): the TV did
+ * not AUTOSTART it.
  */
 export const launchApplication = (
   session: TvSession,
@@ -216,7 +230,11 @@ export const launchApplication = (
   const locator = parseDvbApplicationUrl(url);
   if (locator === null) {
     return /^https?:/i.test(url)
-      ? { _tag: "load", session: { ...session, serviceSelected: false, app: null, url }, navigateTo: url }
+      ? {
+          _tag: "load",
+          session: { ...session, serviceSelected: false, app: null, url, activated: true },
+          navigateTo: url,
+        }
       : { _tag: "fail", reason: `no application at ${url}` };
   }
   if (locator._tag === "otherService") return { _tag: "fail", reason: "an application of another service" };
@@ -232,7 +250,7 @@ export const launchApplication = (
   const location = applicationLocation(signalled.url, locator);
   return {
     _tag: "load",
-    session: { ...session, app: applicationIdOf(signalled), url: location },
+    session: { ...session, app: applicationIdOf(signalled), url: location, activated: true },
     navigateTo: location,
   };
 };
@@ -266,13 +284,14 @@ const tuningsOf = (state: ExtensionState, sessions: TvSessions): BootstrapData["
   Object.values(sessions).flatMap((session) => {
     const channel = sessionChannel(state, session);
     if (session.url === null || channel === null) return [];
-    return [{ url: session.url, channelId: session.serviceSelected ? channel.id : null }];
+    return [{ url: session.url, channelId: session.serviceSelected ? channel.id : null, activated: session.activated }];
   });
 
 /**
  * The TV of a tab whose first HbbTV page is `url`: on the channel `initialChannel`
  * gives, with the data the page itself got at `document_start`, so the two agree
- * (the TV already showing that page, else the channel signalling it, else the first).
+ * (the TV already showing that page, else the channel signalling it, else the first),
+ * and activated as `initialActivation` says (not if that channel AUTOSTARTs it).
  */
 export const newSession = (state: ExtensionState, sessions: TvSessions, url: string): TvSession => {
   const data = {
@@ -287,6 +306,7 @@ export const newSession = (state: ExtensionState, sessions: TvSessions, url: str
     url,
     app: null,
     volume: DEFAULT_TV_VOLUME,
+    activated: initialActivation(data, url),
   };
 };
 
@@ -312,7 +332,7 @@ export const zapChannel = (state: ExtensionState, session: TvSession, step: 1 | 
 
 export const toPageSession = (state: ExtensionState, session: TvSession, assetUrl: AssetUrl): PageSession => {
   const channel = presentedChannel(state, session);
-  return { channel: channel && toPageChannel(channel, assetUrl), volume: session.volume };
+  return { channel: channel && toPageChannel(channel, assetUrl), volume: session.volume, activated: session.activated };
 };
 
 /**

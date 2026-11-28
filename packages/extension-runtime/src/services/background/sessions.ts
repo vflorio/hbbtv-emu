@@ -40,7 +40,8 @@ const isApplicationId = (value: unknown): value is AitApplicationId => {
 
 /**
  * A stored session, as this version understands it; older ones had no `url`, `app`,
- * `volume` nor `serviceSelected` (they always selected one).
+ * `volume`, `serviceSelected` (they always selected one) nor `activated` (every
+ * application was).
  */
 const toTvSession = (value: unknown): O.Option<TvSession> => {
   if (typeof value !== "object" || value === null) return O.none;
@@ -51,14 +52,16 @@ const toTvSession = (value: unknown): O.Option<TvSession> => {
     url = null,
     app = null,
     volume = DEFAULT_TV_VOLUME,
+    activated = true,
   } = value as Record<string, unknown>;
   return (mode === "app" || mode === "tv") &&
     isNullableString(channelId) &&
     typeof serviceSelected === "boolean" &&
     isNullableString(url) &&
     (app === null || isApplicationId(app)) &&
-    typeof volume === "number"
-    ? O.some({ mode, channelId, serviceSelected, url, app, volume })
+    typeof volume === "number" &&
+    typeof activated === "boolean"
+    ? O.some({ mode, channelId, serviceSelected, url, app, volume, activated })
     : O.none;
 };
 
@@ -149,6 +152,8 @@ export const createSessions = (storage: StorageAdapter<TvSessions>, logger: Logg
         const session = all[String(tabId)];
         if (session === undefined) return { all, result: O.none };
         const next = f(session);
+        // Unchanged: nothing to store.
+        if (next === session) return { all, result: O.some(session) };
         return { all: { ...all, [String(tabId)]: next }, result: O.some(next) };
       }),
 

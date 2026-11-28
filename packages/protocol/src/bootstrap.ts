@@ -19,7 +19,7 @@
  */
 
 import type { ChannelConfig } from "@hbb-emu/extension-common";
-import { channelSignalling } from "@hbb-emu/oipf-api";
+import { applicationOfPage, channelSignalling } from "@hbb-emu/oipf-api";
 import type * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import { isPageConfig, type PageConfig } from "./messages";
@@ -27,8 +27,9 @@ import { isPageConfig, type PageConfig } from "./messages";
 /**
  * The TV of a tab showing `url` is on `channelId`; `null` when it selects no service,
  * as while a broadcast-independent application runs (TS 102 796 §6.2.2.6.1).
+ * `activated`: whether the application it runs is activated (TS 102 796 §10.2.2.1).
  */
-export type Tuning = Readonly<{ url: string; channelId: string | null }>;
+export type Tuning = Readonly<{ url: string; channelId: string | null; activated: boolean }>;
 
 /** What the bootstrap gives the page: the configuration, and what each TV is tuned to. */
 export type BootstrapData = Readonly<{
@@ -39,7 +40,10 @@ export type BootstrapData = Readonly<{
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isTuning = (value: unknown): value is Tuning =>
-  isRecord(value) && typeof value.url === "string" && (value.channelId === null || typeof value.channelId === "string");
+  isRecord(value) &&
+  typeof value.url === "string" &&
+  (value.channelId === null || typeof value.channelId === "string") &&
+  typeof value.activated === "boolean";
 
 export const isBootstrapData = (value: unknown): value is BootstrapData =>
   isRecord(value) && isPageConfig(value.config) && Array.isArray(value.tunings) && value.tunings.every(isTuning);
@@ -59,16 +63,28 @@ const documentUrl = (url: string): string | null => {
 };
 
 /**
- * The channel the TVs showing this page are on (`null`: they select no service);
- * `undefined` if no TV shows it, or if TVs on different channels do (the page cannot
- * tell which tab it is in).
+ * What the TVs showing this page agree on; `undefined` if no TV shows it, or if they
+ * differ (the page cannot tell which tab it is in).
  */
-export const tunedChannelId = (tunings: ReadonlyArray<Tuning>, url: string): string | null | undefined => {
+const tunedValue = <T extends Pick<Tuning, "url">, A>(
+  tunings: ReadonlyArray<T>,
+  url: string,
+  read: (tuning: T) => A,
+): A | undefined => {
   const page = documentUrl(url);
   if (page === null) return undefined;
-  const ids = new Set(tunings.filter((tuning) => documentUrl(tuning.url) === page).map((t) => t.channelId));
-  return ids.size === 1 ? [...ids][0] : undefined;
+  const values = new Set(tunings.filter((tuning) => documentUrl(tuning.url) === page).map(read));
+  return values.size === 1 ? [...values][0] : undefined;
 };
+
+/**
+ * The channel the TVs showing this page are on (`null`: they select no service);
+ * `undefined` if no TV shows it, or if TVs on different channels do.
+ */
+export const tunedChannelId = (
+  tunings: ReadonlyArray<Pick<Tuning, "url" | "channelId">>,
+  url: string,
+): string | null | undefined => tunedValue(tunings, url, (tuning) => tuning.channelId);
 
 /**
  * The channel a page starts on, before the host says which one its tab is on:
@@ -84,6 +100,24 @@ export const initialChannel = ({ config, tunings }: BootstrapData, url: string):
   if (tunedId === null) return null;
   const tuned = tunedId === undefined ? undefined : config.channels.find((channel) => channel.id === tunedId);
   return tuned ?? channelSignalling(config.channels, url) ?? config.channels[0] ?? null;
+};
+
+/**
+ * Whether a page starts with its application activated (TS 102 796 §10.2.2.1: the
+ * digits and the VCR keys are only available to an activated application), before
+ * the host says so for its tab:
+ * 1. what the TV showing it says (a reload, a navigation the host made);
+ * 2. otherwise, not activated if the channel it starts on (`initialChannel`) signals
+ *    its application as AUTOSTART: the TV started it, and it is activated by its first
+ *    key event. Any other application was launched (PRESENT, broadcast-independent),
+ *    hence activated.
+ * The background opens a tab's TV session with the same rule and the same data.
+ */
+export const initialActivation = (data: BootstrapData, url: string): boolean => {
+  const tuned = tunedValue(data.tunings, url, (tuning) => tuning.activated);
+  if (tuned !== undefined) return tuned;
+  const application = applicationOfPage(initialChannel(data, url)?.ait, url);
+  return application?.controlCode !== "AUTOSTART";
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -31,8 +31,9 @@
       // The service the application is broadcast-related to, as it reads it at start.
       var channel = app.privateData.currentChannel;
       e2e.channelAtFirstScript = channel ? channel.ccid : null;
-      // RED | GREEN | YELLOW | BLUE | NAVIGATION
-      app.privateData.keyset.setValue(0x1 | 0x2 | 0x4 | 0x8 | 0x10);
+      // RED | GREEN | YELLOW | BLUE | NAVIGATION, or the keyset the URL asks for (`askKeyset`).
+      var asked = /[?&]askKeyset=(\d+)/.exec(location.search);
+      app.privateData.keyset.setValue(asked ? Number(asked[1]) : 0x1 | 0x2 | 0x4 | 0x8 | 0x10);
       app.show();
       e2e.keysetValue = app.privateData.keyset.value;
       // The broadcast, in the object's window: the application takes it from the TV.

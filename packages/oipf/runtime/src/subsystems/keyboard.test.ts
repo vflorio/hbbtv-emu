@@ -28,6 +28,7 @@ beforeEach(() => {
   uninstall = installKeyboard({
     ...dispatcher,
     keysetValue: () => keysetValue,
+    keyReceived: () => {},
     window,
     keyMap: DEFAULT_KEY_MAP,
     pressTvKey: (keyCode) => () => void tvKeys.push(keyCode),

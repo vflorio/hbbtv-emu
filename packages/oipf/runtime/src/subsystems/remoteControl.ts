@@ -115,6 +115,11 @@ export type RemoteControlEnv = EventDispatcher &
   Readonly<{
     /** The keys the application asked for: the value of its keyset. */
     keysetValue: IO.IO<number>;
+    /**
+     * The application receives a key event, which activates an application the TV
+     * AUTOSTARTed (TS 102 796 §10.2.2.1, see `Activation`).
+     */
+    keyReceived: IO.IO<void>;
   }>;
 
 // Default implementation
@@ -243,7 +248,12 @@ const notDelivered = (keyCode: number, keysetValue: number): IO.IO<void> =>
         `Key ${keyCode} not delivered: not in the application's keyset (0x${keysetValue.toString(16)}, see Keyset.setValue())`,
       );
 
-/** A remote-control key: dispatched to the page if the application receives it. */
+/**
+ * A remote-control key: dispatched to the page if the application receives it. The
+ * application is activated before its handlers run: one that asks for the digits on
+ * its first key (e.g. RED opening its full interface) has them (an emulator's choice:
+ * the spec only says "when they have received a key event").
+ */
 export const dispatchRemoteKey =
   (keyCode: number): RIO.ReaderIO<RemoteControlEnv, void> =>
   (env) =>
@@ -255,6 +265,7 @@ export const dispatchRemoteKey =
         isDelivered(keyCode, keysetValue, textEntryFocused)
           ? pipe(
               logger.debug("Dispatching remote key:", keyCode),
+              IO.flatMap(() => env.keyReceived),
               IO.flatMap(() => env.dispatchKeyEvent(keyCode)),
             )
           : notDelivered(keyCode, keysetValue),
@@ -262,7 +273,11 @@ export const dispatchRemoteKey =
     );
 
 /** The page's remote control, delivering the keys asked for by `keysetValue`. */
-export const createRemoteControlEnv = (keysetValue: IO.IO<number>): RemoteControlEnv => ({
+export const createRemoteControlEnv = (
+  keysetValue: IO.IO<number>,
+  keyReceived: IO.IO<void> = IO.of(undefined),
+): RemoteControlEnv => ({
   ...defaultEventDispatcher,
   keysetValue,
+  keyReceived,
 });

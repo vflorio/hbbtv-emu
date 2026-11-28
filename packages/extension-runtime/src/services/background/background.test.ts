@@ -80,7 +80,7 @@ describe("BackgroundService", () => {
         // The channel as pages get it: its stream at the extension's URL.
         message: {
           _tag: "Host/Session",
-          session: { channel: toPageConfig(DEFAULT_STATE, assetUrl).channels[0], volume: 100 },
+          session: { channel: toPageConfig(DEFAULT_STATE, assetUrl).channels[0], volume: 100, activated: true },
         },
       },
     ]);
@@ -191,7 +191,9 @@ describe("BackgroundService — configuration bootstrap", () => {
     messaging.receive({ _tag: "Page/Ready", url: "http://app/" }, 7);
     await flushPromises();
 
-    expect(bootstrap.published).toEqual([script(stored, [{ url: "http://app/", channelId: first!.id }])]);
+    expect(bootstrap.published).toEqual([
+      script(stored, [{ url: "http://app/", channelId: first!.id, activated: true }]),
+    ]);
   });
 
   it("tells pages which channel the TV showing them is on: a reload finds it at document_start", async () => {
@@ -203,8 +205,8 @@ describe("BackgroundService — configuration bootstrap", () => {
 
     expect(bootstrap.published).toEqual([
       script(lineup),
-      script(lineup, [{ url: "http://app/a.xhtml", channelId: first!.id }]),
-      script(lineup, [{ url: "http://app/a.xhtml", channelId: "hgtv" }]),
+      script(lineup, [{ url: "http://app/a.xhtml", channelId: first!.id, activated: true }]),
+      script(lineup, [{ url: "http://app/a.xhtml", channelId: "hgtv", activated: true }]),
     ]);
   });
 
@@ -223,7 +225,7 @@ describe("BackgroundService — configuration bootstrap", () => {
     await flushPromises();
     expect(bootstrap.published).toEqual([
       script(lineup),
-      script(lineup, [{ url: "http://app/a.xhtml", channelId: first!.id }]),
+      script(lineup, [{ url: "http://app/a.xhtml", channelId: first!.id, activated: true }]),
       script(lineup),
     ]);
   });
@@ -599,7 +601,15 @@ describe("BackgroundService — TV sessions (one per tab)", () => {
 
   it("a session whose channel left the lineup is back on the first channel", async () => {
     const stored: TvSessions = {
-      "1": { mode: "app", channelId: "gone", serviceSelected: true, url: null, app: null, volume: 100 },
+      "1": {
+        mode: "app",
+        channelId: "gone",
+        serviceSelected: true,
+        url: null,
+        app: null,
+        volume: 100,
+        activated: true,
+      },
     };
     const { messaging } = await setup(lineup, OPEN_TABS, true, stored);
 
@@ -674,13 +684,38 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     expect(bootstrap.published[bootstrap.published.length - 1]).toBe(
       configBootstrapScript({
         config: toPageConfig(lineup, assetUrl),
-        tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv" }],
+        tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv", activated: false }],
       }),
     );
 
     messaging.receive({ _tag: "Page/Ready", url: "http://linear.example/hgtv.html" }, TV_TAB);
     await flushPromises();
     expect(sessionsSent(messaging.sent, TV_TAB)).toEqual(["hgtv"]);
+  });
+
+  it("keeps the autostart application activated once its first key event did it, until the TV starts another (TS 102 796 §10.2.2.1)", async () => {
+    const { ui, bootstrap, messaging } = await turnOn("dmax");
+    const lastTunings = () => bootstrap.published[bootstrap.published.length - 1];
+    const published = (tunings: BootstrapData["tunings"]) =>
+      configBootstrapScript({ config: toPageConfig(lineup, assetUrl), tunings });
+    const dmaxPage = "http://linear.example/dmax.html";
+
+    messaging.receive({ _tag: "Page/Ready", url: dmaxPage }, TV_TAB);
+    await flushPromises();
+    const sessions = messaging.sent.filter((s) => s.tabId === TV_TAB && s.message._tag === "Host/Session");
+    expect(sessions[sessions.length - 1]?.message).toMatchObject({ session: { activated: false } });
+
+    messaging.receive({ _tag: "Page/Activated" }, TV_TAB);
+    await flushPromises();
+    expect(lastTunings()).toBe(published([{ url: dmaxPage, channelId: "dmax", activated: true }]));
+
+    // HGTV signals the same application: it survives, activated.
+    await ui.request({ _tag: "UI/PlayChannel", channel: hgtv });
+    expect(lastTunings()).toBe(published([{ url: dmaxPage, channelId: "hgtv", activated: true }]));
+
+    // NEWS signals another: the TV AUTOSTARTs it, not activated.
+    await ui.request({ _tag: "UI/PlayChannel", channel: news });
+    expect(lastTunings()).toBe(published([{ url: "http://news.example/", channelId: "news", activated: false }]));
   });
 
   it("shows the TV page for a channel without application", async () => {
@@ -840,7 +875,7 @@ describe("BackgroundService — TV mode (turned on from the UI)", () => {
     expect(bootstrap.published[bootstrap.published.length - 1]).toBe(
       configBootstrapScript({
         config: toPageConfig(lineup, assetUrl),
-        tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv" }],
+        tunings: [{ url: "http://linear.example/hgtv.html", channelId: "hgtv", activated: false }],
       }),
     );
   });
@@ -950,7 +985,7 @@ describe("BackgroundService — createApplication()", () => {
 
     expect(env.tabs.navigations.slice(2)).toEqual([{ tabId: TV_TAB, url: full }]);
     // Broadcast-related: the TV still presents DMAX, and the new page starts on it.
-    publishedWith(env.bootstrap, [{ url: full, channelId: "dmax" }]);
+    publishedWith(env.bootstrap, [{ url: full, channelId: "dmax", activated: true }]);
     expect(loadErrors(env.messaging.sent)).toEqual([]);
   });
 
@@ -964,7 +999,7 @@ describe("BackgroundService — createApplication()", () => {
     await flushPromises();
 
     expect(env.tabs.navigations.slice(2)).toEqual([{ tabId: TV_TAB, url: page }]);
-    publishedWith(env.bootstrap, [{ url: page, channelId: null }]);
+    publishedWith(env.bootstrap, [{ url: page, channelId: null, activated: true }]);
     const sessions = env.messaging.sent.filter((s) => s.tabId === TV_TAB && s.message._tag === "Host/Session");
     expect(sessions[sessions.length - 1]?.message).toMatchObject({ session: { channel: null } });
     expect(env.ui.notified[env.ui.notified.length - 1]).toEqual({
@@ -982,7 +1017,7 @@ describe("BackgroundService — createApplication()", () => {
     await flushPromises();
 
     expect(env.tabs.navigations.slice(3)).toEqual([{ tabId: TV_TAB, url: "http://linear.example/dmax.html" }]);
-    publishedWith(env.bootstrap, [{ url: "http://linear.example/dmax.html", channelId: "dmax" }]);
+    publishedWith(env.bootstrap, [{ url: "http://linear.example/dmax.html", channelId: "dmax", activated: false }]);
   });
 
   it("fails, without loading anything, for what the TV cannot start (§6.2.2.5.6, §9.2)", async () => {

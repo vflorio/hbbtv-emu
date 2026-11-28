@@ -180,8 +180,9 @@ describe("dispatchRemoteKey", () => {
       dispatchKeyEvent: (keyCode) => () => void dispatched.push(keyCode),
       textEntryFocused: () => textEntryFocused,
       keysetValue: () => keysetValue,
+      keyReceived: () => void dispatched.push(-1),
     };
-    return { remote, dispatched };
+    return { remote, dispatched: () => dispatched.filter((keyCode) => keyCode !== -1), log: dispatched };
   };
 
   it("dispatches only the keys the application receives", () => {
@@ -189,7 +190,7 @@ describe("dispatchRemoteKey", () => {
 
     for (const key of [403, 404, 38, 49, 427]) dispatchRemoteKey(key)(remote)();
 
-    expect(dispatched).toEqual([403, 38]);
+    expect(dispatched()).toEqual([403, 38]);
   });
 
   it("reads the keyset at every key: a setValue() applies to the next one", () => {
@@ -199,6 +200,7 @@ describe("dispatchRemoteKey", () => {
       dispatchKeyEvent: (keyCode) => () => void dispatched.push(keyCode),
       textEntryFocused: () => false,
       keysetValue: () => value,
+      keyReceived: () => {},
     };
 
     dispatchRemoteKey(403)(remote)();
@@ -213,7 +215,16 @@ describe("dispatchRemoteKey", () => {
 
     dispatchRemoteKey(49)(remote)();
 
-    expect(dispatched).toEqual([49]);
+    expect(dispatched()).toEqual([49]);
+  });
+
+  it("tells that the application receives a key before its handlers run, and only then", () => {
+    const { remote, log } = env(0x1);
+
+    dispatchRemoteKey(404)(remote)();
+    dispatchRemoteKey(403)(remote)();
+
+    expect(log).toEqual([-1, 403]);
   });
 });
 

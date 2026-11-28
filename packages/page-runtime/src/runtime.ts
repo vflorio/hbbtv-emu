@@ -17,12 +17,13 @@ import {
   type PlayerRuntimeFactory,
   type RuntimeHandle,
   type RuntimeState,
+  reportNowhere,
   runtime,
   tuneAlone,
 } from "@hbb-emu/oipf-runtime";
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime } from "@hbb-emu/player-runtime";
-import { type BootstrapData, initialChannel, type PageConfig } from "@hbb-emu/protocol";
+import { type BootstrapData, initialActivation, initialChannel, type PageConfig } from "@hbb-emu/protocol";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
@@ -48,12 +49,17 @@ const playerRuntimeFactory: PlayerRuntimeFactory = {
 };
 
 /** The runtime still takes the old extension state: the host configuration over the defaults. */
-export const toExtensionState = (config: PageConfig, currentChannel: ChannelConfig | null = null): RuntimeState => ({
+export const toExtensionState = (
+  config: PageConfig,
+  currentChannel: ChannelConfig | null = null,
+  activated = true,
+): RuntimeState => ({
   ...DEFAULT_EXTENSION_STATE,
   userAgent: config.userAgent,
   device: config.device,
   channels: [...config.channels],
   currentChannel,
+  activated,
 });
 
 /** Without bootstrap: the defaults, until the host's configuration arrives. */
@@ -78,13 +84,15 @@ export type HostRequests = Readonly<{
   exitApplication: ApplicationExit;
   /** The application starts another (`createApplication()`). */
   launchApplication: ApplicationLaunch;
+  /** The application got activated by its first key event (TS 102 796 §10.2.2.1). */
+  reportActivation: IO.IO<void>;
 }>;
 
 /**
  * Without a host, the objects tune by themselves, the TV's keys do nothing, the page
  * fetches the stream event descriptions (subject to CORS, unlike a TV), an
- * application that exits keeps running, and one that starts another at an HTTP(S)
- * URL just goes there.
+ * application that exits keeps running, one that starts another at an HTTP(S)
+ * URL just goes there, and the activation lasts as long as the page.
  */
 export const WITHOUT_HOST: HostRequests = {
   requestChannelChange: tuneAlone,
@@ -92,13 +100,14 @@ export const WITHOUT_HOST: HostRequests = {
   fetchStreamEventDescription: fetchFromPage,
   exitApplication: exitAlone,
   launchApplication: launchAlone,
+  reportActivation: reportNowhere,
 };
 
 /**
  * Starts with the host configuration when the page already has it (bootstrap),
  * with the defaults otherwise: the host's one is then applied when it arrives.
- * The channel is the one `initialChannel` says (the host opens the tab's session
- * with the same rule). One shared player for video/broadcast, a new one for every
+ * The channel is the one `initialChannel` says, and the activation the one
+ * `initialActivation` says (the host opens the tab's session with the same rules). One shared player for video/broadcast, a new one for every
  * A/V Control object. The application's channel changes and the TV's keys go to
  * `host` (the host's, once connected).
  */
@@ -111,7 +120,7 @@ export const startRuntime =
       O.getOrElse(() => DEFAULT_BOOTSTRAP),
     );
     const env = createRuntimeEnv(
-      toExtensionState(data.config, initialChannel(data, url)),
+      toExtensionState(data.config, initialChannel(data, url), initialActivation(data, url)),
       createPlayerRuntime(),
       playerRuntimeFactory,
     );
@@ -125,13 +134,14 @@ export const startRuntime =
         launchApplication: host.launchApplication,
       },
       keyboard: { ...env.keyboard, pressTvKey: host.pressTvKey },
+      activation: { ...env.activation, report: host.reportActivation },
     })();
   };
 
 /**
  * The bootstrap, when it runs after the runtime started (Chromium's order): applied
- * as if it had been there at start, channel included. Still before the
- * application's first script.
+ * as if it had been there at start, channel and activation included. Still before
+ * the application's first script.
  */
 export const applyBootstrap =
   (handle: RuntimeHandle, url: string) =>
@@ -139,12 +149,14 @@ export const applyBootstrap =
     pipe(
       handle.updateExtensionState(toExtensionState(data.config)),
       IO.flatMap(() => handle.tune(initialChannel(data, url))),
+      IO.flatMap(() => handle.tellActivation(initialActivation(data, url))),
     );
 
 /**
  * Configuration can be applied any time: the user agent and the channel lineup are
- * live. A new session tunes the TV and sets its volume first, then settles the
- * application's requests for that channel (its objects are already there).
+ * live. A new session tunes the TV, sets its volume and says whether the application
+ * is activated first, then settles the application's requests for that channel (its
+ * objects are already there).
  */
 export const controlRuntime = (
   handle: RuntimeHandle,
@@ -159,6 +171,7 @@ export const controlRuntime = (
     pipe(
       handle.tune(session.channel),
       IO.flatMap(() => handle.setTvVolume(session.volume)),
+      IO.flatMap(() => handle.tellActivation(session.activated)),
       IO.flatMap(() => changes.settle(session)),
     ),
   channelChangeFailed: changes.fail,

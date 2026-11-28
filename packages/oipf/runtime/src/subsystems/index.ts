@@ -1,3 +1,4 @@
+export * from "./activation";
 export * from "./applicationExit";
 export * from "./applicationLaunch";
 export * from "./broadcastChannel";

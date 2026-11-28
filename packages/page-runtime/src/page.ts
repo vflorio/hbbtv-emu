@@ -46,6 +46,7 @@ export const startPage = (window: Window, document: Document): IO.IO<void> => {
             fetchStreamEventDescription: descriptions.fetch,
             exitApplication: createHostApplicationExit(channel.send),
             launchApplication: launches.launch,
+            reportActivation: channel.send({ _tag: "Page/Activated" }),
           }),
         ),
       ),

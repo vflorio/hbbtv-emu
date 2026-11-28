@@ -721,6 +721,64 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     }
   });
 
+  it("an application the TV AUTOSTARTs has the digits only once a key activated it, and its tab keeps it so (TS 102 796 §10.2.2.1)", async () => {
+    const { request } = await openUi();
+    type UiState = { channels: Channel[] };
+    const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
+    const [first] = original.channels as [Channel];
+    // The application asks for RED, NAVIGATION and the digits at its first script.
+    const appUrl = server.url(`basic-app/index.xhtml?askKeyset=${0x111}&activation=${Date.now()}`);
+    const autostart = { applications: [{ orgId: 10, appId: 1, controlCode: "AUTOSTART", url: appUrl }] };
+    const channel = { ...first, id: "e2e-autostart", name: "e2e autostart", sid: first.sid + 4000, ait: autostart };
+    const done = { _tag: "UI/Done" };
+    const press = (keyCode: number) => request({ _tag: "UI/DispatchKey", keyCode });
+    type AppMgr = { getOwnerApplication: (d: Document) => { privateData: { keyset: Keyset } } };
+    type Keyset = { value: number; setValue: (value: number) => number };
+    const keysetValue = (page: Page) =>
+      page.evaluate(
+        () =>
+          (document.getElementById("appmgr") as unknown as AppMgr).getOwnerApplication(document).privateData.keyset
+            .value,
+      );
+    // RED | NAVIGATION | NUMERIC
+    const askForDigits = (page: Page) =>
+      page.evaluate(() =>
+        (document.getElementById("appmgr") as unknown as AppMgr)
+          .getOwnerApplication(document)
+          .privateData.keyset.setValue(0x111),
+      );
+    const keys = (page: Page) => page.evaluate(() => (window as unknown as { __e2e: BasicAppState }).__e2e.keys);
+
+    try {
+      await request({ _tag: "UI/SaveState", state: { ...original, channels: [first, channel] } });
+      const opened = firefox.browser.waitForTarget((target) => target.url() === appUrl);
+      expect(await request({ _tag: "UI/TurnOnTv", channelId: channel.id })).toEqual(done);
+      const tv = (await (await opened).page())!;
+      await tv.waitForFunction(() => "__e2e" in window && document.readyState === "complete");
+
+      // Not activated: the digits were discarded from its request.
+      await expect.poll(() => keysetValue(tv), { timeout: 5000 }).toBe(0x11);
+      expect(await press(49)).toEqual(done);
+      expect(await press(403)).toEqual(done);
+      expect(await press(49)).toEqual(done);
+      await expect.poll(() => keys(tv), { timeout: 5000 }).toEqual([403]);
+
+      // RED activated it; the keyset stays as it was until the application asks again.
+      expect(await keysetValue(tv)).toBe(0x11);
+      expect(await askForDigits(tv)).toBe(0x111);
+      expect(await press(49)).toEqual(done);
+      await expect.poll(() => keys(tv), { timeout: 5000 }).toEqual([403, 49]);
+
+      // The tab's TV keeps it activated: the next page has the digits it asks for.
+      await tv.reload();
+      await tv.waitForFunction(() => "__e2e" in window && document.readyState === "complete");
+      await expect.poll(() => keysetValue(tv), { timeout: 5000 }).toBe(0x111);
+      await tv.close();
+    } finally {
+      await request({ _tag: "UI/SaveState", state: original });
+    }
+  });
+
   it("the application's setChannel() changes the TV's channel as the UI does; on its own, it gets an error", async () => {
     const { request } = await openUi();
     type Service = Channel & { onid: number; tsid: number };

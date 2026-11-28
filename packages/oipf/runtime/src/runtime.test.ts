@@ -176,6 +176,54 @@ describe("runtime", () => {
     }
   });
 
+  it("an application the TV AUTOSTARTed has the digits only once activated by a key, and asks again (TS 102 796 §10.2.2.1)", async () => {
+    const env = createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [], activated: false });
+    let reports = 0;
+    const handle = runtime({ ...env, activation: { ...env.activation, report: () => void reports++ } })();
+    started.push(handle);
+    const appMgr = addObject("application/oipfApplicationManager") as unknown as {
+      getOwnerApplication: (doc: Document) => { privateData: { keyset: { setValue: (v: number) => number } } };
+    };
+    await flushMutations();
+    const keyset = appMgr.getOwnerApplication(document).privateData.keyset;
+    const keys: number[] = [];
+    const listener = (event: KeyboardEvent) => keys.push(event.keyCode);
+    document.addEventListener("keydown", listener);
+
+    try {
+      // RED | NUMERIC: the digits are discarded before activation.
+      expect(keyset.setValue(0x101)).toBe(0x1);
+      handle.dispatchKey(49)();
+      handle.dispatchKey(403)();
+      // Activated by RED, but the keyset stays as it was.
+      handle.dispatchKey(49)();
+      expect(keyset.setValue(0x101)).toBe(0x101);
+      handle.dispatchKey(49)();
+
+      expect(keys).toEqual([403, 49]);
+      expect(reports).toBe(1);
+    } finally {
+      document.removeEventListener("keydown", listener);
+    }
+  });
+
+  it("when the TV says the application is activated after all, its keyset is what it asked for", async () => {
+    const handle = runtime(createRuntimeEnv({ ...DEFAULT_EXTENSION_STATE, channels: [], activated: false }))();
+    started.push(handle);
+    const appMgr = addObject("application/oipfApplicationManager") as unknown as {
+      getOwnerApplication: (doc: Document) => {
+        privateData: { keyset: { setValue: (v: number) => number; value: number } };
+      };
+    };
+    await flushMutations();
+    const keyset = appMgr.getOwnerApplication(document).privateData.keyset;
+
+    keyset.setValue(0x121);
+    handle.tellActivation(true)();
+
+    expect(keyset.value).toBe(0x121);
+  });
+
   it("stops binding objects once stopped", async () => {
     startRuntime().stop()();
 

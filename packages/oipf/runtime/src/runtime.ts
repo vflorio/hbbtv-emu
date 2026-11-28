@@ -33,10 +33,11 @@ import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import { type AVControlVideoDefaults, DEFAULT_AV_CONTROL_VIDEO_DEFAULTS } from "./apis/av/control";
 import { createBindings as createDefaultBindings } from "./apis/bindings";
-import { createKeyset } from "./apis/dae/applicationManager/keyset";
+import { availableKeys, createKeyset } from "./apis/dae/applicationManager/keyset";
 import { installObjectFactory, type ObjectFactoryEnv } from "./apis/dae/objectFactory";
 import { broadcastGain } from "./apis/dae/videoBroadcast/volume";
 import {
+  type ActivationEnv,
   type ApplicationExit,
   type ApplicationLaunch,
   type ApplicationLoadErrors,
@@ -44,6 +45,7 @@ import {
   type ChannelChangeRequest,
   type ChannelRegistry,
   type ChannelRegistryEnv,
+  createActivation,
   createApplicationLoadErrors,
   createBroadcastLayer,
   createBroadcastStream,
@@ -70,8 +72,11 @@ import {
   type KeyMap,
   launchAlone,
   type RemoteControlEnv,
+  receiveKey,
+  reportNowhere,
   type StreamEventSchedulerApi,
   type TvVolume,
+  tellActivation,
   tuneAlone,
   type UserAgentEnv,
 } from "./subsystems";
@@ -191,6 +196,8 @@ export type RuntimeEnv = Readonly<{
   userAgent: UserAgentEnv;
   /** Remote control key dispatching */
   remoteControl: RemoteControlEnv;
+  /** Whether the application is activated, which gives it the digits and the VCR keys */
+  activation: ActivationEnv;
   /** The computer's keyboard, as the remote */
   keyboard: KeyboardConfig;
   /** Environment for creating bindings */
@@ -205,7 +212,12 @@ export type RuntimeEnv = Readonly<{
  * What the runtime takes from its host: the old extension state, and the TV the page runs
  * on. Without a device, the emulator as itself.
  */
-export type RuntimeState = ExtensionState & Readonly<{ device?: DeviceProfile }>;
+export type RuntimeState = ExtensionState &
+  Readonly<{
+    device?: DeviceProfile;
+    /** Whether the application starts activated (TS 102 796 §10.2.2.1). Without a word, it does. */
+    activated?: boolean;
+  }>;
 
 const deviceOf = (state: RuntimeState): DeviceProfile => state.device ?? EMULATOR_DEVICE;
 
@@ -249,6 +261,9 @@ export type Runtime = Readonly<{
    * object's.
    */
   setTvVolume: (volume: number) => IO.IO<void>;
+
+  /** Whether the application is activated, as the TV says (the host's TV session). */
+  tellActivation: (activated: boolean) => IO.IO<void>;
 }>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,6 +279,8 @@ const isReleased = (videoBroadcast: Tunable): boolean =>
 
 export class RuntimeService implements Runtime {
   readonly #env: RuntimeEnv;
+  /** The remote control, whose keys activate the application. */
+  readonly #remoteControl: RemoteControlEnv;
   readonly #provider: ProviderService;
   readonly #streamEventScheduler: StreamEventSchedulerApi;
   readonly #objectFactory: ObjectFactoryEnv;
@@ -275,6 +292,7 @@ export class RuntimeService implements Runtime {
 
   constructor(env: RuntimeEnv) {
     this.#env = env;
+    this.#remoteControl = { ...env.remoteControl, keyReceived: receiveKey(env.activation) };
     this.#streamEventScheduler = env.bindings.streamEventScheduler;
 
     // Store the shared PlayerRuntime from env if provided
@@ -314,7 +332,7 @@ export class RuntimeService implements Runtime {
       // Before the application's first script, so its key listeners come after.
       IO.tap(() => () => {
         this.#uninstallKeyboard = installKeyboard({
-          ...this.#env.remoteControl,
+          ...this.#remoteControl,
           ...this.#env.keyboard,
           window,
           fromKeyboard: (event) => event.isTrusted,
@@ -377,7 +395,10 @@ export class RuntimeService implements Runtime {
   /**
    * A remote-control key: the application receives it only if its keyset asks for it.
    */
-  dispatchKey = (keyCode: number): IO.IO<void> => dispatchRemoteKey(keyCode)(this.#env.remoteControl);
+  dispatchKey = (keyCode: number): IO.IO<void> => dispatchRemoteKey(keyCode)(this.#remoteControl);
+
+  /** Whether the application is activated, as the TV says. */
+  tellActivation = (activated: boolean): IO.IO<void> => tellActivation(activated)(this.#env.activation);
 
   /** The TV's volume: every object's audio follows it, the applications cannot see it. */
   setTvVolume = (volume: number): IO.IO<void> => this.#env.bindings.tvVolume.set(volume);
@@ -476,8 +497,10 @@ export const createRuntimeEnv = (
     initialTunedChannel(extensionState.currentChannel, extensionState.channels),
   );
   const streamEventScheduler = createStreamEventScheduler(extensionState.channels);
+  const activation = createActivation(extensionState.activated ?? true);
   // OIPF DAE §7.2.5: a broadcast-related application receives no keys by default.
-  const keyset = createKeyset(DEFAULT_KEYSET_VALUE);
+  // TS 102 796 §10.2.2.1: and only those available to it at that time.
+  const keyset = createKeyset(DEFAULT_KEYSET_VALUE, () => availableKeys(activation.activated()));
   const tvVolume = createTvVolume();
   let device = deviceOf(extensionState);
   const emulatorMedia = createEmulatorMedia();
@@ -539,6 +562,7 @@ export const createRuntimeEnv = (
       device = next;
     },
     remoteControl: createRemoteControlEnv(() => keyset.value),
+    activation: { activation, reapplyKeyset: keyset.reapply, report: reportNowhere },
     keyboard: { keyMap: DEFAULT_KEY_MAP, pressTvKey: ignoreTvKey },
     bindings: bindingsEnv,
     createBindings,
@@ -562,6 +586,8 @@ export type RuntimeHandle = Readonly<{
   tune: (channel: ChannelConfig | null) => IO.IO<void>;
   /** Sets the TV's volume (from the host's TV session) */
   setTvVolume: (volume: number) => IO.IO<void>;
+  /** Whether the application is activated (from the bootstrap, the host's TV session) */
+  tellActivation: (activated: boolean) => IO.IO<void>;
   /** Stops DOM observation and tears down runtime services */
   stop: () => IO.IO<void>;
   /** Sets the PlayerRuntime instance (for player UI integration) */
@@ -585,6 +611,7 @@ export const runtime = (env: RuntimeEnv): IO.IO<RuntimeHandle> =>
         dispatchKey: service.dispatchKey,
         tune: service.tune,
         setTvVolume: service.setTvVolume,
+        tellActivation: service.tellActivation,
         stop: service.stop,
         setPlayerRuntime: service.setPlayerRuntime,
         getPlayerRuntime: service.getPlayerRuntime,

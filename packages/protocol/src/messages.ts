@@ -38,6 +38,11 @@ export type PageSession = Readonly<{
    * its objects' audio plays in series with it (TS 102 796 §10.2.12).
    */
   volume: number;
+  /**
+   * Whether the application is activated (TS 102 796 §10.2.2.1): it then has the digits
+   * and the VCR keys too. One the TV AUTOSTARTed is activated by its first key event.
+   */
+  activated: boolean;
 }>;
 
 export type PageMessage =
@@ -49,6 +54,11 @@ export type PageMessage =
    * the keyboard in this page: the TV of this tab acts on it.
    */
   | Readonly<{ _tag: "Page/TvKey"; keyCode: number }>
+  /**
+   * The application received its first key event, which activates an application the
+   * TV AUTOSTARTed (TS 102 796 §10.2.2.1): the TV of this tab keeps it activated.
+   */
+  | Readonly<{ _tag: "Page/Activated" }>
   /**
    * The application listens for stream events described by an XML file over HTTP(S)
    * (TS 102 796 §8.2.1.1): the host fetches it, as a TV does, without CORS.
@@ -108,7 +118,10 @@ const isKeyCode = (value: unknown): value is number => typeof value === "number"
 const isChannel = (value: unknown): value is ChannelConfig => isRecord(value) && typeof value.id === "string";
 
 export const isPageSession = (value: unknown): value is PageSession =>
-  isRecord(value) && (value.channel === null || isChannel(value.channel)) && typeof value.volume === "number";
+  isRecord(value) &&
+  (value.channel === null || isChannel(value.channel)) &&
+  typeof value.volume === "number" &&
+  typeof value.activated === "boolean";
 
 export const isPageMessage = (value: unknown): value is PageMessage => {
   if (!isRecord(value)) return false;
@@ -119,6 +132,8 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
       return typeof value.channelId === "string";
     case "Page/TvKey":
       return isKeyCode(value.keyCode);
+    case "Page/Activated":
+      return true;
     case "Page/FetchStreamEventDescription":
       return typeof value.url === "string";
     case "Page/DestroyApplication":

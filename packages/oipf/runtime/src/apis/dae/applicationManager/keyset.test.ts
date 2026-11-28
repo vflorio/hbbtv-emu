@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createKeyset } from "./keyset";
+import { availableKeys, createKeyset } from "./keyset";
 
 describe("Keyset", () => {
   it("exposes the OIPF key group constants", () => {
@@ -68,5 +68,32 @@ describe("Keyset", () => {
     expect(() => {
       keyset.value = 0xff;
     }).toThrow(TypeError);
+  });
+
+  it("before activation, setValue() discards the digits and the VCR keys (TS 102 796 §10.2.2.1, Table 12)", () => {
+    let activated = false;
+    const keyset = createKeyset(0, () => availableKeys(activated));
+    const all = keyset.RED | keyset.NAVIGATION | keyset.VCR | keyset.NUMERIC;
+
+    expect(keyset.setValue(all)).toBe(keyset.RED | keyset.NAVIGATION);
+
+    // Activated: the keyset does not change by itself, the application asks again.
+    activated = true;
+    expect(keyset.value).toBe(keyset.RED | keyset.NAVIGATION);
+    expect(keyset.setValue(all)).toBe(all);
+    // maximumValue is the TV's, whatever the activation.
+    expect(keyset.maximumValue).toBe(createKeyset().maximumValue);
+  });
+
+  it("reapply() takes the last request again against the keys available now", () => {
+    let activated = false;
+    const keyset = createKeyset(0, () => availableKeys(activated));
+    keyset.setValue(keyset.RED | keyset.NUMERIC);
+
+    activated = true;
+    expect(keyset.reapply()).toBe(keyset.RED | keyset.NUMERIC);
+    activated = false;
+    expect(keyset.reapply()).toBe(keyset.RED);
+    expect(keyset.value).toBe(keyset.RED);
   });
 });

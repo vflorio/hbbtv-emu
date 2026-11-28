@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   type BootstrapData,
   configBootstrapScript,
+  initialActivation,
   initialChannel,
   receiveBootstrap,
   tunedChannelId,
@@ -15,7 +16,7 @@ const hgtv: ChannelConfig = { ...dmax, id: "hgtv", name: "HGTV", sid: 56 };
 
 const data: BootstrapData = {
   config: { userAgent: 'Custom TV/1.0 "quoted" </script>', device: EMULATOR_DEVICE, channels: [dmax] },
-  tunings: [{ url: "http://app.example/", channelId: "dmax" }],
+  tunings: [{ url: "http://app.example/", channelId: "dmax", activated: true }],
 };
 
 const HBBTV = { contentType: "application/xhtml+xml" };
@@ -106,11 +107,11 @@ describe("initialChannel", () => {
   const config = { userAgent: "TV", device: EMULATOR_DEVICE, channels: [dmax, signalledByHgtv] };
 
   it("is the channel of the TV showing the page, before what the AIT says", () => {
-    expect(initialChannel({ config, tunings: [{ url, channelId: "dmax" }] }, url)).toBe(dmax);
+    expect(initialChannel({ config, tunings: [{ url, channelId: "dmax", activated: true }] }, url)).toBe(dmax);
   });
 
   it("is none when the TV showing the page selects no service, whatever the AIT says", () => {
-    expect(initialChannel({ config, tunings: [{ url, channelId: null }] }, url)).toBeNull();
+    expect(initialChannel({ config, tunings: [{ url, channelId: null, activated: true }] }, url)).toBeNull();
   });
 
   it("is the channel whose AIT signals the page when no TV shows it", () => {
@@ -119,8 +120,55 @@ describe("initialChannel", () => {
 
   it("is the first of the lineup otherwise, also when the tuned channel left the lineup", () => {
     expect(
-      initialChannel({ config, tunings: [{ url: "http://x.example/", channelId: "gone" }] }, "http://x.example/"),
+      initialChannel(
+        { config, tunings: [{ url: "http://x.example/", channelId: "gone", activated: true }] },
+        "http://x.example/",
+      ),
     ).toBe(dmax);
     expect(initialChannel({ config: { ...config, channels: [] }, tunings: [] }, url)).toBeNull();
+  });
+});
+
+describe("initialActivation", () => {
+  const url = "http://app.example/index.html";
+  const signalling = (controlCode: "AUTOSTART" | "PRESENT"): ChannelConfig => ({
+    ...hgtv,
+    ait: { applications: [{ orgId: 1, appId: 1, controlCode, url }] },
+  });
+  const config = (...channels: ChannelConfig[]) => ({ userAgent: "TV", device: EMULATOR_DEVICE, channels });
+
+  it("is what the TV showing the page says, before what the AIT says", () => {
+    const tunings = [{ url, channelId: "hgtv", activated: true }];
+    expect(initialActivation({ config: config(signalling("AUTOSTART")), tunings }, `${url}#menu`)).toBe(true);
+    expect(
+      initialActivation({ config: config(dmax), tunings: [{ url, channelId: "dmax", activated: false }] }, url),
+    ).toBe(false);
+  });
+
+  it("is not activated when the page's channel signals its application as AUTOSTART: the TV started it", () => {
+    expect(initialActivation({ config: config(signalling("AUTOSTART")), tunings: [] }, url)).toBe(false);
+    // Another page of the same application, inside its boundary.
+    expect(initialActivation({ config: config(signalling("AUTOSTART")), tunings: [] }, "http://app.example/vod")).toBe(
+      false,
+    );
+  });
+
+  it("is activated otherwise: a PRESENT application, one no channel signals, none selected", () => {
+    expect(initialActivation({ config: config(signalling("PRESENT")), tunings: [] }, url)).toBe(true);
+    expect(initialActivation({ config: config(dmax), tunings: [] }, url)).toBe(true);
+    expect(
+      initialActivation(
+        { config: config(signalling("AUTOSTART")), tunings: [{ url: "http://x/", channelId: null, activated: true }] },
+        "http://x/",
+      ),
+    ).toBe(true);
+  });
+
+  it("follows the AIT when TVs showing the page disagree", () => {
+    const tunings = [
+      { url, channelId: "hgtv", activated: true },
+      { url, channelId: "hgtv", activated: false },
+    ];
+    expect(initialActivation({ config: config(signalling("AUTOSTART")), tunings }, url)).toBe(false);
   });
 });

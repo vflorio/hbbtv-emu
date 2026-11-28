@@ -4,6 +4,7 @@ import {
   type AitApplication,
   AitCodec,
   applicationLocation,
+  applicationOfPage,
   autostartApplication,
   channelSignalling,
   parseDvbApplicationUrl,
@@ -99,6 +100,27 @@ describe("channelSignalling", () => {
   it("ignores URLs it cannot parse", () => {
     expect(channelSignalling([channel("broken", app("not a url"))], "http://apps.example/")).toBeNull();
     expect(channelSignalling([news], "not a url")).toBeNull();
+  });
+});
+
+describe("applicationOfPage", () => {
+  const linear = app("http://apps.example/linear/index.html", { appId: 1 });
+  const full = app("http://apps.example/full/index.html", { appId: 2, controlCode: "PRESENT" });
+
+  it("is the application whose URL the page is, fragment aside, before one that only shares its origin", () => {
+    expect(applicationOfPage({ applications: [linear, full] }, "http://apps.example/full/index.html#menu")).toBe(full);
+  });
+
+  it("else the first whose boundary (its origin) holds the page", () => {
+    expect(applicationOfPage({ applications: [linear, full] }, "http://apps.example/vod.html")).toBe(linear);
+  });
+
+  it("is null for an application that may not run, another origin, or no AIT", () => {
+    const killed = app("http://apps.example/", { controlCode: "KILL" });
+    expect(applicationOfPage({ applications: [killed] }, "http://apps.example/")).toBeNull();
+    expect(applicationOfPage({ applications: [linear] }, "https://apps.example/linear/index.html")).toBeNull();
+    expect(applicationOfPage(undefined, "http://apps.example/")).toBeNull();
+    expect(applicationOfPage({ applications: [linear] }, "not a url")).toBeNull();
   });
 });
 

@@ -156,6 +156,24 @@ export const channelSignalling = <Channel extends WithAit>(
   return boundaryMatch;
 };
 
+/**
+ * The application of an AIT a page belongs to: the runnable one whose URL it is, else
+ * the first whose boundary (origin) it is inside. `null` when the AIT signals none.
+ */
+export const applicationOfPage = (ait: Ait | undefined, pageUrl: string): AitApplication | null => {
+  const page = parse(pageUrl);
+  if (page === null) return null;
+
+  let boundaryMatch: AitApplication | null = null;
+  for (const application of ait?.applications ?? []) {
+    if (!isRunnable(application)) continue;
+    const match = matchOf(application, page);
+    if (match === "entry") return application;
+    if (match === "boundary" && boundaryMatch === null) boundaryMatch = application;
+  }
+  return boundaryMatch;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // dvb: URLs of applications (TS 102 851 §6.3.1, TS 102 796 §9.2)
 // ─────────────────────────────────────────────────────────────────────────────

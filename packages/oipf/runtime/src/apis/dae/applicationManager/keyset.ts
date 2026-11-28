@@ -10,6 +10,20 @@ const { RED, GREEN, YELLOW, BLUE, NAVIGATION, VCR, NUMERIC } = OIPF.DAE.Applicat
  */
 export const MAXIMUM_KEYSET_VALUE = RED | GREEN | YELLOW | BLUE | NAVIGATION | VCR | NUMERIC;
 
+/**
+ * The keys "only available to applications once activated" (Table 12): the digits and
+ * the VCR keys. The others are always available. (Annex O.7 makes the VCR keys always
+ * available to a DVB-I linked application controlling media: the emulator has no DVB-I.)
+ */
+export const ACTIVATION_KEYS = VCR | NUMERIC;
+
+/** The keys available to an application now (TS 102 796 §10.2.2.1). */
+export const availableKeys = (activated: boolean): number =>
+  activated ? MAXIMUM_KEYSET_VALUE : MAXIMUM_KEYSET_VALUE & ~ACTIVATION_KEYS;
+
+/** Every key is available: an application that does not depend on activation. */
+const ALWAYS_AVAILABLE = (): number => MAXIMUM_KEYSET_VALUE;
+
 /** OIPF DAE §7.2.5 Keyset: the remote-control keys the application receives. */
 export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   readonly RED = 0x1;
@@ -27,10 +41,18 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   /** OIPF DAE §7.2.5.2: the application sets it; the OITF assumes `false` otherwise. */
   supportsPointer = false;
 
+  /** The keys available to the application now (`availableKeys`). */
+  readonly #available: () => number;
+
+  /** What the application asked for last, before the unavailable keys were discarded. */
+  #requested: number;
+
   #value: number;
 
-  constructor(initialValue = 0) {
-    this.#value = initialValue & MAXIMUM_KEYSET_VALUE;
+  constructor(initialValue = 0, available: () => number = ALWAYS_AVAILABLE) {
+    this.#available = available;
+    this.#requested = initialValue;
+    this.#value = initialValue & available();
   }
 
   get value(): number {
@@ -42,12 +64,24 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   }
 
   /**
-   * The part of the request for keys not available to the application is discarded,
-   * the rest is processed (TS 102 796 §10.2.2.1); the result is what will be
+   * The part of the request for keys not available to the application at that time is
+   * discarded, the rest is processed (TS 102 796 §10.2.2.1); the result is what will be
    * delivered. `otherKeys` only matters for VK_RECORD, which is not available.
    */
   setValue = (value: number, _otherKeys?: ReadonlyArray<number>): number => {
-    this.#value = value & MAXIMUM_KEYSET_VALUE;
+    this.#requested = value;
+    this.#value = value & this.#available();
+    return this.#value;
+  };
+
+  /**
+   * The application's last request again, against the keys available now. Not for the
+   * activation itself, which leaves the keyset as it is (§10.2.2.1: the application calls
+   * `setValue()` again): for the emulator's guess about it at start, when the TV says
+   * otherwise (see `Activation`).
+   */
+  reapply = (): number => {
+    this.#value = this.#requested & this.#available();
     return this.#value;
   };
 
@@ -55,4 +89,5 @@ export class Keyset implements OIPF.DAE.ApplicationManager.Keyset {
   getKeyIcon = (_code: number): string | null => null;
 }
 
-export const createKeyset = (initialValue = 0): OIPF.DAE.ApplicationManager.Keyset => new Keyset(initialValue);
+export const createKeyset = (initialValue = 0, available: () => number = ALWAYS_AVAILABLE): Keyset =>
+  new Keyset(initialValue, available);

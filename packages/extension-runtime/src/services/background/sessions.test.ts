@@ -10,6 +10,7 @@ const session = (channelId: string): TvSession => ({
   url: null,
   app: null,
   volume: 100,
+  activated: true,
 });
 
 const setup = () => {
