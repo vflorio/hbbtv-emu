@@ -9,8 +9,9 @@ import { type AdapterConfig, type AdapterError, MANIFEST_VERSION_2, MANIFEST_VER
  *
  * The browser's User-Agent Client Hints go: Chromium sends `Sec-CH-UA*` to every secure
  * origin (an application's HTTPS ad server, say), and they name the real browser, against
- * the TV's user agent. Choice of the emulator: the emulated TV sends none, as a browser
- * from before them (Chromium < 89, WebKit, Gecko) does.
+ * the TV's user agent. So does its device memory (`Device-Memory`, to a server that asks),
+ * which the page's `navigator.deviceMemory` does not have either. Choice of the emulator:
+ * the emulated TV sends none, as a browser from before them (Chromium < 89, WebKit, Gecko).
  */
 export interface UserAgentAdapter {
   readonly setUserAgent: (userAgent: string) => TE.TaskEither<AdapterError, void>;
@@ -20,7 +21,8 @@ export const USER_AGENT_RULE_ID = 1000;
 
 /**
  * Every User-Agent Client Hint request header (WICG UA-CH, and Chromium's form factors):
- * the low-entropy ones Chromium sends by default, the others when a server asks (`Accept-CH`).
+ * the low-entropy ones Chromium sends by default, the others when a server asks (`Accept-CH`);
+ * and the device memory hints, which a server asks for the same way.
  */
 export const CLIENT_HINT_HEADERS = [
   "Sec-CH-UA",
@@ -34,9 +36,15 @@ export const CLIENT_HINT_HEADERS = [
   "Sec-CH-UA-Platform",
   "Sec-CH-UA-Platform-Version",
   "Sec-CH-UA-WoW64",
+  // The machine's memory, in GiB: the Device Memory spec's header and its `Sec-CH-` form.
+  "Device-Memory",
+  "Sec-CH-Device-Memory",
 ] as const;
 
-const isClientHint = (name: string): boolean => name.toLowerCase().startsWith("sec-ch-ua");
+const isClientHint = (name: string): boolean => {
+  const lower = name.toLowerCase();
+  return lower.startsWith("sec-ch-ua") || lower === "device-memory" || lower === "sec-ch-device-memory";
+};
 
 /** Every resource type: without a list, DNR would leave the document request out. */
 const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [

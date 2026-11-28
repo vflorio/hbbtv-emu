@@ -24,6 +24,16 @@
     e2e.userAgentAtFirstScript = navigator.userAgent;
     // And the browser's client hints, which would name the real browser (secure contexts only).
     e2e.userAgentDataAtFirstScript = "userAgentData" in navigator;
+    // And the rest of the navigator that names a browser, an engine or a machine.
+    e2e.navigatorAtFirstScript = {
+      vendor: navigator.vendor,
+      productSub: navigator.productSub,
+      platform: navigator.platform,
+      hardwareConcurrency: "hardwareConcurrency" in navigator ? navigator.hardwareConcurrency : null,
+      deviceMemory: "deviceMemory" in navigator,
+      oscpu: "oscpu" in navigator,
+      buildID: "buildID" in navigator
+    };
     // Whether the host's configuration was already there (synchronous bootstrap).
     e2e.configAtFirstScript = Boolean(window[Symbol.for("hbb-emu.config")]);
     try {

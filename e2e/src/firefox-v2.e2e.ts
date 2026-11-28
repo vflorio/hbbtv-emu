@@ -32,6 +32,15 @@ type BasicAppState = {
   events: unknown[];
   userAgentAtFirstScript: string;
   userAgentDataAtFirstScript: boolean;
+  navigatorAtFirstScript: {
+    vendor: string;
+    productSub: string;
+    platform: string;
+    hardwareConcurrency: number | null;
+    deviceMemory: boolean;
+    oscpu: boolean;
+    buildID: boolean;
+  };
   capabilitiesAtFirstScript: string[];
   xmlCapabilitiesAtFirstScript: {
     root: string;
@@ -585,13 +594,15 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     }
   });
 
-  it("a user agent changed in the UI is what the next application sees at its first script", async () => {
+  it("a user agent changed in the UI is what the next application sees at its first script, with its browser's navigator", async () => {
     const { request } = await openUi();
     type UiState = { device: { terminal: object; capabilities: object } };
     const original = ((await request({ _tag: "UI/GetState" })) as { state: UiState }).state;
     // The device's identity: the header is what TS 102 796 §7.3.2.4 makes of it (HbbTV 2.0.1: with its family).
     const terminal = { ...E2E_TERMINAL, hbbtvVersion: "2.0.1", softwareVersion: "3.0" };
     const userAgent = "Mozilla/5.0 (Linux; e2e) e2e-TV HbbTV/1.4.1 (+DRM; e2e; TV; 3.0; ; org.hbbtv-emu.e2e; )";
+    // A Blink TV on ARM, with four cores: Firefox's navigator has none of Gecko's own then.
+    const navigator = { engine: "blink", platform: "Linux armv7l", hardwareConcurrency: 4 };
     // The DRM system that its +DRM option says it has (TS 102 796 Table 13).
     const capabilities = {
       ...original.device.capabilities,
@@ -601,7 +612,7 @@ describe("firefox-v2: settings UI (sidebar)", () => {
     try {
       await request({
         _tag: "UI/SaveState",
-        state: { ...original, device: { ...original.device, terminal, capabilities } },
+        state: { ...original, device: { ...original.device, terminal, capabilities, navigator } },
       });
       const path = `basic-app/index.xhtml?ui-ua=${Date.now()}`;
       const { page } = await openPage(path);
@@ -609,6 +620,15 @@ describe("firefox-v2: settings UI (sidebar)", () => {
       const state = await appState(page);
       expect(state.userAgentAtFirstScript).toBe(userAgent);
       expect(server.requests.find((r) => r.url === `/${path}`)?.userAgent).toBe(userAgent);
+      expect(state.navigatorAtFirstScript).toEqual({
+        vendor: "Google Inc.",
+        productSub: "20030107",
+        platform: "Linux armv7l",
+        hardwareConcurrency: 4,
+        deviceMemory: false,
+        oscpu: false,
+        buildID: false,
+      });
       // Its Capabilities object answers with its option strings (OIPF DAE §7.15.3.2), not a MIME type.
       expect(state.capabilitiesAtFirstScript).toEqual(["+DRM", "OITF_HD_UIPROF", "+DVB_S"]);
       // And its XML capabilities: the HbbTV 2.0.1 document, with the DRM system.

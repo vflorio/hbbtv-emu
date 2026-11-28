@@ -1,12 +1,13 @@
 /**
  * A device profile: the TV the emulator is (ROADMAP 2.1). What it says it is (its
- * identity, and the User-Agent header it sends), what it can do (its capabilities) and
- * how its remote reaches the applications (its keys). Resolution and other known quirks
- * will join it.
+ * identity, the User-Agent header it sends, and its browser's `navigator`), what it can
+ * do (its capabilities) and how its remote reaches the applications (its keys).
+ * Resolution and other known quirks will join it.
  */
 
 import * as t from "io-ts";
 import { DEFAULT_UI_PROFILES } from "./dae/capabilities";
+import { DeviceNavigatorCodec, type NavigatorProperties, navigatorProperties } from "./navigator";
 import { EMULATOR_TERMINAL, hbbtvUserAgent, TerminalIdentityCodec } from "./terminal";
 
 /** HEVC HD video (TS 102 796 §7.3.1.3): none, 8-bit only, or 10-bit (which includes 8-bit). */
@@ -117,6 +118,8 @@ export const DeviceProfileCodec = t.readonly(
       userAgent: t.string,
       /** Its keys; none: those of a TV that follows the spec (`SPEC_KEYS`). */
       keys: DeviceKeysCodec,
+      /** Its browser beyond its User-Agent; none: the engine the User-Agent gives, the rest the browser's. */
+      navigator: DeviceNavigatorCodec,
     }),
   ]),
 );
@@ -145,6 +148,10 @@ export const deviceKeys = (device: DeviceProfile): DeviceKeys => device.keys ?? 
 /** The User-Agent header the device sends: its own if it has one, else the one its identity gives. */
 export const deviceUserAgent = (device: DeviceProfile): string =>
   device.userAgent ? device.userAgent : hbbtvUserAgent(device.terminal);
+
+/** The `navigator` of the device's browser in the page: its User-Agent's, and what the device says beyond it. */
+export const deviceNavigator = (device: DeviceProfile): NavigatorProperties =>
+  navigatorProperties(deviceUserAgent(device), device.navigator);
 
 /**
  * `hasCapability(profileName)` of its Capabilities object (OIPF DAE §7.15.3.2): whether the

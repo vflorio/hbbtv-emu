@@ -32,6 +32,15 @@ type BasicAppState = {
   events: unknown[];
   userAgentAtFirstScript: string;
   userAgentDataAtFirstScript: boolean;
+  navigatorAtFirstScript: {
+    vendor: string;
+    productSub: string;
+    platform: string;
+    hardwareConcurrency: number | null;
+    deviceMemory: boolean;
+    oscpu: boolean;
+    buildID: boolean;
+  };
   capabilitiesAtFirstScript: string[];
   xmlCapabilitiesAtFirstScript: {
     root: string;
@@ -684,6 +693,8 @@ describe("chrome-v3: settings UI", () => {
         drm: [{ systemId: "urn:dvb:casystemid:19188", formats: ["TS_PF", "MP4_PDCF"] }],
       },
       userAgent,
+      // A WebKit TV on ARM, of an engine without hardwareConcurrency.
+      navigator: { engine: "webkit", platform: "Linux armv7l", hardwareConcurrency: null },
     };
 
     try {
@@ -694,6 +705,17 @@ describe("chrome-v3: settings UI", () => {
       expect(errors).toEqual([]);
       expect(state.initError).toBeNull();
       expect(state.userAgentAtFirstScript).toBe(userAgent);
+      // Its browser's navigator: WebKit's vendor, the TV's machine, and none of Chromium's
+      // deviceMemory, which a secure context (127.0.0.1) would otherwise have.
+      expect(state.navigatorAtFirstScript).toEqual({
+        vendor: "Apple Computer, Inc.",
+        productSub: "20030107",
+        platform: "Linux armv7l",
+        hardwareConcurrency: null,
+        deviceMemory: false,
+        oscpu: false,
+        buildID: false,
+      });
       // Its Capabilities object, from the configuration: a new page has the TV's, not the defaults.
       expect(state.capabilitiesAtFirstScript).toEqual(["+DL", "+DVB_S"]);
       // And its XML capabilities: the HbbTV 1.5 document (no namespace, no HTML5 media), with its DRM system.

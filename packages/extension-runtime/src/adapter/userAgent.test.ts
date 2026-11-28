@@ -18,7 +18,14 @@ describe("the TV's user agent over HTTP", () => {
 
   it("covers the hints Chromium sends by default and those a server asks for", () => {
     expect(CLIENT_HINT_HEADERS).toEqual(
-      expect.arrayContaining(["Sec-CH-UA", "Sec-CH-UA-Mobile", "Sec-CH-UA-Platform", "Sec-CH-UA-Full-Version-List"]),
+      expect.arrayContaining([
+        "Sec-CH-UA",
+        "Sec-CH-UA-Mobile",
+        "Sec-CH-UA-Platform",
+        "Sec-CH-UA-Full-Version-List",
+        "Device-Memory",
+        "Sec-CH-Device-Memory",
+      ]),
     );
   });
 
@@ -29,6 +36,8 @@ describe("the TV's user agent over HTTP", () => {
         { name: "user-agent", value: "Mozilla/5.0 (X11; Linux x86_64) Chrome/155.0.0.0" },
         { name: "sec-ch-ua", value: '"Chromium";v="155"' },
         { name: "Sec-CH-UA-Platform", value: '"Linux"' },
+        { name: "device-memory", value: "8" },
+        { name: "Sec-CH-Device-Memory", value: "8" },
         { name: "Sec-Fetch-Mode", value: "navigate" },
       ],
       TV,

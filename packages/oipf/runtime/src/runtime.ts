@@ -468,6 +468,7 @@ export class RuntimeService implements Runtime {
           ...this.#env.userAgent,
           getUserAgent: () => state.userAgent,
           getHbbTVVersion: () => deviceOf(state).terminal.hbbtvVersion,
+          getNavigator: () => deviceOf(state).navigator,
         }),
       ),
       IO.tap(() => this.#env.setDevice(deviceOf(state))),
