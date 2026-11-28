@@ -1,5 +1,5 @@
-import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
+import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/state";
 import { describe, expect, it } from "vitest";
 import { toBroadcastChannel } from "./broadcastChannel";
 

@@ -5,8 +5,8 @@ import {
   matchesChannelTriplet,
   toChannelTriplet,
 } from "@hbb-emu/core";
-import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import type { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";

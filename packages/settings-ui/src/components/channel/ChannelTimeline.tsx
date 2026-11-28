@@ -5,7 +5,7 @@ import {
   parseVideoDuration,
   resolveEmulatorAsset,
 } from "@hbb-emu/core";
-import type { StreamEventConfig } from "@hbb-emu/extension-common";
+import type { StreamEventConfig } from "@hbb-emu/state";
 import { Box, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 

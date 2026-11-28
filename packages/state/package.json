@@ -1,0 +1,34 @@
+{
+  "name": "@hbb-emu/state",
+  "version": "1.0.0",
+  "description": "The emulator's state, shared by every host: the lineup of channels with their AIT and stream events, the TV's HbbTV state, and the defaults",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hbb-emu/core": "workspace:*",
+    "@hbb-emu/oipf-api": "workspace:*",
+    "fp-ts": "2.16.11",
+    "io-ts": "2.2.22"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

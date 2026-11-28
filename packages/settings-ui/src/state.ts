@@ -1,5 +1,5 @@
-import { DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/extension-common";
 import { type DeviceProfile, EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
+import { DEFAULT_EXTENSION_STATE, type ExtensionState } from "@hbb-emu/state";
 
 /**
  * What the UI edits: the background's snapshot (`UiState` of `@hbb-emu/protocol`). The

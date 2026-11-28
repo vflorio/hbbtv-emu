@@ -1,5 +1,5 @@
 import { hexToText, isValidHex, textToHex } from "@hbb-emu/core";
-import type { StreamEventConfig, StreamEventScheduleMode } from "@hbb-emu/extension-common";
+import type { StreamEventConfig, StreamEventScheduleMode } from "@hbb-emu/state";
 import { Delete, Edit, ExpandMore, Save } from "@mui/icons-material";
 import {
   Accordion,

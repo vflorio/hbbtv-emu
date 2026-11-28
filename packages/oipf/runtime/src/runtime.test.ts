@@ -1,5 +1,5 @@
-import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { EMULATOR_CAPABILITIES, EMULATOR_DEVICE, EMULATOR_TERMINAL, OIPF } from "@hbb-emu/oipf-api";
+import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/state";
 import * as E from "fp-ts/Either";
 import * as TE from "fp-ts/TaskEither";
 import { afterEach, describe, expect, it } from "vitest";

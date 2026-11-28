@@ -4,8 +4,8 @@ import {
   matchesChannelTriplet,
   toChannelTriplet,
 } from "@hbb-emu/core";
-import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig, ExtensionState } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import type * as IO from "fp-ts/IO";
 import { IORef } from "fp-ts/IORef";

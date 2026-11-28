@@ -24,12 +24,12 @@
   },
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/oipf-api": "workspace:*",
     "@hbb-emu/oipf-runtime": "workspace:*",
     "@hbb-emu/player-adapter-web": "workspace:*",
     "@hbb-emu/player-runtime": "workspace:*",
     "@hbb-emu/protocol": "workspace:*",
+    "@hbb-emu/state": "workspace:*",
     "fp-ts": "2.16.11"
   },
   "devDependencies": {

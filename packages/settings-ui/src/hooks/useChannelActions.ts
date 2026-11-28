@@ -1,4 +1,4 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { useCallback } from "react";

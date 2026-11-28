@@ -2,7 +2,6 @@
  * Wires the OIPF runtime with the web player, and exposes it to the host.
  */
 
-import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import {
   type ApplicationExit,
@@ -24,6 +23,7 @@ import {
 import { DASHAdapter, HLSAdapter, NativeAdapter } from "@hbb-emu/player-adapter-web";
 import { PlayerRuntime } from "@hbb-emu/player-runtime";
 import { type BootstrapData, initialActivation, initialChannel, type PageConfig } from "@hbb-emu/protocol";
+import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";

@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/extension-runtime": "workspace:*",
     "@hbb-emu/page-runtime": "workspace:*",
     "@hbb-emu/protocol": "workspace:*",

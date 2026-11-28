@@ -12,8 +12,8 @@
  */
 
 import { livePosition, resolveEmulatorAsset } from "@hbb-emu/core";
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { UiState } from "@hbb-emu/protocol";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import type * as T from "fp-ts/Task";
 import * as TE from "fp-ts/TaskEither";

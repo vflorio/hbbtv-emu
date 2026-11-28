@@ -17,8 +17,8 @@
  * it outlives the page, which gets it again after every navigation.
  */
 
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { type DeviceProfile, DeviceProfileCodec, type HbbTVState } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 
 /** What the page runtime needs from the host's configuration. */
 export type PageConfig = Readonly<{

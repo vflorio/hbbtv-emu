@@ -18,8 +18,8 @@
  * a TV is showing is on that TV's channel (`Tuning`).
  */
 
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { applicationOfPage, channelSignalling } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import type * as IO from "fp-ts/IO";
 import * as O from "fp-ts/Option";
 import { isPageConfig, type PageConfig } from "./messages";

@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "dependencies": {
     "@hbb-emu/core": "workspace:*",
-    "@hbb-emu/extension-common": "workspace:*",
     "@hbb-emu/oipf-api": "workspace:*",
     "@hbb-emu/protocol": "workspace:*",
+    "@hbb-emu/state": "workspace:*",
     "io-ts": "2.2.21"
   },
   "devDependencies": {

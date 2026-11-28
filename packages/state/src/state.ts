@@ -168,25 +168,3 @@ export const DEFAULT_EXTENSION_STATE: ExtensionState = {
   userAgent: emulatorUserAgent(DEFAULT_HBBTV_STATE.oipfCapabilities?.hbbtvVersion),
   hbbtv: DEFAULT_HBBTV_STATE,
 };
-
-// Errors
-
-export type InvalidExtensionConfigStateError = Readonly<{
-  type: "InvalidExtensionConfigStateError";
-  message: string;
-}>;
-
-export type ConfigContextError = Readonly<{
-  type: "ConfigContextError";
-  message: string;
-}>;
-
-export const invalidExtensionConfigStateError = (message: string): InvalidExtensionConfigStateError => ({
-  type: "InvalidExtensionConfigStateError",
-  message,
-});
-
-export const configContextError = (message: string): ConfigContextError => ({
-  type: "ConfigContextError",
-  message,
-});

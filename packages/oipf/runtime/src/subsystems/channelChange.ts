@@ -7,8 +7,8 @@
  * runtime just tunes.
  */
 
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as TE from "fp-ts/TaskEither";
 
 /**

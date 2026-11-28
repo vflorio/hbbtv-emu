@@ -1,6 +1,6 @@
-import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import type { UiState } from "@hbb-emu/protocol";
+import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/state";
 import * as TE from "fp-ts/TaskEither";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BANNER_MS, startTvShell } from "./shell";

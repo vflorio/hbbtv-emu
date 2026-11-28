@@ -1,5 +1,4 @@
 import { Logger } from "@hbb-emu/core";
-import { BROADCAST_STAND_IN } from "@hbb-emu/extension-common";
 import {
   type DeviceCapabilities,
   DeviceCapabilitiesCodec,
@@ -12,6 +11,7 @@ import {
   isHbbTVVersion,
   TerminalIdentityCodec,
 } from "@hbb-emu/oipf-api";
+import { BROADCAST_STAND_IN } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import * as IO from "fp-ts/IO";
 import * as IOE from "fp-ts/IOEither";

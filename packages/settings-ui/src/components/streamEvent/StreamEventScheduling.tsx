@@ -1,4 +1,4 @@
-import type { StreamEventScheduleMode } from "@hbb-emu/extension-common";
+import type { StreamEventScheduleMode } from "@hbb-emu/state";
 import { InfoOutlined } from "@mui/icons-material";
 import {
   Alert,

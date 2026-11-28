@@ -5,13 +5,11 @@
   "type": "module",
   "packageManager": "bun@1.4.4",
   "workspaces": [
-    "apps/*",
     "extensions/*",
     "packages/*",
     "packages/oipf/*",
     "packages/player/*",
     "packages/player/adapters/*",
-    "packages/extension_old/*",
     "e2e"
   ],
   "trustedDependencies": [

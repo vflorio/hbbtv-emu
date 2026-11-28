@@ -1,6 +1,6 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
 import type { PageMessage } from "@hbb-emu/protocol";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as E from "fp-ts/Either";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CHANNEL_CHANGE_TIMEOUT_MS, createHostChannelChanges } from "./channelChange";

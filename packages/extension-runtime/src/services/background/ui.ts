@@ -12,9 +12,9 @@
  */
 
 import { diffPatch, type Logger } from "@hbb-emu/core";
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { HbbTVState } from "@hbb-emu/oipf-api";
 import type { HostMessage, UiRequest, UiResponse, UiState } from "@hbb-emu/protocol";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as A from "fp-ts/Array";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";

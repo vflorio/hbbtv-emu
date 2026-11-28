@@ -1,4 +1,4 @@
-import type { StreamEventConfig } from "@hbb-emu/extension-common";
+import type { StreamEventConfig } from "@hbb-emu/state";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { useCallback } from "react";

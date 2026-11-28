@@ -1,4 +1,4 @@
-import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/state";
 import { pipe } from "fp-ts/lib/function";
 import * as TE from "fp-ts/TaskEither";
 import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer } from "react";

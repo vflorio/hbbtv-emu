@@ -5,9 +5,9 @@
  * what the new channel shows (`changeChannel`).
  */
 
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
 import type { HostMessage } from "@hbb-emu/protocol";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as E from "fp-ts/Either";
 import { pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";

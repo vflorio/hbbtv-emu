@@ -1,5 +1,5 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 
 export type BroadcastChannel = Pick<
   OIPF.DAE.Broadcast.Channel,

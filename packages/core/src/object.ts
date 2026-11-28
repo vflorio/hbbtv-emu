@@ -61,7 +61,7 @@ export class ObjectStyleMirror {
 }
 
 const getPropertyDescriptor = (obj: object, key: string): O.Option<PropertyDescriptor> => {
-  // Walk the full prototype chain so mixin-defined accessors/methods are discovered.
+  // Walk the full prototype chain so inherited accessors/methods are discovered.
   // Stop before Object.prototype to avoid proxying generic object helpers.
   let current: object | null = obj;
 

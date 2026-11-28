@@ -1,4 +1,4 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { Edit, Save } from "@mui/icons-material";
 import { IconButton, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";

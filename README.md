@@ -42,13 +42,6 @@ configuration reaches them only after their first scripts have run.
 pick `extensions/firefox-v2/dist/manifest.json` (unsigned add-ons load only as temporary
 ones, until Firefox restarts). The toolbar button opens the settings UI in the sidebar.
 
-### Demo apps
-
-```bash
-bun run --filter @hbb-emu/demo-ui demo:dev
-bun run --filter @hbb-emu/runtime-demo demo:dev
-```
-
 ## Tests
 
 Unit tests use [Vitest](https://vitest.dev/).
@@ -87,20 +80,19 @@ bun run syncpack:fix     # fix version mismatches
 
 ## Packages
 
-**Applications**
-- `@hbb-emu/chrome-v3-extension` - Chrome (Manifest V3) extension with HbbTV runtime integration
-- `@hbb-emu/demo-ui` - Demo web application for testing ui components without runtime
-- `@hbb-emu/runtime-demo` - Standalone runtime demo with AVControl and Player
+**Extensions** (`extensions/`)
+- `@hbb-emu/extension-chrome-v3` - Chrome (Manifest V3)
+- `@hbb-emu/extension-firefox` - Firefox (Manifest V2)
+- `@hbb-emu/extension-chrome-v2` - Chromium legacy (Manifest V2), manifest and background only
 
-**Core Libraries**
-- `@hbb-emu/core` - Shared utilities, DOM helpers, storage, miscellaneus abstractions
-- `@hbb-emu/oipf` - OIPF object models, validation, and type definitions
-- `@hbb-emu/runtime` - Runtime OIPF APIs implementation
-
-**Extension Modules**
-- `@hbb-emu/extension-common` - Shared extension state and utilities
-- `@hbb-emu/runtime-chrome` - Chrome-specific runtime bridge
-- `@hbb-emu/runtime-web` - Web-specific runtime bridge
+**Runtime**
+- `@hbb-emu/core` - Shared utilities, DOM helpers, storage, logger
+- `@hbb-emu/oipf-api` - OIPF/HbbTV object models, validation, and type definitions
+- `@hbb-emu/oipf-runtime` - OIPF APIs implementation and the TV's subsystems
+- `@hbb-emu/state` - The emulator's state, shared by every host: channels, AIT, stream events, defaults
+- `@hbb-emu/protocol` - Messages between the page runtime and its host
+- `@hbb-emu/page-runtime` - The runtime injected in the HbbTV page
+- `@hbb-emu/extension-runtime` - Background, bridge, injector and adapters shared by the extensions
 
 **Player System**
 - `@hbb-emu/player-runtime` - Core player runtime with state management

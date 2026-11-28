@@ -1,5 +1,5 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as E from "fp-ts/Either";
 import * as TE from "fp-ts/TaskEither";
 import { describe, expect, it } from "vitest";

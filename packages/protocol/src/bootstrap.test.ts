@@ -1,5 +1,5 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as O from "fp-ts/Option";
 import { describe, expect, it } from "vitest";
 import {

@@ -1,5 +1,4 @@
 import { createLogger } from "@hbb-emu/core";
-import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import {
   DEFAULT_BROADCAST_PLAY_STATE,
   DEFAULT_FULL_SCREEN,
@@ -14,6 +13,7 @@ import {
 } from "@hbb-emu/oipf-api";
 import { mediaElementDashEngine } from "@hbb-emu/player-adapter-web";
 import type { PlayerRuntime } from "@hbb-emu/player-runtime";
+import type { ChannelConfig, ExtensionState } from "@hbb-emu/state";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlayerRuntime Factory

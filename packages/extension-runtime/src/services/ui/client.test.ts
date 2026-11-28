@@ -1,6 +1,6 @@
-import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import { EMULATOR_DEVICE } from "@hbb-emu/oipf-api";
 import type { UiRequest } from "@hbb-emu/protocol";
+import { DEFAULT_EXTENSION_STATE } from "@hbb-emu/state";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import { createFakeExtensionChannel } from "../../__tests__/fakes";

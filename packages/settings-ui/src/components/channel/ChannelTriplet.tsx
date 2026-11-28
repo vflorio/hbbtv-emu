@@ -1,4 +1,4 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { Edit, Save } from "@mui/icons-material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {

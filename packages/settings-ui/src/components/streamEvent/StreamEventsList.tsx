@@ -1,5 +1,5 @@
 import { randomUUID } from "@hbb-emu/core";
-import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/state";
 import { Add, ExpandMore } from "@mui/icons-material";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";

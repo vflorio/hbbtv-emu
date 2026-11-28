@@ -3,8 +3,8 @@
  * the background. Host-agnostic; the UI framework glue lives in each extension.
  */
 
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { isUiNotification, isUiResponse, type UiRequest, type UiResponse, type UiState } from "@hbb-emu/protocol";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import type { ExtensionChannel } from "../../adapter/extensionChannel";

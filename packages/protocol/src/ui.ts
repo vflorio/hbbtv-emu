@@ -6,8 +6,8 @@
  * user is looking at (ROADMAP D5), so the UI never overwrites what applications did.
  */
 
-import type { ChannelConfig, ExtensionState } from "@hbb-emu/extension-common";
 import { type DeviceProfile, DeviceProfileCodec } from "@hbb-emu/oipf-api";
+import type { ChannelConfig, ExtensionState } from "@hbb-emu/state";
 
 /**
  * The snapshot the settings UI edits (legacy shape, until the Scenario/TvSession split),

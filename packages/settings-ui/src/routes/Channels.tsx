@@ -1,5 +1,5 @@
 import { randomUUID } from "@hbb-emu/core";
-import type { ChannelConfig } from "@hbb-emu/extension-common";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { Add as AddIcon, ExpandMore, PlayArrow, Tv } from "@mui/icons-material";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import { pipe } from "fp-ts/lib/function";

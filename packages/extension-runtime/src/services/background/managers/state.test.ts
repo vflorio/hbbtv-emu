@@ -1,5 +1,5 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { EMULATOR_CAPABILITIES, EMULATOR_DEVICE, EMULATOR_TERMINAL, emulatorUserAgent } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import * as E from "fp-ts/Either";
 import { describe, expect, it } from "vitest";
 import { createFakeStorage } from "../../../__tests__/fakes";

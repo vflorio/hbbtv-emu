@@ -1,5 +1,5 @@
-import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/extension-common";
 import type { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig, StreamEventConfig } from "@hbb-emu/state";
 import { describe, expect, it } from "vitest";
 import type { StreamEventSchedulerEnv } from ".";
 import { createStreamEventScheduler } from "./scheduler";

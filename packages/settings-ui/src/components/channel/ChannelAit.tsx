@@ -1,6 +1,6 @@
 import { randomUUID } from "@hbb-emu/core";
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import { type AitApplication, type AitControlCode, autostartApplication } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import { Add, Delete, Edit, Save } from "@mui/icons-material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {

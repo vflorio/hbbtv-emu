@@ -1,5 +1,5 @@
-import type { ChannelConfig } from "@hbb-emu/extension-common";
 import type { OIPF } from "@hbb-emu/oipf-api";
+import type { ChannelConfig } from "@hbb-emu/state";
 import type * as IO from "fp-ts/IO";
 
 export * from "./compute";

@@ -41,17 +41,17 @@ Il progetto cresce in tre fasi:
 - `extensions/{chrome-v3,firefox-v2}`: entrypoint sottili sullo stesso `BackgroundService`, con un `AdapterConfig` diverso. Funzionano entrambi, con la settings UI (side panel / sidebar) e gli e2e (Playwright su Chromium, Puppeteer su Firefox). `extensions/chrome-v2` ha solo il manifest e un `background.ts`: niente iniezione né UI.
 - `packages/extension-runtime`: adapter (messaging, storage, tabs, webRequest, user agent) parametrizzati per manifest. I servizi `background` (TvSession per tab), `bridge`, `injector`, `ui` e `tv` (shell `tv.html`) sono attivi.
 - `packages/page-runtime` + `packages/protocol`: la runtime in pagina, che parte a `document_start`, e il protocollo pagina ↔ host.
-- `packages/oipf/{api,runtime}`: riscritti senza mixin (D1, `Reader` di fp-ts): video/broadcast, A/V Control, ApplicationManager/Keyset, Capabilities, Configuration, `oipfObjectFactory`. Dipendono ancora da `@hbb-emu/extension-common` per i tipi dello stato (Fase 0).
+- `packages/oipf/{api,runtime}`: riscritti senza mixin (D1, `Reader` di fp-ts): video/broadcast, A/V Control, ApplicationManager/Keyset, Capabilities, Configuration, `oipfObjectFactory`. I tipi dello stato vengono da `@hbb-emu/state`.
+- `packages/state`: lo stato dell'emulatore, uguale per ogni host (`ExtensionState`: canali con AIT e stream event, stato HbbTV, default con DMAX).
 - `packages/core/logger`: logger configurabile da stato.
 - `browsers/{chromium-47,webkitgtk-2}`: build Docker dei motori legacy, non ancora usate dai test.
-- Vecchia architettura ancora nel workspace: `apps/chrome-v3_old`, `packages/extension_old` (da cui viene `extension-common`), più `apps/demo-runtime` e `apps/demo-ui`.
 
 ### Altri branch
 - `origin/webkit-r152340`: `apps/runtime-standalone` con pipeline Babel/Vite per ES5 + polyfill (target Tizen 2.4). **Da riusare** per il build della page runtime legacy.
 - `origin/fork/functional-player`: evoluzione del player + integrazione FreeWheel. Progetto separato; valutare in seguito cosa far rientrare (vedi Fase 2, DAI).
 
 ### Problemi già individuati sul branch
-- [x] Build verde con Bun + turbo (13/13 package, 3 estensioni). Le dipendenze rimaste verso `packages/extension_old` sono in Fase 0.
+- [x] Build verde con Bun + turbo (13/13 package, 3 estensioni). Le dipendenze verso `packages/extension_old` sono state tolte in Fase 0.
 - [x] L'attach `non-visual` costruiva l'IO del proxy senza eseguirlo: gli `<object>` non visuali dichiarati nel markup non avevano nessun metodo OIPF (bug presente anche su `main`). Trovato dai test, corretto.
 - [x] Il logger stampava anche i livelli disabilitati (`O.fromNullable(false)` è `Some`). Trovato dai test, corretto.
 - [x] `ExtensionState.enabledTabIds` (un `Set`, che lo storage JSON restituiva come `{}`: ogni aggiornamento dopo un riavvio del service worker lanciava `enabledTabIds is not iterable`) era scritto e mai letto: rimosso, e il caricamento dello stato salvato scarta la chiave lasciata dalle versioni precedenti. Lo stato per tab arriverà con la TvSession (D5), in `chrome.storage.session`.
@@ -198,8 +198,8 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 - [x] Package manager: pnpm → **Bun** (workspaces nel `package.json` di root, `bun.lock`).
 - [x] Infrastruttura di test: config Vitest condivisa (`vitest.shared.ts`), script `test` per package, `bun run test` dalla root via turbo.
 - [x] Ripristinare una build verde (`bun install && bun run build`) su `isomorphic-runtime`.
-- [ ] Eliminare la dipendenza da `@hbb-emu/extension-common`: spostare i tipi davvero condivisi in un package host-agnostic. Il protocollo pagina ↔ host è già in `@hbb-emu/protocol`. Restano i tipi dello stato, `ExtensionState`, `ChannelConfig`, `StreamEventConfig`/`StreamEventScheduleMode` e `DEFAULT_EXTENSION_STATE`, importati da `oipf-runtime` (12 file), `settings-ui` (14), `extension-runtime` (7), `protocol` (5) e `page-runtime` (2). `player-runtime`, `player-adapter-hbbtv` ed `extension-chrome-v3` la dichiarano senza usarla.
-- [ ] Rimuovere `apps/chrome-v3_old`, `packages/extension_old` e i demo (`apps/demo-runtime`, `apps/demo-ui`, che dipendono da `extension-common`) dal workspace quando non servono più come riferimento (restano consultabili su `main`).
+- [x] Eliminare la dipendenza da `@hbb-emu/extension-common`. I tipi dello stato (`ExtensionState`, `ChannelConfig`, `StreamEventConfig`/`StreamEventScheduleMode`, `DEFAULT_EXTENSION_STATE`, `BROADCAST_STAND_IN`) sono in `@hbb-emu/state`, host-agnostic (dipende solo da `core` e `oipf-api`); il protocollo pagina ↔ host è in `@hbb-emu/protocol`. Il message bus di `extension-common` lo usavano solo i package `_old`, gli errori di configurazione nessuno: tolti. Non in `oipf-api`, che è il modello della spec senza dipendenze, mentre lo stato ha i default dell'emulatore (DMAX, il test card). La divisione in Scenario e TvSession (1.2) resta da fare, e con lei il nome `ExtensionState`.
+- [x] Rimossi `apps/chrome-v3_old`, `packages/extension_old` e i demo (`apps/demo-runtime`, `apps/demo-ui`), con `apps/*` dai workspace. Restano consultabili su `main`.
 - [x] Decidere D1 → `Reader` di fp-ts.
 - [x] Portare una parte piccola come modello: `volume` del VideoBroadcast in stile `Reader` (`ReaderIO` + `IORef` iniettato), con test unitari e d'integrazione. Collegato alla classe esistente tramite un ponte temporaneo (`WithVolume`), da rimuovere quando VideoBroadcast sarà portato del tutto.
 - [x] Definire D3 (matrice target).
@@ -222,7 +222,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 
 ### 1.2 Servizi
 - [x] **Background**: routing dei messaggi pagina/UI ↔ host, propagazione dello stato ai tab e alla UI (configurazione a tutti, patch degli oggetti e comandi al tab attivo), ciclo di vita dei tab (la sessione si apre al primo `Page/Ready` e si chiude con `tabs.onRemoved`). I dettagli sono nelle voci qui sotto.
-- [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3. La TvSession c'è (sotto); lo stato condiviso è ancora l'`ExtensionState` di `extension-common` (Fase 0).
+- [ ] **Separare lo stato** in `Scenario` (condiviso) e `TvSession` (per tab), secondo D5; la sessione sopravvive alle navigazioni dello stesso tab e al riavvio del service worker MV3. La TvSession c'è (sotto); lo stato condiviso è ancora l'`ExtensionState` (in `@hbb-emu/state`).
   - [x] **TvSession per tab**, modalità *App*: aperta dal primo `Page/Ready` di un tab, mantenuta tra le navigazioni e i reload, chiusa con il tab (`tabs.onRemoved`; prima "unloaded" contava come chiusura, e ogni "loading" loggava "Tab added"). Persistita in `chrome.storage.session` su MV3, in memoria su MV2 (background persistente); al riavvio si scartano le sessioni dei tab chiusi e quelle non valide. Oggi contiene il canale sintonizzato; la pagina la riceve con `Host/Session`, dopo `Host/Config`. Verificata in e2e su Chromium e Firefox.
   - [x] **Canale iniziale dall'AIT**: la pagina parte sul canale la cui AIT segnala la sua app (URL esatto, altrimenti stessa origine = application boundary di default), il primo della lineup se nessuno la segnala. Con il bootstrap sincrono il primo script dell'app lo legge già giusto (`privateData.currentChannel`, verificato in e2e su Chromium e Firefox); il background apre la sessione del tab con la stessa regola, quindi `Host/Session` non la risintonizza.
   - [x] **Canale per tab nel bootstrap**: il bootstrap è uno solo per tutti i tab (nessun host sa iniettare per tab), quindi porta anche le *tuning* `{ url, channelId }`, cioè la pagina che mostra ogni TV e il suo canale. Regola comune a pagina e background (`initialChannel` in `@hbb-emu/protocol`): TV che mostra quella pagina → canale che la segnala nell'AIT → primo della lineup. Ripubblicato (in serie, solo se cambia) quando una pagina parte, quando la UI cambia canale e quando un tab si chiude. Verificato in e2e su Chromium e Firefox: dopo il reload il primo script vede il canale scelto dalla UI. È anche il meccanismo con cui la modalità *TV* darà il canale prima di navigare (sessione aggiornata con l'URL di destinazione, poi navigazione).
@@ -367,7 +367,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
     - Verificato in e2e su Chromium e Firefox: con un device che dà INFO e consegna i tasti non richiesti, `maximumValue` è `0x1bf`; un'app che chiede colori e navigazione riceve INFO e "1", non PAGE+ né CH+.
     - [ ] Un solo tasto play/pausa (Tabella 12: "VK_STOP and either VK_PLAY and VK_PAUSE or VK_PLAY_PAUSE"; OIPF DAE §9.2, `+TRICKMODE`). Il valore di VK_PLAY_PAUSE non è in TS 102 796 né in OIPF DAE: viene da CEA-2014-A, e l'enum di DTVKit non ce l'ha. 402 compare solo in fonti secondarie: da verificare prima di usarlo.
     - [ ] Gli altri tasti che alcune TV danno (VK_RECORD con `+PVR`, VK_TELETEXT, VK_SUBTITLE, VK_GUIDE…), quando un'app li cerca.
-- [ ] Rimuovere `core/src/mixin.ts`: la runtime OIPF non lo usa più; restano `WithDomObserver` in `core` e i pacchetti parcheggiati `extension_old` (Fase 0).
+- [x] Rimossi `core/src/mixin.ts` e `WithDomObserver`, l'ultimo mixin di `core`: dopo `extension_old` non li usava nessuno.
 
 ### 1.4 Host
 - [ ] `chrome-v3` — parità funzionale con `main`.
@@ -537,7 +537,7 @@ Per decidere cosa portare e cosa no. La colonna **HbbTV** è il profilo di TS 10
 | `runtime/subsystems/*` | Portati ✅. Resta da togliere la dipendenza dall'estensione (`ExtensionState`). |
 | `runtime/apis/*` (VideoBroadcast, AVControl) | Riscritti senza mixin (D1) ✅. |
 | `player/*` | Mantenere; allineare con `fork/functional-player` più avanti. |
-| `settings-ui` | Mantenere; collegare tramite port di messaging invece di `extension-common`. |
+| `settings-ui` | Mantenere; collegare tramite port di messaging. |
 | `apps/chrome-v3/*` (bridge/content/ui con mixin) | Usare come riferimento di comportamento, non come codice. |
 | `extension/common/message-bus` | Riferimento per il protocollo; reimplementare sui trasporti astratti. |
 

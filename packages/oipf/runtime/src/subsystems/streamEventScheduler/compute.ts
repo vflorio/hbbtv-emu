@@ -1,5 +1,5 @@
 import { cycleDurationMsFor, msFromSeconds, occurrencesBetween } from "@hbb-emu/core";
-import type { StreamEventConfig, StreamEventScheduleMode } from "@hbb-emu/extension-common";
+import type { StreamEventConfig, StreamEventScheduleMode } from "@hbb-emu/state";
 import { pipe } from "fp-ts/function";
 import * as N from "fp-ts/number";
 import * as Ord from "fp-ts/Ord";

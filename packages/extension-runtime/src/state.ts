@@ -1,5 +1,4 @@
 import { DEFAULT_LOGGER_STATE, type LoggerState, resolveEmulatorAsset } from "@hbb-emu/core";
-import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/extension-common";
 import {
   type AitApplicationId,
   applicationIdOf,
@@ -23,6 +22,7 @@ import {
   tunedChannelId,
   type UiState,
 } from "@hbb-emu/protocol";
+import { type ChannelConfig, DEFAULT_EXTENSION_STATE } from "@hbb-emu/state";
 
 /**
  * Extension State Domain Types
